@@ -53,6 +53,8 @@ type ActivityCalendarPageProps = {
   onRetry: () => void;
 };
 
+const ACTIVITY_RATIO_CHART_HEIGHT = 220;
+
 const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
 const currentRunLabel = "현재 찬성 없이 이어진 날";
 const longestRunLabel = "가장 길게 찬성 없이 이어진 날";
@@ -352,7 +354,7 @@ function ActivityRatioChart({
       </div>
       <div className="activity-ratio-card__body">
         <div className="activity-ratio-card__chart">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={ACTIVITY_RATIO_CHART_HEIGHT}>
             <RadarChart data={data} outerRadius="72%">
               <PolarGrid stroke="rgba(23, 20, 17, 0.12)" />
               <PolarAngleAxis dataKey="label" tick={renderRatioAxisTick} />
@@ -422,7 +424,7 @@ function ActivityCompareRatioChart({
       </div>
       <div className="activity-ratio-card__body activity-ratio-card__body--compare">
         <div className="activity-ratio-card__chart">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={ACTIVITY_RATIO_CHART_HEIGHT}>
             <RadarChart data={compareData} outerRadius="72%">
               <PolarGrid stroke="rgba(23, 20, 17, 0.12)" />
               <PolarAngleAxis dataKey="label" tick={renderRatioAxisTick} />
