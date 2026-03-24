@@ -38,9 +38,9 @@ type VoteHighlight = {
   memberId: string | null;
   memberName: string;
   party: string;
-  photoUrl: string | null;
-  officialProfileUrl: string | null;
-  officialExternalUrl: string | null;
+  photoUrl?: string | null;
+  officialProfileUrl?: string | null;
+  officialExternalUrl?: string | null;
   profile?: MemberPublicProfile;
   voteCode: VoteCode;
 };
@@ -118,6 +118,10 @@ type MemberActivityCalendarArtifacts = {
 
 export function buildMemberActivityCalendarMemberDetailPath(memberId: string): string {
   return `${MEMBER_ACTIVITY_MEMBER_DETAILS_DIR}/${memberId}.json`;
+}
+
+export function serializePublishedJson(value: unknown): string {
+  return JSON.stringify(value);
 }
 
 export function assertPublishedJsonFileSize(
@@ -779,6 +783,10 @@ function buildPublicMemberMetadata(member: NormalizedBundle["members"][number] |
   };
 }
 
+function buildLeanLatestVoteMemberMetadata(): Record<string, never> {
+  return {};
+}
+
 export function buildLatestVotesExport(
   bundle: NormalizedBundle,
   options: ExportBuildOptions = {}
@@ -825,7 +833,7 @@ export function buildLatestVotesExport(
           memberId: vote.memberId ?? null,
           memberName: member?.name ?? vote.memberName ?? vote.memberId ?? "이름 미상",
           party: member?.party ?? vote.party ?? "정당 미상",
-          ...buildPublicMemberMetadata(member),
+          ...buildLeanLatestVoteMemberMetadata(),
           voteCode: vote.publicVoteCode
         };
       });
@@ -838,7 +846,7 @@ export function buildLatestVotesExport(
           memberId: vote.memberId ?? null,
           memberName: member?.name ?? vote.memberName ?? vote.memberId ?? "이름 미상",
           party: member?.party ?? vote.party ?? "정당 미상",
-          ...buildPublicMemberMetadata(member),
+          ...buildLeanLatestVoteMemberMetadata(),
           voteCode: "absent" as const
         };
       });
@@ -848,7 +856,7 @@ export function buildLatestVotesExport(
         memberId: member.memberId,
         memberName: member.name,
         party: member.party,
-        ...buildPublicMemberMetadata(member),
+        ...buildLeanLatestVoteMemberMetadata(),
         voteCode: "absent" as const
       }));
     const absentVotes = [...recordedAbsentVotes, ...derivedAbsentVotes].sort((left, right) =>
@@ -1375,6 +1383,8 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
     checksumSha256: sha256(content),
     rowCount
   });
+  const createPublishedExportFile = (path: string, payload: unknown, rowCount?: number) =>
+    createDatasetFile(path, serializePublishedJson(payload), rowCount);
 
   return {
     schemaVersion: "v1",
@@ -1390,24 +1400,24 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
       sources: createDatasetFile("curated/sources.parquet", normalizedPayloads.sources, bundle.sources.length)
     },
     exports: {
-      latestVotes: createDatasetFile(
+      latestVotes: createPublishedExportFile(
         "exports/latest_votes.json",
-        JSON.stringify(latestVotes, null, 2),
+        latestVotes,
         latestVotes.items.length
       ),
-      accountabilitySummary: createDatasetFile(
+      accountabilitySummary: createPublishedExportFile(
         "exports/accountability_summary.json",
-        JSON.stringify(accountabilitySummary, null, 2),
+        accountabilitySummary,
         accountabilitySummary.items.length
       ),
-      accountabilityTrends: createDatasetFile(
+      accountabilityTrends: createPublishedExportFile(
         "exports/accountability_trends.json",
-        JSON.stringify(accountabilityTrends, null, 2),
+        accountabilityTrends,
         accountabilityTrends.movers.length
       ),
-      memberActivityCalendar: createDatasetFile(
+      memberActivityCalendar: createPublishedExportFile(
         "exports/member_activity_calendar.json",
-        JSON.stringify(memberActivityCalendar, null, 2),
+        memberActivityCalendar,
         memberActivityCalendar.assembly.members.length
       )
     }

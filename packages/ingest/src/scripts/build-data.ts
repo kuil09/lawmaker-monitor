@@ -12,6 +12,7 @@ import {
   buildMemberActivityCalendarMemberDetailPath,
   buildLatestVotesExport,
   buildManifest,
+  serializePublishedJson,
   toNdjson
 } from "../exports.js";
 import { createNormalizedBundle } from "../normalize.js";
@@ -485,20 +486,23 @@ async function main(): Promise<void> {
     })
   );
 
-  const latestVotesJson = JSON.stringify(latestVotes, null, 2);
-  const accountabilitySummaryJson = JSON.stringify(accountabilitySummary, null, 2);
-  const accountabilityTrendsJson = JSON.stringify(accountabilityTrends, null, 2);
-  const memberActivityCalendarJson = JSON.stringify(memberActivityCalendar, null, 2);
+  const latestVotesJson = serializePublishedJson(latestVotes);
+  const accountabilitySummaryJson = serializePublishedJson(accountabilitySummary);
+  const accountabilityTrendsJson = serializePublishedJson(accountabilityTrends);
+  const memberActivityCalendarJson = serializePublishedJson(memberActivityCalendar);
   const manifestJson = JSON.stringify(manifest, null, 2);
   const memberActivityCalendarDetailWrites = memberActivityCalendarMemberDetails.map((detail) => {
     const relativePath = buildMemberActivityCalendarMemberDetailPath(detail.memberId);
-    const content = JSON.stringify(detail, null, 2);
+    const content = serializePublishedJson(detail);
     assertPublishedJsonFileSize(relativePath, content);
     return {
       path: join(outputDir, relativePath),
       content
     };
   });
+  assertPublishedJsonFileSize("exports/latest_votes.json", latestVotesJson);
+  assertPublishedJsonFileSize("exports/accountability_summary.json", accountabilitySummaryJson);
+  assertPublishedJsonFileSize("exports/accountability_trends.json", accountabilityTrendsJson);
   assertPublishedJsonFileSize("exports/member_activity_calendar.json", memberActivityCalendarJson);
 
   await mkdir(join(outputDir, "exports", "member_activity_calendar_members"), { recursive: true });

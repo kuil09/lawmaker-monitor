@@ -11,7 +11,8 @@ import {
   buildManifest,
   buildMemberActivityCalendarArtifacts,
   buildMemberActivityCalendarExport,
-  buildMemberActivityCalendarMemberDetailExports
+  buildMemberActivityCalendarMemberDetailExports,
+  serializePublishedJson
 } from "../../packages/ingest/src/exports.js";
 import { createNormalizedBundle } from "../../packages/ingest/src/normalize.js";
 import {
@@ -39,6 +40,7 @@ import {
   validateMemberActivityCalendarMemberDetailExport,
   validateNormalizedBundle
 } from "../../packages/ingest/src/validation.js";
+import { sha256 } from "../../packages/ingest/src/utils.js";
 import {
   accountabilitySummaryExportSchema,
   accountabilityTrendsExportSchema,
@@ -359,14 +361,12 @@ describe("data pipeline contracts", () => {
       expect.arrayContaining([
         expect.objectContaining({
           memberId: "M001",
-          officialProfileUrl: "https://www.assembly.go.kr/members/22nd/KIMARA",
-          profile: expect.objectContaining({
-            nameEnglish: "KIM ARA"
-          })
+          memberName: "김아라"
         })
       ])
     );
-    expect(latestVotes.items[0]?.highlightedVotes[0]?.profile).not.toHaveProperty("officePhone");
+    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty("officialProfileUrl");
+    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty("profile");
     expect(latestVotes).toMatchObject({
       assemblyNo: 22,
       assemblyLabel: "제22대 국회"
@@ -437,9 +437,21 @@ describe("data pipeline contracts", () => {
     });
     expect(manifest.datasets.voteFacts.url).toContain("curated/vote_facts.parquet");
     expect(manifest.exports.latestVotes.path).toBe("exports/latest_votes.json");
+    expect(manifest.exports.latestVotes.checksumSha256).toBe(
+      sha256(serializePublishedJson(latestVotes))
+    );
     expect(manifest.exports.accountabilitySummary.path).toBe("exports/accountability_summary.json");
+    expect(manifest.exports.accountabilitySummary.checksumSha256).toBe(
+      sha256(serializePublishedJson(accountabilitySummary))
+    );
     expect(manifest.exports.accountabilityTrends?.path).toBe("exports/accountability_trends.json");
+    expect(manifest.exports.accountabilityTrends?.checksumSha256).toBe(
+      sha256(serializePublishedJson(accountabilityTrends))
+    );
     expect(manifest.exports.memberActivityCalendar?.path).toBe("exports/member_activity_calendar.json");
+    expect(manifest.exports.memberActivityCalendar?.checksumSha256).toBe(
+      sha256(serializePublishedJson(memberActivityCalendar))
+    );
   });
 
   it("validates fixture contract files", () => {
@@ -568,6 +580,117 @@ describe("data pipeline contracts", () => {
     expect(() => assertPublishedJsonFileSize("exports/member_activity_calendar.json", "1234", 4)).not.toThrow();
   });
 
+  it("serializes latest votes exports as minified published JSON", () => {
+    const latestVotesFixtureRaw = readFileSync(
+      resolve(fixturesDir, "contracts/latest_votes.json"),
+      "utf8"
+    );
+    const latestVotesFixture = JSON.parse(latestVotesFixtureRaw);
+    const serialized = serializePublishedJson(latestVotesFixture);
+
+    expect(serialized).toBe(JSON.stringify(latestVotesFixture));
+    expect(serialized).not.toContain("\n");
+    expect(Buffer.byteLength(serialized)).toBeLessThan(Buffer.byteLength(latestVotesFixtureRaw));
+    expect(() =>
+      assertPublishedJsonFileSize(
+        "exports/latest_votes.json",
+        serialized,
+        Buffer.byteLength(serialized) - 1
+      )
+    ).toThrow(/publish limit/);
+    expect(() =>
+      assertPublishedJsonFileSize(
+        "exports/latest_votes.json",
+        serialized,
+        Buffer.byteLength(serialized)
+      )
+    ).not.toThrow();
+  });
+
+  it("omits repeated member profile metadata from latest votes payloads", () => {
+    const bundle = validateNormalizedBundle(
+      createNormalizedBundle({
+        members: [
+          {
+            memberId: "M001",
+            name: "김아라",
+            party: "미래개혁당",
+            district: "서울 중구",
+            photoUrl: "https://example.test/photo.jpg",
+            officialProfileUrl: "https://example.test/profile",
+            officialExternalUrl: "https://example.test/external",
+            isCurrentMember: true,
+            proportionalFlag: false,
+            assemblyNo: 22,
+            profile: {
+              nameHanja: "金아라",
+              nameEnglish: "KIM ARA",
+              birthType: null,
+              birthDate: null,
+              roleName: null,
+              reelectionLabel: null,
+              electedAssembliesLabel: null,
+              gender: null,
+              representativeCommitteeName: null,
+              affiliatedCommitteeName: null,
+              briefHistory: null,
+              officeRoom: null,
+              officePhone: null,
+              email: null,
+              aideNames: [],
+              chiefSecretaryNames: [],
+              secretaryNames: []
+            }
+          }
+        ],
+        rollCalls: [
+          {
+            rollCallId: "rc-22-lean",
+            assemblyNo: 22,
+            meetingId: "meeting-22-lean",
+            agendaId: "agenda-22-lean",
+            billId: "bill-22-lean",
+            billName: "경량 피드 테스트안",
+            committeeName: "법제사법위원회",
+            voteDatetime: "2026-03-24T10:00:00+09:00",
+            voteVisibility: "recorded",
+            sourceStatus: "confirmed",
+            officialSourceUrl: "https://example.test/22/lean",
+            summary: null,
+            snapshotId: "snapshot-22",
+            sourceHash: "hash-22-lean"
+          }
+        ],
+        voteFacts: [
+          {
+            rollCallId: "rc-22-lean",
+            memberId: "M001",
+            voteCode: "no",
+            publishedAt: "2026-03-24T10:05:00+09:00",
+            retrievedAt: "2026-03-24T10:06:00+09:00",
+            sourceHash: "hash-22-lean"
+          }
+        ],
+        meetings: [],
+        sources: [],
+        agendas: []
+      })
+    );
+
+    const latestVotes = buildLatestVotesExport(bundle);
+
+    expect(latestVotes.items[0]?.highlightedVotes[0]).toMatchObject({
+      memberId: "M001",
+      memberName: "김아라",
+      party: "미래개혁당",
+      voteCode: "no"
+    });
+    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty("photoUrl");
+    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty("officialProfileUrl");
+    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty("officialExternalUrl");
+    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty("profile");
+  });
+
   it("merges member directory metadata onto vote-derived members when ids differ", () => {
     const bundle = validateNormalizedBundle(
       createNormalizedBundle({
@@ -640,9 +763,9 @@ describe("data pipeline contracts", () => {
       officialProfileUrl: "https://www.assembly.go.kr/members/22nd/KOHDONGJIN"
     });
     expect(latestVotes.items[0]?.highlightedVotes[0]).toMatchObject({
-      memberId: "고동진",
-      officialProfileUrl: "https://www.assembly.go.kr/members/22nd/KOHDONGJIN"
+      memberId: "고동진"
     });
+    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty("officialProfileUrl");
   });
 
   it("keeps all flagged member names in latest votes without truncating after twelve", () => {
