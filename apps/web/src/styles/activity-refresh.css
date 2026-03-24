@@ -82,6 +82,11 @@
     linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(248, 243, 236, 0.92));
 }
 
+.activity-drawer__toolbar > .activity-drawer__field {
+  flex: 1 1 100%;
+  width: 100%;
+}
+
 .activity-drawer__toolbar-hint {
   margin-top: -0.3rem;
   font-size: 0.84rem;

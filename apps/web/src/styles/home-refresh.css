@@ -145,6 +145,7 @@
   margin: 0.1rem 0 0;
   font-size: clamp(1.25rem, 2.1vw, 1.6rem);
   line-height: 1.22;
+  word-break: keep-all;
 }
 
 .search-panel__command {
