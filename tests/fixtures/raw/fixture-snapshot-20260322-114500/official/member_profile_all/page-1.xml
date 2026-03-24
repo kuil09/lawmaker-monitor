@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ALLNAMEMBER>
+  <head>
+    <list_total_count>4</list_total_count>
+    <RESULT>
+      <CODE>INFO-000</CODE>
+      <MESSAGE>정상 처리되었습니다.</MESSAGE>
+    </RESULT>
+  </head>
+  <row>
+    <NAAS_CD>NAAS001</NAAS_CD>
+    <NAAS_NM>김아라</NAAS_NM>
+    <NAAS_CH_NM>金아라</NAAS_CH_NM>
+    <NAAS_EN_NM>KIM ARA</NAAS_EN_NM>
+    <BIRDY_DIV_CD>양력</BIRDY_DIV_CD>
+    <BIRDY_DT>19900112</BIRDY_DT>
+    <DTY_NM>국회의원</DTY_NM>
+    <PLPT_NM>미래개혁당</PLPT_NM>
+    <ELECD_NM>서울 중구</ELECD_NM>
+    <ELECD_DIV_NM>지역구</ELECD_DIV_NM>
+    <CMIT_NM>과학기술정보방송통신위원회</CMIT_NM>
+    <BLNG_CMIT_NM>과학기술정보방송통신위원회, 예산결산특별위원회</BLNG_CMIT_NM>
+    <RLCT_DIV_NM>초선</RLCT_DIV_NM>
+    <GTELT_ERACO>제22대</GTELT_ERACO>
+    <NTR_DIV>여성</NTR_DIV>
+    <NAAS_TEL_NO>02-784-0001</NAAS_TEL_NO>
+    <NAAS_EMAIL_ADDR>kim.ara@assembly.go.kr</NAAS_EMAIL_ADDR>
+    <NAAS_HP_URL>https://blog.example.kr/kim-ara</NAAS_HP_URL>
+    <AIDE_NM>나보좌</AIDE_NM>
+    <CHF_SCRT_NM>다선임</CHF_SCRT_NM>
+    <SCRT_NM>라비서, 마비서</SCRT_NM>
+    <BRF_HST>첫째 줄
+둘째 줄</BRF_HST>
+    <OFFM_RNUM_NO>의원회관 101호</OFFM_RNUM_NO>
+    <NAAS_PIC>https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m001.jpg</NAAS_PIC>
+  </row>
+  <row>
+    <NAAS_CD>NAAS002</NAAS_CD>
+    <NAAS_NM>박민</NAAS_NM>
+    <NAAS_CH_NM>朴敏</NAAS_CH_NM>
+    <NAAS_EN_NM>PARK MIN</NAAS_EN_NM>
+    <BIRDY_DIV_CD>양력</BIRDY_DIV_CD>
+    <BIRDY_DT>19850415</BIRDY_DT>
+    <DTY_NM>국회의원</DTY_NM>
+    <PLPT_NM>미래개혁당</PLPT_NM>
+    <ELECD_NM>부산 남구</ELECD_NM>
+    <ELECD_DIV_NM>지역구</ELECD_DIV_NM>
+    <CMIT_NM>법제사법위원회</CMIT_NM>
+    <BLNG_CMIT_NM>법제사법위원회, 예산결산특별위원회</BLNG_CMIT_NM>
+    <RLCT_DIV_NM>재선</RLCT_DIV_NM>
+    <GTELT_ERACO>제22대</GTELT_ERACO>
+    <NTR_DIV>남성</NTR_DIV>
+    <NAAS_TEL_NO>02-784-0002</NAAS_TEL_NO>
+    <NAAS_EMAIL_ADDR>park.min@assembly.go.kr</NAAS_EMAIL_ADDR>
+    <NAAS_HP_URL>https://www.assembly.go.kr/members/22nd/PARKMIN</NAAS_HP_URL>
+    <AIDE_NM>박보좌</AIDE_NM>
+    <CHF_SCRT_NM>민선임</CHF_SCRT_NM>
+    <SCRT_NM>정비서</SCRT_NM>
+    <BRF_HST>법률안 심사 경험 다수</BRF_HST>
+    <OFFM_RNUM_NO>의원회관 202호</OFFM_RNUM_NO>
+    <NAAS_PIC>https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m002.jpg</NAAS_PIC>
+  </row>
+  <row>
+    <NAAS_CD>NAAS003</NAAS_CD>
+    <NAAS_NM>이수</NAAS_NM>
+    <NAAS_CH_NM>李秀</NAAS_CH_NM>
+    <NAAS_EN_NM>LEE SU</NAAS_EN_NM>
+    <BIRDY_DIV_CD>양력</BIRDY_DIV_CD>
+    <BIRDY_DT>19921130</BIRDY_DT>
+    <DTY_NM>국회의원</DTY_NM>
+    <PLPT_NM>시민녹색당</PLPT_NM>
+    <ELECD_NM>비례대표</ELECD_NM>
+    <ELECD_DIV_NM>비례대표</ELECD_DIV_NM>
+    <CMIT_NM>환경노동위원회</CMIT_NM>
+    <BLNG_CMIT_NM>환경노동위원회</BLNG_CMIT_NM>
+    <RLCT_DIV_NM>초선</RLCT_DIV_NM>
+    <GTELT_ERACO>제22대</GTELT_ERACO>
+    <NTR_DIV>여성</NTR_DIV>
+    <BRF_HST>기후 정책 전문가</BRF_HST>
+    <OFFM_RNUM_NO>의원회관 303호</OFFM_RNUM_NO>
+  </row>
+  <row>
+    <NAAS_CD>NAAS999</NAAS_CD>
+    <NAAS_NM>퇴직의원</NAAS_NM>
+    <NAAS_EN_NM>FORMER MEMBER</NAAS_EN_NM>
+    <PLPT_NM>미래개혁당</PLPT_NM>
+    <ELECD_NM>서울 종로구</ELECD_NM>
+    <ELECD_DIV_NM>지역구</ELECD_DIV_NM>
+    <GTELT_ERACO>제22대</GTELT_ERACO>
+    <NAAS_PIC>https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-former.jpg</NAAS_PIC>
+  </row>
+</ALLNAMEMBER>

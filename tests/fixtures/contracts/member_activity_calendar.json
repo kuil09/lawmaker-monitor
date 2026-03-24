@@ -1,0 +1,225 @@
+{
+  "generatedAt": "2026-03-22T11:45:00+09:00",
+  "snapshotId": "snapshot-20260322-114500",
+  "assemblyNo": 22,
+  "assemblyLabel": "제22대 국회",
+  "assembly": {
+    "assemblyNo": 22,
+    "label": "제22대 국회",
+    "startDate": "2026-03-20",
+    "endDate": "2026-03-22",
+    "votingDates": ["2026-03-20", "2026-03-21", "2026-03-22"],
+    "members": [
+      {
+        "memberId": "M002",
+        "name": "박민",
+        "party": "미래개혁당",
+        "committeeMemberships": ["법제사법위원회", "예산결산특별위원회"],
+        "photoUrl": "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m002.jpg",
+        "officialProfileUrl": "https://www.assembly.go.kr/members/22nd/PARKMIN",
+        "officialExternalUrl": null,
+        "currentNegativeStreak": 2,
+        "currentNegativeOrAbsentStreak": 3,
+        "longestNegativeStreak": 2,
+        "longestNegativeOrAbsentStreak": 3,
+        "negativeDays": 2,
+        "absentDays": 1,
+        "committeeSummaries": [
+          {
+            "committeeName": "법제사법위원회",
+            "eligibleRollCallCount": 6,
+            "participatedRollCallCount": 2,
+            "absentRollCallCount": 3,
+            "participationRate": 0.3333333333,
+            "yesCount": 1,
+            "noCount": 1,
+            "abstainCount": 0,
+            "isCurrentCommittee": true,
+            "recentVoteRecords": [
+              {
+                "rollCallId": "roll-call-3",
+                "billName": "감사원법 일부개정법률안(대안)",
+                "committeeName": "법제사법위원회",
+                "voteDatetime": "2026-03-22T14:20:00+09:00",
+                "voteCode": "yes",
+                "officialSourceUrl": "https://open.assembly.go.kr/votes/roll-call-3"
+              }
+            ]
+          },
+          {
+            "committeeName": "예산결산특별위원회",
+            "eligibleRollCallCount": 5,
+            "participatedRollCallCount": 1,
+            "absentRollCallCount": 4,
+            "participationRate": 0.2,
+            "yesCount": 0,
+            "noCount": 0,
+            "abstainCount": 1,
+            "isCurrentCommittee": true,
+            "recentVoteRecords": [
+              {
+                "rollCallId": "roll-call-2",
+                "billName": "예산 조정 동의안",
+                "committeeName": "예산결산특별위원회",
+                "voteDatetime": "2026-03-22T11:40:00+09:00",
+                "voteCode": "abstain",
+                "officialSourceUrl": "https://open.assembly.go.kr/votes/roll-call-2"
+              }
+            ]
+          },
+          {
+            "committeeName": "과학기술정보방송통신위원회",
+            "eligibleRollCallCount": 5,
+            "participatedRollCallCount": 1,
+            "absentRollCallCount": 1,
+            "participationRate": 0.2,
+            "yesCount": 0,
+            "noCount": 1,
+            "abstainCount": 0,
+            "isCurrentCommittee": false,
+            "recentVoteRecords": [
+              {
+                "rollCallId": "roll-call-1",
+                "billName": "공영방송 지배구조 개선법안",
+                "committeeName": "과학기술정보방송통신위원회",
+                "voteDatetime": "2026-03-21T10:15:00+09:00",
+                "voteCode": "no",
+                "officialSourceUrl": "https://open.assembly.go.kr/votes/roll-call-1"
+              }
+            ]
+          }
+        ],
+        "homeCommitteeAlerts": [
+          {
+            "committeeName": "법제사법위원회",
+            "participationRate": 0.42,
+            "eligibleRollCallCount": 19,
+            "participatedRollCallCount": 8,
+            "message": "현재 소속 위원회 표결 참여율이 낮습니다."
+          }
+        ],
+        "voteRecordCount": 3,
+        "voteRecordsPath": "exports/member_activity_calendar_members/M002.json",
+        "voteRecords": [],
+        "dayStates": [
+          {
+            "date": "2026-03-20",
+            "yesCount": 0,
+            "noCount": 1,
+            "abstainCount": 0,
+            "absentCount": 0,
+            "unknownCount": 0,
+            "totalRollCalls": 1,
+            "state": "no"
+          },
+          {
+            "date": "2026-03-21",
+            "yesCount": 0,
+            "noCount": 0,
+            "abstainCount": 1,
+            "absentCount": 0,
+            "unknownCount": 0,
+            "totalRollCalls": 1,
+            "state": "abstain"
+          },
+          {
+            "date": "2026-03-22",
+            "yesCount": 0,
+            "noCount": 0,
+            "abstainCount": 0,
+            "absentCount": 1,
+            "unknownCount": 0,
+            "totalRollCalls": 1,
+            "state": "absent"
+          }
+        ]
+      },
+      {
+        "memberId": "M001",
+        "name": "김아라",
+        "party": "미래개혁당",
+        "committeeMemberships": ["과학기술정보방송통신위원회", "예산결산특별위원회"],
+        "photoUrl": "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m001.jpg",
+        "officialProfileUrl": "https://www.assembly.go.kr/members/22nd/KIMARA",
+        "officialExternalUrl": "https://blog.example.kr/kim-ara",
+        "currentNegativeStreak": 0,
+        "currentNegativeOrAbsentStreak": 0,
+        "longestNegativeStreak": 1,
+        "longestNegativeOrAbsentStreak": 1,
+        "negativeDays": 1,
+        "absentDays": 0,
+        "committeeSummaries": [
+          {
+            "committeeName": "과학기술정보방송통신위원회",
+            "eligibleRollCallCount": 6,
+            "participatedRollCallCount": 5,
+            "absentRollCallCount": 1,
+            "participationRate": 0.8333333333,
+            "yesCount": 4,
+            "noCount": 1,
+            "abstainCount": 0,
+            "isCurrentCommittee": true,
+            "recentVoteRecords": [
+              {
+                "rollCallId": "roll-call-1",
+                "billName": "공영방송 지배구조 개선법안",
+                "committeeName": "과학기술정보방송통신위원회",
+                "voteDatetime": "2026-03-21T10:15:00+09:00",
+                "voteCode": "no",
+                "officialSourceUrl": "https://open.assembly.go.kr/votes/roll-call-1"
+              }
+            ]
+          },
+          {
+            "committeeName": "예산결산특별위원회",
+            "eligibleRollCallCount": 5,
+            "participatedRollCallCount": 4,
+            "absentRollCallCount": 1,
+            "participationRate": 0.8,
+            "yesCount": 4,
+            "noCount": 0,
+            "abstainCount": 0,
+            "isCurrentCommittee": true,
+            "recentVoteRecords": []
+          }
+        ],
+        "homeCommitteeAlerts": [],
+        "voteRecordCount": 0,
+        "voteRecordsPath": "exports/member_activity_calendar_members/M001.json",
+        "voteRecords": [],
+        "dayStates": [
+          {
+            "date": "2026-03-20",
+            "yesCount": 1,
+            "noCount": 0,
+            "abstainCount": 0,
+            "absentCount": 0,
+            "unknownCount": 0,
+            "totalRollCalls": 1,
+            "state": "yes"
+          },
+          {
+            "date": "2026-03-21",
+            "yesCount": 0,
+            "noCount": 1,
+            "abstainCount": 0,
+            "absentCount": 0,
+            "unknownCount": 0,
+            "totalRollCalls": 1,
+            "state": "no"
+          },
+          {
+            "date": "2026-03-22",
+            "yesCount": 1,
+            "noCount": 0,
+            "abstainCount": 0,
+            "absentCount": 0,
+            "unknownCount": 0,
+            "totalRollCalls": 1,
+            "state": "yes"
+          }
+        ]
+      }
+    ]
+  }
+}

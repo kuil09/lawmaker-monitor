@@ -1,0 +1,35 @@
+{
+  "name": "lawmaker-monitor",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @lawmaker-monitor/schemas && npm run build --workspace @lawmaker-monitor/ingest && npm run build --workspace @lawmaker-monitor/web",
+    "build:data": "npm run build:data --workspace @lawmaker-monitor/ingest",
+    "dev:web": "npm run dev --workspace @lawmaker-monitor/web",
+    "ingest:live": "npm run ingest:live --workspace @lawmaker-monitor/ingest",
+    "mirror:documents": "npm run mirror:documents --workspace @lawmaker-monitor/ingest",
+    "monitor:sources": "npm run monitor:sources --workspace @lawmaker-monitor/ingest",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -b packages/schemas/tsconfig.json packages/ingest/tsconfig.json apps/web/tsconfig.app.json"
+  },
+  "overrides": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^24.5.2",
+    "jsdom": "^26.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

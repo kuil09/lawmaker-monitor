@@ -1,0 +1,60 @@
+<response>
+  <body>
+    <items>
+      <item>
+        <HG_NM>Kim Ara</HG_NM>
+        <POLY_NM>Future Reform Party</POLY_NM>
+        <ORIG_NM>Seoul Jung</ORIG_NM>
+        <MEMBER_NO>220000000001</MEMBER_NO>
+        <VOTE_DATE>2026-03-22T11:40:00+09:00</VOTE_DATE>
+        <BILL_NO>220002</BILL_NO>
+        <BILL_NAME>Budget Adjustment Motion</BILL_NAME>
+        <BILL_ID>PRC_B2C3D4E5F6G7</BILL_ID>
+        <LAW_TITLE>Budget Adjustment Motion</LAW_TITLE>
+        <CURR_COMMITTEE>예산결산특별위원회</CURR_COMMITTEE>
+        <RESULT_VOTE_MOD>반대</RESULT_VOTE_MOD>
+        <BILL_URL>http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_B2C3D4E5F6G7</BILL_URL>
+        <SESSION_CD>418</SESSION_CD>
+        <CURRENTS_CD>14</CURRENTS_CD>
+        <AGE>22</AGE>
+        <MONA_CD>M001</MONA_CD>
+      </item>
+      <item>
+        <HG_NM>Park Min</HG_NM>
+        <POLY_NM>Future Reform Party</POLY_NM>
+        <ORIG_NM>Busan Nam</ORIG_NM>
+        <MEMBER_NO>220000000002</MEMBER_NO>
+        <VOTE_DATE>2026-03-22T11:40:00+09:00</VOTE_DATE>
+        <BILL_NO>220002</BILL_NO>
+        <BILL_NAME>Budget Adjustment Motion</BILL_NAME>
+        <BILL_ID>PRC_B2C3D4E5F6G7</BILL_ID>
+        <LAW_TITLE>Budget Adjustment Motion</LAW_TITLE>
+        <CURR_COMMITTEE>예산결산특별위원회</CURR_COMMITTEE>
+        <RESULT_VOTE_MOD>불참</RESULT_VOTE_MOD>
+        <BILL_URL>http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_B2C3D4E5F6G7</BILL_URL>
+        <SESSION_CD>418</SESSION_CD>
+        <CURRENTS_CD>14</CURRENTS_CD>
+        <AGE>22</AGE>
+        <MONA_CD>M002</MONA_CD>
+      </item>
+      <item>
+        <HG_NM>Lee Su</HG_NM>
+        <POLY_NM>Civic Greens</POLY_NM>
+        <ORIG_NM>비례대표</ORIG_NM>
+        <MEMBER_NO>220000000003</MEMBER_NO>
+        <VOTE_DATE>2026-03-22T11:40:00+09:00</VOTE_DATE>
+        <BILL_NO>220002</BILL_NO>
+        <BILL_NAME>Budget Adjustment Motion</BILL_NAME>
+        <BILL_ID>PRC_B2C3D4E5F6G7</BILL_ID>
+        <LAW_TITLE>Budget Adjustment Motion</LAW_TITLE>
+        <CURR_COMMITTEE>예산결산특별위원회</CURR_COMMITTEE>
+        <RESULT_VOTE_MOD>찬성</RESULT_VOTE_MOD>
+        <BILL_URL>http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_B2C3D4E5F6G7</BILL_URL>
+        <SESSION_CD>418</SESSION_CD>
+        <CURRENTS_CD>14</CURRENTS_CD>
+        <AGE>22</AGE>
+        <MONA_CD>M003</MONA_CD>
+      </item>
+    </items>
+  </body>
+</response>

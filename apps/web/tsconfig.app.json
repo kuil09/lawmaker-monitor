@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "rootDir": "./src",
+    "outDir": "./dist/types",
+    "baseUrl": ".",
+    "paths": {
+      "@lawmaker-monitor/schemas": [
+        "../../packages/schemas/src/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ],
+  "references": [
+    {
+      "path": "../../packages/schemas/tsconfig.json"
+    }
+  ]
+}

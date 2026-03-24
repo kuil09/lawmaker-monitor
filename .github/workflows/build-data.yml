@@ -1,0 +1,156 @@
+name: build-data
+
+on:
+  workflow_dispatch:
+    inputs:
+      raw_source:
+        description: Raw snapshot source for manual runs
+        required: true
+        default: latest_ingest
+        type: choice
+        options:
+          - latest_ingest
+          - fixtures
+      ingest_run_id:
+        description: Optional ingest-live run id override for manual runs
+        required: false
+        type: string
+  workflow_run:
+    workflows: ["ingest-live"]
+    types:
+      - completed
+
+concurrency:
+  group: published-data-${{ vars.DATA_REPO || 'none' }}-${{ vars.DATA_REPO_BRANCH || 'main' }}
+  cancel-in-progress: false
+
+jobs:
+  build-data:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    env:
+      DATA_REPO: ${{ vars.DATA_REPO }}
+      DATA_REPO_BRANCH: ${{ vars.DATA_REPO_BRANCH }}
+      DATA_REPO_PAT: ${{ secrets.DATA_REPO_PAT }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build schema and ingest packages
+        run: npm run build --workspace @lawmaker-monitor/schemas && npm run build --workspace @lawmaker-monitor/ingest
+
+      - name: Resolve raw artifact source for manual build
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.raw_source != 'fixtures'
+        id: resolve-manual-run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "${{ github.event.inputs.ingest_run_id }}" ]; then
+            RUN_ID="${{ github.event.inputs.ingest_run_id }}"
+          else
+            RUN_ID="$(gh run list --workflow ingest-live --branch "${GITHUB_REF_NAME}" --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          fi
+
+          if [ -z "${RUN_ID}" ] || [ "${RUN_ID}" = "null" ]; then
+            echo "No successful ingest-live run was found for branch ${GITHUB_REF_NAME}." >&2
+            exit 1
+          fi
+
+          echo "run_id=${RUN_ID}" >> "${GITHUB_OUTPUT}"
+
+      - name: Download raw artifact from ingest workflow
+        if: github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && github.event.inputs.raw_source != 'fixtures')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p artifacts/ingest
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            RUN_ID="${{ github.event.workflow_run.id }}"
+          else
+            RUN_ID="${{ steps.resolve-manual-run.outputs.run_id }}"
+          fi
+
+          gh run download "${RUN_ID}" --name raw-snapshot --dir artifacts/ingest
+
+      - name: Build normalized data and exports
+        run: npm run build:data --workspace @lawmaker-monitor/ingest
+        env:
+          RAW_DIR: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.raw_source == 'fixtures' && 'tests/fixtures' || 'artifacts/ingest' }}
+          OUTPUT_DIR: artifacts/build
+          DATA_REPO_BASE_URL: ${{ vars.DATA_REPO_BASE_URL }}
+
+      - name: Install DuckDB CLI
+        run: |
+          curl -L https://github.com/duckdb/duckdb/releases/download/v1.1.3/duckdb_cli-linux-amd64.zip -o duckdb.zip
+          unzip duckdb.zip -d /tmp/duckdb-cli
+          chmod +x /tmp/duckdb-cli/duckdb
+
+      - name: Materialize Parquet datasets
+        working-directory: artifacts/build
+        run: |
+          mkdir -p curated
+          /tmp/duckdb-cli/duckdb :memory: -c ".read ../../packages/ingest/sql/materialize_parquet.sql"
+
+      - name: Clone public data repository
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        run: |
+          REPO_URL="https://x-access-token:${DATA_REPO_PAT}@github.com/${DATA_REPO}.git"
+          TARGET_BRANCH="${DATA_REPO_BRANCH:-main}"
+
+          if git ls-remote --exit-code --heads "${REPO_URL}" "${TARGET_BRANCH}" >/dev/null 2>&1; then
+            git clone --depth 1 --branch "${TARGET_BRANCH}" "${REPO_URL}" published-data
+          else
+            git init published-data
+            cd published-data
+            git checkout -b "${TARGET_BRANCH}"
+            git remote add origin "${REPO_URL}"
+          fi
+
+      - name: Sync build outputs into public data repository
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        run: |
+          mkdir -p published-data/curated published-data/exports published-data/manifests
+          cp -R artifacts/build/curated/. published-data/curated/
+          cp -R artifacts/build/exports/. published-data/exports/
+          cp -R artifacts/build/manifests/. published-data/manifests/
+
+      - name: Commit and push data changes when present
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        working-directory: published-data
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          TARGET_BRANCH="${DATA_REPO_BRANCH:-main}"
+
+          if [ -n "$(git status --short)" ]; then
+            git add curated exports manifests
+            git commit -m "Publish data update"
+
+            if git ls-remote --exit-code --heads origin "${TARGET_BRANCH}" >/dev/null 2>&1; then
+              git fetch origin "${TARGET_BRANCH}"
+              git rebase "origin/${TARGET_BRANCH}"
+            fi
+
+            git push origin "${TARGET_BRANCH}"
+          else
+            echo "No data changes to publish."
+          fi
+
+      - name: Upload built data artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-data
+          path: artifacts/build
+          if-no-files-found: error

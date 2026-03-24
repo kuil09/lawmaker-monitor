@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nktulghcadyhmiqxi>
+  <head>
+    <list_total_count>5</list_total_count>
+    <RESULT>
+      <CODE>INFO-000</CODE>
+      <MESSAGE>정상 처리되었습니다.</MESSAGE>
+    </RESULT>
+  </head>
+  <row>
+    <DEPT_CD>9700101</DEPT_CD>
+    <DEPT_NM>과학기술정보방송통신위원회</DEPT_NM>
+    <JOB_RES_NM>위원</JOB_RES_NM>
+    <HG_NM>김아라</HG_NM>
+    <ORIG_NM>서울 중구</ORIG_NM>
+    <POLY_NM>미래개혁당</POLY_NM>
+    <MONA_CD>M001</MONA_CD>
+  </row>
+  <row>
+    <DEPT_CD>9700103</DEPT_CD>
+    <DEPT_NM>예산결산특별위원회</DEPT_NM>
+    <JOB_RES_NM>위원</JOB_RES_NM>
+    <HG_NM>김아라</HG_NM>
+    <ORIG_NM>서울 중구</ORIG_NM>
+    <POLY_NM>미래개혁당</POLY_NM>
+    <MONA_CD>M001</MONA_CD>
+  </row>
+  <row>
+    <DEPT_CD>9700102</DEPT_CD>
+    <DEPT_NM>법제사법위원회</DEPT_NM>
+    <JOB_RES_NM>위원</JOB_RES_NM>
+    <HG_NM>박민</HG_NM>
+    <ORIG_NM>부산 남구</ORIG_NM>
+    <POLY_NM>미래개혁당</POLY_NM>
+    <MONA_CD>M002</MONA_CD>
+  </row>
+  <row>
+    <DEPT_CD>9700103</DEPT_CD>
+    <DEPT_NM>예산결산특별위원회</DEPT_NM>
+    <JOB_RES_NM>위원</JOB_RES_NM>
+    <HG_NM>박민</HG_NM>
+    <ORIG_NM>부산 남구</ORIG_NM>
+    <POLY_NM>미래개혁당</POLY_NM>
+    <MONA_CD>M002</MONA_CD>
+  </row>
+  <row>
+    <DEPT_CD>9700104</DEPT_CD>
+    <DEPT_NM>환경노동위원회</DEPT_NM>
+    <JOB_RES_NM>위원</JOB_RES_NM>
+    <HG_NM>이수</HG_NM>
+    <ORIG_NM>비례대표</ORIG_NM>
+    <POLY_NM>시민녹색당</POLY_NM>
+    <MONA_CD>M003</MONA_CD>
+  </row>
+</nktulghcadyhmiqxi>

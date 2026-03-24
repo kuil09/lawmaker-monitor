@@ -1,0 +1,60 @@
+<response>
+  <body>
+    <items>
+      <item>
+        <HG_NM>Kim Ara</HG_NM>
+        <POLY_NM>Future Reform Party</POLY_NM>
+        <ORIG_NM>Seoul Jung</ORIG_NM>
+        <MEMBER_NO>220000000001</MEMBER_NO>
+        <VOTE_DATE>2026-03-22T10:15:00+09:00</VOTE_DATE>
+        <BILL_NO>220001</BILL_NO>
+        <BILL_NAME>Act on Civic Transparency</BILL_NAME>
+        <BILL_ID>PRC_A1B2C3D4E5F6</BILL_ID>
+        <LAW_TITLE>Act on Civic Transparency</LAW_TITLE>
+        <CURR_COMMITTEE>법제사법위원회</CURR_COMMITTEE>
+        <RESULT_VOTE_MOD>찬성</RESULT_VOTE_MOD>
+        <BILL_URL>http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_A1B2C3D4E5F6</BILL_URL>
+        <SESSION_CD>418</SESSION_CD>
+        <CURRENTS_CD>14</CURRENTS_CD>
+        <AGE>22</AGE>
+        <MONA_CD>M001</MONA_CD>
+      </item>
+      <item>
+        <HG_NM>Park Min</HG_NM>
+        <POLY_NM>Future Reform Party</POLY_NM>
+        <ORIG_NM>Busan Nam</ORIG_NM>
+        <MEMBER_NO>220000000002</MEMBER_NO>
+        <VOTE_DATE>2026-03-22T10:15:00+09:00</VOTE_DATE>
+        <BILL_NO>220001</BILL_NO>
+        <BILL_NAME>Act on Civic Transparency</BILL_NAME>
+        <BILL_ID>PRC_A1B2C3D4E5F6</BILL_ID>
+        <LAW_TITLE>Act on Civic Transparency</LAW_TITLE>
+        <CURR_COMMITTEE>법제사법위원회</CURR_COMMITTEE>
+        <RESULT_VOTE_MOD>반대</RESULT_VOTE_MOD>
+        <BILL_URL>http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_A1B2C3D4E5F6</BILL_URL>
+        <SESSION_CD>418</SESSION_CD>
+        <CURRENTS_CD>14</CURRENTS_CD>
+        <AGE>22</AGE>
+        <MONA_CD>M002</MONA_CD>
+      </item>
+      <item>
+        <HG_NM>Lee Su</HG_NM>
+        <POLY_NM>Civic Greens</POLY_NM>
+        <ORIG_NM>비례대표</ORIG_NM>
+        <MEMBER_NO>220000000003</MEMBER_NO>
+        <VOTE_DATE>2026-03-22T10:15:00+09:00</VOTE_DATE>
+        <BILL_NO>220001</BILL_NO>
+        <BILL_NAME>Act on Civic Transparency</BILL_NAME>
+        <BILL_ID>PRC_A1B2C3D4E5F6</BILL_ID>
+        <LAW_TITLE>Act on Civic Transparency</LAW_TITLE>
+        <CURR_COMMITTEE>법제사법위원회</CURR_COMMITTEE>
+        <RESULT_VOTE_MOD>기권</RESULT_VOTE_MOD>
+        <BILL_URL>http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_A1B2C3D4E5F6</BILL_URL>
+        <SESSION_CD>418</SESSION_CD>
+        <CURRENTS_CD>14</CURRENTS_CD>
+        <AGE>22</AGE>
+        <MONA_CD>M003</MONA_CD>
+      </item>
+    </items>
+  </body>
+</response>

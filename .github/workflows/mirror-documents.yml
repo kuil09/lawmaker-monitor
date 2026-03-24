@@ -1,0 +1,110 @@
+name: mirror-documents
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 15 * * *"
+
+concurrency:
+  group: published-data-${{ vars.DATA_REPO || 'none' }}-${{ vars.DATA_REPO_BRANCH || 'main' }}
+  cancel-in-progress: false
+
+jobs:
+  mirror-documents:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      DATA_REPO: ${{ vars.DATA_REPO }}
+      DATA_REPO_BRANCH: ${{ vars.DATA_REPO_BRANCH }}
+      DATA_REPO_PAT: ${{ secrets.DATA_REPO_PAT }}
+      MIRROR_MODE: ${{ vars.MIRROR_MODE }}
+      MIRROR_SOURCE_ID: ${{ vars.MIRROR_SOURCE_ID }}
+      MIRROR_START_URL: ${{ vars.MIRROR_START_URL }}
+      MIRROR_READY_SELECTOR: ${{ vars.MIRROR_READY_SELECTOR }}
+      MIRROR_ROW_SELECTOR: ${{ vars.MIRROR_ROW_SELECTOR }}
+      MIRROR_TITLE_SELECTOR: ${{ vars.MIRROR_TITLE_SELECTOR }}
+      MIRROR_LINK_SELECTOR: ${{ vars.MIRROR_LINK_SELECTOR }}
+      MIRROR_LINK_ATTRIBUTE: ${{ vars.MIRROR_LINK_ATTRIBUTE }}
+      MIRROR_DATE_SELECTOR: ${{ vars.MIRROR_DATE_SELECTOR }}
+      MIRROR_NEXT_SELECTOR: ${{ vars.MIRROR_NEXT_SELECTOR }}
+      MIRROR_MAX_PAGES: ${{ vars.MIRROR_MAX_PAGES }}
+      MIRROR_MAX_DOWNLOADS: ${{ vars.MIRROR_MAX_DOWNLOADS }}
+      MIRROR_PAGE_DELAY_MS: ${{ vars.MIRROR_PAGE_DELAY_MS }}
+      MIRROR_TIMEOUT_MS: ${{ vars.MIRROR_TIMEOUT_MS }}
+      MIRROR_TIME_ZONE: ${{ vars.MIRROR_TIME_ZONE }}
+      MIRROR_RECENT_DAYS: ${{ vars.MIRROR_RECENT_DAYS }}
+      MIRROR_BACKFILL_START_DATE: ${{ vars.MIRROR_BACKFILL_START_DATE }}
+      MIRROR_BACKFILL_DAYS: ${{ vars.MIRROR_BACKFILL_DAYS }}
+      MIRROR_INCLUDE_APPENDICES: ${{ vars.MIRROR_INCLUDE_APPENDICES }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Build schema and ingest packages
+        run: npm run build --workspace @lawmaker-monitor/schemas && npm run build --workspace @lawmaker-monitor/ingest
+
+      - name: Clone public data repository
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        run: |
+          REPO_URL="https://x-access-token:${DATA_REPO_PAT}@github.com/${DATA_REPO}.git"
+          TARGET_BRANCH="${DATA_REPO_BRANCH:-main}"
+
+          if git ls-remote --exit-code --heads "${REPO_URL}" "${TARGET_BRANCH}" >/dev/null 2>&1; then
+            git clone --depth 1 --branch "${TARGET_BRANCH}" "${REPO_URL}" published-data
+          else
+            git init published-data
+            cd published-data
+            git checkout -b "${TARGET_BRANCH}"
+            git remote add origin "${REPO_URL}"
+          fi
+
+      - name: Mirror public documents into data repository
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        run: npm run mirror:documents --workspace @lawmaker-monitor/ingest
+        env:
+          DATA_REPO_DIR: published-data
+
+      - name: Commit and push mirrored document changes
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        working-directory: published-data
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          TARGET_BRANCH="${DATA_REPO_BRANCH:-main}"
+
+          if [ -n "$(git status --short)" ]; then
+            git add raw manifests
+            git commit -m "Mirror public documents"
+
+            if git ls-remote --exit-code --heads origin "${TARGET_BRANCH}" >/dev/null 2>&1; then
+              git fetch origin "${TARGET_BRANCH}"
+              git rebase "origin/${TARGET_BRANCH}"
+            fi
+
+            git push origin "${TARGET_BRANCH}"
+          else
+            echo "No mirrored document changes to publish."
+          fi
+
+      - name: Upload mirror state artifact
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: mirrored-document-state
+          path: |
+            published-data/raw/index/document_index.json
+            published-data/manifests/document_mirror_state.json
+          if-no-files-found: error

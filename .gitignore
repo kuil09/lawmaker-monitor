@@ -1,0 +1,15 @@
+node_modules
+dist
+**/dist
+coverage
+.DS_Store
+.vite
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+tmp
+.tmp
+artifacts
+out

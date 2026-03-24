@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "v1",
+  "snapshotId": "snapshot-20260322-114500",
+  "updatedAt": "2026-03-22T11:45:00+09:00",
+  "dataRepoBaseUrl": "https://data.example.test/lawmaker-monitor/",
+  "currentAssembly": {
+    "assemblyNo": 22,
+    "label": "제22대 국회",
+    "unitCd": "100022"
+  },
+  "datasets": {
+    "members": {
+      "path": "curated/members.parquet",
+      "url": "https://data.example.test/lawmaker-monitor/curated/members.parquet",
+      "checksumSha256": "members-checksum",
+      "rowCount": 3
+    },
+    "rollCalls": {
+      "path": "curated/roll_calls.parquet",
+      "url": "https://data.example.test/lawmaker-monitor/curated/roll_calls.parquet",
+      "checksumSha256": "roll-calls-checksum",
+      "rowCount": 2
+    },
+    "voteFacts": {
+      "path": "curated/vote_facts.parquet",
+      "url": "https://data.example.test/lawmaker-monitor/curated/vote_facts.parquet",
+      "checksumSha256": "vote-facts-checksum",
+      "rowCount": 6
+    },
+    "meetings": {
+      "path": "curated/meetings.parquet",
+      "url": "https://data.example.test/lawmaker-monitor/curated/meetings.parquet",
+      "checksumSha256": "meetings-checksum",
+      "rowCount": 1
+    },
+    "sources": {
+      "path": "curated/sources.parquet",
+      "url": "https://data.example.test/lawmaker-monitor/curated/sources.parquet",
+      "checksumSha256": "sources-checksum",
+      "rowCount": 3
+    }
+  },
+  "exports": {
+    "latestVotes": {
+      "path": "exports/latest_votes.json",
+      "url": "https://data.example.test/lawmaker-monitor/exports/latest_votes.json",
+      "checksumSha256": "latest-votes-checksum",
+      "rowCount": 2
+    },
+    "accountabilitySummary": {
+      "path": "exports/accountability_summary.json",
+      "url": "https://data.example.test/lawmaker-monitor/exports/accountability_summary.json",
+      "checksumSha256": "accountability-summary-checksum",
+      "rowCount": 3
+    },
+    "accountabilityTrends": {
+      "path": "exports/accountability_trends.json",
+      "url": "https://data.example.test/lawmaker-monitor/exports/accountability_trends.json",
+      "checksumSha256": "accountability-trends-checksum",
+      "rowCount": 3
+    },
+    "memberActivityCalendar": {
+      "path": "exports/member_activity_calendar.json",
+      "url": "https://data.example.test/lawmaker-monitor/exports/member_activity_calendar.json",
+      "checksumSha256": "member-activity-calendar-checksum",
+      "rowCount": 3
+    }
+  }
+}

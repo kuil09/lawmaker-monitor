@@ -1,0 +1,62 @@
+{
+  "generatedAt": "2026-03-22T11:45:00+09:00",
+  "snapshotId": "snapshot-20260322-114500",
+  "assemblyNo": 22,
+  "assemblyLabel": "제22대 국회",
+  "items": [
+    {
+      "memberId": "M002",
+      "name": "박민",
+      "party": "미래개혁당",
+      "district": "부산 남구",
+      "photoUrl": "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m002.jpg",
+      "officialProfileUrl": "https://www.assembly.go.kr/members/22nd/PARKMIN",
+      "officialExternalUrl": null,
+      "assemblyNo": 22,
+      "totalRecordedVotes": 2,
+      "noCount": 1,
+      "abstainCount": 0,
+      "absentCount": 1,
+      "noRate": 0.5,
+      "abstainRate": 0,
+      "absentRate": 0.5,
+      "lastVoteAt": "2026-03-22T11:40:00+09:00"
+    },
+    {
+      "memberId": "M001",
+      "name": "김아라",
+      "party": "미래개혁당",
+      "district": "서울 중구",
+      "photoUrl": "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m001.jpg",
+      "officialProfileUrl": "https://www.assembly.go.kr/members/22nd/KIMARA",
+      "officialExternalUrl": "https://blog.example.kr/kim-ara",
+      "assemblyNo": 22,
+      "totalRecordedVotes": 2,
+      "noCount": 1,
+      "abstainCount": 0,
+      "absentCount": 0,
+      "noRate": 0.5,
+      "abstainRate": 0,
+      "absentRate": 0,
+      "lastVoteAt": "2026-03-22T11:40:00+09:00"
+    },
+    {
+      "memberId": "M003",
+      "name": "이수",
+      "party": "시민녹색당",
+      "district": "비례대표",
+      "photoUrl": null,
+      "officialProfileUrl": "https://www.assembly.go.kr/members/22nd/LEESU",
+      "officialExternalUrl": null,
+      "assemblyNo": 22,
+      "totalRecordedVotes": 2,
+      "noCount": 0,
+      "abstainCount": 1,
+      "absentCount": 0,
+      "noRate": 0,
+      "abstainRate": 0.5,
+      "absentRate": 0,
+      "lastVoteAt": "2026-03-22T11:40:00+09:00"
+    }
+  ]
+}

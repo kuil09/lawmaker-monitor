@@ -1,0 +1,33 @@
+<response>
+  <body>
+    <items>
+      <item>
+        <HG_NM>김아라</HG_NM>
+        <HJ_NM>金아라</HJ_NM>
+        <FRTO_DATE>2024.05.30 ~ 2028.05.29</FRTO_DATE>
+        <PROFILE_SJ>제22대 국회의원</PROFILE_SJ>
+        <MONA_CD>M001</MONA_CD>
+        <UNIT_CD>100022</UNIT_CD>
+        <UNIT_NM>제22대</UNIT_NM>
+      </item>
+      <item>
+        <HG_NM>박민</HG_NM>
+        <HJ_NM>朴敏</HJ_NM>
+        <FRTO_DATE>2024.05.30 ~ 2028.05.29</FRTO_DATE>
+        <PROFILE_SJ>제22대 국회의원</PROFILE_SJ>
+        <MONA_CD>M002</MONA_CD>
+        <UNIT_CD>100022</UNIT_CD>
+        <UNIT_NM>제22대</UNIT_NM>
+      </item>
+      <item>
+        <HG_NM>이수</HG_NM>
+        <HJ_NM>李秀</HJ_NM>
+        <FRTO_DATE>2024.05.30 ~ 2028.05.29</FRTO_DATE>
+        <PROFILE_SJ>제22대 국회의원</PROFILE_SJ>
+        <MONA_CD>M003</MONA_CD>
+        <UNIT_CD>100022</UNIT_CD>
+        <UNIT_NM>제22대</UNIT_NM>
+      </item>
+    </items>
+  </body>
+</response>

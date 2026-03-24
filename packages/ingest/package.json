@@ -1,0 +1,25 @@
+{
+  "name": "@lawmaker-monitor/ingest",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:data": "node ./dist/scripts/build-data.js",
+    "ingest:live": "node ./dist/scripts/ingest-live.js",
+    "mirror:documents": "node ./dist/scripts/mirror-documents.js",
+    "monitor:sources": "node ./dist/scripts/monitor-sources.js"
+  },
+  "dependencies": {
+    "@lawmaker-monitor/schemas": "0.1.0",
+    "fast-xml-parser": "^5.2.5",
+    "playwright": "^1.54.2"
+  }
+}

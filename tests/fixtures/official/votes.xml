@@ -1,0 +1,132 @@
+<response>
+  <body>
+    <items>
+      <item>
+        <rollCallId>roll-call-1</rollCallId>
+        <assemblyNo>22</assemblyNo>
+        <meetingId>plenary-22-14</meetingId>
+        <agendaId>agenda-1</agendaId>
+        <billId>bill-1</billId>
+        <billName>Act on Civic Transparency</billName>
+        <committeeName>Legislation and Judiciary Committee</committeeName>
+        <voteDatetime>2026-03-22T10:15:00+09:00</voteDatetime>
+        <voteMethod>recorded</voteMethod>
+        <sourceStatus>confirmed</sourceStatus>
+        <officialSourceUrl>https://open.assembly.go.kr/votes/roll-call-1</officialSourceUrl>
+        <summary>Approval vote on the amended transparency bill.</summary>
+        <memberId>M001</memberId>
+        <memberName>Kim Ara</memberName>
+        <party>Future Reform Party</party>
+        <district>Seoul Jung</district>
+        <proportionalFlag>N</proportionalFlag>
+        <voteResult>yes</voteResult>
+        <publishedAt>2026-03-22T10:19:00+09:00</publishedAt>
+      </item>
+      <item>
+        <rollCallId>roll-call-1</rollCallId>
+        <assemblyNo>22</assemblyNo>
+        <meetingId>plenary-22-14</meetingId>
+        <agendaId>agenda-1</agendaId>
+        <billId>bill-1</billId>
+        <billName>Act on Civic Transparency</billName>
+        <committeeName>Legislation and Judiciary Committee</committeeName>
+        <voteDatetime>2026-03-22T10:15:00+09:00</voteDatetime>
+        <voteMethod>recorded</voteMethod>
+        <sourceStatus>confirmed</sourceStatus>
+        <officialSourceUrl>https://open.assembly.go.kr/votes/roll-call-1</officialSourceUrl>
+        <summary>Approval vote on the amended transparency bill.</summary>
+        <memberId>M002</memberId>
+        <memberName>Park Min</memberName>
+        <party>Future Reform Party</party>
+        <district>Busan Nam</district>
+        <proportionalFlag>N</proportionalFlag>
+        <voteResult>no</voteResult>
+        <publishedAt>2026-03-22T10:19:00+09:00</publishedAt>
+      </item>
+      <item>
+        <rollCallId>roll-call-1</rollCallId>
+        <assemblyNo>22</assemblyNo>
+        <meetingId>plenary-22-14</meetingId>
+        <agendaId>agenda-1</agendaId>
+        <billId>bill-1</billId>
+        <billName>Act on Civic Transparency</billName>
+        <committeeName>Legislation and Judiciary Committee</committeeName>
+        <voteDatetime>2026-03-22T10:15:00+09:00</voteDatetime>
+        <voteMethod>recorded</voteMethod>
+        <sourceStatus>confirmed</sourceStatus>
+        <officialSourceUrl>https://open.assembly.go.kr/votes/roll-call-1</officialSourceUrl>
+        <summary>Approval vote on the amended transparency bill.</summary>
+        <memberId>M003</memberId>
+        <memberName>Lee Su</memberName>
+        <party>Civic Greens</party>
+        <district>Incheon East</district>
+        <proportionalFlag>Y</proportionalFlag>
+        <voteResult>abstain</voteResult>
+        <publishedAt>2026-03-22T10:19:00+09:00</publishedAt>
+      </item>
+      <item>
+        <rollCallId>roll-call-2</rollCallId>
+        <assemblyNo>22</assemblyNo>
+        <meetingId>plenary-22-14</meetingId>
+        <agendaId>agenda-2</agendaId>
+        <billId>bill-2</billId>
+        <billName>Budget Adjustment Motion</billName>
+        <committeeName>Budget Committee</committeeName>
+        <voteDatetime>2026-03-22T11:40:00+09:00</voteDatetime>
+        <voteMethod>named</voteMethod>
+        <sourceStatus>provisional</sourceStatus>
+        <officialSourceUrl>https://open.assembly.go.kr/votes/roll-call-2</officialSourceUrl>
+        <summary>Procedural budget adjustment motion.</summary>
+        <memberId>M001</memberId>
+        <memberName>Kim Ara</memberName>
+        <party>Future Reform Party</party>
+        <district>Seoul Jung</district>
+        <proportionalFlag>N</proportionalFlag>
+        <voteResult>no</voteResult>
+        <publishedAt>2026-03-22T11:43:00+09:00</publishedAt>
+      </item>
+      <item>
+        <rollCallId>roll-call-2</rollCallId>
+        <assemblyNo>22</assemblyNo>
+        <meetingId>plenary-22-14</meetingId>
+        <agendaId>agenda-2</agendaId>
+        <billId>bill-2</billId>
+        <billName>Budget Adjustment Motion</billName>
+        <committeeName>Budget Committee</committeeName>
+        <voteDatetime>2026-03-22T11:40:00+09:00</voteDatetime>
+        <voteMethod>named</voteMethod>
+        <sourceStatus>provisional</sourceStatus>
+        <officialSourceUrl>https://open.assembly.go.kr/votes/roll-call-2</officialSourceUrl>
+        <summary>Procedural budget adjustment motion.</summary>
+        <memberId>M002</memberId>
+        <memberName>Park Min</memberName>
+        <party>Future Reform Party</party>
+        <district>Busan Nam</district>
+        <proportionalFlag>N</proportionalFlag>
+        <voteResult>abstain</voteResult>
+        <publishedAt>2026-03-22T11:43:00+09:00</publishedAt>
+      </item>
+      <item>
+        <rollCallId>roll-call-2</rollCallId>
+        <assemblyNo>22</assemblyNo>
+        <meetingId>plenary-22-14</meetingId>
+        <agendaId>agenda-2</agendaId>
+        <billId>bill-2</billId>
+        <billName>Budget Adjustment Motion</billName>
+        <committeeName>Budget Committee</committeeName>
+        <voteDatetime>2026-03-22T11:40:00+09:00</voteDatetime>
+        <voteMethod>named</voteMethod>
+        <sourceStatus>provisional</sourceStatus>
+        <officialSourceUrl>https://open.assembly.go.kr/votes/roll-call-2</officialSourceUrl>
+        <summary>Procedural budget adjustment motion.</summary>
+        <memberId>M003</memberId>
+        <memberName>Lee Su</memberName>
+        <party>Civic Greens</party>
+        <district>Incheon East</district>
+        <proportionalFlag>Y</proportionalFlag>
+        <voteResult>yes</voteResult>
+        <publishedAt>2026-03-22T11:43:00+09:00</publishedAt>
+      </item>
+    </items>
+  </body>
+</response>

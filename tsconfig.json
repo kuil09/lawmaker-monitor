@@ -1,0 +1,14 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/schemas/tsconfig.json"
+    },
+    {
+      "path": "./packages/ingest/tsconfig.json"
+    },
+    {
+      "path": "./apps/web/tsconfig.app.json"
+    }
+  ]
+}

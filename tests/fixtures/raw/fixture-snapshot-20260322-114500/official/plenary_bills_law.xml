@@ -1,0 +1,17 @@
+<response>
+  <body>
+    <items>
+      <item>
+        <AGE>22</AGE>
+        <BILL_NO>220001</BILL_NO>
+        <BILL_ID>PRC_A1B2C3D4E5F6</BILL_ID>
+        <BILL_NAME>Act on Civic Transparency</BILL_NAME>
+        <BILL_KIND>법률안</BILL_KIND>
+        <PROC_RESULT_CD>원안가결</PROC_RESULT_CD>
+        <CURR_COMMITTEE>법제사법위원회</CURR_COMMITTEE>
+        <RGS_PRESENT_DT>2026-03-22</RGS_PRESENT_DT>
+        <RGS_PROC_DT>2026-03-22</RGS_PROC_DT>
+      </item>
+    </items>
+  </body>
+</response>

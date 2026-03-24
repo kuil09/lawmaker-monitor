@@ -1,0 +1,50 @@
+name: ingest-live
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0,5,10 * * 1-5"
+
+concurrency:
+  group: ingest-live-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ingest-live:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build schema and ingest packages
+        run: npm run build --workspace @lawmaker-monitor/schemas && npm run build --workspace @lawmaker-monitor/ingest
+
+      - name: Run live ingest
+        run: npm run ingest:live --workspace @lawmaker-monitor/ingest
+        env:
+          ASSEMBLY_API_KEY: ${{ secrets.ASSEMBLY_API_KEY }}
+          ASSEMBLY_PAGE_SIZE: ${{ vars.ASSEMBLY_PAGE_SIZE }}
+          ASSEMBLY_BILL_FEED_CONCURRENCY: ${{ vars.ASSEMBLY_BILL_FEED_CONCURRENCY }}
+          ASSEMBLY_VOTE_DETAIL_CONCURRENCY: ${{ vars.ASSEMBLY_VOTE_DETAIL_CONCURRENCY }}
+          ASSEMBLY_BILL_VOTE_SUMMARY_CONCURRENCY: ${{ vars.ASSEMBLY_BILL_VOTE_SUMMARY_CONCURRENCY }}
+          ASSEMBLY_FETCH_TIMEOUT_MS: ${{ vars.ASSEMBLY_FETCH_TIMEOUT_MS }}
+          ASSEMBLY_FETCH_RETRIES: ${{ vars.ASSEMBLY_FETCH_RETRIES }}
+          OUTPUT_DIR: artifacts/ingest
+
+      - name: Upload raw snapshot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-snapshot
+          path: artifacts/ingest/raw
+          if-no-files-found: error

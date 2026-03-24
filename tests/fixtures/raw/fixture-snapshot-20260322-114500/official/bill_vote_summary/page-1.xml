@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ncocpgfiaoituanbr>
+  <head>
+    <list_total_count>2</list_total_count>
+    <RESULT>
+      <CODE>INFO-000</CODE>
+      <MESSAGE>정상 처리되었습니다.</MESSAGE>
+    </RESULT>
+  </head>
+  <row>
+    <BILL_ID>PRC_A1B2C3D4E5F6</BILL_ID>
+    <PROC_DT>2026-03-22</PROC_DT>
+    <BILL_NO>220001</BILL_NO>
+    <BILL_NAME>Act on Civic Transparency</BILL_NAME>
+    <CURR_COMMITTEE>법제사법위원회</CURR_COMMITTEE>
+    <CURR_COMMITTEE_ID>9700102</CURR_COMMITTEE_ID>
+    <PROC_RESULT_CD>원안가결</PROC_RESULT_CD>
+    <BILL_KIND_CD>법률안</BILL_KIND_CD>
+    <AGE>22</AGE>
+    <MEMBER_TCNT>4</MEMBER_TCNT>
+    <VOTE_TCNT>3</VOTE_TCNT>
+    <YES_TCNT>1</YES_TCNT>
+    <NO_TCNT>1</NO_TCNT>
+    <BLANK_TCNT>1</BLANK_TCNT>
+    <LINK_URL>http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_A1B2C3D4E5F6</LINK_URL>
+  </row>
+  <row>
+    <BILL_ID>PRC_B2C3D4E5F6G7</BILL_ID>
+    <PROC_DT>2026-03-22</PROC_DT>
+    <BILL_NO>220002</BILL_NO>
+    <BILL_NAME>Budget Adjustment Motion</BILL_NAME>
+    <CURR_COMMITTEE>예산결산특별위원회</CURR_COMMITTEE>
+    <CURR_COMMITTEE_ID>9700103</CURR_COMMITTEE_ID>
+    <PROC_RESULT_CD>원안가결</PROC_RESULT_CD>
+    <BILL_KIND_CD>동의안</BILL_KIND_CD>
+    <AGE>22</AGE>
+    <MEMBER_TCNT>3</MEMBER_TCNT>
+    <VOTE_TCNT>2</VOTE_TCNT>
+    <YES_TCNT>1</YES_TCNT>
+    <NO_TCNT>1</NO_TCNT>
+    <BLANK_TCNT>0</BLANK_TCNT>
+    <LINK_URL>http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_B2C3D4E5F6G7</LINK_URL>
+  </row>
+</ncocpgfiaoituanbr>

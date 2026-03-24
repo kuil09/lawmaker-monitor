@@ -1,0 +1,22 @@
+<response>
+  <body>
+    <items>
+      <item>
+        <meetingId>plenary-22-14</meetingId>
+        <agendaId>agenda-1</agendaId>
+        <billId>bill-1</billId>
+        <billName>Act on Civic Transparency</billName>
+        <committeeName>Legislation and Judiciary Committee</committeeName>
+        <summary>Floor vote on the revised bill text after committee review.</summary>
+      </item>
+      <item>
+        <meetingId>plenary-22-14</meetingId>
+        <agendaId>agenda-2</agendaId>
+        <billId>bill-2</billId>
+        <billName>Budget Adjustment Motion</billName>
+        <committeeName>Budget Committee</committeeName>
+        <summary>Procedural motion to adjust the annual budget schedule.</summary>
+      </item>
+    </items>
+  </body>
+</response>

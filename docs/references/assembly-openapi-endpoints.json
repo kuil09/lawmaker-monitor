@@ -1,0 +1,259 @@
+{
+  "source": {
+    "organization": "National Assembly Secretariat",
+    "documentTitle": "오픈API활용가이드",
+    "documentDate": "2023-11",
+    "canonicalStandard": "pdf-first",
+    "notes": [
+      "This registry is derived from the original PDF guide, not from prior repository summaries.",
+      "Runtime collection is restricted to official OpenAPI endpoints listed in this registry.",
+      "pendingOfficialVerification records official endpoints that remain in runtime use but still need direct PDF page citation in repository docs."
+    ]
+  },
+  "policy": {
+    "goal": "Use only official OpenAPI endpoints in runtime without losing any published fields.",
+    "forbiddenRuntimeSources": [
+      {
+        "key": "voteSheetSearch",
+        "url": "https://open.assembly.go.kr/portal/data/sheet/searchSheetData.do",
+        "reason": "Non-guide sheet endpoint. Runtime vote detail must come from the official plenary-vote OpenAPI."
+      },
+      {
+        "key": "voteSheetDownload",
+        "url": "https://open.assembly.go.kr/portal/data/sheet/downloadSheetData.do",
+        "reason": "Non-guide sheet endpoint. Keep out of runtime, docs, and environment configuration."
+      }
+    ]
+  },
+  "canonicalEndpoints": [
+    {
+      "key": "memberInfo",
+      "source": "pdf",
+      "pdfPage": 4,
+      "serviceCode": "nwvrqwxyaytdsfvhu",
+      "koreanName": "국회의원 인적사항",
+      "officialUrl": "https://open.assembly.go.kr/portal/openapi/nwvrqwxyaytdsfvhu",
+      "role": "current member roster and assembly detection",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "Primary official source for the incumbent member roster and canonical MONA_CD identifiers.",
+        "Runtime uses this feed together with member_history to determine which lawmakers are currently active."
+      ]
+    },
+    {
+      "key": "memberHistory",
+      "source": "pdf",
+      "pdfPage": 4,
+      "serviceCode": "nexgtxtmaamffofof",
+      "koreanName": "국회의원 의원이력",
+      "officialUrl": "https://open.assembly.go.kr/portal/openapi/nexgtxtmaamffofof",
+      "role": "member tenure history",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "Current runtime already uses this official endpoint.",
+        "Used to avoid counting non-incumbent periods as absences."
+      ]
+    },
+    {
+      "key": "memberCommitteeCareer",
+      "source": "pdf",
+      "pdfPage": 4,
+      "serviceCode": "nyzrglyvagmrvpezq",
+      "koreanName": "국회의원 위원회 경력",
+      "officialUrl": "https://open.assembly.go.kr/portal/openapi/nyzrglyvagmrvpezq",
+      "role": "member committee affiliation history",
+      "required": true,
+      "runtimeStatus": "supplemental",
+      "notes": [
+        "Official supplemental endpoint kept in the registry for future committee-history enrichment."
+      ]
+    },
+    {
+      "key": "votes",
+      "source": "pdf",
+      "pdfPage": 4,
+      "serviceCode": "nojepdqqaweusdfbi",
+      "koreanName": "국회의원 본회의 표결정보",
+      "officialUrl": "https://open.assembly.go.kr/portal/openapi/nojepdqqaweusdfbi",
+      "role": "member-level plenary vote detail",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "Primary official source for member-centric vote facts.",
+        "This update removes live runtime dependence on searchSheetData.do in favor of this endpoint."
+      ]
+    },
+    {
+      "key": "memberStandingCommitteeActivity",
+      "source": "pdf",
+      "pdfPage": 4,
+      "serviceCode": "nuvypcdgahexhvrjt",
+      "koreanName": "국회의원 상임위 활동",
+      "officialUrl": "https://open.assembly.go.kr/portal/openapi/nuvypcdgahexhvrjt",
+      "role": "member standing-committee activity context",
+      "required": true,
+      "runtimeStatus": "supplemental",
+      "notes": [
+        "Official supplemental endpoint kept in the registry for future committee-activity enrichment."
+      ]
+    },
+    {
+      "key": "committeeOverview",
+      "source": "pdf",
+      "pdfPage": 6,
+      "serviceCode": "nxrvzonlafugpqjuh",
+      "koreanName": "위원회 현황 정보",
+      "officialUrl": "https://open.assembly.go.kr/portal/openapi/nxrvzonlafugpqjuh",
+      "role": "committee metadata",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "Runtime uses this endpoint for current committee metadata and capacity context."
+      ]
+    },
+    {
+      "key": "committeeRoster",
+      "source": "pdf",
+      "pdfPage": 6,
+      "serviceCode": "nktulghcadyhmiqxi",
+      "koreanName": "위원회 위원 명단",
+      "officialUrl": "https://open.assembly.go.kr/portal/openapi/nktulghcadyhmiqxi",
+      "role": "committee membership roster",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "Runtime uses this endpoint for current committee memberships."
+      ]
+    },
+    {
+      "key": "billVoteSummary",
+      "source": "pdf",
+      "pdfPage": 7,
+      "serviceCode": "ncocpgfiaoituanbr",
+      "koreanName": "의안별 표결현황",
+      "officialUrl": "https://open.assembly.go.kr/portal/openapi/ncocpgfiaoituanbr",
+      "role": "official roll-call tally counts",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "Runtime uses this endpoint as the official tally source for latest_votes and absent-list validation."
+      ]
+    }
+  ],
+  "pendingOfficialVerification": [
+    {
+      "key": "memberProfileAll",
+      "source": "pending_pdf_verification",
+      "serviceCode": "ALLNAMEMBER",
+      "koreanName": "국회의원 인적사항",
+      "officialUrl": "https://open.assembly.go.kr/portal/openapi/ALLNAMEMBER",
+      "role": "member photo and expanded profile enrichment",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "Runtime uses this official endpoint only as an enrichment source for photos and extended member profile metadata.",
+        "Current-member membership is not derived from this feed because it can include non-incumbent records."
+      ]
+    },
+    {
+      "key": "plenarySchedule",
+      "source": "pending_pdf_verification",
+      "serviceCode": "nekcaiymatialqlxr",
+      "koreanName": "본회의 일정",
+      "officialUrl": "https://open.assembly.go.kr/portal/openapi/nekcaiymatialqlxr",
+      "role": "meeting discovery",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "Current runtime uses this official endpoint.",
+        "Direct PDF page citation still needs to be re-verified in this repository update."
+      ]
+    },
+    {
+      "key": "plenaryBillsLaw",
+      "source": "pending_pdf_verification",
+      "serviceCode": "nwbpacrgavhjryiph",
+      "koreanName": "본회의 처리안건_법률안",
+      "officialUrl": "https://open.assembly.go.kr/portal/openapi/nwbpacrgavhjryiph",
+      "role": "agenda discovery",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "Current runtime uses this official endpoint.",
+        "Direct PDF page citation still needs to be re-verified in this repository update."
+      ]
+    },
+    {
+      "key": "plenaryBillsBudget",
+      "source": "pending_pdf_verification",
+      "serviceCode": "nzgjnvnraowulzqwl",
+      "koreanName": "본회의 처리안건_예산안",
+      "officialUrl": "https://open.assembly.go.kr/portal/openapi/nzgjnvnraowulzqwl",
+      "role": "agenda discovery",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "Current runtime uses this official endpoint.",
+        "Direct PDF page citation still needs to be re-verified in this repository update."
+      ]
+    },
+    {
+      "key": "plenaryBillsSettlement",
+      "source": "pending_pdf_verification",
+      "serviceCode": "nkalemivaqmoibxro",
+      "koreanName": "본회의 처리안건_결산안",
+      "officialUrl": "https://open.assembly.go.kr/portal/openapi/nkalemivaqmoibxro",
+      "role": "agenda discovery",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "Current runtime uses this official endpoint.",
+        "Direct PDF page citation still needs to be re-verified in this repository update."
+      ]
+    },
+    {
+      "key": "plenaryBillsOther",
+      "source": "pending_pdf_verification",
+      "serviceCode": "nbslryaradshbpbpm",
+      "koreanName": "본회의 처리안건_기타",
+      "officialUrl": "https://open.assembly.go.kr/portal/openapi/nbslryaradshbpbpm",
+      "role": "agenda discovery",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "Current runtime uses this official endpoint.",
+        "Direct PDF page citation still needs to be re-verified in this repository update."
+      ]
+    },
+    {
+      "key": "plenaryMinutes",
+      "source": "pending_pdf_verification",
+      "serviceCode": "nzbyfwhwaoanttzje",
+      "koreanName": "본회의 회의록",
+      "officialUrl": "https://open.assembly.go.kr/portal/openapi/nzbyfwhwaoanttzje",
+      "role": "supplemental plenary context",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "Current runtime uses this official endpoint.",
+        "Direct PDF page citation still needs to be re-verified in this repository update."
+      ]
+    },
+    {
+      "key": "liveWebcast",
+      "source": "pending_pdf_verification",
+      "serviceCode": "WEBCASTREALTIEM",
+      "koreanName": "실시간 의사중계 현황",
+      "officialUrl": "https://open.assembly.go.kr/portal/openapi/WEBCASTREALTIEM",
+      "role": "near-real-time session signal",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "Current runtime uses this official endpoint.",
+        "Direct PDF page citation still needs to be re-verified in this repository update."
+      ]
+    }
+  ]
+}

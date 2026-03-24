@@ -1,0 +1,33 @@
+{
+  "generatedAt": "2026-03-22T11:45:00+09:00",
+  "snapshotId": "snapshot-20260322-114500",
+  "assemblyNo": 22,
+  "assemblyLabel": "제22대 국회",
+  "memberId": "M002",
+  "voteRecords": [
+    {
+      "rollCallId": "roll-call-3",
+      "billName": "감사원법 일부개정법률안(대안)",
+      "committeeName": "법제사법위원회",
+      "voteDatetime": "2026-03-22T14:20:00+09:00",
+      "voteCode": "yes",
+      "officialSourceUrl": "https://open.assembly.go.kr/votes/roll-call-3"
+    },
+    {
+      "rollCallId": "roll-call-2",
+      "billName": "예산 조정 동의안",
+      "committeeName": "예산결산특별위원회",
+      "voteDatetime": "2026-03-22T11:40:00+09:00",
+      "voteCode": "abstain",
+      "officialSourceUrl": "https://open.assembly.go.kr/votes/roll-call-2"
+    },
+    {
+      "rollCallId": "roll-call-1",
+      "billName": "공영방송 지배구조 개선법안",
+      "committeeName": "과학기술정보방송통신위원회",
+      "voteDatetime": "2026-03-21T10:15:00+09:00",
+      "voteCode": "no",
+      "officialSourceUrl": "https://open.assembly.go.kr/votes/roll-call-1"
+    }
+  ]
+}

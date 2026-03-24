@@ -1,0 +1,17 @@
+<response>
+  <body>
+    <items>
+      <item>
+        <UNIT_CD>100022</UNIT_CD>
+        <UNIT_NM>제22대</UNIT_NM>
+        <MEETINGSESSION>제418회</MEETINGSESSION>
+        <CHA>제14차</CHA>
+        <TITLE>제418회국회(임시회) 제14차 본회의</TITLE>
+        <MEETTING_DATE>2026-03-22</MEETTING_DATE>
+        <MEETTING_TIME>10:00</MEETTING_TIME>
+        <LINK_URL>https://open.assembly.go.kr/portal/schedule/plenary/418-14</LINK_URL>
+        <CONTS>Act on Civic Transparency, Budget Adjustment Motion</CONTS>
+      </item>
+    </items>
+  </body>
+</response>

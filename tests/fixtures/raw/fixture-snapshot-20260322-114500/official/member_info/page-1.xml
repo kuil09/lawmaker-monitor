@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nwvrqwxyaytdsfvhu>
+  <head>
+    <list_total_count>3</list_total_count>
+    <RESULT>
+      <CODE>INFO-000</CODE>
+      <MESSAGE>정상 처리되었습니다.</MESSAGE>
+    </RESULT>
+  </head>
+  <row>
+    <HG_NM>김아라</HG_NM>
+    <HJ_NM>金아라</HJ_NM>
+    <ENG_NM>KIM ARA</ENG_NM>
+    <POLY_NM>미래개혁당</POLY_NM>
+    <ORIG_NM>서울 중구</ORIG_NM>
+    <ELECT_GBN_NM>지역구</ELECT_GBN_NM>
+    <CMIT_NM>과학기술정보방송통신위원회</CMIT_NM>
+    <CMITS>과학기술정보방송통신위원회, 예산결산특별위원회</CMITS>
+    <UNITS>제22대</UNITS>
+    <HOMEPAGE>https://blog.example.kr/kim-ara</HOMEPAGE>
+    <MONA_CD>M001</MONA_CD>
+  </row>
+  <row>
+    <HG_NM>박민</HG_NM>
+    <HJ_NM>朴敏</HJ_NM>
+    <ENG_NM>PARK MIN</ENG_NM>
+    <POLY_NM>미래개혁당</POLY_NM>
+    <ORIG_NM>부산 남구</ORIG_NM>
+    <ELECT_GBN_NM>지역구</ELECT_GBN_NM>
+    <CMIT_NM>법제사법위원회</CMIT_NM>
+    <CMITS>법제사법위원회, 예산결산특별위원회</CMITS>
+    <UNITS>제22대</UNITS>
+    <MONA_CD>M002</MONA_CD>
+  </row>
+  <row>
+    <HG_NM>이수</HG_NM>
+    <HJ_NM>李秀</HJ_NM>
+    <ENG_NM>LEE SU</ENG_NM>
+    <POLY_NM>시민녹색당</POLY_NM>
+    <ORIG_NM>비례대표</ORIG_NM>
+    <ELECT_GBN_NM>비례대표</ELECT_GBN_NM>
+    <CMIT_NM>환경노동위원회</CMIT_NM>
+    <CMITS>환경노동위원회</CMITS>
+    <UNITS>제22대</UNITS>
+    <MONA_CD>M003</MONA_CD>
+  </row>
+</nwvrqwxyaytdsfvhu>

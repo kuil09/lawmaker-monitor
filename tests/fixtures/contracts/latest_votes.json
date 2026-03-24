@@ -1,0 +1,106 @@
+{
+  "generatedAt": "2026-03-22T11:45:00+09:00",
+  "snapshotId": "snapshot-20260322-114500",
+  "assemblyNo": 22,
+  "assemblyLabel": "제22대 국회",
+  "items": [
+    {
+      "rollCallId": "roll-call-2",
+      "meetingId": "plenary-22-14",
+      "agendaId": "agenda-2",
+      "billName": "예산 조정 동의안",
+      "committeeName": "예산결산특별위원회",
+      "voteDatetime": "2026-03-22T11:40:00+09:00",
+      "voteVisibility": "named",
+      "sourceStatus": "provisional",
+      "counts": {
+        "yes": 1,
+        "no": 1,
+        "abstain": 1,
+        "absent": 0,
+        "invalid": 0,
+        "unknown": 0
+      },
+      "highlightedVotes": [
+        {
+          "memberId": "M002",
+          "memberName": "박민",
+          "party": "미래개혁당",
+          "photoUrl": "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m002.jpg",
+          "officialProfileUrl": "https://www.assembly.go.kr/members/22nd/PARKMIN",
+          "officialExternalUrl": null,
+          "voteCode": "abstain"
+        },
+        {
+          "memberId": "M001",
+          "memberName": "김아라",
+          "party": "미래개혁당",
+          "photoUrl": "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m001.jpg",
+          "officialProfileUrl": "https://www.assembly.go.kr/members/22nd/KIMARA",
+          "officialExternalUrl": "https://blog.example.kr/kim-ara",
+          "voteCode": "no"
+        }
+      ],
+      "absentVotes": [],
+      "summary": "예산 조정 동의안에 대한 표결입니다.",
+      "officialSourceUrl": "https://open.assembly.go.kr/votes/roll-call-2",
+      "updatedAt": "2026-03-22T11:43:00+09:00",
+      "snapshotId": "snapshot-20260322-114500",
+      "sourceHash": "hash-roll-call-2"
+    },
+    {
+      "rollCallId": "roll-call-1",
+      "meetingId": "plenary-22-14",
+      "agendaId": "agenda-1",
+      "billName": "시민투명성법안",
+      "committeeName": "법제사법위원회",
+      "voteDatetime": "2026-03-22T10:15:00+09:00",
+      "voteVisibility": "recorded",
+      "sourceStatus": "confirmed",
+      "counts": {
+        "yes": 1,
+        "no": 1,
+        "abstain": 1,
+        "absent": 1,
+        "invalid": 0,
+        "unknown": 0
+      },
+      "highlightedVotes": [
+        {
+          "memberId": "M003",
+          "memberName": "이수",
+          "party": "시민녹색당",
+          "photoUrl": null,
+          "officialProfileUrl": "https://www.assembly.go.kr/members/22nd/LEESU",
+          "officialExternalUrl": null,
+          "voteCode": "abstain"
+        },
+        {
+          "memberId": "M002",
+          "memberName": "박민",
+          "party": "미래개혁당",
+          "photoUrl": "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m002.jpg",
+          "officialProfileUrl": "https://www.assembly.go.kr/members/22nd/PARKMIN",
+          "officialExternalUrl": null,
+          "voteCode": "no"
+        }
+      ],
+      "absentVotes": [
+        {
+          "memberId": "M004",
+          "memberName": "한창민",
+          "party": "사회민주당",
+          "photoUrl": null,
+          "officialProfileUrl": "https://www.assembly.go.kr/members/22nd/HANCHANGMIN",
+          "officialExternalUrl": null,
+          "voteCode": "absent"
+        }
+      ],
+      "summary": "시민투명성법안 수정안에 대한 표결입니다.",
+      "officialSourceUrl": "https://open.assembly.go.kr/votes/roll-call-1",
+      "updatedAt": "2026-03-22T10:19:00+09:00",
+      "snapshotId": "snapshot-20260322-114500",
+      "sourceHash": "hash-roll-call-1"
+    }
+  ]
+}
