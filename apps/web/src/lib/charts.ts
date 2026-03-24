@@ -44,10 +44,10 @@ export type WeeklyTrendChartDatum = {
   weekStart: string;
   weekEnd: string;
   label: string;
-  yesShare: number;
-  noShare: number;
-  abstainShare: number;
-  absentShare: number;
+  yesShare: number | null;
+  noShare: number | null;
+  abstainShare: number | null;
+  absentShare: number | null;
   yesCount: number;
   noCount: number;
   abstainCount: number;
@@ -205,10 +205,10 @@ export function buildWeeklyTrendChartData(
       weekStart: week.weekStart,
       weekEnd: week.weekEnd,
       label: formatWeekLabel(week.weekStart),
-      yesShare: total > 0 ? (week.yesCount / total) * 100 : 0,
-      noShare: total > 0 ? (week.noCount / total) * 100 : 0,
-      abstainShare: total > 0 ? (week.abstainCount / total) * 100 : 0,
-      absentShare: total > 0 ? (week.absentCount / total) * 100 : 0,
+      yesShare: total > 0 ? (week.yesCount / total) * 100 : null,
+      noShare: total > 0 ? (week.noCount / total) * 100 : null,
+      abstainShare: total > 0 ? (week.abstainCount / total) * 100 : null,
+      absentShare: total > 0 ? (week.absentCount / total) * 100 : null,
       yesCount: week.yesCount,
       noCount: week.noCount,
       abstainCount: week.abstainCount,

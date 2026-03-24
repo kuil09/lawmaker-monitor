@@ -482,6 +482,15 @@
     padding-right: 4.4rem;
   }
 
+  .activity-page__back,
+  .activity-page__help-button {
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0;
+  }
+
   .activity-page__masthead h1 {
     font-size: clamp(1.85rem, 9vw, 2.65rem);
   }

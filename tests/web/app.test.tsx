@@ -131,6 +131,8 @@ describe("web app", () => {
     expect(screen.getByRole("combobox", { name: "의원 검색" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "활동 캘린더 열기" })).toBeInTheDocument();
     expect(screen.getByText("제22대 국회 최근 12주 네거티브 추세")).toBeInTheDocument();
+    expect(screen.getByText("실제 표결 11주")).toBeInTheDocument();
+    expect(screen.getByText("실제 표결 주간")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "찬성" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "반대" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "기권" })).toBeInTheDocument();
@@ -327,6 +329,12 @@ describe("web app", () => {
     expect(screen.queryByText("서로 다른 선택")).not.toBeInTheDocument();
     expect(screen.getAllByText("찬성").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/일 더/).length).toBeGreaterThan(0);
+    const compareSummaryBadges = Array.from(
+      document.querySelectorAll(".activity-compare__summary-kicker")
+    ).map((element) => element.textContent?.trim() ?? "");
+    expect(compareSummaryBadges).toContain("동률");
+    expect(compareSummaryBadges.some((badge) => /^차이 \d+일$/.test(badge))).toBe(true);
+    expect(compareSummaryBadges.some((badge) => badge.includes("우세"))).toBe(false);
     expect(screen.getByText("비율 비교")).toBeInTheDocument();
     expect(screen.getAllByText("박민").length).toBeGreaterThan(0);
     expect(screen.getAllByText("김아라").length).toBeGreaterThan(0);

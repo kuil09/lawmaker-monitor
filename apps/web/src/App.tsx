@@ -166,6 +166,9 @@ export default function App() {
     activityCalendar?.assemblyLabel ??
     manifest?.currentAssembly.label ??
     "최신 국회";
+  const trendWindowWeekCount = accountabilityTrends?.weeks.length ?? 0;
+  const observedTrendWeekCount =
+    accountabilityTrends?.weeks.filter((week) => week.eligibleVoteCount > 0).length ?? 0;
   const updatedAt = manifest?.updatedAt ?? latestVotes?.generatedAt ?? accountabilitySummary?.generatedAt;
   const freshnessText = updatedAt ? `최종 갱신 ${formatDateTime(updatedAt)}` : "최종 갱신 정보 확인 중";
   const heroStats = [
@@ -181,8 +184,13 @@ export default function App() {
     },
     {
       label: "추세 관측 창",
-      value: accountabilityTrends ? `${accountabilityTrends.weeks.length}주` : "최근 12주",
-      note: "주간 흐름 기준"
+      value: accountabilityTrends ? `${trendWindowWeekCount}주` : "최근 12주",
+      note:
+        accountabilityTrends
+          ? observedTrendWeekCount > 0
+            ? `실제 표결 ${observedTrendWeekCount}주`
+            : "실제 표결 없음"
+          : "주간 흐름 기준"
     }
   ];
 

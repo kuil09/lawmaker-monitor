@@ -206,6 +206,10 @@ function formatCompareMetricSubject(label: string): string {
   return label;
 }
 
+function formatCompareMetricBadgeText(difference: number): string {
+  return difference === 0 ? "동률" : `차이 ${formatNumber(difference)}일`;
+}
+
 function buildCompareMetricCard(
   label: string,
   leftMember: MemberActivityCalendarMember,
@@ -225,7 +229,7 @@ function buildCompareMetricCard(
       summaryText: `${subject}이 같습니다.`,
       detailText,
       winner: "tie",
-      badgeText: "동률"
+      badgeText: formatCompareMetricBadgeText(0)
     };
   }
 
@@ -249,7 +253,7 @@ function buildCompareMetricCard(
         : `${withSubjectParticle(winner.name)} ${subject}이 ${formatNumber(difference)}일 더 ${preference === "higher" ? "많습니다" : "적습니다"}.`,
     detailText,
     winner: winnerSide,
-    badgeText: `${winner.name} 우세`
+    badgeText: formatCompareMetricBadgeText(difference)
   };
 }
 
