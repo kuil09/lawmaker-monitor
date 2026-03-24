@@ -74,10 +74,6 @@ function getRouteStateFromHash(hash: string): RouteState {
 }
 
 export default function App() {
-  const normalizedBaseUrl = import.meta.env.BASE_URL.endsWith("/")
-    ? import.meta.env.BASE_URL
-    : `${import.meta.env.BASE_URL}/`;
-  const koglBadgeUrl = `${normalizedBaseUrl}kogl-type1-badge.png`;
   const [latestVotes, setLatestVotes] = useState<LatestVotesExport | null>(null);
   const [accountabilitySummary, setAccountabilitySummary] =
     useState<AccountabilitySummaryExport | null>(null);
@@ -335,35 +331,6 @@ export default function App() {
     leaderboardError ? "책임성 랭킹 데이터를 확인하지 못해 일부 비교 요소가 비활성화되었습니다." : null,
     trendsError ? "추세 차트 데이터를 확인하지 못해 일부 시각화가 단순 표시로 전환되었습니다." : null
   ].filter(Boolean) as string[];
-  const siteFooter = (
-    <footer className="site-footer">
-      <div className="site-footer__notice">
-        <img
-          src={koglBadgeUrl}
-          alt="공공누리 제1유형"
-          className="site-footer__badge"
-        />
-        <div className="site-footer__copy">
-          <p>
-            본 서비스는{" "}
-            <a href="https://www.assembly.go.kr/" target="_blank" rel="noreferrer">
-              대한민국 국회
-            </a>
-            의 공개 자료를 바탕으로 합니다. 공공누리(KOGL) 제1유형 표기 자료는 출처 표시와 원문 링크 제공 조건으로 자유 이용할 수 있습니다.
-          </p>
-          <details className="site-footer__details">
-            <summary>이용 조건 보기</summary>
-            <ul>
-              <li>출처 또는 저작권자를 표시하고, 가능한 경우 원 출처 웹사이트로 링크해야 합니다.</li>
-              <li>공공기관이 이용자를 후원하거나 특수 관계가 있는 것처럼 보이게 표시해서는 안 됩니다.</li>
-              <li>공공저작물을 변경해 이용하더라도 저작인격권을 존중해야 합니다.</li>
-              <li>자료의 정확성이나 지속적인 제공은 원 출처 기관이 보장하지 않으며, 이용 조건 위반 시 허락은 자동 종료될 수 있습니다.</li>
-            </ul>
-          </details>
-        </div>
-      </div>
-    </footer>
-  );
 
   if (routeState.route === "calendar") {
     return (
@@ -386,7 +353,6 @@ export default function App() {
           onRetry={() => void ensureActivityCalendarLoaded()}
         />
         </main>
-        {siteFooter}
       </>
     );
   }
@@ -541,7 +507,6 @@ export default function App() {
           </div>
         </details>
       </main>
-      {siteFooter}
     </>
   );
 }
