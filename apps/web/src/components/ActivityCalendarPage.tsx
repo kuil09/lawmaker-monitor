@@ -54,6 +54,7 @@ type ActivityCalendarPageProps = {
 };
 
 const ACTIVITY_RATIO_CHART_HEIGHT = 220;
+const INITIAL_VISIBLE_COMMITTEE_COUNT = 3;
 
 const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
 const currentRunLabel = "현재 찬성 없이 이어진 날";
@@ -609,6 +610,7 @@ function ActivityCommitteeSections({
   const committeeSummaries = (member.committeeSummaries ?? []).filter(
     (summary) => summary.eligibleRollCallCount >= 5
   );
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
   if (committeeSummaries.length === 0) {
     return null;
@@ -639,115 +641,163 @@ function ActivityCommitteeSections({
 
   const sections = [
     {
+      id: "most-responsive",
       title: "관심 높은 위원회",
+      description: "참여율 높은 순",
       summaries: mostResponsiveCommittees
     },
     {
+      id: "least-responsive",
       title: "무관심한 위원회",
+      description: "참여율 낮은 순",
       summaries: leastResponsiveCommittees
     }
   ];
+  const visibleCommitteeCount = Math.min(
+    INITIAL_VISIBLE_COMMITTEE_COUNT,
+    committeeSummaries.length
+  );
 
   return (
     <section className="activity-committee-sections" aria-label="위원회 반응도">
       <div className="activity-committee-sections__header">
         <h4>위원회 반응도</h4>
-        <p>위원회별 참여율과 최근 대표 의안을 함께 봅니다.</p>
+        <p>
+          {`대상 표결 5건 이상 위원회 ${formatNumber(committeeSummaries.length)}곳 중 상위·하위 ${formatNumber(visibleCommitteeCount)}곳만 먼저 보여주고, 나머지는 필요할 때 펼칩니다.`}
+        </p>
       </div>
       <div className="activity-committee-sections__groups">
-        {sections.map((section) => (
-          <section
-            key={section.title}
-            className="activity-committee-sections__group"
-            aria-label={section.title}
-          >
-            <div className="activity-committee-sections__group-header">
-              <h5>{section.title}</h5>
-            </div>
-            <ul className="activity-committee-sections__list">
-              {section.summaries.map((summary) => {
-                const participatedCount =
-                  summary.yesCount + summary.noCount + summary.abstainCount;
+        {sections.map((section) => {
+          const isExpanded = expandedSections[section.id] ?? false;
+          const visibleSummaries = isExpanded
+            ? section.summaries
+            : section.summaries.slice(0, INITIAL_VISIBLE_COMMITTEE_COUNT);
+          const hiddenCount = Math.max(section.summaries.length - visibleSummaries.length, 0);
+          const listId = `activity-committee-list-${section.id}`;
 
-                return (
-                  <li key={`${section.title}:${summary.committeeName}`}>
-                    <article className="activity-committee-card">
-                      <div className="activity-committee-card__header">
-                        <div className="activity-committee-card__title-row">
-                          <h6>{summary.committeeName}</h6>
-                          {summary.isCurrentCommittee ? (
-                            <span className="activity-committee-card__badge">소속 위원회</span>
-                          ) : null}
+          return (
+            <section
+              key={section.id}
+              className="activity-committee-sections__group"
+              aria-label={section.title}
+            >
+              <div className="activity-committee-sections__group-header">
+                <div className="activity-committee-sections__group-copy">
+                  <h5>{section.title}</h5>
+                  <p>{section.description}</p>
+                </div>
+                <span className="activity-committee-sections__count">
+                  {`${formatNumber(visibleSummaries.length)} / ${formatNumber(section.summaries.length)}곳`}
+                </span>
+              </div>
+              <ul id={listId} className="activity-committee-sections__list">
+                {visibleSummaries.map((summary) => {
+                  const participatedCount =
+                    summary.yesCount + summary.noCount + summary.abstainCount;
+
+                  return (
+                    <li key={`${section.title}:${summary.committeeName}`}>
+                      <article className="activity-committee-card">
+                        <div className="activity-committee-card__header">
+                          <div className="activity-committee-card__title-row">
+                            <h6>{summary.committeeName}</h6>
+                            {summary.isCurrentCommittee ? (
+                              <span className="activity-committee-card__badge">소속 위원회</span>
+                            ) : null}
+                          </div>
+                          <strong>{`${formatNumber(Math.round(summary.participationRate * 100))}%`}</strong>
                         </div>
-                        <strong>{`${formatNumber(Math.round(summary.participationRate * 100))}%`}</strong>
-                      </div>
-                      <p className="activity-committee-card__meta">
-                        {`참여 ${formatNumber(summary.participatedRollCallCount)} / 대상 ${formatNumber(summary.eligibleRollCallCount)} · 불참 ${formatNumber(summary.absentRollCallCount)}`}
-                      </p>
-                      <div className="activity-committee-card__bar" aria-hidden="true">
-                        <span
-                          style={buildCommitteeCompositionStyle(
-                            summary.yesCount,
-                            participatedCount,
-                            "--vote-yes"
-                          )}
-                        />
-                        <span
-                          style={buildCommitteeCompositionStyle(
-                            summary.noCount,
-                            participatedCount,
-                            "--vote-no"
-                          )}
-                        />
-                        <span
-                          style={buildCommitteeCompositionStyle(
-                            summary.abstainCount,
-                            participatedCount,
-                            "--vote-abstain"
-                          )}
-                        />
-                      </div>
-                      {summary.recentVoteRecords.length > 0 ? (
-                        <ul className="activity-committee-card__records">
-                          {summary.recentVoteRecords.map((record) => {
-                            const linkLabel = `${formatDate(record.voteDatetime)} · ${record.billName}`;
-                            const detailLabel =
-                              record.voteCode === "yes"
-                                ? "찬성"
-                                : record.voteCode === "no"
-                                  ? "반대"
-                                  : "기권";
+                        <p className="activity-committee-card__meta">
+                          {`참여 ${formatNumber(summary.participatedRollCallCount)} / 대상 ${formatNumber(summary.eligibleRollCallCount)} · 불참 ${formatNumber(summary.absentRollCallCount)}`}
+                        </p>
+                        <div className="activity-committee-card__bar" aria-hidden="true">
+                          <span
+                            style={buildCommitteeCompositionStyle(
+                              summary.yesCount,
+                              participatedCount,
+                              "--vote-yes"
+                            )}
+                          />
+                          <span
+                            style={buildCommitteeCompositionStyle(
+                              summary.noCount,
+                              participatedCount,
+                              "--vote-no"
+                            )}
+                          />
+                          <span
+                            style={buildCommitteeCompositionStyle(
+                              summary.abstainCount,
+                              participatedCount,
+                              "--vote-abstain"
+                            )}
+                          />
+                        </div>
+                        {summary.recentVoteRecords.length > 0 ? (
+                          <details className="activity-committee-card__details">
+                            <summary className="activity-committee-card__details-toggle">
+                              {`최근 대표 의안 ${formatNumber(summary.recentVoteRecords.length)}건 보기`}
+                            </summary>
+                            <ul className="activity-committee-card__records">
+                              {summary.recentVoteRecords.map((record) => {
+                                const linkLabel = `${formatDate(record.voteDatetime)} · ${record.billName}`;
+                                const detailLabel =
+                                  record.voteCode === "yes"
+                                    ? "찬성"
+                                    : record.voteCode === "no"
+                                      ? "반대"
+                                      : "기권";
 
-                            return (
-                              <li key={`${summary.committeeName}:${record.rollCallId}`}>
-                                {record.officialSourceUrl ? (
-                                  <a
-                                    href={record.officialSourceUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="activity-committee-card__record-link"
-                                  >
-                                    <span>{linkLabel}</span>
-                                    <em>{detailLabel}</em>
-                                  </a>
-                                ) : (
-                                  <div className="activity-committee-card__record-link">
-                                    <span>{linkLabel}</span>
-                                    <em>{detailLabel}</em>
-                                  </div>
-                                )}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      ) : null}
-                    </article>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))}
+                                return (
+                                  <li key={`${summary.committeeName}:${record.rollCallId}`}>
+                                    {record.officialSourceUrl ? (
+                                      <a
+                                        href={record.officialSourceUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="activity-committee-card__record-link"
+                                      >
+                                        <span>{linkLabel}</span>
+                                        <em>{detailLabel}</em>
+                                      </a>
+                                    ) : (
+                                      <div className="activity-committee-card__record-link">
+                                        <span>{linkLabel}</span>
+                                        <em>{detailLabel}</em>
+                                      </div>
+                                    )}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </details>
+                        ) : null}
+                      </article>
+                    </li>
+                  );
+                })}
+              </ul>
+              {section.summaries.length > INITIAL_VISIBLE_COMMITTEE_COUNT ? (
+                <button
+                  type="button"
+                  className="activity-committee-sections__toggle"
+                  aria-controls={listId}
+                  aria-expanded={isExpanded}
+                  onClick={() =>
+                    setExpandedSections((current) => ({
+                      ...current,
+                      [section.id]: !isExpanded
+                    }))
+                  }
+                >
+                  {isExpanded
+                    ? `처음 ${formatNumber(visibleCommitteeCount)}곳만 보기`
+                    : `나머지 ${formatNumber(hiddenCount)}곳 더 보기`}
+                </button>
+              ) : null}
+            </section>
+          );
+        })}
       </div>
     </section>
   );

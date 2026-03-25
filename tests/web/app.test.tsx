@@ -279,6 +279,141 @@ describe("web app", () => {
     expect(screen.getByDisplayValue("박민 · 미래개혁당")).toBeInTheDocument();
   });
 
+  it("bounds committee sections behind per-group toggles when a member has many committee summaries", async () => {
+    const expandedCommitteeFixture = structuredClone(memberActivityCalendarFixture);
+    const targetMember = expandedCommitteeFixture.assembly.members.find(
+      (member: (typeof memberActivityCalendarFixture.assembly.members)[number]) =>
+        member.memberId === "M002"
+    );
+
+    expect(targetMember).toBeDefined();
+
+    targetMember!.committeeSummaries = Array.from({ length: 7 }, (_, index) => {
+      const eligibleRollCallCount = 12 + index;
+      const participatedRollCallCount = 10 - Math.floor(index / 2);
+      const absentRollCallCount = eligibleRollCallCount - participatedRollCallCount;
+
+      return {
+        committeeName: `가상위원회 ${index + 1}`,
+        eligibleRollCallCount,
+        participatedRollCallCount,
+        absentRollCallCount,
+        participationRate: participatedRollCallCount / eligibleRollCallCount,
+        yesCount: Math.max(participatedRollCallCount - 2, 1),
+        noCount: 1,
+        abstainCount: 1,
+        isCurrentCommittee: index < 2,
+        recentVoteRecords: [
+          {
+            rollCallId: `roll-call-extra-${index + 1}`,
+            billName: `위원회 안건 ${index + 1}`,
+            committeeName: `가상위원회 ${index + 1}`,
+            voteDatetime: "2026-03-22T14:20:00+09:00",
+            voteCode: "yes",
+            officialSourceUrl: `https://open.assembly.go.kr/votes/roll-call-extra-${index + 1}`
+          }
+        ]
+      };
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request) => {
+        const url = String(input);
+        if (url.endsWith("/exports/latest_votes.json")) {
+          return Promise.resolve(
+            new Response(JSON.stringify(latestVotesFixture), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            })
+          );
+        }
+
+        if (url.endsWith("/exports/accountability_summary.json")) {
+          return Promise.resolve(
+            new Response(JSON.stringify(accountabilitySummaryFixture), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            })
+          );
+        }
+
+        if (url.endsWith("/exports/accountability_trends.json")) {
+          return Promise.resolve(
+            new Response(JSON.stringify(accountabilityTrendsFixture), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            })
+          );
+        }
+
+        if (url.endsWith("/exports/member_activity_calendar.json")) {
+          return Promise.resolve(
+            new Response(JSON.stringify(expandedCommitteeFixture), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            })
+          );
+        }
+
+        if (url.endsWith("/exports/member_activity_calendar_members/M002.json")) {
+          return Promise.resolve(
+            new Response(JSON.stringify(memberActivityCalendarMemberDetailFixtures.M002), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            })
+          );
+        }
+
+        if (url.endsWith("/manifests/latest.json")) {
+          return Promise.resolve(
+            new Response(JSON.stringify(manifestFixture), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            })
+          );
+        }
+
+        return Promise.resolve(new Response("not found", { status: 404 }));
+      })
+    );
+
+    window.location.hash = "#calendar?member=M002";
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "의원 표결 활동 그래프" })).toBeInTheDocument();
+
+    const committeeSection = document.querySelector(".activity-committee-sections");
+    expect(committeeSection).not.toBeNull();
+
+    const initialGroups = Array.from(
+      (committeeSection as HTMLElement).querySelectorAll(".activity-committee-sections__group")
+    );
+    expect(initialGroups).toHaveLength(2);
+    expect(
+      initialGroups.every((group) => group.querySelectorAll(".activity-committee-card").length === 3)
+    ).toBe(true);
+    expect(
+      (committeeSection as HTMLElement).querySelectorAll(".activity-committee-card__details")
+    ).toHaveLength(6);
+
+    const expandButtons = within(committeeSection as HTMLElement).getAllByRole("button", {
+      name: "나머지 4곳 더 보기"
+    });
+    expect(expandButtons).toHaveLength(2);
+
+    fireEvent.click(expandButtons[0]);
+
+    const refreshedGroups = Array.from(
+      (committeeSection as HTMLElement).querySelectorAll(".activity-committee-sections__group")
+    );
+    expect(refreshedGroups[0]?.querySelectorAll(".activity-committee-card")).toHaveLength(7);
+    expect(refreshedGroups[1]?.querySelectorAll(".activity-committee-card")).toHaveLength(3);
+    expect(
+      within(committeeSection as HTMLElement).getByRole("button", { name: "처음 3곳만 보기" })
+    ).toBeInTheDocument();
+  });
+
   it("updates the primary calendar member after clearing and entering a new name", async () => {
     window.location.hash = "#calendar?member=M002";
     render(<App />);

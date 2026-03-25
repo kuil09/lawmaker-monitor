@@ -348,6 +348,10 @@
   font-size: 1rem;
 }
 
+.activity-committee-sections__header p {
+  max-width: 34rem;
+}
+
 .activity-ratio-card__body,
 .activity-ratio-card__body--compare {
   align-items: start;
@@ -366,6 +370,38 @@
   background: rgba(255, 255, 255, 0.56);
 }
 
+.activity-committee-sections__group-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.activity-committee-sections__group-copy {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.activity-committee-sections__group-copy p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.activity-committee-sections__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.22rem 0.56rem;
+  border: 1px solid rgba(72, 56, 40, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .activity-vote-records__groups,
 .activity-committee-sections__groups {
   gap: 0.95rem;
@@ -381,6 +417,48 @@
   background: rgba(255, 255, 255, 0.76);
 }
 
+.activity-committee-sections__list > li,
+.activity-committee-card__records > li {
+  min-width: 0;
+}
+
+.activity-committee-card__details {
+  display: grid;
+  gap: 0.46rem;
+}
+
+.activity-committee-card__details-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.62rem 0.74rem;
+  border: 1px solid rgba(72, 56, 40, 0.08);
+  border-radius: 14px;
+  background: rgba(245, 238, 230, 0.9);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.activity-committee-card__details-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.activity-committee-card__details-toggle::after {
+  content: "열기";
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.activity-committee-card__details[open] .activity-committee-card__details-toggle::after {
+  content: "접기";
+}
+
 .activity-committee-card__badge {
   border-color: rgba(47, 118, 82, 0.16);
   background: color-mix(in srgb, var(--positive) 12%, white);
@@ -390,6 +468,13 @@
 .activity-committee-card__record-link {
   border-radius: 14px;
   background: rgba(245, 238, 230, 0.9);
+}
+
+.activity-committee-sections__toggle {
+  justify-self: start;
+  border-color: rgba(72, 56, 40, 0.1);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--accent);
 }
 
 .activity-compare {
@@ -534,5 +619,13 @@
 
   .activity-committee-sections__groups {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .activity-committee-sections__group-header {
+    flex-direction: column;
+  }
+
+  .activity-committee-sections__count {
+    align-self: start;
   }
 }
