@@ -197,6 +197,11 @@ describe("web app", () => {
 
     expect(await screen.findByRole("heading", { name: "의원 표결 활동 그래프" })).toBeInTheDocument();
     const voteRecordSection = await screen.findByRole("region", { name: "의안별 표결 기록" });
+    expect(within(voteRecordSection).getByText("불참")).toBeInTheDocument();
+    const hiddenVoteRecordToggle = within(voteRecordSection).getByText("나머지 1건 보기");
+    expect(
+      (hiddenVoteRecordToggle.closest(".activity-vote-records__details") as HTMLElement | null)
+    ).not.toHaveAttribute("open");
     expect(
       (await within(voteRecordSection).findAllByText("공영방송 지배구조 개선법안")).length
     ).toBeGreaterThan(0);

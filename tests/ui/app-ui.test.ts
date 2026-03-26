@@ -8,6 +8,7 @@ import {
   createBrowserSession,
   ensureScreenshotRoot,
   launchBrowser,
+  saveLocatorScreenshot,
   saveScreenshot,
   startUiServers,
   stopServer,
@@ -160,6 +161,28 @@ async function openHomeFlow(viewportName: string): Promise<void> {
       viewport: viewportName,
       scenario: "home-search-to-single-calendar",
       screenshot: calendarScreenshot
+    });
+
+    const voteRecordSection = page.locator(".activity-vote-records").first();
+    await voteRecordSection.scrollIntoViewIfNeeded();
+    await voteRecordSection.waitFor();
+    expect(await voteRecordSection.getByText("불참", { exact: true }).isVisible()).toBe(true);
+
+    const voteRecordToggle = voteRecordSection.locator(".activity-vote-records__details-toggle");
+    expect(await voteRecordToggle.count()).toBeGreaterThan(0);
+    const voteRecordToggleHeight = await voteRecordToggle.first().evaluate((element) =>
+      element.getBoundingClientRect().height
+    );
+    expect(voteRecordToggleHeight).toBeGreaterThanOrEqual(44);
+
+    const voteRecordsScreenshot = await saveLocatorScreenshot(
+      voteRecordSection,
+      `${viewportName}/calendar-vote-records.png`
+    );
+    scenarioManifest.push({
+      viewport: viewportName,
+      scenario: "calendar-vote-records",
+      screenshot: voteRecordsScreenshot
     });
 
     await page.getByRole("button", { name: "홈으로" }).click();

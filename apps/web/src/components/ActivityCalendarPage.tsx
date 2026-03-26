@@ -32,7 +32,7 @@ import {
   type CalendarCell
 } from "../lib/member-activity.js";
 import { buildCalendarHref, type ActivityViewMode } from "../lib/calendar-route.js";
-import { formatDate, formatNumber } from "../lib/format.js";
+import { formatDate, formatNumber, formatVoteCodeLabel } from "../lib/format.js";
 import { MemberIdentity } from "./MemberIdentity.js";
 import { MemberSearchField } from "./MemberSearchField.js";
 
@@ -55,6 +55,7 @@ type ActivityCalendarPageProps = {
 
 const ACTIVITY_RATIO_CHART_HEIGHT = 220;
 const INITIAL_VISIBLE_COMMITTEE_COUNT = 3;
+const INITIAL_VISIBLE_VOTE_RECORDS_PER_GROUP = 2;
 
 const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
 const currentRunLabel = "현재 찬성 없이 이어진 날";
@@ -493,23 +494,46 @@ function ActivityVoteRecordSections({
 }) {
   const resolvedRecordCount = Math.max(recordCount, records.length);
   const isPendingRemoteLoad = resolvedRecordCount > records.length && !loading && !error;
-  const groupedRecords: Array<{
+  const groupedRecordDefinitions: Array<{
+    voteCode: MemberActivityVoteRecord["voteCode"];
     label: string;
     records: MemberActivityVoteRecord[];
   }> = [
     {
+      voteCode: "yes",
       label: "찬성",
       records: records.filter((record) => record.voteCode === "yes")
     },
     {
+      voteCode: "no",
       label: "반대",
       records: records.filter((record) => record.voteCode === "no")
     },
     {
+      voteCode: "abstain",
       label: "기권",
       records: records.filter((record) => record.voteCode === "abstain")
+    },
+    {
+      voteCode: "absent",
+      label: "불참",
+      records: records.filter((record) => record.voteCode === "absent")
     }
-  ].filter((group) => group.records.length > 0);
+  ];
+  const groupedRecords: Array<{
+    voteCode: MemberActivityVoteRecord["voteCode"];
+    label: string;
+    records: MemberActivityVoteRecord[];
+    previewRecords: MemberActivityVoteRecord[];
+    hiddenRecords: MemberActivityVoteRecord[];
+  }> = groupedRecordDefinitions
+    .map((group) => ({
+      ...group,
+      previewRecords: group.records.slice(0, INITIAL_VISIBLE_VOTE_RECORDS_PER_GROUP),
+      hiddenRecords: group.records.slice(INITIAL_VISIBLE_VOTE_RECORDS_PER_GROUP)
+    }))
+    .filter((group) => group.records.length > 0);
+  const hasCollapsedGroups = groupedRecords.some((group) => group.hiddenRecords.length > 0);
 
   if (resolvedRecordCount === 0 && !loading && !error) {
     return null;
@@ -519,9 +543,11 @@ function ActivityVoteRecordSections({
     <section className="activity-vote-records" aria-label="의안별 표결 기록">
       <div className="activity-vote-records__header">
         <h4>의안별 표결 기록</h4>
-        <p>{`해당 의원이 찬성·반대·기권한 의안을 최근 순으로 봅니다. 총 ${formatNumber(
-          resolvedRecordCount
-        )}건`}</p>
+        <p>
+          {hasCollapsedGroups
+            ? `해당 의원의 찬성·반대·기권·불참 의안을 최근 순으로 묶고, 각 그룹은 최근 ${formatNumber(INITIAL_VISIBLE_VOTE_RECORDS_PER_GROUP)}건만 먼저 보여줍니다. 총 ${formatNumber(resolvedRecordCount)}건`
+            : `해당 의원의 찬성·반대·기권·불참 의안을 최근 순으로 봅니다. 총 ${formatNumber(resolvedRecordCount)}건`}
+        </p>
       </div>
       {loading || isPendingRemoteLoad ? (
         <p className="activity-drawer__empty">전체 표결 기록을 불러오는 중입니다…</p>
@@ -537,54 +563,99 @@ function ActivityVoteRecordSections({
         </div>
       ) : null}
       {!loading && !isPendingRemoteLoad && !error && groupedRecords.length === 0 ? (
-        <p className="activity-drawer__empty">표시할 찬성·반대·기권 기록이 없습니다.</p>
+        <p className="activity-drawer__empty">표시할 찬성·반대·기권·불참 기록이 없습니다.</p>
       ) : null}
       {!loading && !isPendingRemoteLoad && !error && groupedRecords.length > 0 ? (
-      <div className="activity-vote-records__groups">
-        {groupedRecords.map((group) => (
-          <section
-            key={group.label}
-            className="activity-vote-records__group"
-            aria-label={`${group.label} 의안`}
-          >
-            <div className="activity-vote-records__group-header">
-              <h5>{group.label}</h5>
-              <span>{`${formatNumber(group.records.length)}건`}</span>
-            </div>
-            <ul className="activity-vote-records__list">
-              {group.records.map((record) => {
-                const content = (
-                  <>
-                    <span className="activity-vote-records__meta">
-                      {record.committeeName
-                        ? `${formatDate(record.voteDatetime)} · ${record.committeeName}`
-                        : formatDate(record.voteDatetime)}
-                    </span>
-                    <strong>{record.billName}</strong>
-                  </>
-                );
+        <div className="activity-vote-records__groups">
+          {groupedRecords.map((group) => (
+            <section
+              key={group.label}
+              className={`activity-vote-records__group activity-vote-records__group--${group.voteCode}`}
+              aria-label={`${group.label} 의안`}
+            >
+              <div className="activity-vote-records__group-header">
+                <div className="activity-vote-records__group-copy">
+                  <h5>{group.label}</h5>
+                  {group.hiddenRecords.length > 0 ? (
+                    <p>{`최근 ${formatNumber(group.previewRecords.length)}건만 먼저 표시합니다.`}</p>
+                  ) : null}
+                </div>
+                <span className="activity-vote-records__count">
+                  {`${formatNumber(group.records.length)}건`}
+                </span>
+              </div>
+              <ul className="activity-vote-records__list">
+                {group.previewRecords.map((record) => {
+                  const content = (
+                    <>
+                      <span className="activity-vote-records__meta">
+                        {record.committeeName
+                          ? `${formatDate(record.voteDatetime)} · ${record.committeeName}`
+                          : formatDate(record.voteDatetime)}
+                      </span>
+                      <strong>{record.billName}</strong>
+                    </>
+                  );
 
-                return (
-                  <li key={`${group.label}:${record.rollCallId}`}>
-                    {record.officialSourceUrl ? (
-                      <a
-                        href={record.officialSourceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="activity-vote-records__item"
-                      >
-                        {content}
-                      </a>
-                    ) : (
-                      <div className="activity-vote-records__item">{content}</div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))}
-      </div>
+                  return (
+                    <li key={`${group.label}:${record.rollCallId}`}>
+                      {record.officialSourceUrl ? (
+                        <a
+                          href={record.officialSourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="activity-vote-records__item"
+                        >
+                          {content}
+                        </a>
+                      ) : (
+                        <div className="activity-vote-records__item">{content}</div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              {group.hiddenRecords.length > 0 ? (
+                <details className="activity-vote-records__details">
+                  <summary className="activity-vote-records__details-toggle">
+                    {`나머지 ${formatNumber(group.hiddenRecords.length)}건 보기`}
+                  </summary>
+                  <ul className="activity-vote-records__list activity-vote-records__list--nested">
+                    {group.hiddenRecords.map((record) => {
+                      const content = (
+                        <>
+                          <span className="activity-vote-records__meta">
+                            {record.committeeName
+                              ? `${formatDate(record.voteDatetime)} · ${record.committeeName}`
+                              : formatDate(record.voteDatetime)}
+                          </span>
+                          <strong>{record.billName}</strong>
+                        </>
+                      );
+
+                      return (
+                        <li key={`${group.label}:${record.rollCallId}`}>
+                          {record.officialSourceUrl ? (
+                            <a
+                              href={record.officialSourceUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="activity-vote-records__item"
+                            >
+                              {content}
+                            </a>
+                          ) : (
+                            <div className="activity-vote-records__item">{content}</div>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </details>
+              ) : null}
+            </section>
+          ))}
+        </div>
       ) : null}
     </section>
   );
@@ -741,12 +812,7 @@ function ActivityCommitteeSections({
                             <ul className="activity-committee-card__records">
                               {summary.recentVoteRecords.map((record) => {
                                 const recordDateLabel = formatDate(record.voteDatetime);
-                                const detailLabel =
-                                  record.voteCode === "yes"
-                                    ? "찬성"
-                                    : record.voteCode === "no"
-                                      ? "반대"
-                                      : "기권";
+                                const detailLabel = formatVoteCodeLabel(record.voteCode);
                                 const recordContent = (
                                   <>
                                     <span className="activity-committee-card__record-copy">

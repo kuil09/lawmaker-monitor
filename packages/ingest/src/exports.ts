@@ -65,7 +65,7 @@ type MemberVoteRecord = {
   billName: string;
   committeeName: string | null;
   voteDatetime: string;
-  voteCode: "yes" | "no" | "abstain";
+  voteCode: MemberCentricVoteCode;
   officialSourceUrl: string | null;
 };
 type CommitteeSummary = {
@@ -579,50 +579,39 @@ function buildVerifiedAbsentMemberIdsByRollCall(args: {
 function buildMemberVoteRecordsByMember(args: {
   currentMembers: NormalizedBundle["members"];
   assemblyRollCalls: NormalizedBundle["rollCalls"];
-  voteFacts: NormalizedBundle["voteFacts"];
+  voteCodeLookup: Map<string, VoteCode>;
   eligibleRollCallIdsByMember?: Map<string, Set<string>>;
 }): Map<string, MemberVoteRecord[]> {
-  const currentMemberIds = new Set(args.currentMembers.map((member) => member.memberId));
-  const rollCallsById = new Map(
-    args.assemblyRollCalls.map((rollCall) => [rollCall.rollCallId, rollCall])
-  );
   const recordsByMember = new Map<string, MemberVoteRecord[]>();
+  const allAssemblyRollCallIds = new Set(
+    args.assemblyRollCalls.map((rollCall) => rollCall.rollCallId)
+  );
 
-  for (const voteFact of args.voteFacts) {
-    if (!voteFact.memberId || !currentMemberIds.has(voteFact.memberId)) {
-      continue;
+  for (const member of args.currentMembers) {
+    const eligibleRollCallIds =
+      args.eligibleRollCallIdsByMember?.get(member.memberId) ?? allAssemblyRollCallIds;
+    const currentRecords: MemberVoteRecord[] = [];
+
+    for (const rollCall of args.assemblyRollCalls) {
+      if (!eligibleRollCallIds.has(rollCall.rollCallId)) {
+        continue;
+      }
+
+      currentRecords.push({
+        rollCallId: rollCall.rollCallId,
+        billName: rollCall.billName,
+        committeeName: rollCall.committeeName ?? null,
+        voteDatetime: rollCall.voteDatetime,
+        voteCode: resolveMemberCentricVoteCode({
+          rollCallId: rollCall.rollCallId,
+          memberId: member.memberId,
+          voteCodeLookup: args.voteCodeLookup
+        }),
+        officialSourceUrl: rollCall.officialSourceUrl ?? null
+      });
     }
 
-    if (
-      voteFact.voteCode !== "yes" &&
-      voteFact.voteCode !== "no" &&
-      voteFact.voteCode !== "abstain"
-    ) {
-      continue;
-    }
-
-    if (
-      args.eligibleRollCallIdsByMember &&
-      !args.eligibleRollCallIdsByMember.get(voteFact.memberId)?.has(voteFact.rollCallId)
-    ) {
-      continue;
-    }
-
-    const rollCall = rollCallsById.get(voteFact.rollCallId);
-    if (!rollCall) {
-      continue;
-    }
-
-    const currentRecords = recordsByMember.get(voteFact.memberId) ?? [];
-    currentRecords.push({
-      rollCallId: rollCall.rollCallId,
-      billName: rollCall.billName,
-      committeeName: rollCall.committeeName ?? null,
-      voteDatetime: rollCall.voteDatetime,
-      voteCode: voteFact.voteCode,
-      officialSourceUrl: rollCall.officialSourceUrl ?? null
-    });
-    recordsByMember.set(voteFact.memberId, currentRecords);
+    recordsByMember.set(member.memberId, currentRecords);
   }
 
   for (const records of recordsByMember.values()) {
@@ -1215,7 +1204,7 @@ export function buildMemberActivityCalendarArtifacts(
   const memberVoteRecordsByMember = buildMemberVoteRecordsByMember({
     currentMembers,
     assemblyRollCalls,
-    voteFacts: bundle.voteFacts,
+    voteCodeLookup,
     eligibleRollCallIdsByMember: eligibleRollCallIdsByMember ?? undefined
   });
   const committeeSummariesByMember = buildCommitteeSummariesByMember({

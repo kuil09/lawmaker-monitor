@@ -164,7 +164,7 @@ export const memberActivityVoteRecordSchema = z.object({
   billName: nonEmptyString,
   committeeName: nonEmptyString.nullable().optional(),
   voteDatetime: nonEmptyString,
-  voteCode: z.enum(["yes", "no", "abstain"]),
+  voteCode: z.enum(["yes", "no", "abstain", "absent"]),
   officialSourceUrl: nonEmptyString.url().nullable().optional()
 });
 

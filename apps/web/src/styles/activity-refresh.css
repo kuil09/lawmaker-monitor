@@ -384,6 +384,7 @@
   background: rgba(255, 255, 255, 0.56);
 }
 
+.activity-vote-records__group-header,
 .activity-committee-sections__group-header {
   display: flex;
   align-items: start;
@@ -391,15 +392,30 @@
   gap: 0.75rem;
 }
 
+.activity-vote-records__group-copy,
 .activity-committee-sections__group-copy {
   display: grid;
   gap: 0.18rem;
 }
 
+.activity-vote-records__group-copy p,
 .activity-committee-sections__group-copy p {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.78rem;
+}
+
+.activity-vote-records__count {
+  border-color: color-mix(
+    in srgb,
+    var(--activity-vote-records-accent) 18%,
+    rgba(72, 56, 40, 0.1)
+  );
+  background: color-mix(
+    in srgb,
+    var(--activity-vote-records-accent) 10%,
+    rgba(255, 255, 255, 0.82)
+  );
 }
 
 .activity-committee-sections__count {
@@ -436,11 +452,13 @@
   min-width: 0;
 }
 
+.activity-vote-records__details,
 .activity-committee-card__details {
   display: grid;
   gap: 0.46rem;
 }
 
+.activity-vote-records__details-toggle,
 .activity-committee-card__details-toggle {
   display: flex;
   align-items: center;
@@ -458,10 +476,25 @@
   list-style: none;
 }
 
+.activity-vote-records__details-toggle {
+  border-color: color-mix(
+    in srgb,
+    var(--activity-vote-records-accent) 14%,
+    rgba(72, 56, 40, 0.08)
+  );
+  background: color-mix(
+    in srgb,
+    var(--activity-vote-records-accent) 10%,
+    rgba(245, 238, 230, 0.9)
+  );
+}
+
+.activity-vote-records__details-toggle::-webkit-details-marker,
 .activity-committee-card__details-toggle::-webkit-details-marker {
   display: none;
 }
 
+.activity-vote-records__details-toggle::after,
 .activity-committee-card__details-toggle::after {
   content: "열기";
   color: var(--text-muted);
@@ -470,6 +503,7 @@
   flex: 0 0 auto;
 }
 
+.activity-vote-records__details[open] .activity-vote-records__details-toggle::after,
 .activity-committee-card__details[open] .activity-committee-card__details-toggle::after {
   content: "접기";
 }

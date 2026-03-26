@@ -98,7 +98,7 @@
             "message": "현재 소속 위원회 표결 참여율이 낮습니다."
           }
         ],
-        "voteRecordCount": 3,
+        "voteRecordCount": 6,
         "voteRecordsPath": "exports/member_activity_calendar_members/M002.json",
         "voteRecords": [],
         "dayStates": [

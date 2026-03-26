@@ -6,6 +6,22 @@
   "memberId": "M002",
   "voteRecords": [
     {
+      "rollCallId": "roll-call-6",
+      "billName": "공직자윤리법 일부개정법률안",
+      "committeeName": "법제사법위원회",
+      "voteDatetime": "2026-03-23T16:10:00+09:00",
+      "voteCode": "absent",
+      "officialSourceUrl": "https://open.assembly.go.kr/votes/roll-call-6"
+    },
+    {
+      "rollCallId": "roll-call-5",
+      "billName": "재난안전법 일부개정법률안",
+      "committeeName": "행정안전위원회",
+      "voteDatetime": "2026-03-23T10:05:00+09:00",
+      "voteCode": "absent",
+      "officialSourceUrl": "https://open.assembly.go.kr/votes/roll-call-5"
+    },
+    {
       "rollCallId": "roll-call-3",
       "billName": "감사원법 일부개정법률안(대안)",
       "committeeName": "법제사법위원회",
@@ -20,6 +36,14 @@
       "voteDatetime": "2026-03-22T11:40:00+09:00",
       "voteCode": "abstain",
       "officialSourceUrl": "https://open.assembly.go.kr/votes/roll-call-2"
+    },
+    {
+      "rollCallId": "roll-call-4",
+      "billName": "국회법 일부개정법률안",
+      "committeeName": "운영위원회",
+      "voteDatetime": "2026-03-22T09:10:00+09:00",
+      "voteCode": "absent",
+      "officialSourceUrl": "https://open.assembly.go.kr/votes/roll-call-4"
     },
     {
       "rollCallId": "roll-call-1",

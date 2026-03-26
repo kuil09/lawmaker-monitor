@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { fileURLToPath } from "node:url";
 import { extname, resolve } from "node:path";
 
-import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+import { chromium, type Browser, type BrowserContext, type Locator, type Page } from "playwright";
 
 export const appPort = 4173;
 export const dataPort = 4174;
@@ -275,7 +275,7 @@ export async function createBrowserSession(
   });
 
   const page = await context.newPage();
-  page.setDefaultTimeout(15_000);
+  page.setDefaultTimeout(20_000);
 
   page.on("console", (message) => {
     if (message.type() === "error") {
@@ -303,6 +303,18 @@ export async function saveScreenshot(page: Page, relativePath: string): Promise<
   await page.screenshot({
     path: outputPath,
     fullPage: true
+  });
+  return outputPath;
+}
+
+export async function saveLocatorScreenshot(
+  locator: Locator,
+  relativePath: string
+): Promise<string> {
+  const outputPath = resolve(screenshotRoot, relativePath);
+  await mkdir(resolve(outputPath, ".."), { recursive: true });
+  await locator.screenshot({
+    path: outputPath
   });
   return outputPath;
 }

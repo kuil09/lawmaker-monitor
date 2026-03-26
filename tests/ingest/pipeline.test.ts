@@ -414,7 +414,7 @@ describe("data pipeline contracts", () => {
         })
       ]),
       voteRecords: [],
-      voteRecordCount: 1,
+      voteRecordCount: 2,
       voteRecordsPath: "exports/member_activity_calendar_members/M002.json",
       dayStates: [
         expect.objectContaining({
@@ -424,11 +424,14 @@ describe("data pipeline contracts", () => {
     });
     expect(validatedMemberDetails.find((detail) => detail.memberId === "M002")).toMatchObject({
       memberId: "M002",
-      voteRecords: [
+      voteRecords: expect.arrayContaining([
         expect.objectContaining({
           voteCode: "no"
+        }),
+        expect.objectContaining({
+          voteCode: "absent"
         })
-      ]
+      ])
     });
     expect(manifest.currentAssembly).toMatchObject({
       assemblyNo: 22,
@@ -495,7 +498,7 @@ describe("data pipeline contracts", () => {
     ).toMatchObject({
       memberId: "M002",
       voteRecords: [],
-      voteRecordCount: 3,
+      voteRecordCount: 6,
       voteRecordsPath: "exports/member_activity_calendar_members/M002.json"
     });
     expect(
