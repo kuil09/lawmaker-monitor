@@ -740,13 +740,26 @@ function ActivityCommitteeSections({
                             </summary>
                             <ul className="activity-committee-card__records">
                               {summary.recentVoteRecords.map((record) => {
-                                const linkLabel = `${formatDate(record.voteDatetime)} · ${record.billName}`;
+                                const recordDateLabel = formatDate(record.voteDatetime);
                                 const detailLabel =
                                   record.voteCode === "yes"
                                     ? "찬성"
                                     : record.voteCode === "no"
                                       ? "반대"
                                       : "기권";
+                                const recordContent = (
+                                  <>
+                                    <span className="activity-committee-card__record-copy">
+                                      <span className="activity-committee-card__record-meta">
+                                        {recordDateLabel}
+                                      </span>
+                                      <strong className="activity-committee-card__record-title">
+                                        {record.billName}
+                                      </strong>
+                                    </span>
+                                    <em>{detailLabel}</em>
+                                  </>
+                                );
 
                                 return (
                                   <li key={`${summary.committeeName}:${record.rollCallId}`}>
@@ -757,13 +770,11 @@ function ActivityCommitteeSections({
                                         rel="noreferrer"
                                         className="activity-committee-card__record-link"
                                       >
-                                        <span>{linkLabel}</span>
-                                        <em>{detailLabel}</em>
+                                        {recordContent}
                                       </a>
                                     ) : (
                                       <div className="activity-committee-card__record-link">
-                                        <span>{linkLabel}</span>
-                                        <em>{detailLabel}</em>
+                                        {recordContent}
                                       </div>
                                     )}
                                   </li>

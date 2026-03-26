@@ -196,7 +196,10 @@ describe("web app", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "의원 표결 활동 그래프" })).toBeInTheDocument();
-    expect(await screen.findByText("공영방송 지배구조 개선법안")).toBeInTheDocument();
+    const voteRecordSection = await screen.findByRole("region", { name: "의안별 표결 기록" });
+    expect(
+      (await within(voteRecordSection).findAllByText("공영방송 지배구조 개선법안")).length
+    ).toBeGreaterThan(0);
     expect(
       fetchMock.mock.calls.filter(([url]) =>
         String(url).includes("/exports/member_activity_calendar_members/M002.json")
@@ -273,9 +276,13 @@ describe("web app", () => {
     expect(screen.getByText("관심 높은 위원회")).toBeInTheDocument();
     expect(screen.getByText("무관심한 위원회")).toBeInTheDocument();
     expect(screen.getAllByText("소속 위원회").length).toBeGreaterThan(0);
-    expect(screen.getByText("의안별 표결 기록")).toBeInTheDocument();
-    expect(await screen.findByText("공영방송 지배구조 개선법안")).toBeInTheDocument();
-    expect(await screen.findByText("예산 조정 동의안")).toBeInTheDocument();
+    const voteRecordSection = await screen.findByRole("region", { name: "의안별 표결 기록" });
+    expect(
+      (await within(voteRecordSection).findAllByText("공영방송 지배구조 개선법안")).length
+    ).toBeGreaterThan(0);
+    expect(
+      (await within(voteRecordSection).findAllByText("예산 조정 동의안")).length
+    ).toBeGreaterThan(0);
     expect(screen.getByDisplayValue("박민 · 미래개혁당")).toBeInTheDocument();
   });
 

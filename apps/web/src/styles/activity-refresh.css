@@ -50,6 +50,20 @@
   box-shadow: var(--shadow-soft);
 }
 
+.activity-page__back,
+.activity-page__help-button {
+  border-color: rgba(72, 56, 40, 0.14);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 12px 26px rgba(72, 56, 40, 0.12);
+}
+
+.activity-page__back:hover,
+.activity-page__help-button:hover {
+  border-color: rgba(123, 49, 40, 0.24);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 16px 30px rgba(123, 49, 40, 0.16);
+}
+
 .activity-page__panel-copy--help {
   border-color: rgba(72, 56, 40, 0.1);
   border-radius: 18px;
@@ -432,7 +446,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.65rem;
-  padding: 0.62rem 0.74rem;
+  min-height: 2.75rem;
+  padding: 0.7rem 0.78rem;
   border: 1px solid rgba(72, 56, 40, 0.08);
   border-radius: 14px;
   background: rgba(245, 238, 230, 0.9);
@@ -466,8 +481,17 @@
 }
 
 .activity-committee-card__record-link {
+  border: 1px solid rgba(72, 56, 40, 0.08);
   border-radius: 14px;
   background: rgba(245, 238, 230, 0.9);
+}
+
+.activity-committee-card__record-link:hover {
+  border-color: rgba(152, 45, 34, 0.18);
+}
+
+.activity-committee-card__record-link em {
+  align-self: center;
 }
 
 .activity-committee-sections__toggle {

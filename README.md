@@ -63,7 +63,10 @@ Useful commands during development:
 npm run dev:web
 npm run ingest:live --workspace @lawmaker-monitor/ingest
 npm run build:data --workspace @lawmaker-monitor/ingest
+npm run test:ui
 ```
+
+UI flow coverage and screenshot outputs are documented in `docs/testing/ui-test-cases.md`.
 
 Additional operational scripts:
 

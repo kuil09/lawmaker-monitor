@@ -12,4 +12,5 @@ coverage
 tmp
 .tmp
 artifacts
+.artifacts
 out
