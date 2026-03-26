@@ -30,17 +30,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node, install dependencies, and build shared workspaces
+        uses: ./.github/actions/setup-node-workspaces
         with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build shared schemas
-        run: npm run build --workspace @lawmaker-monitor/schemas
+          build-target: schemas
 
       - name: Configure Pages
         id: pages

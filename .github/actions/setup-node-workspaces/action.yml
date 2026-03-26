@@ -1,0 +1,45 @@
+name: Setup Node Workspaces
+description: Setup Node.js, install dependencies with npm ci, and optionally build shared workspaces.
+
+inputs:
+  node-version:
+    description: Node.js version to install
+    required: false
+    default: "22"
+  build-target:
+    description: Shared workspace build target
+    required: false
+    default: "schemas-and-ingest"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Build shared workspaces
+      shell: bash
+      run: |
+        case "${{ inputs.build-target }}" in
+          none)
+            echo "Skipping shared workspace build."
+            ;;
+          schemas)
+            npm run build --workspace @lawmaker-monitor/schemas
+            ;;
+          schemas-and-ingest)
+            npm run build --workspace @lawmaker-monitor/schemas
+            npm run build --workspace @lawmaker-monitor/ingest
+            ;;
+          *)
+            echo "Unknown build target: ${{ inputs.build-target }}" >&2
+            exit 1
+            ;;
+        esac

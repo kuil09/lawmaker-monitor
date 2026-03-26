@@ -41,20 +41,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node, install dependencies, and build shared workspaces
+        uses: ./.github/actions/setup-node-workspaces
         with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm install
+          build-target: schemas-and-ingest
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
-
-      - name: Build schema and ingest packages
-        run: npm run build --workspace @lawmaker-monitor/schemas && npm run build --workspace @lawmaker-monitor/ingest
 
       - name: Clone public data repository
         if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''

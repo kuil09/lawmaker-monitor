@@ -39,17 +39,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node, install dependencies, and build shared workspaces
+        uses: ./.github/actions/setup-node-workspaces
         with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build schema and ingest packages
-        run: npm run build --workspace @lawmaker-monitor/schemas && npm run build --workspace @lawmaker-monitor/ingest
+          build-target: schemas-and-ingest
 
       - name: Resolve raw artifact source for manual build
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.raw_source != 'fixtures'
