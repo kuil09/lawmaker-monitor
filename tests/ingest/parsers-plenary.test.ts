@@ -5,13 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseAgendaXml,
-  parseBillVoteSummaryXml,
-  parseCommitteeOverviewXml,
-  parseCommitteeRosterXml,
   parseLiveSignalXml,
-  parseMemberInfoXml,
-  parseMemberProfileAllXml,
-  parseMemberHistoryXml,
   parseMeetingXml,
   parseOfficialVoteXml,
   parseVoteDetailPayload
@@ -20,7 +14,7 @@ import {
 const snapshotDir = resolve(process.cwd(), "tests/fixtures/raw/fixture-snapshot-20260322-114500");
 const officialDir = resolve(snapshotDir, "official");
 
-describe("official parsers", () => {
+describe("plenary and vote parsers", () => {
   it("parses vote rows into roll calls, members, and vote facts", () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <국회의원본회의표결정보>
@@ -333,180 +327,5 @@ describe("official parsers", () => {
       memberName: "홍길동",
       voteCode: "no"
     });
-  });
-
-  it("parses current-member roster rows from nwvrqwxyaytdsfvhu", () => {
-    const payload = readFileSync(resolve(officialDir, "member_info/page-1.xml"), "utf8");
-    const parsed = parseMemberInfoXml(payload);
-
-    expect(parsed.currentAssembly).toMatchObject({
-      assemblyNo: 22,
-      label: "제22대 국회"
-    });
-    expect(parsed.members).toHaveLength(3);
-    expect(parsed.members[0]).toMatchObject({
-      memberId: "M001",
-      name: "김아라",
-      committeeMemberships: ["과학기술정보방송통신위원회", "예산결산특별위원회"],
-      photoUrl: null,
-      officialProfileUrl: "https://www.assembly.go.kr/members/22nd/KIMARA",
-      officialExternalUrl: "https://blog.example.kr/kim-ara",
-      isCurrentMember: true
-    });
-    expect(parsed.members[1]?.officialExternalUrl).toBeNull();
-    expect(parsed.members[2]?.proportionalFlag).toBe(true);
-  });
-
-  it("parses ALLNAMEMBER profile rows without promoting them to canonical member IDs", () => {
-    const payload = readFileSync(resolve(officialDir, "member_profile_all/page-1.xml"), "utf8");
-    const parsed = parseMemberProfileAllXml(payload);
-
-    expect(parsed.currentAssembly).toMatchObject({
-      assemblyNo: 22,
-      label: "제22대 국회"
-    });
-    expect(parsed.profiles).toHaveLength(4);
-    expect(parsed.profiles[0]).toMatchObject({
-      naasCd: "NAAS001",
-      name: "김아라",
-      party: "미래개혁당",
-      district: "서울 중구",
-      committeeMemberships: ["과학기술정보방송통신위원회", "예산결산특별위원회"],
-      photoUrl: "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m001.jpg",
-      officialProfileUrl: "https://www.assembly.go.kr/members/22nd/KIMARA",
-      officialExternalUrl: "https://blog.example.kr/kim-ara",
-      profile: {
-        nameHanja: "金아라",
-        nameEnglish: "KIM ARA",
-        officePhone: "02-784-0001",
-        aideNames: ["나보좌"]
-      }
-    });
-    expect(parsed.profiles[2]?.photoUrl).toBeNull();
-    expect(parsed.profiles[2]?.proportionalFlag).toBe(true);
-    expect(parsed.profiles[3]).toMatchObject({
-      naasCd: "NAAS999",
-      name: "퇴직의원",
-      photoUrl: "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-former.jpg"
-    });
-  });
-
-  it("parses committee roster rows into member-to-committee links", () => {
-    const xml = readFileSync(resolve(officialDir, "committee_roster/page-1.xml"), "utf8");
-    const parsed = parseCommitteeRosterXml(xml);
-
-    expect(parsed).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          memberId: "M001",
-          memberName: "김아라",
-          committeeName: "과학기술정보방송통신위원회"
-        }),
-        expect.objectContaining({
-          memberId: "M002",
-          committeeName: "예산결산특별위원회"
-        })
-      ])
-    );
-  });
-
-  it("parses committee overview rows", () => {
-    const xml = readFileSync(resolve(officialDir, "committee_overview/page-1.xml"), "utf8");
-    const parsed = parseCommitteeOverviewXml(xml);
-
-    expect(parsed).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          committeeName: "법제사법위원회",
-          committeeType: "상임위원회",
-          memberLimit: 18,
-          currentMemberCount: 18
-        })
-      ])
-    );
-  });
-
-  it("parses member history rows into tenure periods", () => {
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<nexgtxtmaamffofof>
-  <row>
-    <HG_NM>김아라</HG_NM>
-    <HJ_NM>金아라</HJ_NM>
-    <FRTO_DATE>2024.05.30 ~ 2028.05.29</FRTO_DATE>
-    <PROFILE_SJ>제22대 국회의원</PROFILE_SJ>
-    <MONA_CD>M001</MONA_CD>
-    <UNIT_CD>100022</UNIT_CD>
-    <UNIT_NM>제22대</UNIT_NM>
-  </row>
-  <row>
-    <HG_NM>박민</HG_NM>
-    <HJ_NM>朴敏</HJ_NM>
-    <FRTO_DATE>2026.03.21 ~ 2028.05.29</FRTO_DATE>
-    <PROFILE_SJ>제22대 국회의원</PROFILE_SJ>
-    <MONA_CD>M002</MONA_CD>
-    <UNIT_CD>100022</UNIT_CD>
-    <UNIT_NM>제22대</UNIT_NM>
-  </row>
-  <row>
-    <HG_NM>박민</HG_NM>
-    <HJ_NM>朴敏</HJ_NM>
-    <FRTO_DATE>2020.05.30 ~ 2024.05.29</FRTO_DATE>
-    <PROFILE_SJ>제21대 국회의원</PROFILE_SJ>
-    <MONA_CD>M002</MONA_CD>
-    <UNIT_CD>100022</UNIT_CD>
-    <UNIT_NM>제22대</UNIT_NM>
-  </row>
-</nexgtxtmaamffofof>`;
-
-    const parsed = parseMemberHistoryXml(xml);
-
-    expect(parsed).toEqual([
-      {
-        memberId: "M001",
-        name: "김아라",
-        assemblyNo: 22,
-        unitCd: "100022",
-        startDate: "2024-05-30",
-        endDate: "2028-05-29"
-      },
-      {
-        memberId: "M002",
-        name: "박민",
-        assemblyNo: 22,
-        unitCd: "100022",
-        startDate: "2026-03-21",
-        endDate: "2028-05-29"
-      },
-      {
-        memberId: "M002",
-        name: "박민",
-        assemblyNo: 21,
-        unitCd: "100022",
-        startDate: "2020-05-30",
-        endDate: "2024-05-29"
-      }
-    ]);
-  });
-
-  it("parses official bill vote summary rows into tally counts", () => {
-    const xml = readFileSync(resolve(officialDir, "bill_vote_summary/page-1.xml"), "utf8");
-    const parsed = parseBillVoteSummaryXml(xml);
-
-    expect(parsed).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          billId: "PRC_A1B2C3D4E5F6",
-          officialSourceUrl: "http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_A1B2C3D4E5F6",
-          officialTally: {
-            registeredCount: 4,
-            presentCount: 3,
-            yesCount: 1,
-            noCount: 1,
-            abstainCount: 1,
-            invalidCount: 0
-          }
-        })
-      ])
-    );
   });
 });
