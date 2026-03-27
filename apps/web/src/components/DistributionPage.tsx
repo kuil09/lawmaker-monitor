@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type {
   AccountabilitySummaryExport,
@@ -17,6 +17,7 @@ import {
 
 import { buildCalendarHref } from "../lib/calendar-route.js";
 import {
+  buildDistributionChartDomain,
   buildDistributionMembers,
   buildDistributionPartySummaries,
   getDefaultDistributionMemberId,
@@ -64,6 +65,8 @@ const partyPalette = [
   "#8b5c88",
   "#5c4f98"
 ];
+const MIN_POINT_PHOTO_SIZE = 48;
+const distributionPointPhotoCache = new Map<string, boolean>();
 
 function formatPercentPointDelta(value: number): string {
   if (Math.abs(value) < 0.0005) {
@@ -92,6 +95,67 @@ function buildChartPoints(members: DistributionMemberPoint[]): DistributionChart
   }));
 }
 
+function useDistributionPointPhoto(photoUrl?: string | null): boolean {
+  const [canUsePhoto, setCanUsePhoto] = useState(() => {
+    if (!photoUrl) {
+      return false;
+    }
+
+    return distributionPointPhotoCache.get(photoUrl) ?? false;
+  });
+
+  useEffect(() => {
+    if (!photoUrl) {
+      setCanUsePhoto(false);
+      return;
+    }
+
+    const cachedValue = distributionPointPhotoCache.get(photoUrl);
+    if (typeof cachedValue === "boolean") {
+      setCanUsePhoto(cachedValue);
+      return;
+    }
+
+    if (typeof Image === "undefined") {
+      setCanUsePhoto(false);
+      return;
+    }
+
+    let active = true;
+    const image = new Image();
+    image.decoding = "async";
+
+    image.onload = () => {
+      if (!active) {
+        return;
+      }
+
+      const isUsable =
+        image.naturalWidth >= MIN_POINT_PHOTO_SIZE &&
+        image.naturalHeight >= MIN_POINT_PHOTO_SIZE;
+      distributionPointPhotoCache.set(photoUrl, isUsable);
+      setCanUsePhoto(isUsable);
+    };
+    image.onerror = () => {
+      if (!active) {
+        return;
+      }
+
+      distributionPointPhotoCache.set(photoUrl, false);
+      setCanUsePhoto(false);
+    };
+    image.src = photoUrl;
+
+    return () => {
+      active = false;
+      image.onload = null;
+      image.onerror = null;
+    };
+  }, [photoUrl]);
+
+  return canUsePhoto;
+}
+
 function DistributionPointShape({
   cx = 0,
   cy = 0,
@@ -111,6 +175,10 @@ function DistributionPointShape({
   const resolvedColor = partyColors.get(payload.party);
   const fill = resolvedColor ?? partyPalette[0];
   const radius = payload.radius + (selected ? 2 : 0);
+  const canUsePhoto = useDistributionPointPhoto(payload.photoUrl);
+  const markerIdBase = `distribution-point-${payload.memberId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  const clipPathId = `${markerIdBase}-clip`;
+  const badgeRadius = Math.max(3.4, Math.round(radius * 0.28 * 10) / 10);
 
   return (
     <g
@@ -127,13 +195,52 @@ function DistributionPointShape({
           strokeWidth={2}
         />
       ) : null}
-      <circle
-        r={radius}
-        fill={fill}
-        fillOpacity={selected ? 0.96 : 0.78}
-        stroke={selected ? "#1d1812" : "#ffffff"}
-        strokeWidth={selected ? 2.4 : 1.5}
-      />
+      {canUsePhoto && payload.photoUrl ? (
+        <>
+          <defs>
+            <clipPath id={clipPathId}>
+              <circle r={radius} />
+            </clipPath>
+          </defs>
+          <circle
+            r={radius + 1.2}
+            fill="rgba(255, 255, 255, 0.94)"
+            stroke={fill}
+            strokeWidth={selected ? 2.6 : 1.8}
+          />
+          <image
+            href={payload.photoUrl}
+            x={-radius}
+            y={-radius}
+            width={radius * 2}
+            height={radius * 2}
+            preserveAspectRatio="xMidYMid slice"
+            clipPath={`url(#${clipPathId})`}
+          />
+          <circle
+            r={radius}
+            fill="transparent"
+            stroke={selected ? "#1d1812" : "rgba(255, 255, 255, 0.92)"}
+            strokeWidth={selected ? 2.2 : 1.5}
+          />
+          <circle
+            cx={radius * 0.64}
+            cy={radius * 0.64}
+            r={badgeRadius}
+            fill={fill}
+            stroke="rgba(255, 255, 255, 0.96)"
+            strokeWidth={1.5}
+          />
+        </>
+      ) : (
+        <circle
+          r={radius}
+          fill={fill}
+          fillOpacity={selected ? 0.96 : 0.78}
+          stroke={selected ? "#1d1812" : "#ffffff"}
+          strokeWidth={selected ? 2.4 : 1.5}
+        />
+      )}
       <title>{payload.name}</title>
     </g>
   );
@@ -233,6 +340,7 @@ export function DistributionPage({
   onBack,
   onSelectMember
 }: DistributionPageProps) {
+  const [isChartHelpOpen, setIsChartHelpOpen] = useState(false);
   const members = useMemo(
     () =>
       accountabilitySummary && activityCalendar
@@ -245,6 +353,14 @@ export function DistributionPage({
     [members]
   );
   const chartPoints = useMemo(() => buildChartPoints(members), [members]);
+  const attendanceDomain = useMemo(
+    () => buildDistributionChartDomain(chartPoints.map((member) => member.attendancePercent)),
+    [chartPoints]
+  );
+  const negativeDomain = useMemo(
+    () => buildDistributionChartDomain(chartPoints.map((member) => member.negativePercent)),
+    [chartPoints]
+  );
   const selectedMemberId =
     initialMemberId && members.some((member) => member.memberId === initialMemberId)
       ? initialMemberId
@@ -359,9 +475,6 @@ export function DistributionPage({
           </button>
           <p className="section-label">전체 분포</p>
           <h1>{`${assemblyLabel} 의원 분포`}</h1>
-          <p className="distribution-page__copy">
-            출석률과 반대·기권 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다.
-          </p>
         </div>
         <div className="distribution-page__search">
           <MemberSearchField
@@ -375,9 +488,6 @@ export function DistributionPage({
             }}
             placeholder="이름, 정당, 지역으로 의원을 고르세요"
           />
-          <p className="distribution-page__search-note">
-            점, 우측 카드, 아래 시그널 리스트가 모두 같은 선택 상태를 공유합니다.
-          </p>
         </div>
       </section>
 
@@ -385,11 +495,33 @@ export function DistributionPage({
         <section className="distribution-chart" aria-label="의원 분포 차트">
           <div className="distribution-chart__header">
             <div>
-              <p className="section-label">좌표 분포</p>
-              <h2>출석률이 낮고 반대·기권 비중이 높은 의원이 오른쪽 위가 아니라 왼쪽 위로 모입니다.</h2>
-              <p className="distribution-chart__copy">
-                가로축은 출석률, 세로축은 반대·기권 비중입니다. 점 크기는 현재 반대·기권·불참 연속 패턴을 반영합니다.
-              </p>
+              <div className="distribution-chart__eyebrow">
+                <p className="section-label">좌표 분포</p>
+                <button
+                  type="button"
+                  className="distribution-chart__help-button"
+                  aria-label={isChartHelpOpen ? "분포 설명 닫기" : "분포 설명 보기"}
+                  aria-expanded={isChartHelpOpen}
+                  aria-controls="distribution-chart-help"
+                  onClick={() => setIsChartHelpOpen((current) => !current)}
+                >
+                  ?
+                </button>
+              </div>
+              <h2>출석률이 낮고 반대·기권 비중이 높은 의원이 왼쪽 위에 모입니다.</h2>
+              {isChartHelpOpen ? (
+                <div id="distribution-chart-help" className="distribution-chart__help-panel" role="note">
+                  <p className="distribution-page__copy">
+                    출석률과 반대·기권 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다.
+                  </p>
+                  <p className="distribution-chart__copy">
+                    가로축은 출석률, 세로축은 반대·기권 비중입니다. 점 크기는 현재 반대·기권·불참 연속 패턴을 반영합니다.
+                  </p>
+                  <p className="distribution-page__search-note">
+                    점, 우측 카드, 아래 시그널 리스트가 모두 같은 선택 상태를 공유합니다.
+                  </p>
+                </div>
+              ) : null}
             </div>
             <div className="distribution-chart__summary-grid" aria-label="분포 요약">
               <div className="chart-card__summary">
@@ -411,7 +543,7 @@ export function DistributionPage({
           </div>
           <div className="distribution-chart__surface">
             <ResponsiveContainer width="100%" height={420}>
-              <ScatterChart margin={{ top: 12, right: 18, bottom: 28, left: 4 }}>
+              <ScatterChart margin={{ top: 22, right: 28, bottom: 34, left: 12 }}>
                 <CartesianGrid stroke="rgba(72, 56, 40, 0.12)" />
                 <ReferenceLine
                   x={Number((averageAttendanceRate * 100).toFixed(1))}
@@ -426,7 +558,7 @@ export function DistributionPage({
                 <XAxis
                   type="number"
                   dataKey="attendancePercent"
-                  domain={[0, 100]}
+                  domain={attendanceDomain}
                   tick={{ fill: "rgba(29, 24, 18, 0.72)", fontSize: 12 }}
                   tickFormatter={(value) => `${value}%`}
                   label={{ value: "출석률", position: "insideBottom", offset: -12 }}
@@ -434,7 +566,7 @@ export function DistributionPage({
                 <YAxis
                   type="number"
                   dataKey="negativePercent"
-                  domain={[0, 100]}
+                  domain={negativeDomain}
                   tick={{ fill: "rgba(29, 24, 18, 0.72)", fontSize: 12 }}
                   tickFormatter={(value) => `${value}%`}
                   width={44}
@@ -470,7 +602,7 @@ export function DistributionPage({
           <div className="distribution-chart__legend">
             <div className="distribution-chart__legend-copy">
               <strong>정당 군집</strong>
-              <span>점 색은 정당을 뜻하고, 점 크기는 현재 연속 패턴 길이를 뜻합니다.</span>
+              <span>초상화 점의 테두리와 작은 배지는 정당을 뜻하고, 점 크기는 현재 연속 패턴 길이를 뜻합니다.</span>
             </div>
             <ul className="distribution-chart__legend-list">
               {partySummaries.map((summary) => (

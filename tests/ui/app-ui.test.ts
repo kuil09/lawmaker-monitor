@@ -50,6 +50,25 @@ async function openHomeFlow(viewportName: string): Promise<void> {
       .poll(async () => page.getByRole("tab", { name: "불참" }).getAttribute("aria-selected"))
       .toBe("true");
 
+    const searchLayout = await page.locator(".search-panel").evaluate((element) => {
+      const panel = element as HTMLElement;
+      const layout = panel.querySelector(".search-panel__layout") as HTMLElement | null;
+      const form = panel.querySelector(".search-panel__form") as HTMLElement | null;
+      const explore = panel.querySelector(".search-panel__explore") as HTMLElement | null;
+      const exploreAction = panel.querySelector(".search-panel__explore-action") as HTMLElement | null;
+
+      if (!layout || !form || !explore || !exploreAction) {
+        return null;
+      }
+
+      return {
+        panelOverflow: panel.scrollWidth - panel.clientWidth,
+        layoutColumnCount: window.getComputedStyle(layout).gridTemplateColumns.split(" ").length,
+        exploreActionInForm: form.contains(exploreAction),
+        exploreButtonHeight: exploreAction.getBoundingClientRect().height
+      };
+    });
+
     const leaderboardPrimaryLink = page.locator(".member-identity--small .member-identity__primary").first();
     const voteSourceLink = page.locator(".vote-card__source-link").first();
     const voteHighlightSummary = page.locator(".vote-card__highlight-summary").first();
@@ -187,6 +206,10 @@ async function openHomeFlow(viewportName: string): Promise<void> {
     expect(heroLayout?.panelOverflow ?? 99).toBeLessThanOrEqual(1);
     expect(heroLayout?.ledeTopToTitleBottom ?? -1).toBeGreaterThanOrEqual(0);
     expect(heroLayout?.copyTopToHeadlineBottom ?? -1).toBeGreaterThanOrEqual(0);
+    expect(searchLayout).not.toBeNull();
+    expect(searchLayout?.panelOverflow ?? 99).toBeLessThanOrEqual(1);
+    expect(searchLayout?.exploreActionInForm).toBe(false);
+    expect(searchLayout?.exploreButtonHeight ?? 0).toBeGreaterThanOrEqual(44);
     expect(leaderboardLayout).not.toBeNull();
     expect(leaderboardLayout?.statsHeight ?? 0).toBeGreaterThanOrEqual(44);
     expect(Math.abs(leaderboardLayout?.graphOffsetLeft ?? 99)).toBeLessThan(2);
@@ -207,9 +230,12 @@ async function openHomeFlow(viewportName: string): Promise<void> {
       expect(heroLayout?.chipsBottomToFreshnessTop ?? -1).toBeGreaterThanOrEqual(0);
       expect(heroLayout?.asideTopToStoryBottom ?? -1).toBeGreaterThanOrEqual(0);
       expect(heroLayout?.titleLineCount ?? 99).toBeLessThanOrEqual(2.4);
+      expect(searchLayout?.layoutColumnCount).toBe(1);
       expect(leaderboardLayout?.metaColumnCount).toBe(2);
       expect(leaderboardLayout?.contentColumnCount).toBe(1);
       expect(voteCardLayout?.statsColumnCount).toBe(2);
+    } else {
+      expect(searchLayout?.layoutColumnCount).toBe(2);
     }
 
     const homeScreenshot = await saveScreenshot(page, `${viewportName}/home.png`);

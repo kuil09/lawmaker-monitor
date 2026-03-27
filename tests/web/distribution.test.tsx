@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildDistributionChartDomain,
   buildDistributionMembers,
   buildDistributionPartySummaries,
   getDefaultDistributionMemberId
@@ -55,5 +56,11 @@ describe("distribution helpers", () => {
     expect(partySummaries[0]?.averageNegativeRate).toBeCloseTo(0.5);
     expect(partySummaries[0]?.averageAbsenceRate).toBeCloseTo(0.25);
     expect(partySummaries[0]?.topCurrentStreak).toBe(3);
+  });
+
+  it("builds padded chart domains from the observed member spread", () => {
+    expect(buildDistributionChartDomain([66.7, 100])).toEqual([60, 100]);
+    expect(buildDistributionChartDomain([48, 52, 53])).toEqual([45, 60]);
+    expect(buildDistributionChartDomain([])).toEqual([0, 100]);
   });
 });

@@ -133,7 +133,13 @@ describe("web app", () => {
     expect(screen.queryByRole("button", { name: "활동 캘린더 보기" })).not.toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "의원 검색" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "활동 캘린더 열기" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "국회 전체 분포 보기" })).toBeInTheDocument();
+    const distributionExplore = screen.getByLabelText("분포 탐색");
+    expect(
+      within(distributionExplore).getByRole("button", { name: "국회 전체 분포 보기" })
+    ).toBeInTheDocument();
+    expect(
+      within(distributionExplore).getByText("정당 평균과 함께 전체 위치를 먼저 훑어볼 수 있습니다.")
+    ).toBeInTheDocument();
     expect(screen.getByText("제22대 국회 최근 12주 참여·불참 추세")).toBeInTheDocument();
     expect(screen.getByText("최근 주 참여율")).toBeInTheDocument();
     expect(screen.getByText("최고 불참 비중")).toBeInTheDocument();
@@ -201,6 +207,35 @@ describe("web app", () => {
     );
     expect(screen.getByText("반대·기권 비중이 높은 의원")).toBeInTheDocument();
     expect(screen.getByText("정당 평균으로도 출석과 반대·기권 위치를 읽습니다.")).toBeInTheDocument();
+  });
+
+  it("reveals the distribution help copy only when requested", async () => {
+    window.location.hash = "#distribution";
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "제22대 국회 의원 분포" })).toBeInTheDocument();
+    const helpButton = screen.getByRole("button", { name: "분포 설명 보기" });
+
+    expect(helpButton).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByText(
+        "출석률과 반대·기권 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다."
+      )
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(helpButton);
+
+    expect(screen.getByRole("button", { name: "분포 설명 닫기" })).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByText(
+        "출석률과 반대·기권 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "가로축은 출석률, 세로축은 반대·기권 비중입니다. 점 크기는 현재 반대·기권·불참 연속 패턴을 반영합니다."
+      )
+    ).toBeInTheDocument();
   });
 
 
