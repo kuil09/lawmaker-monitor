@@ -133,6 +133,7 @@ describe("web app", () => {
     expect(screen.queryByRole("button", { name: "활동 캘린더 보기" })).not.toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "의원 검색" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "활동 캘린더 열기" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "국회 전체 분포 보기" })).toBeInTheDocument();
     expect(screen.getByText("제22대 국회 최근 12주 참여·불참 추세")).toBeInTheDocument();
     expect(screen.getByText("최근 주 참여율")).toBeInTheDocument();
     expect(screen.getByText("최고 불참 비중")).toBeInTheDocument();
@@ -174,6 +175,32 @@ describe("web app", () => {
         'img.member-identity__avatar[src="https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m002.jpg"]'
       )
     ).not.toBeNull();
+  });
+
+  it("navigates from the home route to the distribution route", async () => {
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "국회 책임성 모니터" });
+    fireEvent.click(screen.getByRole("button", { name: "국회 전체 분포 보기" }));
+
+    expect(window.location.hash).toBe("#distribution");
+    expect(await screen.findByRole("heading", { name: "제22대 국회 의원 분포" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "분포에서 의원 찾기" })).toBeInTheDocument();
+  });
+
+  it("renders the distribution route with the selected member summary and calendar deep link", async () => {
+    window.location.hash = "#distribution?member=M002";
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "제22대 국회 의원 분포" })).toBeInTheDocument();
+    expect(screen.getByText("부산 남구")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "분포에서 의원 찾기" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "활동 캘린더 열기" })).toHaveAttribute(
+      "href",
+      "#calendar?member=M002"
+    );
+    expect(screen.getByText("반대·기권 비중이 높은 의원")).toBeInTheDocument();
+    expect(screen.getByText("정당 평균으로도 출석과 반대·기권 위치를 읽습니다.")).toBeInTheDocument();
   });
 
 

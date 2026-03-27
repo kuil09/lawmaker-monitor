@@ -1,0 +1,490 @@
+.distribution-page__masthead,
+.distribution-chart,
+.distribution-focus,
+.distribution-signal-card,
+.distribution-page__empty {
+  position: relative;
+  padding: 1.2rem;
+  border: 1px solid rgba(72, 56, 40, 0.12);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(244, 237, 227, 0.92));
+  box-shadow: var(--shadow-soft);
+}
+
+.distribution-page__masthead,
+.distribution-page__layout,
+.distribution-signal-grid,
+.distribution-page__headline,
+.distribution-page__search,
+.distribution-chart__header,
+.distribution-chart__legend,
+.distribution-focus__header,
+.distribution-focus__actions,
+.distribution-focus__metric-grid,
+.distribution-focus__composition,
+.distribution-focus__composition-list,
+.distribution-signal-card__header,
+.distribution-party-list,
+.distribution-party-list__stats {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.distribution-page__masthead::before,
+.distribution-chart::before,
+.distribution-focus::before,
+.distribution-signal-card::before,
+.distribution-page__empty::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 0.28rem;
+  background: linear-gradient(90deg, rgba(123, 49, 40, 0.9), rgba(67, 101, 123, 0.48), transparent 82%);
+  pointer-events: none;
+}
+
+.distribution-page__masthead {
+  grid-template-columns: minmax(0, 1.2fr) minmax(20rem, 0.9fr);
+  align-items: start;
+}
+
+.distribution-page__back,
+.distribution-focus__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.9rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-pill);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.distribution-page__back {
+  justify-self: start;
+}
+
+.distribution-page__headline h1,
+.distribution-page__empty h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.1rem, 5vw, 3.3rem);
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+}
+
+.distribution-page__copy,
+.distribution-page__search-note,
+.distribution-chart__copy,
+.distribution-focus__note,
+.distribution-focus__district,
+.distribution-page__empty p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.distribution-page__search-note {
+  font-size: 0.88rem;
+}
+
+.distribution-page__layout {
+  margin-top: 1rem;
+  grid-template-columns: minmax(0, 1.5fr) minmax(20rem, 0.88fr);
+  align-items: start;
+}
+
+.distribution-chart__header {
+  grid-template-columns: minmax(0, 1.2fr) minmax(16rem, 0.9fr);
+  align-items: start;
+}
+
+.distribution-chart h2,
+.distribution-signal-card h3 {
+  margin: 0.1rem 0 0;
+  font-size: clamp(1.18rem, 2.1vw, 1.52rem);
+  line-height: 1.18;
+  word-break: keep-all;
+}
+
+.distribution-chart__summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 0.72rem;
+}
+
+.distribution-chart__surface {
+  margin-top: 0.15rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(72, 56, 40, 0.1);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(249, 245, 239, 0.94));
+}
+
+.distribution-chart__legend {
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  align-items: start;
+}
+
+.distribution-chart__legend-copy {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.distribution-chart__legend-copy strong {
+  font-size: 0.94rem;
+}
+
+.distribution-chart__legend-copy span {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.distribution-chart__legend-list,
+.distribution-page__error-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.distribution-chart__legend-list {
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+}
+
+.distribution-chart__legend-list li,
+.distribution-party-list li {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.82rem 0.92rem;
+  border: 1px solid rgba(72, 56, 40, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.distribution-chart__legend-list li {
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+}
+
+.distribution-chart__legend-list i,
+.distribution-party-list__title i {
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 999px;
+  display: inline-flex;
+  flex: none;
+}
+
+.distribution-chart__legend-list span,
+.distribution-party-list__stats span,
+.distribution-chart__tooltip-line {
+  color: var(--text-muted);
+}
+
+.distribution-focus__header {
+  gap: 0.65rem;
+}
+
+.distribution-focus__actions {
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+.distribution-focus__action {
+  border: 1px solid rgba(72, 56, 40, 0.12);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--accent-strong);
+}
+
+.distribution-focus__action--primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #fff9f5;
+  box-shadow: 0 16px 26px rgba(123, 49, 40, 0.22);
+}
+
+.distribution-focus__metric-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.distribution-focus__metric {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.88rem 0.92rem;
+  border: 1px solid rgba(72, 56, 40, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.distribution-focus__metric span,
+.distribution-focus__signals dt {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.distribution-focus__metric strong {
+  font-size: 1.25rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.distribution-focus__metric small,
+.distribution-focus__signals dd {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.distribution-focus__metric--alert strong {
+  color: var(--vote-no);
+}
+
+.distribution-focus__composition {
+  gap: 0.72rem;
+}
+
+.distribution-focus__composition-bar {
+  display: flex;
+  overflow: hidden;
+  width: 100%;
+  height: 0.86rem;
+  border-radius: 999px;
+  background: rgba(72, 56, 40, 0.08);
+}
+
+.distribution-focus__segment {
+  height: 100%;
+}
+
+.distribution-focus__segment--yes,
+.distribution-focus__dot--yes {
+  background: var(--vote-yes);
+}
+
+.distribution-focus__segment--no,
+.distribution-focus__dot--no {
+  background: var(--vote-no);
+}
+
+.distribution-focus__segment--abstain,
+.distribution-focus__dot--abstain {
+  background: var(--vote-abstain);
+}
+
+.distribution-focus__segment--absent,
+.distribution-focus__dot--absent {
+  background: var(--vote-absent);
+}
+
+.distribution-focus__composition-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem 0.75rem;
+}
+
+.distribution-focus__composition-list span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.distribution-focus__dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  display: inline-flex;
+  flex: none;
+}
+
+.distribution-focus__signals {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0;
+}
+
+.distribution-focus__signals > div {
+  display: grid;
+  gap: 0.12rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(72, 56, 40, 0.1);
+}
+
+.distribution-focus__signals > div:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.distribution-signal-grid {
+  margin-top: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.distribution-signal-list,
+.distribution-party-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.distribution-signal-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.distribution-signal-list__button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.85rem;
+  align-items: center;
+  text-align: left;
+  padding: 0.88rem 0.92rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.distribution-signal-list__button.is-active {
+  border-color: rgba(123, 49, 40, 0.28);
+  background: linear-gradient(135deg, rgba(123, 49, 40, 0.12), rgba(255, 255, 255, 0.92));
+}
+
+.distribution-signal-list__identity {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.distribution-signal-list__name {
+  font-weight: 800;
+}
+
+.distribution-signal-list__meta {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.distribution-signal-list__value {
+  flex: none;
+  color: var(--accent-strong);
+  font-size: 0.92rem;
+}
+
+.distribution-party-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.distribution-party-list__title {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.distribution-party-list__title span {
+  display: inline-flex;
+  gap: 0.42rem;
+  align-items: center;
+  font-weight: 800;
+}
+
+.distribution-party-list__stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.75rem;
+  font-size: 0.84rem;
+}
+
+.distribution-page__empty {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.distribution-page__error-list li {
+  padding-left: 1rem;
+  position: relative;
+  color: var(--text-muted);
+}
+
+.distribution-page__error-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.6rem;
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.distribution-chart__tooltip ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.7rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.distribution-chart__tooltip li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+@media (max-width: 1080px) {
+  .distribution-page__masthead,
+  .distribution-page__layout,
+  .distribution-chart__header,
+  .distribution-chart__legend,
+  .distribution-signal-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .distribution-page__masthead,
+  .distribution-chart,
+  .distribution-focus,
+  .distribution-signal-card,
+  .distribution-page__empty {
+    padding: 1rem;
+    border-radius: 20px;
+  }
+
+  .distribution-page__headline h1,
+  .distribution-page__empty h1 {
+    font-size: clamp(1.9rem, 11vw, 2.65rem);
+  }
+
+  .distribution-chart__surface {
+    padding: 0.55rem;
+    border-radius: 18px;
+  }
+
+  .distribution-focus__metric-grid,
+  .distribution-focus__composition-list,
+  .distribution-party-list__stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .distribution-signal-list__button,
+  .distribution-party-list__title {
+    align-items: start;
+  }
+
+  .distribution-signal-list__button {
+    flex-direction: column;
+  }
+
+  .distribution-signal-list__value {
+    align-self: start;
+  }
+}

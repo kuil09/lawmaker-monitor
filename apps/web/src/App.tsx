@@ -12,11 +12,13 @@ import type {
 
 import { AccountabilityLeaderboard } from "./components/AccountabilityLeaderboard.js";
 import { ActivityCalendarPage } from "./components/ActivityCalendarPage.js";
+import { DistributionPage } from "./components/DistributionPage.js";
 import { MemberSearchField } from "./components/MemberSearchField.js";
 import { VisualizationOverview } from "./components/VisualizationOverview.js";
 import { VoteCarousel } from "./components/VoteCarousel.js";
 import { rankAccountabilityItems } from "./lib/accountability.js";
 import { buildCalendarHash, type ActivityViewMode } from "./lib/calendar-route.js";
+import { buildDistributionHash } from "./lib/distribution-route.js";
 import {
   loadAccountabilitySummary,
   loadAccountabilityTrends,
@@ -28,7 +30,7 @@ import {
 import { formatDateTime, formatNumber, formatPercent } from "./lib/format.js";
 import { getMemberAttendanceSummary } from "./lib/member-activity.js";
 
-type AppRoute = "home" | "calendar";
+type AppRoute = "home" | "calendar" | "distribution";
 
 type RouteState = {
   route: AppRoute;
@@ -54,23 +56,31 @@ function buildEmbeddedActivityMemberDetail(
 function getRouteStateFromHash(hash: string): RouteState {
   const normalizedHash = hash.startsWith("#") ? hash.slice(1) : hash;
   const [path, search = ""] = normalizedHash.split("?");
+  const params = new URLSearchParams(search);
 
-  if (path !== "calendar") {
+  if (path === "calendar") {
     return {
-      route: "home",
-      memberId: null,
+      route: "calendar",
+      memberId: params.get("member"),
+      compareMemberId: params.get("compare"),
+      view: params.get("view") === "compare" ? "compare" : "single"
+    };
+  }
+
+  if (path === "distribution") {
+    return {
+      route: "distribution",
+      memberId: params.get("member"),
       compareMemberId: null,
       view: "single"
     };
   }
 
-  const params = new URLSearchParams(search);
-
   return {
-    route: "calendar",
-    memberId: params.get("member"),
-    compareMemberId: params.get("compare"),
-    view: params.get("view") === "compare" ? "compare" : "single"
+    route: "home",
+    memberId: null,
+    compareMemberId: null,
+    view: "single"
   };
 }
 
@@ -272,7 +282,11 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (routeState.route !== "calendar" && !accountabilitySummary) {
+    if (
+      routeState.route !== "calendar" &&
+      routeState.route !== "distribution" &&
+      !accountabilitySummary
+    ) {
       return;
     }
 
@@ -372,6 +386,10 @@ export default function App() {
     window.location.hash = buildCalendarHash({ memberId, view });
   }
 
+  function navigateToDistribution(memberId?: string | null): void {
+    window.location.hash = buildDistributionHash({ memberId });
+  }
+
   function navigateHome(): void {
     window.location.hash = "";
   }
@@ -397,6 +415,27 @@ export default function App() {
       ? "활동 캘린더 데이터를 확인하지 못해 랭킹 출석 요약이 일부 비어 있습니다."
       : null
   ].filter(Boolean) as string[];
+  const distributionErrors = [leaderboardError, activityError].filter(Boolean) as string[];
+
+  if (routeState.route === "distribution") {
+    return (
+      <DistributionPage
+        accountabilitySummary={accountabilitySummary}
+        activityCalendar={activityCalendar}
+        loading={
+          (!accountabilitySummary && !leaderboardError) ||
+          (!activityCalendar && !activityError)
+        }
+        errors={distributionErrors}
+        assemblyLabel={currentAssemblyLabel}
+        initialMemberId={routeState.memberId}
+        onBack={navigateHome}
+        onSelectMember={(memberId) => {
+          navigateToDistribution(memberId);
+        }}
+      />
+    );
+  }
 
   if (routeState.route === "calendar") {
     return (
@@ -406,18 +445,18 @@ export default function App() {
             activityCalendar={activityCalendar}
             loading={isActivityLoading}
             error={activityError}
-          assemblyLabel={currentAssemblyLabel}
-          initialMemberId={routeState.memberId}
-          initialCompareMemberId={routeState.compareMemberId}
-          initialView={routeState.view}
-          memberDetails={activityMemberDetails}
-          memberDetailErrors={activityMemberDetailErrors}
-          memberDetailLoading={activityMemberDetailLoading}
-          onEnsureMemberDetail={ensureActivityMemberDetailLoaded}
-          onRetryMemberDetail={retryActivityMemberDetail}
-          onBack={navigateHome}
-          onRetry={() => void ensureActivityCalendarLoaded()}
-        />
+            assemblyLabel={currentAssemblyLabel}
+            initialMemberId={routeState.memberId}
+            initialCompareMemberId={routeState.compareMemberId}
+            initialView={routeState.view}
+            memberDetails={activityMemberDetails}
+            memberDetailErrors={activityMemberDetailErrors}
+            memberDetailLoading={activityMemberDetailLoading}
+            onEnsureMemberDetail={ensureActivityMemberDetailLoaded}
+            onRetryMemberDetail={retryActivityMemberDetail}
+            onBack={navigateHome}
+            onRetry={() => void ensureActivityCalendarLoaded()}
+          />
         </main>
       </>
     );
@@ -530,6 +569,15 @@ export default function App() {
                 활동 캘린더 열기
               </button>
             </form>
+            <div className="search-panel__actions">
+              <button
+                type="button"
+                className="search-panel__secondary-action"
+                onClick={() => navigateToDistribution()}
+              >
+                국회 전체 분포 보기
+              </button>
+            </div>
           </div>
         </section>
 

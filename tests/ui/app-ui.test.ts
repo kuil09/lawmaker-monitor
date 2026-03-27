@@ -532,6 +532,94 @@ async function openCompareFlow(viewportName: string): Promise<void> {
   }
 }
 
+async function openDistributionFlow(viewportName: string): Promise<void> {
+  const { context, page, issues } = await createBrowserSession(browser, viewportCases.find((item) => item.name === viewportName)!);
+
+  try {
+    await page.goto(`${appUrl}/#distribution?member=M002`, { waitUntil: "networkidle" });
+    await page.addStyleTag({
+      content: `
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+          caret-color: transparent !important;
+        }
+      `
+    });
+
+    await page.getByRole("heading", { name: "제22대 국회 의원 분포" }).waitFor();
+    await page.getByRole("combobox", { name: "분포에서 의원 찾기" }).waitFor();
+    await expect
+      .poll(async () => page.locator(".distribution-focus__district").textContent())
+      .toBe("부산 남구");
+    await page.getByText("정당 평균으로도 출석과 반대·기권 위치를 읽습니다.").waitFor();
+
+    const layout = await page.locator(".distribution-page__layout").evaluate((element) => {
+      const layoutElement = element as HTMLElement;
+      const focus = layoutElement.querySelector(".distribution-focus") as HTMLElement | null;
+      const chart = layoutElement.querySelector(".distribution-chart") as HTMLElement | null;
+      const metricGrid = layoutElement.querySelector(".distribution-focus__metric-grid") as HTMLElement | null;
+
+      if (!focus || !chart || !metricGrid) {
+        return null;
+      }
+
+      return {
+        layoutOverflow: layoutElement.scrollWidth - layoutElement.clientWidth,
+        chartOverflow: chart.scrollWidth - chart.clientWidth,
+        focusOverflow: focus.scrollWidth - focus.clientWidth,
+        layoutColumns: window.getComputedStyle(layoutElement).gridTemplateColumns.split(" ").length,
+        metricColumns: window.getComputedStyle(metricGrid).gridTemplateColumns.split(" ").length
+      };
+    });
+
+    expect(layout).not.toBeNull();
+    expect(layout?.layoutOverflow ?? 99).toBeLessThanOrEqual(1);
+    expect(layout?.chartOverflow ?? 99).toBeLessThanOrEqual(1);
+    expect(layout?.focusOverflow ?? 99).toBeLessThanOrEqual(1);
+
+    if (viewportName === "mobile" || viewportName === "tablet") {
+      expect(layout?.layoutColumns).toBe(1);
+    }
+
+    if (viewportName === "mobile") {
+      expect(layout?.metricColumns).toBe(1);
+    }
+
+    if (viewportName === "tablet") {
+      expect(layout?.metricColumns).toBe(2);
+    }
+
+    if (viewportName === "desktop") {
+      expect(layout?.layoutColumns).toBe(2);
+      expect(layout?.metricColumns).toBe(2);
+    }
+
+    const streakSignal = page.getByRole("button", { name: /김아라 미래개혁당/ }).first();
+    await streakSignal.click();
+    await expect.poll(() => new URL(page.url()).hash).toBe("#distribution?member=M001");
+    await expect
+      .poll(async () => page.locator(".distribution-focus__district").textContent())
+      .toBe("서울 중구");
+
+    const distributionScreenshot = await saveScreenshot(page, `${viewportName}/distribution.png`);
+    scenarioManifest.push({
+      viewport: viewportName,
+      scenario: "distribution-overview",
+      screenshot: distributionScreenshot
+    });
+
+    expect(await page.getByRole("link", { name: "활동 캘린더 열기" }).getAttribute("href")).toBe(
+      "#calendar?member=M001"
+    );
+    expect(issues).toEqual([]);
+  } finally {
+    await context.close();
+  }
+}
+
 describe("UI flow coverage", () => {
   beforeAll(async () => {
     await ensureScreenshotRoot();
@@ -555,6 +643,10 @@ describe("UI flow coverage", () => {
 
     it(`captures the help, scroll, and compare flow on ${viewport.name}`, async () => {
       await openCompareFlow(viewport.name);
+    });
+
+    it(`captures the distribution flow on ${viewport.name}`, async () => {
+      await openDistributionFlow(viewport.name);
     });
   }
 });
