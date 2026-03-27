@@ -123,7 +123,7 @@ describe("web app", () => {
     });
   });
 
-  it("renders the Korean accountability leaderboard and keeps calendar data lazy", async () => {
+  it("renders the Korean accountability leaderboard with day-based attendance stats", async () => {
     render(<App />);
 
     await screen.findByText("제22대 국회 의원 순위");
@@ -151,7 +151,10 @@ describe("web app", () => {
       )
     ).toBeInTheDocument();
     expect(screen.queryByText("연속 반대·기권·불참 패턴을 contribution calendar로 봅니다.")).not.toBeInTheDocument();
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/exports/member_activity_calendar.json"))).toBe(false);
+    expect(await screen.findByText("출석 2일 / 대상 3일")).toBeInTheDocument();
+    expect(screen.getByText("출석률 66.7%")).toBeInTheDocument();
+    expect(screen.getByText("출석 3일 / 대상 3일")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/exports/member_activity_calendar.json"))).toBe(true);
     expect(
       fetchMock.mock.calls.some(([url]) =>
         String(url).includes("/exports/member_activity_calendar_members/")
@@ -635,6 +638,68 @@ describe("web app", () => {
       "#calendar?member=M002"
     );
     expect((voteCard as HTMLElement).querySelector(".vote-card__highlight")).not.toHaveAttribute("open");
+  });
+
+  it("keeps the home leaderboard visible when attendance calendar data is unavailable", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request) => {
+        const url = String(input);
+        if (url.endsWith("/exports/latest_votes.json")) {
+          return Promise.resolve(
+            new Response(JSON.stringify(latestVotesFixture), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            })
+          );
+        }
+
+        if (url.endsWith("/exports/accountability_summary.json")) {
+          return Promise.resolve(
+            new Response(JSON.stringify(accountabilitySummaryFixture), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            })
+          );
+        }
+
+        if (url.endsWith("/exports/accountability_trends.json")) {
+          return Promise.resolve(
+            new Response(JSON.stringify(accountabilityTrendsFixture), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            })
+          );
+        }
+
+        if (url.endsWith("/exports/member_activity_calendar.json")) {
+          return Promise.resolve(new Response("not found", { status: 404 }));
+        }
+
+        if (url.endsWith("/manifests/latest.json")) {
+          return Promise.resolve(
+            new Response(JSON.stringify(manifestFixture), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            })
+          );
+        }
+
+        return Promise.resolve(new Response("not found", { status: 404 }));
+      })
+    );
+
+    render(<App />);
+
+    const leaderboardHeading = await screen.findByRole("heading", { name: "제22대 국회 의원 순위" });
+    const leaderboardPanel = leaderboardHeading.closest(".leaderboard-panel");
+
+    expect(
+      await screen.findByText("활동 캘린더 데이터를 확인하지 못해 랭킹 출석 요약이 일부 비어 있습니다.")
+    ).toBeInTheDocument();
+    expect(within(leaderboardPanel as HTMLElement).getAllByText("준비 중").length).toBeGreaterThan(0);
+    expect(within(leaderboardPanel as HTMLElement).getAllByText("활동 데이터 확인 전").length).toBeGreaterThan(0);
+    expect(within(leaderboardPanel as HTMLElement).getByRole("link", { name: /박민/ })).toBeInTheDocument();
   });
 
   it("shows absent counts without names when the absent list is unavailable", async () => {

@@ -27,6 +27,7 @@ import {
   buildHeadToHeadSummary,
   buildMonthLabels,
   getCurrentStreak,
+  getMemberDayBreakdown,
   getLongestStreak,
   rankActivityMembers,
   type CalendarCell
@@ -63,20 +64,6 @@ const longestRunLabel = "가장 길게 찬성 없이 이어진 날";
 const runSummaryCopy =
   "이 화면은 표결이 있었던 날짜를 하루 단위로 묶어 보여줍니다. 같은 날 표결이 여러 건이면 그날의 대표 상태만 색으로 표시하고, 지금·최장 지표는 찬성이 나오기 전까지 이어진 날짜 수를 뜻합니다.";
 
-function getDayBreakdown(member: MemberActivityCalendarMember): {
-  yesDays: number;
-  noDays: number;
-  abstainDays: number;
-  absentDays: number;
-} {
-  return {
-    yesDays: member.dayStates.filter((day) => day.state === "yes").length,
-    noDays: member.dayStates.filter((day) => day.state === "no").length,
-    abstainDays: member.dayStates.filter((day) => day.state === "abstain").length,
-    absentDays: member.dayStates.filter((day) => day.state === "absent").length
-  };
-}
-
 type RatioDatum = {
   label: string;
   percent: number;
@@ -106,7 +93,7 @@ const compareRatioColors = {
 };
 
 function buildRatioData(member: MemberActivityCalendarMember): RatioDatum[] {
-  const breakdown = getDayBreakdown(member);
+  const breakdown = getMemberDayBreakdown(member);
   const total =
     breakdown.yesDays +
     breakdown.noDays +
@@ -1207,8 +1194,8 @@ export function ActivityCalendarPage({
     selectedAssembly && selectedMember && compareMember
       ? buildHeadToHeadSummary(selectedAssembly, selectedMember, compareMember, true)
       : null;
-  const selectedBreakdown = selectedMember ? getDayBreakdown(selectedMember) : null;
-  const compareBreakdown = compareMember ? getDayBreakdown(compareMember) : null;
+  const selectedBreakdown = selectedMember ? getMemberDayBreakdown(selectedMember) : null;
+  const compareBreakdown = compareMember ? getMemberDayBreakdown(compareMember) : null;
   const compareMetrics =
     selectedMember && compareMember && selectedBreakdown && compareBreakdown && comparisonSummary
       ? [

@@ -26,6 +26,7 @@ import {
   loadMemberActivityCalendarMemberDetail
 } from "./lib/data.js";
 import { formatDateTime, formatNumber, formatPercent } from "./lib/format.js";
+import { getMemberAttendanceSummary } from "./lib/member-activity.js";
 
 type AppRoute = "home" | "calendar";
 
@@ -271,12 +272,12 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (routeState.route !== "calendar") {
+    if (routeState.route !== "calendar" && !accountabilitySummary) {
       return;
     }
 
     void ensureActivityCalendarLoaded();
-  }, [routeState.route, manifest]);
+  }, [routeState.route, manifest, accountabilitySummary]);
 
   const ensureActivityMemberDetailLoaded = useCallback(async (
     member: MemberActivityCalendarMember,
@@ -378,6 +379,12 @@ export default function App() {
   const combinedRankingItems = accountabilitySummary
     ? rankAccountabilityItems(accountabilitySummary.items, "combined")
     : [];
+  const leaderboardAttendanceByMemberId = new Map(
+    (activityCalendar?.assembly.members ?? []).map((member) => [
+      member.memberId,
+      getMemberAttendanceSummary(member)
+    ])
+  );
   const homeSearchOptions = combinedRankingItems.map((item) => ({
     id: item.memberId,
     label: `${item.name} · ${item.party}`
@@ -385,7 +392,10 @@ export default function App() {
   const homeStatusMessages = [
     feedError ? "최근 표결 데이터를 불러오지 못해 일부 카드가 비어 있습니다." : null,
     leaderboardError ? "책임성 랭킹 데이터를 확인하지 못해 일부 비교 요소가 비활성화되었습니다." : null,
-    trendsError ? "추세 차트 데이터를 확인하지 못해 일부 시각화가 단순 표시로 전환되었습니다." : null
+    trendsError ? "추세 차트 데이터를 확인하지 못해 일부 시각화가 단순 표시로 전환되었습니다." : null,
+    activityError && accountabilitySummary
+      ? "활동 캘린더 데이터를 확인하지 못해 랭킹 출석 요약이 일부 비어 있습니다."
+      : null
   ].filter(Boolean) as string[];
 
   if (routeState.route === "calendar") {
@@ -543,6 +553,7 @@ export default function App() {
           <AccountabilityLeaderboard
             items={accountabilitySummary.items}
             assemblyLabel={currentAssemblyLabel}
+            attendanceByMemberId={leaderboardAttendanceByMemberId}
           />
         ) : (
           <section className="leaderboard-panel">

@@ -33,6 +33,19 @@ export type HeadToHeadSummary = {
   rightLongestStreak: number;
 };
 
+export type MemberDayBreakdown = {
+  yesDays: number;
+  noDays: number;
+  abstainDays: number;
+  absentDays: number;
+};
+
+export type MemberAttendanceSummary = MemberDayBreakdown & {
+  eligibleDays: number;
+  attendedDays: number;
+  attendanceRate: number;
+};
+
 function parseDateKey(dateKey: string): Date {
   const [yearValue, monthValue, dayValue] = dateKey.split("-").map((value) => Number(value));
   const year = Number.isFinite(yearValue) ? Number(yearValue) : 1970;
@@ -66,6 +79,30 @@ function matchesQuery(member: MemberActivityCalendarMember, query: string): bool
     member.name.toLocaleLowerCase("ko-KR").includes(normalizedQuery) ||
     member.party.toLocaleLowerCase("ko-KR").includes(normalizedQuery)
   );
+}
+
+export function getMemberDayBreakdown(member: MemberActivityCalendarMember): MemberDayBreakdown {
+  return {
+    yesDays: member.dayStates.filter((day) => day.state === "yes").length,
+    noDays: member.dayStates.filter((day) => day.state === "no").length,
+    abstainDays: member.dayStates.filter((day) => day.state === "abstain").length,
+    absentDays: member.dayStates.filter((day) => day.state === "absent").length
+  };
+}
+
+export function getMemberAttendanceSummary(
+  member: MemberActivityCalendarMember
+): MemberAttendanceSummary {
+  const breakdown = getMemberDayBreakdown(member);
+  const eligibleDays = member.dayStates.length;
+  const attendedDays = Math.max(0, eligibleDays - breakdown.absentDays);
+
+  return {
+    ...breakdown,
+    eligibleDays,
+    attendedDays,
+    attendanceRate: eligibleDays > 0 ? attendedDays / eligibleDays : 0
+  };
 }
 
 export function getCurrentStreak(

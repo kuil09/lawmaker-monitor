@@ -6,16 +6,16 @@ import { buildCalendarHref } from "../lib/calendar-route.js";
 import {
   getYesCount,
   rankLeaderboardItems,
-  type LeaderboardMetric,
-  getLeaderboardMetricCount,
-  getLeaderboardMetricRate
+  type LeaderboardMetric
 } from "../lib/accountability.js";
 import { formatNumber, formatPercent } from "../lib/format.js";
+import type { MemberAttendanceSummary } from "../lib/member-activity.js";
 import { MemberIdentity } from "./MemberIdentity.js";
 
 type AccountabilityLeaderboardProps = {
   items: AccountabilitySummaryItem[];
   assemblyLabel: string;
+  attendanceByMemberId?: Map<string, MemberAttendanceSummary>;
 };
 
 const leaderboardMetricOptions: Array<{
@@ -28,12 +28,15 @@ const leaderboardMetricOptions: Array<{
   { value: "yes", label: "찬성" }
 ];
 
-export function AccountabilityLeaderboard({ items, assemblyLabel }: AccountabilityLeaderboardProps) {
+export function AccountabilityLeaderboard({
+  items,
+  assemblyLabel,
+  attendanceByMemberId
+}: AccountabilityLeaderboardProps) {
   const [metric, setMetric] = useState<LeaderboardMetric>("absent");
   const rankedItems = rankLeaderboardItems(items, metric).slice(0, 10);
   const metricLabel =
     leaderboardMetricOptions.find((option) => option.value === metric)?.label ?? "불참";
-  const metricClassName = `ranking-item__stats--${metric}`;
   const leaderboardCopy =
     metric === "absent"
       ? "불참 기준으로 먼저 정렬해 출석 문제를 바로 드러내고, 나머지 선택 구성은 작은 막대로 함께 봅니다."
@@ -79,8 +82,7 @@ export function AccountabilityLeaderboard({ items, assemblyLabel }: Accountabili
           const absentShare =
             item.totalRecordedVotes > 0 ? (item.absentCount / item.totalRecordedVotes) * 100 : 0;
           const yesShare = item.totalRecordedVotes > 0 ? (yesCount / item.totalRecordedVotes) * 100 : 0;
-          const metricCount = getLeaderboardMetricCount(item, metric);
-          const metricRate = getLeaderboardMetricRate(item, metric);
+          const attendanceSummary = attendanceByMemberId?.get(item.memberId);
           const breakdownItems = [
             { key: "yes", label: "찬성", count: yesCount },
             { key: "no", label: "반대", count: item.noCount },
@@ -102,10 +104,20 @@ export function AccountabilityLeaderboard({ items, assemblyLabel }: Accountabili
                       size="small"
                     />
                   </div>
-                  <div className={`ranking-item__stats ${metricClassName}`}>
-                    <span className="ranking-item__stats-label">{metricLabel}</span>
-                    <strong>{`${formatNumber(metricCount)}건`}</strong>
-                    <span className="ranking-item__stats-rate">{formatPercent(metricRate)}</span>
+                  <div className="ranking-item__stats">
+                    <span className="ranking-item__stats-label">출석 현황</span>
+                    <strong>
+                      {attendanceSummary
+                        ? `출석 ${formatNumber(attendanceSummary.attendedDays)}일 / 대상 ${formatNumber(
+                            attendanceSummary.eligibleDays
+                          )}일`
+                        : "준비 중"}
+                    </strong>
+                    <span className="ranking-item__stats-rate">
+                      {attendanceSummary
+                        ? `출석률 ${formatPercent(attendanceSummary.attendanceRate)}`
+                        : "활동 데이터 확인 전"}
+                    </span>
                   </div>
                 </div>
                 <div className="ranking-item__graph" aria-hidden="true">
