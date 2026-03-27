@@ -112,17 +112,20 @@ export function VoteCarousel({
         return (
           <section key={group.dateKey} className="vote-carousel__group">
             <header className="vote-carousel__group-header">
-              <div>
+              <div className="vote-carousel__group-heading">
                 <h3 className="vote-carousel__group-title">{group.label}</h3>
                 <p className="vote-carousel__group-count">{`${group.items.length}건`}</p>
               </div>
               {pageCount > 1 ? (
                 <div className="vote-carousel__controls">
-                  <span className="vote-carousel__status">{`${currentPage + 1} / ${pageCount}`}</span>
+                  <span className="vote-carousel__status" aria-live="polite">
+                    {`${currentPage + 1} / ${pageCount}`}
+                  </span>
                   <div className="vote-carousel__buttons">
                     <button
                       type="button"
                       className="vote-carousel__button"
+                      aria-label={`${group.label} 이전 페이지`}
                       onClick={() =>
                         setPagesByDate((previous) => ({
                           ...previous,
@@ -136,6 +139,7 @@ export function VoteCarousel({
                     <button
                       type="button"
                       className="vote-carousel__button"
+                      aria-label={`${group.label} 다음 페이지`}
                       onClick={() =>
                         setPagesByDate((previous) => ({
                           ...previous,

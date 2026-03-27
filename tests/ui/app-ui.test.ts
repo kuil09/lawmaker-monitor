@@ -69,10 +69,148 @@ async function openHomeFlow(viewportName: string): Promise<void> {
     const voteHighlightSummaryHeight = await voteHighlightSummary.evaluate(
       (element) => element.getBoundingClientRect().height
     );
+    const heroLayout = await page.locator(".hero-panel").evaluate((element) => {
+      const panel = element as HTMLElement;
+      const masthead = panel.querySelector(".hero-panel__masthead") as HTMLElement | null;
+      const chips = panel.querySelector(".hero-panel__chips") as HTMLElement | null;
+      const freshness = panel.querySelector(".freshness-indicator") as HTMLElement | null;
+      const story = panel.querySelector(".hero-panel__story") as HTMLElement | null;
+      const headline = panel.querySelector(".hero-panel__headline") as HTMLElement | null;
+      const title = headline?.querySelector("h1") as HTMLElement | null;
+      const lede = panel.querySelector(".hero-panel__lede") as HTMLElement | null;
+      const copy = panel.querySelector(".hero-panel__copy") as HTMLElement | null;
+      const aside = panel.querySelector(".hero-panel__aside") as HTMLElement | null;
+
+      if (!masthead || !chips || !freshness || !story || !headline || !title || !lede || !copy || !aside) {
+        return null;
+      }
+
+      const titleRect = title.getBoundingClientRect();
+      const titleStyle = window.getComputedStyle(title);
+      const titleLineHeight = Number.parseFloat(titleStyle.lineHeight);
+
+      return {
+        panelOverflow: panel.scrollWidth - panel.clientWidth,
+        mastheadColumns: window.getComputedStyle(masthead).gridTemplateColumns.split(" ").length,
+        chipsBottomToFreshnessTop: freshness.getBoundingClientRect().top - chips.getBoundingClientRect().bottom,
+        ledeTopToTitleBottom: lede.getBoundingClientRect().top - titleRect.bottom,
+        copyTopToHeadlineBottom: copy.getBoundingClientRect().top - headline.getBoundingClientRect().bottom,
+        asideTopToStoryBottom: aside.getBoundingClientRect().top - story.getBoundingClientRect().bottom,
+        titleLineCount:
+          Number.isFinite(titleLineHeight) && titleLineHeight > 0
+            ? titleRect.height / titleLineHeight
+            : null
+      };
+    });
+    const leaderboardLayout = await page.locator(".ranking-item").first().evaluate((element) => {
+      const content = element.querySelector(".ranking-item__content") as HTMLElement | null;
+      const stats = element.querySelector(".ranking-item__stats") as HTMLElement | null;
+      const graph = element.querySelector(".ranking-item__graph") as HTMLElement | null;
+      const meta = element.querySelector(".ranking-item__meta") as HTMLElement | null;
+      const metaItems = Array.from(element.querySelectorAll(".ranking-item__meta-item")) as HTMLElement[];
+
+      if (!content || !stats || !graph || !meta) {
+        return null;
+      }
+
+      const contentRect = content.getBoundingClientRect();
+      const graphRect = graph.getBoundingClientRect();
+      const metaRect = meta.getBoundingClientRect();
+
+      return {
+        statsHeight: stats.getBoundingClientRect().height,
+        graphOffsetLeft: graphRect.left - contentRect.left,
+        metaOffsetLeft: metaRect.left - contentRect.left,
+        metaColumnCount: window.getComputedStyle(meta).gridTemplateColumns.split(" ").length,
+        contentColumnCount: window.getComputedStyle(content).gridTemplateColumns.split(" ").length,
+        itemOverflow: element.scrollWidth - element.clientWidth,
+        metaItemHeights: metaItems.map((metaItem) => metaItem.getBoundingClientRect().height)
+      };
+    });
+    const voteCardLayout = await page.locator(".vote-card").first().evaluate((element) => {
+      const actions = element.querySelector(".vote-card__actions") as HTMLElement | null;
+      const sourceLink = element.querySelector(".vote-card__source-link") as HTMLElement | null;
+      const stats = element.querySelector(".vote-card__stats") as HTMLElement | null;
+      const highlightSummary = element.querySelector(
+        ".vote-card__highlight-summary"
+      ) as HTMLElement | null;
+      const statCards = Array.from(element.querySelectorAll(".vote-card__stat")) as HTMLElement[];
+
+      if (!actions || !sourceLink || !stats || !highlightSummary) {
+        return null;
+      }
+
+      const sourceRect = sourceLink.getBoundingClientRect();
+
+      return {
+        cardOverflow: element.scrollWidth - element.clientWidth,
+        actionOverflow: actions.scrollWidth - actions.clientWidth,
+        sourceHeight: sourceRect.height,
+        statsColumnCount: window.getComputedStyle(stats).gridTemplateColumns.split(" ").length,
+        statHeights: statCards.map((statCard) => statCard.getBoundingClientRect().height),
+        summaryHeight: highlightSummary.getBoundingClientRect().height
+      };
+    });
+
+    await voteHighlightSummary.click();
+    await expect
+      .poll(async () =>
+        page
+          .locator(".vote-card__highlight")
+          .first()
+          .evaluate((element) => (element as HTMLDetailsElement).open)
+      )
+      .toBe(true);
+    const voteCardDetailLayout = await page.locator(".vote-card").first().evaluate((element) => {
+      const highlight = element.querySelector(".vote-card__highlight") as HTMLDetailsElement | null;
+      const highlightBody = element.querySelector(".vote-card__highlight-body") as HTMLElement | null;
+
+      return {
+        isOpen: highlight?.open ?? false,
+        bodyHeight: highlightBody?.getBoundingClientRect().height ?? 0
+      };
+    });
+    await voteHighlightSummary.click();
+    await expect
+      .poll(async () =>
+        page
+          .locator(".vote-card__highlight")
+          .first()
+          .evaluate((element) => (element as HTMLDetailsElement).open)
+      )
+      .toBe(false);
 
     expect(leaderboardPrimaryHeight).toBeGreaterThanOrEqual(44);
     expect(voteSourceLinkHeight).toBeGreaterThanOrEqual(44);
     expect(voteHighlightSummaryHeight).toBeGreaterThanOrEqual(44);
+    expect(heroLayout).not.toBeNull();
+    expect(heroLayout?.panelOverflow ?? 99).toBeLessThanOrEqual(1);
+    expect(heroLayout?.ledeTopToTitleBottom ?? -1).toBeGreaterThanOrEqual(0);
+    expect(heroLayout?.copyTopToHeadlineBottom ?? -1).toBeGreaterThanOrEqual(0);
+    expect(leaderboardLayout).not.toBeNull();
+    expect(leaderboardLayout?.statsHeight ?? 0).toBeGreaterThanOrEqual(44);
+    expect(Math.abs(leaderboardLayout?.graphOffsetLeft ?? 99)).toBeLessThan(2);
+    expect(Math.abs(leaderboardLayout?.metaOffsetLeft ?? 99)).toBeLessThan(2);
+    expect(leaderboardLayout?.itemOverflow ?? 99).toBeLessThanOrEqual(1);
+    expect((leaderboardLayout?.metaItemHeights ?? []).every((height) => height >= 32)).toBe(true);
+    expect(voteCardLayout).not.toBeNull();
+    expect(voteCardLayout?.cardOverflow ?? 99).toBeLessThanOrEqual(1);
+    expect(voteCardLayout?.actionOverflow ?? 99).toBeLessThanOrEqual(1);
+    expect(voteCardLayout?.sourceHeight ?? 0).toBeGreaterThanOrEqual(44);
+    expect(voteCardLayout?.summaryHeight ?? 0).toBeGreaterThanOrEqual(44);
+    expect((voteCardLayout?.statHeights ?? []).every((height) => height >= 44)).toBe(true);
+    expect(voteCardDetailLayout?.isOpen).toBe(true);
+    expect(voteCardDetailLayout?.bodyHeight ?? 0).toBeGreaterThan(0);
+
+    if (viewportName === "mobile") {
+      expect(heroLayout?.mastheadColumns).toBe(1);
+      expect(heroLayout?.chipsBottomToFreshnessTop ?? -1).toBeGreaterThanOrEqual(0);
+      expect(heroLayout?.asideTopToStoryBottom ?? -1).toBeGreaterThanOrEqual(0);
+      expect(heroLayout?.titleLineCount ?? 99).toBeLessThanOrEqual(2.4);
+      expect(leaderboardLayout?.metaColumnCount).toBe(2);
+      expect(leaderboardLayout?.contentColumnCount).toBe(1);
+      expect(voteCardLayout?.statsColumnCount).toBe(2);
+    }
 
     const homeScreenshot = await saveScreenshot(page, `${viewportName}/home.png`);
     scenarioManifest.push({ viewport: viewportName, scenario: "home-overview", screenshot: homeScreenshot });
@@ -121,6 +259,40 @@ async function openHomeFlow(viewportName: string): Promise<void> {
       expect(helpButtonBounds.height).toBeGreaterThanOrEqual(48);
     }
 
+    const memberHeaderLayout = await page.locator(".activity-drawer__member-header").evaluate((element) => {
+      const header = element as HTMLElement;
+      const identityRow = header.querySelector(".activity-drawer__identity-row") as HTMLElement | null;
+      const actions = header.querySelector(".activity-page__member-actions") as HTMLElement | null;
+      const context = header.querySelector(".activity-drawer__member-context") as HTMLElement | null;
+      const memberships = header.querySelector(".activity-drawer__committee-memberships") as HTMLElement | null;
+      const summary = header.querySelector(".activity-drawer__summary") as HTMLElement | null;
+      const actionButtons = Array.from(
+        header.querySelectorAll(".activity-page__member-actions .activity-page__action-button")
+      ) as HTMLElement[];
+      const summaryCards = Array.from(header.querySelectorAll(".activity-drawer__summary > div")) as HTMLElement[];
+
+      if (!identityRow || !actions || !context || !memberships || !summary) {
+        return null;
+      }
+
+      const actionsRect = actions.getBoundingClientRect();
+      const membershipsRect = memberships.getBoundingClientRect();
+
+      return {
+        headerOverflow: header.scrollWidth - header.clientWidth,
+        identityColumns: window.getComputedStyle(identityRow).gridTemplateColumns.split(" ").length,
+        contextColumns: window.getComputedStyle(context).gridTemplateColumns.split(" ").length,
+        summaryColumns: window.getComputedStyle(summary).gridTemplateColumns.split(" ").length,
+        actionsBottomToMembershipsTop: membershipsRect.top - actionsRect.bottom,
+        actionButtonHeights: actionButtons.map((button) => button.getBoundingClientRect().height),
+        summaryCardHeights: summaryCards.map((card) => card.getBoundingClientRect().height)
+      };
+    });
+    expect(memberHeaderLayout).not.toBeNull();
+    expect(memberHeaderLayout?.headerOverflow ?? 99).toBeLessThanOrEqual(1);
+    expect((memberHeaderLayout?.actionButtonHeights ?? []).every((height) => height >= 44)).toBe(true);
+    expect((memberHeaderLayout?.summaryCardHeights ?? []).every((height) => height >= 60)).toBe(true);
+
     const committeeToggle = page.locator(".activity-committee-card__details-toggle").first();
     await committeeToggle.waitFor();
 
@@ -165,6 +337,13 @@ async function openHomeFlow(viewportName: string): Promise<void> {
       expect(calendarViewportState.scrollLeft).toBeGreaterThan(0);
     } else {
       expect(calendarViewportState.scrollLeft).toBe(0);
+    }
+
+    if (viewportName === "mobile") {
+      expect(memberHeaderLayout?.identityColumns).toBe(1);
+      expect(memberHeaderLayout?.contextColumns).toBe(1);
+      expect(memberHeaderLayout?.summaryColumns).toBe(2);
+      expect(memberHeaderLayout?.actionsBottomToMembershipsTop ?? -1).toBeGreaterThanOrEqual(0);
     }
 
     const calendarScreenshot = await saveScreenshot(page, `${viewportName}/calendar-single.png`);
@@ -279,6 +458,60 @@ async function openCompareFlow(viewportName: string): Promise<void> {
       .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().width));
     expect(compareAvatarWidths).toHaveLength(2);
     expect(compareAvatarWidths.every((width) => width <= 40)).toBe(true);
+
+    const compareRatioLayout = await page
+      .locator(".activity-ratio-card--compare")
+      .evaluate((element) => {
+        const card = element as HTMLElement;
+        const legend = card.querySelector(".activity-ratio-compare__legend") as HTMLElement | null;
+        const legendItems = Array.from(
+          card.querySelectorAll(".activity-ratio-compare__legend-item")
+        ) as HTMLElement[];
+        const table = card.querySelector(".activity-ratio-compare__table") as HTMLElement | null;
+        const headRow = card.querySelector(".activity-ratio-compare__row--head") as HTMLElement | null;
+        const firstDataRow = card.querySelector(
+          ".activity-ratio-compare__row:not(.activity-ratio-compare__row--head)"
+        ) as HTMLElement | null;
+        const values = firstDataRow?.querySelector(".activity-ratio-compare__values") as
+          | HTMLElement
+          | null;
+        const cells = Array.from(firstDataRow?.querySelectorAll(".activity-ratio-compare__cell") ?? []) as
+          HTMLElement[];
+        const firstCellLabel = firstDataRow?.querySelector(
+          ".activity-ratio-compare__cell-label"
+        ) as HTMLElement | null;
+
+        if (!legend || !table || !headRow || !firstDataRow || !values || cells.length === 0) {
+          return null;
+        }
+
+        return {
+          cardOverflow: card.scrollWidth - card.clientWidth,
+          tableOverflow: table.scrollWidth - table.clientWidth,
+          rowOverflow: firstDataRow.scrollWidth - firstDataRow.clientWidth,
+          legendColumns: window.getComputedStyle(legend).gridTemplateColumns.split(" ").length,
+          valuesColumns: window.getComputedStyle(values).gridTemplateColumns.split(" ").length,
+          rowColumns: window.getComputedStyle(firstDataRow).gridTemplateColumns.split(" ").length,
+          headDisplay: window.getComputedStyle(headRow).display,
+          firstCellLabelDisplay: firstCellLabel ? window.getComputedStyle(firstCellLabel).display : null,
+          legendItemHeights: legendItems.map((item) => item.getBoundingClientRect().height),
+          cellHeights: cells.map((cell) => cell.getBoundingClientRect().height)
+        };
+      });
+    expect(compareRatioLayout).not.toBeNull();
+    expect(compareRatioLayout?.cardOverflow ?? 99).toBeLessThanOrEqual(1);
+    expect(compareRatioLayout?.tableOverflow ?? 99).toBeLessThanOrEqual(1);
+    expect(compareRatioLayout?.rowOverflow ?? 99).toBeLessThanOrEqual(1);
+    expect((compareRatioLayout?.legendItemHeights ?? []).every((height) => height >= 44)).toBe(true);
+    expect((compareRatioLayout?.cellHeights ?? []).every((height) => height >= 44)).toBe(true);
+
+    if (viewportName === "mobile") {
+      expect(compareRatioLayout?.legendColumns).toBe(1);
+      expect(compareRatioLayout?.rowColumns).toBe(1);
+      expect(compareRatioLayout?.valuesColumns).toBe(2);
+      expect(compareRatioLayout?.headDisplay).toBe("none");
+      expect(compareRatioLayout?.firstCellLabelDisplay).not.toBe("none");
+    }
 
     const compareScreenshot = await saveScreenshot(page, `${viewportName}/calendar-compare.png`);
     scenarioManifest.push({

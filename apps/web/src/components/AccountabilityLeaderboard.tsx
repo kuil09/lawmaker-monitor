@@ -81,6 +81,12 @@ export function AccountabilityLeaderboard({ items, assemblyLabel }: Accountabili
           const yesShare = item.totalRecordedVotes > 0 ? (yesCount / item.totalRecordedVotes) * 100 : 0;
           const metricCount = getLeaderboardMetricCount(item, metric);
           const metricRate = getLeaderboardMetricRate(item, metric);
+          const breakdownItems = [
+            { key: "yes", label: "찬성", count: yesCount },
+            { key: "no", label: "반대", count: item.noCount },
+            { key: "abstain", label: "기권", count: item.abstainCount },
+            { key: "absent", label: "불참", count: item.absentCount }
+          ] as const;
 
           return (
             <li key={item.memberId} className="ranking-item">
@@ -97,8 +103,9 @@ export function AccountabilityLeaderboard({ items, assemblyLabel }: Accountabili
                     />
                   </div>
                   <div className={`ranking-item__stats ${metricClassName}`}>
+                    <span className="ranking-item__stats-label">{metricLabel}</span>
                     <strong>{`${formatNumber(metricCount)}건`}</strong>
-                    <span>{formatPercent(metricRate)}</span>
+                    <span className="ranking-item__stats-rate">{formatPercent(metricRate)}</span>
                   </div>
                 </div>
                 <div className="ranking-item__graph" aria-hidden="true">
@@ -120,10 +127,15 @@ export function AccountabilityLeaderboard({ items, assemblyLabel }: Accountabili
                   />
                 </div>
                 <div className="ranking-item__meta">
-                  <span className="ranking-item__meta-item ranking-item__meta-item--yes">{`찬성 ${formatNumber(yesCount)}`}</span>
-                  <span className="ranking-item__meta-item ranking-item__meta-item--no">{`반대 ${formatNumber(item.noCount)}`}</span>
-                  <span className="ranking-item__meta-item ranking-item__meta-item--abstain">{`기권 ${formatNumber(item.abstainCount)}`}</span>
-                  <span className="ranking-item__meta-item ranking-item__meta-item--absent">{`불참 ${formatNumber(item.absentCount)}`}</span>
+                  {breakdownItems.map((breakdownItem) => (
+                    <span
+                      key={breakdownItem.key}
+                      className={`ranking-item__meta-item ranking-item__meta-item--${breakdownItem.key}`}
+                    >
+                      <span className="ranking-item__meta-label">{breakdownItem.label}</span>
+                      <strong className="ranking-item__meta-value">{`${formatNumber(breakdownItem.count)}건`}</strong>
+                    </span>
+                  ))}
                 </div>
               </div>
             </li>

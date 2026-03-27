@@ -419,14 +419,20 @@ function ActivityCompareRatioChart({
         <p>캘린더 날짜 기준 비율</p>
       </div>
       <div className="activity-ratio-compare__legend">
-        <span>
-          <i style={{ background: compareRatioColors.leftStroke }} />
-          {leftMember.name}
-        </span>
-        <span>
-          <i style={{ background: compareRatioColors.rightStroke }} />
-          {rightMember.name}
-        </span>
+        <div className="activity-ratio-compare__legend-item activity-ratio-compare__legend-item--left">
+          <span className="activity-ratio-compare__legend-kicker">기준 의원</span>
+          <strong className="activity-ratio-compare__legend-name">
+            <i style={{ background: compareRatioColors.leftStroke }} />
+            <span>{leftMember.name}</span>
+          </strong>
+        </div>
+        <div className="activity-ratio-compare__legend-item activity-ratio-compare__legend-item--right">
+          <span className="activity-ratio-compare__legend-kicker">비교 의원</span>
+          <strong className="activity-ratio-compare__legend-name">
+            <i style={{ background: compareRatioColors.rightStroke }} />
+            <span>{rightMember.name}</span>
+          </strong>
+        </div>
       </div>
       <div className="activity-ratio-card__body activity-ratio-card__body--compare">
         <div className="activity-ratio-card__chart">
@@ -459,18 +465,42 @@ function ActivityCompareRatioChart({
         </div>
         <div className="activity-ratio-compare__table" role="table" aria-label="비율 비교 표">
           <div className="activity-ratio-compare__row activity-ratio-compare__row--head" role="row">
-            <span role="columnheader" aria-hidden="true" />
-            <span role="columnheader">{leftMember.name}</span>
-            <span role="columnheader">{rightMember.name}</span>
+            <span className="activity-ratio-compare__metric-header" role="columnheader">
+              항목
+            </span>
+            <div className="activity-ratio-compare__values activity-ratio-compare__values--head">
+              <span role="columnheader">{leftMember.name}</span>
+              <span role="columnheader">{rightMember.name}</span>
+            </div>
           </div>
           {compareData.map((item) => (
             <div key={item.label} className="activity-ratio-compare__row" role="row">
-              <span className="activity-ratio-card__label" role="rowheader">
+              <span className="activity-ratio-card__label activity-ratio-compare__metric" role="rowheader">
                 <i style={{ background: item.axisColor }} />
                 {item.label}
               </span>
-              <strong role="cell">{`${formatNumber(item.leftPercent)}%`}</strong>
-              <strong role="cell">{`${formatNumber(item.rightPercent)}%`}</strong>
+              <div className="activity-ratio-compare__values">
+                <div
+                  className="activity-ratio-compare__cell activity-ratio-compare__cell--left"
+                  role="cell"
+                >
+                  <span className="activity-ratio-compare__cell-label">
+                    기준
+                    <span className="sr-only">{` ${leftMember.name}`}</span>
+                  </span>
+                  <strong>{`${formatNumber(item.leftPercent)}%`}</strong>
+                </div>
+                <div
+                  className="activity-ratio-compare__cell activity-ratio-compare__cell--right"
+                  role="cell"
+                >
+                  <span className="activity-ratio-compare__cell-label">
+                    비교
+                    <span className="sr-only">{` ${rightMember.name}`}</span>
+                  </span>
+                  <strong>{`${formatNumber(item.rightPercent)}%`}</strong>
+                </div>
+              </div>
             </div>
           ))}
         </div>
@@ -1268,7 +1298,7 @@ export function ActivityCalendarPage({
         return currentCompareId;
       }
 
-      return availableCompareMembers[0]?.memberId ?? null;
+      return null;
     });
   }, [initialCompareMemberId, selectedAssembly, selectedMember]);
 
@@ -1466,52 +1496,79 @@ export function ActivityCalendarPage({
                 <>
                   <div className="activity-drawer__member-header">
                     <div className="activity-drawer__member-primary">
-                      <MemberIdentity
-                        name={selectedMember.name}
-                        party={selectedMember.party}
-                        photoUrl={selectedMember.photoUrl}
-                        calendarHref={buildCalendarHref({ memberId: selectedMember.memberId })}
-                        size="large"
-                      />
+                      <div className="activity-drawer__identity-row">
+                        <MemberIdentity
+                          name={selectedMember.name}
+                          party={selectedMember.party}
+                          photoUrl={selectedMember.photoUrl}
+                          calendarHref={buildCalendarHref({ memberId: selectedMember.memberId })}
+                          size="large"
+                        />
+                        <div className="activity-page__member-actions">
+                          <ExternalSiteLink url={selectedMember.officialExternalUrl} />
+                          <button
+                            type="button"
+                            className="activity-page__action-button activity-page__share"
+                            onClick={handleShare}
+                            disabled={isSharing || !selectedAssembly || !selectedMember}
+                            aria-label={isSharing ? "링크 준비 중" : "공유하기"}
+                            title={isSharing ? "링크 준비 중" : "공유하기"}
+                          >
+                            <svg viewBox="0 0 20 20" aria-hidden="true">
+                              <path
+                                d="M8.1 6.3H6.6a2.8 2.8 0 0 0 0 5.5h1.5M11.9 6.3h1.5a2.8 2.8 0 1 1 0 5.5h-1.5M7.4 10h5.2"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="1.7"
+                              />
+                            </svg>
+                            <span>{isSharing ? "링크 준비 중" : "공유하기"}</span>
+                          </button>
+                        </div>
+                      </div>
                       <p className="activity-drawer__member-copy">
                         {`반대 ${formatNumber(selectedBreakdown.noDays)}일 · 기권 ${formatNumber(selectedBreakdown.abstainDays)}일 · 불참 ${formatNumber(selectedBreakdown.absentDays)}일`}
                       </p>
-                      <div className="activity-drawer__committee-memberships">
-                        <strong>현재 소속 위원회</strong>
-                        {selectedMember.committeeMemberships?.length ? (
-                          <div className="activity-drawer__committee-chips">
-                            {selectedMember.committeeMemberships.map((committeeName) => (
-                              <span
-                                key={`${selectedMember.memberId}:${committeeName}`}
-                                className="activity-drawer__committee-chip"
+                      <div className="activity-drawer__member-context">
+                        <div className="activity-drawer__committee-memberships">
+                          <strong>현재 소속 위원회</strong>
+                          {selectedMember.committeeMemberships?.length ? (
+                            <div className="activity-drawer__committee-chips">
+                              {selectedMember.committeeMemberships.map((committeeName) => (
+                                <span
+                                  key={`${selectedMember.memberId}:${committeeName}`}
+                                  className="activity-drawer__committee-chip"
+                                >
+                                  {committeeName}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="activity-drawer__committee-fallback">위원회 소속 미확인</p>
+                          )}
+                        </div>
+                        {selectedMember.homeCommitteeAlerts?.length ? (
+                          <div className="activity-drawer__committee-alerts" aria-label="소속 위원회 주의">
+                            {selectedMember.homeCommitteeAlerts.map((alert) => (
+                              <div
+                                key={`${selectedMember.memberId}:${alert.committeeName}`}
+                                className="activity-drawer__committee-alert"
                               >
-                                {committeeName}
-                              </span>
+                                <strong>{alert.message}</strong>
+                                <p>
+                                  {`${alert.committeeName} 참여율 ${formatNumber(
+                                    Math.round(alert.participationRate * 100)
+                                  )}% (참여 ${formatNumber(alert.participatedRollCallCount)} / 대상 ${formatNumber(
+                                    alert.eligibleRollCallCount
+                                  )})`}
+                                </p>
+                              </div>
                             ))}
                           </div>
-                        ) : (
-                          <p className="activity-drawer__committee-fallback">위원회 소속 미확인</p>
-                        )}
+                        ) : null}
                       </div>
-                      {selectedMember.homeCommitteeAlerts?.length ? (
-                        <div className="activity-drawer__committee-alerts" aria-label="소속 위원회 주의">
-                          {selectedMember.homeCommitteeAlerts.map((alert) => (
-                            <div
-                              key={`${selectedMember.memberId}:${alert.committeeName}`}
-                              className="activity-drawer__committee-alert"
-                            >
-                              <strong>{alert.message}</strong>
-                              <p>
-                                {`${alert.committeeName} 참여율 ${formatNumber(
-                                  Math.round(alert.participationRate * 100)
-                                )}% (참여 ${formatNumber(alert.participatedRollCallCount)} / 대상 ${formatNumber(
-                                  alert.eligibleRollCallCount
-                                )})`}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
                     </div>
                     <dl className="activity-drawer__summary">
                       <div>
@@ -1531,29 +1588,6 @@ export function ActivityCalendarPage({
                         <dd>{formatNumber(selectedBreakdown.absentDays)}</dd>
                       </div>
                     </dl>
-                    <div className="activity-page__member-actions">
-                      <ExternalSiteLink url={selectedMember.officialExternalUrl} />
-                      <button
-                        type="button"
-                        className="activity-page__action-button activity-page__share"
-                        onClick={handleShare}
-                        disabled={isSharing || !selectedAssembly || !selectedMember}
-                        aria-label={isSharing ? "링크 준비 중" : "공유하기"}
-                        title={isSharing ? "링크 준비 중" : "공유하기"}
-                      >
-                        <svg viewBox="0 0 20 20" aria-hidden="true">
-                          <path
-                            d="M8.1 6.3H6.6a2.8 2.8 0 0 0 0 5.5h1.5M11.9 6.3h1.5a2.8 2.8 0 1 1 0 5.5h-1.5M7.4 10h5.2"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="1.7"
-                          />
-                        </svg>
-                        <span>{isSharing ? "링크 준비 중" : "공유하기"}</span>
-                      </button>
-                    </div>
                   </div>
                   <section className="activity-drawer__calendar-card" aria-label="활동 캘린더 요약">
                     <div className="activity-drawer__section-head">

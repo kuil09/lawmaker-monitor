@@ -432,8 +432,12 @@ export default function App() {
                   {freshnessText}
                 </span>
               </div>
-              <p className="hero-panel__lede">오늘의 국회 표결 흐름을 한 화면에서 훑고, 의원 단위 비교로 바로 내려갑니다.</p>
-              <h1>국회 책임성 모니터</h1>
+              <div className="hero-panel__headline">
+                <h1>국회 책임성 모니터</h1>
+                <p className="hero-panel__lede">
+                  오늘의 국회 표결 흐름을 한 화면에서 훑고, 의원 단위 비교로 바로 내려갑니다.
+                </p>
+              </div>
               <p className="hero-panel__copy">
                 {`국회 표결 기록으로 의원 활동을 살펴보는 서비스입니다. ${currentAssemblyLabel} 기준 공개 기록표결과 표결일 기준 재직 구간을 바탕으로 현직 의원의 찬성·반대·기권·불참 흐름과 최근 표결을 빠르게 확인할 수 있습니다.`}
               </p>

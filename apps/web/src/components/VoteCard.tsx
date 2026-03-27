@@ -42,17 +42,23 @@ export function VoteCard({ item }: VoteCardProps) {
     if (totalCount === 0) {
       return (
         <div className="vote-card__group">
-          <h5>{title}</h5>
-          <p>없음</p>
+          <div className="vote-card__group-header">
+            <h5>{title}</h5>
+            <span className="vote-card__group-count">{`${totalCount}명`}</span>
+          </div>
+          <p className="vote-card__group-note">없음</p>
         </div>
       );
     }
 
     return (
       <div className="vote-card__group">
-        <h5>{title}</h5>
+        <div className="vote-card__group-header">
+          <h5>{title}</h5>
+          <span className="vote-card__group-count">{`${totalCount}명`}</span>
+        </div>
         {options?.unavailableMessage ? (
-          <p>{options.unavailableMessage}</p>
+          <p className="vote-card__group-note">{options.unavailableMessage}</p>
         ) : (
           <ul>
             {votes.map((vote) => (
@@ -76,7 +82,7 @@ export function VoteCard({ item }: VoteCardProps) {
   return (
     <article className="vote-card">
       <header className="vote-card__top">
-        <div>
+        <div className="vote-card__headline">
           <p className="vote-card__eyebrow">공개 기록표결</p>
           <h3>{combinedTitle}</h3>
           <p className="vote-card__meta">{formatDate(item.voteDatetime)}</p>

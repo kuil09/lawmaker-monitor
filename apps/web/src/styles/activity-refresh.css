@@ -127,6 +127,10 @@
   gap: 0.82rem;
 }
 
+.activity-drawer__identity-row {
+  gap: 0.9rem;
+}
+
 .activity-drawer__member-primary .member-identity--large {
   align-items: start;
 }
@@ -135,6 +139,14 @@
   max-width: 50ch;
   line-height: 1.45;
   font-size: 0.96rem;
+}
+
+.activity-drawer__member-context {
+  gap: 0.75rem;
+}
+
+.activity-drawer__member-context > * {
+  min-width: 0;
 }
 
 .activity-drawer__committee-memberships {
@@ -197,10 +209,13 @@
 .activity-drawer__summary {
   grid-template-columns: repeat(2, minmax(8rem, 1fr));
   justify-content: stretch;
-  gap: 0.62rem;
+  gap: 0.7rem;
 }
 
 .activity-drawer__summary div {
+  display: grid;
+  align-content: start;
+  min-height: 5.2rem;
   padding: 0.78rem 0.84rem;
   border: 1px solid rgba(72, 56, 40, 0.1);
   border-radius: 18px;
@@ -212,12 +227,13 @@
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.06em;
+  line-height: 1.2;
   text-transform: uppercase;
 }
 
 .activity-drawer__summary dd {
   margin-top: 0.18rem;
-  font-size: 1rem;
+  font-size: 1.04rem;
 }
 
 .activity-page__member-actions {
@@ -380,6 +396,25 @@
 .activity-ratio-card__chart {
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.6);
+}
+
+.activity-ratio-compare__legend-item {
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: var(--shadow-soft);
+}
+
+.activity-ratio-compare__legend-name {
+  font-size: 0.9rem;
+}
+
+.activity-ratio-compare__cell {
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.activity-ratio-compare__cell strong {
+  font-size: 0.96rem;
 }
 
 .activity-vote-records__group,
@@ -608,8 +643,11 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .activity-drawer__identity-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .activity-page__member-actions {
-    margin-left: 0;
     justify-content: start;
   }
 
@@ -668,6 +706,14 @@
     gap: 0.72rem;
   }
 
+  .activity-drawer__identity-row {
+    gap: 0.72rem;
+  }
+
+  .activity-page__member-actions {
+    gap: 0.5rem;
+  }
+
   .activity-drawer__section-head {
     flex-direction: column;
   }
@@ -683,6 +729,15 @@
 
   .activity-ratio-card__body--compare {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .activity-ratio-compare__legend-item {
+    padding: 0.7rem 0.78rem;
+    border-radius: 16px;
+  }
+
+  .activity-ratio-compare__row {
+    border-radius: 16px;
   }
 
   .activity-committee-sections__groups {

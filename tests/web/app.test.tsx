@@ -468,7 +468,17 @@ describe("web app", () => {
     );
   });
 
-  it("switches to VS comparison and shows same-assembly comparison metrics", async () => {
+  it("keeps the compare slot empty when compare mode opens without a compare param", async () => {
+    window.location.hash = "#calendar?member=M002&view=compare";
+    render(<App />);
+
+    expect(await screen.findByText("제22대 국회 두 의원 비교")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "비교 의원 찾기" })).toHaveValue("");
+    expect(screen.getByText("같은 대수 안에서 비교할 의원을 선택해 주세요.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("비교 요약")).not.toBeInTheDocument();
+  });
+
+  it("shows same-assembly comparison metrics after choosing a comparison member", async () => {
     window.location.hash = "#calendar?member=M002";
     render(<App />);
     await screen.findByRole("heading", { name: "의원 표결 활동 그래프" });
@@ -476,9 +486,17 @@ describe("web app", () => {
     fireEvent.click(screen.getByRole("tab", { name: "VS 비교" }));
 
     expect(await screen.findByText("제22대 국회 두 의원 비교")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("김아라 · 미래개혁당")).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "비교 의원 찾기" })).toBeInTheDocument();
+    const compareInput = screen.getByRole("combobox", { name: "비교 의원 찾기" });
+    expect(compareInput).toHaveValue("");
+    expect(screen.getByText("같은 대수 안에서 비교할 의원을 선택해 주세요.")).toBeInTheDocument();
     expect(screen.queryByText("서로 다른 선택")).not.toBeInTheDocument();
+
+    fireEvent.focus(compareInput);
+    fireEvent.change(compareInput, { target: { value: "김아라 · 미래개혁당" } });
+    fireEvent.blur(compareInput);
+
+    expect(compareInput).toHaveValue("김아라 · 미래개혁당");
+    expect(await screen.findByLabelText("비교 요약")).toBeInTheDocument();
     expect(screen.getAllByText("찬성").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/일 더/).length).toBeGreaterThan(0);
     const compareSummaryBadges = Array.from(
