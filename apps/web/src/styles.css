@@ -645,6 +645,14 @@ summary:focus-visible {
   min-height: 2.75rem;
 }
 
+.member-identity--large {
+  gap: 0.95rem;
+}
+
+.member-identity--large .member-identity__primary {
+  min-height: 4.25rem;
+}
+
 .member-identity__avatar {
   width: 2.4rem;
   height: 2.4rem;
@@ -658,6 +666,11 @@ summary:focus-visible {
 .member-identity--small .member-identity__avatar {
   width: 2rem;
   height: 2rem;
+}
+
+.member-identity--large .member-identity__avatar {
+  width: clamp(3.6rem, 5vw, 4.4rem);
+  height: clamp(3.6rem, 5vw, 4.4rem);
 }
 
 .member-identity__avatar--fallback {
@@ -675,15 +688,29 @@ summary:focus-visible {
   min-width: 0;
 }
 
+.member-identity--large .member-identity__text {
+  gap: 0.2rem;
+}
+
 .member-identity__name {
   color: var(--ink);
   font-weight: 800;
   text-decoration: none;
 }
 
+.member-identity--large .member-identity__name {
+  font-size: clamp(1.18rem, 1.1rem + 0.55vw, 1.45rem);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+}
+
 .member-identity__party {
   color: var(--ink-muted);
   font-size: 0.74rem;
+}
+
+.member-identity--large .member-identity__party {
+  font-size: 0.88rem;
 }
 
 .member-identity__name:hover,

@@ -40,10 +40,15 @@ async function openHomeFlow(viewportName: string): Promise<void> {
 
     await page.getByRole("heading", { name: "국회 책임성 모니터" }).waitFor();
     await page.getByRole("heading", { name: "제22대 국회 의원 순위" }).waitFor();
-    await page.getByText("제22대 국회 최근 12주 네거티브 추세").waitFor();
+    await page.getByText("출석 집중 브리핑").waitFor();
+    await page.getByText("최근 표결 주간 참여율").waitFor();
+    await page.getByText("제22대 국회 최근 12주 참여·불참 추세").waitFor();
     expect(await page.getByRole("heading", { name: "제22대 국회 의원 순위" }).isVisible()).toBe(true);
-    expect(await page.getByText("제22대 국회 최근 12주 네거티브 추세").isVisible()).toBe(true);
+    expect(await page.getByText("제22대 국회 최근 12주 참여·불참 추세").isVisible()).toBe(true);
     expect(await page.getByRole("button", { name: "활동 캘린더 열기" }).isDisabled()).toBe(true);
+    await expect
+      .poll(async () => page.getByRole("tab", { name: "불참" }).getAttribute("aria-selected"))
+      .toBe("true");
 
     const leaderboardPrimaryLink = page.locator(".member-identity--small .member-identity__primary").first();
     const voteSourceLink = page.locator(".vote-card__source-link").first();
@@ -82,6 +87,12 @@ async function openHomeFlow(viewportName: string): Promise<void> {
     await page.getByRole("heading", { name: "의원 표결 활동 그래프" }).waitFor();
     await page.getByRole("heading", { name: "최근 표결 날짜 흐름" }).waitFor();
     await page.getByText("현재 소속 위원회", { exact: true }).waitFor();
+
+    const singleAvatarWidth = await page
+      .locator(".activity-drawer__member-header .member-identity__avatar")
+      .first()
+      .evaluate((element) => element.getBoundingClientRect().width);
+    expect(singleAvatarWidth).toBeGreaterThanOrEqual(56);
 
     const backButton = page.locator(".activity-page__back");
     const helpButton = page.locator(".activity-page__help-button");
@@ -262,6 +273,12 @@ async function openCompareFlow(viewportName: string): Promise<void> {
     await page.getByLabel("비교 요약").waitFor();
     expect(await page.getByText("김아라").count()).toBeGreaterThan(0);
     expect(await page.getByText("박민").count()).toBeGreaterThan(0);
+
+    const compareAvatarWidths = await page
+      .locator(".activity-compare__column .member-identity__avatar")
+      .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().width));
+    expect(compareAvatarWidths).toHaveLength(2);
+    expect(compareAvatarWidths.every((width) => width <= 40)).toBe(true);
 
     const compareScreenshot = await saveScreenshot(page, `${viewportName}/calendar-compare.png`);
     scenarioManifest.push({

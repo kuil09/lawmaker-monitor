@@ -127,21 +127,43 @@ export function VisualizationOverview({
 
   const weeklyTrendData = buildWeeklyTrendChartData(accountabilityTrends);
   const trendWindowWeekCount = accountabilityTrends?.weeks.length ?? weeklyTrendData.length;
-  const activeWeekCount = weeklyTrendData.filter((item) => item.eligibleVoteCount > 0).length;
+  const activeWeeks = weeklyTrendData.filter((item) => item.eligibleVoteCount > 0);
+  const activeWeekCount = activeWeeks.length;
+  const latestActiveWeek = activeWeeks.at(-1) ?? null;
+  const peakAbsentWeek = activeWeeks.slice(1).reduce<typeof latestActiveWeek>(
+    (currentPeak, week) => {
+      if (!currentPeak) {
+        return week;
+      }
+
+      const peakRate = currentPeak.absentCount / currentPeak.eligibleVoteCount;
+      const nextRate = week.absentCount / week.eligibleVoteCount;
+      return nextRate > peakRate ? week : currentPeak;
+    },
+    activeWeeks[0] ?? null
+  );
+  const latestParticipationRate = latestActiveWeek
+    ? (latestActiveWeek.eligibleVoteCount - latestActiveWeek.absentCount) /
+      latestActiveWeek.eligibleVoteCount
+    : null;
+  const latestAbsenceRate = latestActiveWeek
+    ? latestActiveWeek.absentCount / latestActiveWeek.eligibleVoteCount
+    : null;
+  const peakAbsenceRate = peakAbsentWeek
+    ? peakAbsentWeek.absentCount / peakAbsentWeek.eligibleVoteCount
+    : null;
   const trendWindowPhrase = trendWindowWeekCount > 0 ? `최근 ${trendWindowWeekCount}주` : "최근 12주";
   const weeklyTrendCopy =
     activeWeekCount > 0
-      ? `${trendWindowPhrase} 관측 창을 주마다 100% 누적 영역으로 나눠, 실제 표결이 있었던 ${activeWeekCount}주에서 찬성 대비 반대·기권·불참 비중이 어디서 커졌는지 읽습니다.`
+      ? `${trendWindowPhrase} 관측 창에서 참여 대비 불참이 흔들린 주간을 먼저 찾고, 그 위에 반대·기권 레이어를 얹어 네거티브 구성이 어떻게 커졌는지 읽습니다.`
       : `${trendWindowPhrase} 관측 창의 주간 표결 흐름을 준비 중입니다.`;
-  const activeWeekLabel =
-    accountabilityTrends == null ? "대기 중" : activeWeekCount > 0 ? `${activeWeekCount}주` : "없음";
 
   return (
     <section className="visualization-panel">
       <div className="visualization-panel__header">
         <div>
           <p className="section-label">핵심 차트</p>
-          <h2>{`${assemblyLabel}의 최근 표결 흐름을 먼저 봅니다.`}</h2>
+          <h2>{`${assemblyLabel}의 출석 대비 불참 흐름을 먼저 봅니다.`}</h2>
         </div>
       </div>
 
@@ -150,12 +172,39 @@ export function VisualizationOverview({
           <div className="chart-card__header">
             <div>
               <p className="chart-card__eyebrow">국회 전체 시계열</p>
-              <h3>{`${assemblyLabel} ${trendWindowPhrase} 네거티브 추세`}</h3>
+              <h3>{`${assemblyLabel} ${trendWindowPhrase} 참여·불참 추세`}</h3>
               <p className="chart-card__copy">{weeklyTrendCopy}</p>
             </div>
-            <div className="chart-card__summary" aria-label="추세 관측 정보">
-              <span>실제 표결 주간</span>
-              <strong>{activeWeekLabel}</strong>
+            <div className="chart-card__summary-grid" aria-label="추세 관측 정보">
+              <div className="chart-card__summary">
+                <span>최근 주 참여율</span>
+                <strong>
+                  {latestParticipationRate !== null ? formatPercent(latestParticipationRate) : "대기 중"}
+                </strong>
+                <small>
+                  {latestActiveWeek
+                    ? `${latestActiveWeek.weekStart} ~ ${latestActiveWeek.weekEnd}`
+                    : "실제 표결 대기 중"}
+                </small>
+              </div>
+              <div className="chart-card__summary chart-card__summary--alert">
+                <span>최근 주 불참</span>
+                <strong>
+                  {latestActiveWeek ? `${formatNumber(latestActiveWeek.absentCount)}건` : "대기 중"}
+                </strong>
+                <small>
+                  {latestAbsenceRate !== null ? `비중 ${formatPercent(latestAbsenceRate)}` : "비중 집계 대기"}
+                </small>
+              </div>
+              <div className="chart-card__summary">
+                <span>최고 불참 비중</span>
+                <strong>{peakAbsenceRate !== null ? formatPercent(peakAbsenceRate) : "대기 중"}</strong>
+                <small>
+                  {peakAbsentWeek
+                    ? `${peakAbsentWeek.weekStart} ~ ${peakAbsentWeek.weekEnd}`
+                    : "실제 표결 대기 중"}
+                </small>
+              </div>
             </div>
           </div>
 

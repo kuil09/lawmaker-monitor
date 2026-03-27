@@ -25,7 +25,7 @@ import {
   loadMemberActivityCalendar,
   loadMemberActivityCalendarMemberDetail
 } from "./lib/data.js";
-import { formatDateTime } from "./lib/format.js";
+import { formatDateTime, formatNumber, formatPercent } from "./lib/format.js";
 
 type AppRoute = "home" | "calendar";
 
@@ -171,25 +171,73 @@ export default function App() {
     accountabilityTrends?.weeks.filter((week) => week.eligibleVoteCount > 0).length ?? 0;
   const updatedAt = manifest?.updatedAt ?? latestVotes?.generatedAt ?? accountabilitySummary?.generatedAt;
   const freshnessText = updatedAt ? `최종 갱신 ${formatDateTime(updatedAt)}` : "최종 갱신 정보 확인 중";
+  const summaryTotals =
+    accountabilitySummary?.items.reduce(
+      (totals, item) => {
+        totals.totalRecordedVotes += item.totalRecordedVotes;
+        totals.absentCount += item.absentCount;
+        totals.noCount += item.noCount;
+        totals.abstainCount += item.abstainCount;
+        return totals;
+      },
+      {
+        totalRecordedVotes: 0,
+        absentCount: 0,
+        noCount: 0,
+        abstainCount: 0
+      }
+    ) ?? null;
+  const latestActiveTrendWeek =
+    accountabilityTrends?.weeks.filter((week) => week.eligibleVoteCount > 0).at(-1) ?? null;
+  const spotlightLabel = latestActiveTrendWeek ? "최근 표결 주간 참여율" : "누적 참여율";
+  const spotlightParticipationRate =
+    latestActiveTrendWeek && latestActiveTrendWeek.eligibleVoteCount > 0
+      ? (latestActiveTrendWeek.eligibleVoteCount - latestActiveTrendWeek.absentCount) /
+        latestActiveTrendWeek.eligibleVoteCount
+      : summaryTotals && summaryTotals.totalRecordedVotes > 0
+        ? (summaryTotals.totalRecordedVotes - summaryTotals.absentCount) /
+          summaryTotals.totalRecordedVotes
+        : null;
+  const spotlightAbsenceRate =
+    latestActiveTrendWeek && latestActiveTrendWeek.eligibleVoteCount > 0
+      ? latestActiveTrendWeek.absentCount / latestActiveTrendWeek.eligibleVoteCount
+      : summaryTotals && summaryTotals.totalRecordedVotes > 0
+        ? summaryTotals.absentCount / summaryTotals.totalRecordedVotes
+        : null;
+  const spotlightWindowLabel = latestActiveTrendWeek
+    ? `${latestActiveTrendWeek.weekStart} ~ ${latestActiveTrendWeek.weekEnd}`
+    : accountabilitySummary
+      ? `${currentAssemblyLabel} 누적 집계`
+      : "공개 기록표결 기준";
+  const spotlightNote =
+    latestActiveTrendWeek && latestActiveTrendWeek.eligibleVoteCount > 0
+      ? `대상 ${formatNumber(latestActiveTrendWeek.eligibleVoteCount)}건 중 불참 ${formatNumber(latestActiveTrendWeek.absentCount)}건`
+      : summaryTotals && summaryTotals.totalRecordedVotes > 0
+        ? `누적 ${formatNumber(summaryTotals.totalRecordedVotes)}건 중 불참 ${formatNumber(summaryTotals.absentCount)}건`
+        : "출석 대비 불참 집계를 준비 중입니다.";
   const heroStats = [
     {
       label: "집계 의원",
-      value: accountabilitySummary ? `${accountabilitySummary.items.length}명` : "준비 중",
+      value: accountabilitySummary ? `${formatNumber(accountabilitySummary.items.length)}명` : "준비 중",
       note: "책임성 랭킹 기준"
     },
     {
-      label: "최근 표결",
-      value: latestVotes ? `${latestVotes.items.length}건` : "준비 중",
-      note: "홈 피드 노출 건수"
+      label: latestActiveTrendWeek ? "최근 주 불참" : "누적 불참",
+      value: latestActiveTrendWeek
+        ? `${formatNumber(latestActiveTrendWeek.absentCount)}건`
+        : summaryTotals
+          ? `${formatNumber(summaryTotals.absentCount)}건`
+          : "준비 중",
+      note: latestActiveTrendWeek ? `${spotlightWindowLabel} 기준` : "공개 기록표결 집계"
     },
     {
-      label: "추세 관측 창",
-      value: accountabilityTrends ? `${trendWindowWeekCount}주` : "최근 12주",
+      label: "실제 표결 주간",
+      value: accountabilityTrends ? `${formatNumber(observedTrendWeekCount)}주` : "준비 중",
       note:
         accountabilityTrends
-          ? observedTrendWeekCount > 0
-            ? `실제 표결 ${observedTrendWeekCount}주`
-            : "실제 표결 없음"
+          ? trendWindowWeekCount > 0
+            ? `최근 ${formatNumber(trendWindowWeekCount)}주 관측`
+            : "주간 흐름 기준"
           : "주간 흐름 기준"
     }
   ];
@@ -391,7 +439,30 @@ export default function App() {
               </p>
             </div>
             <aside className="hero-panel__aside" aria-label="브리핑">
-              <p className="hero-panel__aside-label">오늘의 브리핑</p>
+              <p className="hero-panel__aside-label">출석 집중 브리핑</p>
+              <article className="hero-panel__spotlight">
+                <div className="hero-panel__spotlight-header">
+                  <p>{spotlightLabel}</p>
+                  <span>{spotlightWindowLabel}</span>
+                </div>
+                <div className="hero-panel__spotlight-metrics">
+                  <div className="hero-panel__spotlight-metric">
+                    <strong>
+                      {spotlightParticipationRate !== null
+                        ? formatPercent(spotlightParticipationRate)
+                        : "준비 중"}
+                    </strong>
+                    <span>참여</span>
+                  </div>
+                  <div className="hero-panel__spotlight-metric hero-panel__spotlight-metric--alert">
+                    <strong>
+                      {spotlightAbsenceRate !== null ? formatPercent(spotlightAbsenceRate) : "준비 중"}
+                    </strong>
+                    <span>불참 비중</span>
+                  </div>
+                </div>
+                <p className="hero-panel__spotlight-note">{spotlightNote}</p>
+              </article>
               <div className="hero-panel__stat-grid">
                 {heroStats.map((item) => (
                   <article key={item.label} className="hero-panel__stat">
@@ -402,7 +473,7 @@ export default function App() {
                 ))}
               </div>
               <p className="hero-panel__aside-note">
-                공개 기록표결, 의원별 집계, 최근 표결 카드, 활동 캘린더를 같은 시각 규칙 안에서 연결해 읽도록 정리합니다.
+                공개 기록표결, 출석 대비 불참, 최근 표결 카드, 활동 캘린더를 같은 시각 규칙 안에서 연결해 읽도록 정리합니다.
               </p>
             </aside>
           </div>

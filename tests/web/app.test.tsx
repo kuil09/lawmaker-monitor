@@ -127,16 +127,20 @@ describe("web app", () => {
     render(<App />);
 
     await screen.findByText("제22대 국회 의원 순위");
+    expect(screen.getByText("출석 집중 브리핑")).toBeInTheDocument();
+    expect(screen.getByText("최근 표결 주간 참여율")).toBeInTheDocument();
+    expect(screen.getAllByText("최근 주 불참").length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByRole("button", { name: "활동 캘린더 보기" })).not.toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "의원 검색" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "활동 캘린더 열기" })).toBeInTheDocument();
-    expect(screen.getByText("제22대 국회 최근 12주 네거티브 추세")).toBeInTheDocument();
-    expect(screen.getByText("실제 표결 11주")).toBeInTheDocument();
-    expect(screen.getByText("실제 표결 주간")).toBeInTheDocument();
+    expect(screen.getByText("제22대 국회 최근 12주 참여·불참 추세")).toBeInTheDocument();
+    expect(screen.getByText("최근 주 참여율")).toBeInTheDocument();
+    expect(screen.getByText("최고 불참 비중")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "찬성" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "반대" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "불참" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "반대" })).toHaveAttribute("aria-selected", "false");
     expect(screen.getByRole("tab", { name: "기권" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "불참" })).toBeInTheDocument();
+    expect(screen.getByText("불참 기준으로 먼저 정렬해 출석 문제를 바로 드러내고, 나머지 선택 구성은 작은 막대로 함께 봅니다.")).toBeInTheDocument();
     expect(screen.queryByText("반대·기권·불참 기준 최근 4주 급상승 의원")).not.toBeInTheDocument();
     expect(screen.queryByText("제22대 국회 현재 반대·기권·불참 상위 10")).not.toBeInTheDocument();
     expect(screen.getByText(/최종 갱신/)).toBeInTheDocument();
@@ -189,6 +193,7 @@ describe("web app", () => {
     ).toBeInTheDocument();
     expect(screen.queryByDisplayValue("제22대 국회")).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue("제21대 국회")).not.toBeInTheDocument();
+    expect(document.querySelector(".activity-drawer__member-header .member-identity--large")).not.toBeNull();
   });
 
   it("loads the selected member vote records lazily on the single-member view", async () => {
@@ -486,6 +491,7 @@ describe("web app", () => {
     expect(screen.getAllByText("박민").length).toBeGreaterThan(0);
     expect(screen.getAllByText("김아라").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "공유하기" })).not.toBeInTheDocument();
+    expect(document.querySelector(".activity-compare__column .member-identity--large")).toBeNull();
   });
 
   it("does not request member detail files when the page opens directly in compare mode", async () => {

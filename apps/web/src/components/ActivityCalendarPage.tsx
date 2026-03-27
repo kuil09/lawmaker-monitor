@@ -1471,6 +1471,7 @@ export function ActivityCalendarPage({
                         party={selectedMember.party}
                         photoUrl={selectedMember.photoUrl}
                         calendarHref={buildCalendarHref({ memberId: selectedMember.memberId })}
+                        size="large"
                       />
                       <p className="activity-drawer__member-copy">
                         {`반대 ${formatNumber(selectedBreakdown.noDays)}일 · 기권 ${formatNumber(selectedBreakdown.abstainDays)}일 · 불참 ${formatNumber(selectedBreakdown.absentDays)}일`}

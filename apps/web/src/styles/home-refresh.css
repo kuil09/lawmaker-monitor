@@ -88,6 +88,75 @@
   text-transform: uppercase;
 }
 
+.hero-panel__spotlight {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid rgba(123, 49, 40, 0.16);
+  border-radius: 20px;
+  background:
+    linear-gradient(145deg, rgba(123, 49, 40, 0.1), rgba(255, 255, 255, 0.94));
+}
+
+.hero-panel__spotlight-header,
+.hero-panel__spotlight-metrics {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.hero-panel__spotlight-header p,
+.hero-panel__spotlight-header span,
+.hero-panel__spotlight-note {
+  margin: 0;
+}
+
+.hero-panel__spotlight-header p {
+  color: var(--accent-strong);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero-panel__spotlight-header span,
+.hero-panel__spotlight-note {
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.hero-panel__spotlight-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hero-panel__spotlight-metric {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.88rem 0.92rem;
+  border: 1px solid rgba(72, 56, 40, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.hero-panel__spotlight-metric strong {
+  font-size: 1.42rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.hero-panel__spotlight-metric span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero-panel__spotlight-metric--alert strong,
+.chart-card__summary--alert strong {
+  color: var(--vote-absent);
+}
+
 .hero-panel__stat-grid {
   display: grid;
   gap: 0.72rem;
@@ -223,8 +292,21 @@
   align-items: start;
 }
 
+.chart-card__summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.65rem;
+  width: min(100%, 32rem);
+}
+
 .chart-card__header h3 {
   font-size: 1.12rem;
+}
+
+.chart-card__summary small {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 
 .metric-toggle {
@@ -406,6 +488,10 @@
   .hero-panel__aside {
     order: -1;
   }
+
+  .chart-card__summary-grid {
+    width: 100%;
+  }
 }
 
 @media (max-width: 760px) {
@@ -426,6 +512,11 @@
 
   .hero-panel__aside {
     order: 0;
+  }
+
+  .hero-panel__spotlight-metrics,
+  .chart-card__summary-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .hero-panel h1 {

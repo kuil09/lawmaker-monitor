@@ -22,18 +22,22 @@ const leaderboardMetricOptions: Array<{
   value: LeaderboardMetric;
   label: string;
 }> = [
-  { value: "yes", label: "찬성" },
+  { value: "absent", label: "불참" },
   { value: "no", label: "반대" },
   { value: "abstain", label: "기권" },
-  { value: "absent", label: "불참" }
+  { value: "yes", label: "찬성" }
 ];
 
 export function AccountabilityLeaderboard({ items, assemblyLabel }: AccountabilityLeaderboardProps) {
-  const [metric, setMetric] = useState<LeaderboardMetric>("no");
+  const [metric, setMetric] = useState<LeaderboardMetric>("absent");
   const rankedItems = rankLeaderboardItems(items, metric).slice(0, 10);
   const metricLabel =
-    leaderboardMetricOptions.find((option) => option.value === metric)?.label ?? "반대";
+    leaderboardMetricOptions.find((option) => option.value === metric)?.label ?? "불참";
   const metricClassName = `ranking-item__stats--${metric}`;
+  const leaderboardCopy =
+    metric === "absent"
+      ? "불참 기준으로 먼저 정렬해 출석 문제를 바로 드러내고, 나머지 선택 구성은 작은 막대로 함께 봅니다."
+      : `${metricLabel} 기준으로 정렬하되, 불참 막대를 함께 남겨 출석 문제를 놓치지 않도록 했습니다.`;
 
   return (
     <section className="leaderboard-panel">
@@ -63,7 +67,7 @@ export function AccountabilityLeaderboard({ items, assemblyLabel }: Accountabili
       </div>
 
       <p className="leaderboard-panel__copy">
-        {`${metricLabel} 기준으로 정렬하고, 다른 선택 구성은 작은 막대로 함께 봅니다.`}
+        {leaderboardCopy}
       </p>
 
       <ol className="ranking-list">

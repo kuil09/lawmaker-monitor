@@ -3,7 +3,7 @@ type MemberIdentityProps = {
   party?: string | null;
   photoUrl?: string | null;
   calendarHref?: string | null;
-  size?: "small" | "medium";
+  size?: "small" | "medium" | "large";
   showParty?: boolean;
 };
 

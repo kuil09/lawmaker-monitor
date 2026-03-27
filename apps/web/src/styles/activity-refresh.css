@@ -124,10 +124,16 @@
 }
 
 .activity-drawer__member-primary {
-  gap: 0.7rem;
+  gap: 0.82rem;
+}
+
+.activity-drawer__member-primary .member-identity--large {
+  align-items: start;
 }
 
 .activity-drawer__member-copy {
+  max-width: 50ch;
+  line-height: 1.45;
   font-size: 0.96rem;
 }
 
@@ -656,6 +662,10 @@
   .activity-drawer__summary,
   .activity-compare__summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .activity-drawer__member-primary {
+    gap: 0.72rem;
   }
 
   .activity-drawer__section-head {
