@@ -201,17 +201,38 @@
 
 .distribution-chart__legend-list li,
 .distribution-party-list li {
-  display: grid;
-  gap: 0.35rem;
-  padding: 0.82rem 0.92rem;
+  min-width: 0;
+}
+
+.distribution-chart__legend-button,
+.distribution-party-filter {
+  width: 100%;
   border: 1px solid rgba(72, 56, 40, 0.1);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.76);
+  text-align: left;
 }
 
-.distribution-chart__legend-list li {
+.distribution-chart__legend-button {
+  display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
+  gap: 0.35rem 0.6rem;
+  padding: 0.82rem 0.92rem;
+}
+
+.distribution-chart__legend-button small {
+  grid-column: 2 / 4;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.distribution-chart__legend-button.is-active,
+.distribution-party-filter.is-active {
+  border-color: rgba(123, 49, 40, 0.28);
+  background: linear-gradient(135deg, rgba(123, 49, 40, 0.12), rgba(255, 255, 255, 0.92));
+  box-shadow: 0 16px 28px rgba(123, 49, 40, 0.14);
 }
 
 .distribution-chart__legend-list i,
@@ -287,6 +308,10 @@
 
 .distribution-focus__metric--alert strong {
   color: var(--vote-no);
+}
+
+.distribution-focus__metric--support strong {
+  color: var(--vote-yes);
 }
 
 .distribution-focus__composition {
@@ -422,6 +447,12 @@
 .distribution-party-list {
   display: grid;
   gap: 0.65rem;
+}
+
+.distribution-party-filter {
+  display: grid;
+  gap: 0.72rem;
+  padding: 0.82rem 0.92rem;
 }
 
 .distribution-party-list__title {

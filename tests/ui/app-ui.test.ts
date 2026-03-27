@@ -580,7 +580,7 @@ async function openDistributionFlow(viewportName: string): Promise<void> {
     await expect
       .poll(async () => page.locator(".distribution-focus__district").textContent())
       .toBe("부산 남구");
-    await page.getByText("정당 평균으로도 출석과 반대·기권 위치를 읽습니다.").waitFor();
+    await page.getByText("정당 평균을 눌러 차트를 해당 정당만 남기는 강조 모드로 전환합니다.").waitFor();
 
     const layout = await page.locator(".distribution-page__layout").evaluate((element) => {
       const layoutElement = element as HTMLElement;

@@ -206,7 +206,9 @@ describe("web app", () => {
       "#calendar?member=M002"
     );
     expect(screen.getByText("반대·기권 비중이 높은 의원")).toBeInTheDocument();
-    expect(screen.getByText("정당 평균으로도 출석과 반대·기권 위치를 읽습니다.")).toBeInTheDocument();
+    expect(
+      screen.getByText("정당 평균을 눌러 차트를 해당 정당만 남기는 강조 모드로 전환합니다.")
+    ).toBeInTheDocument();
   });
 
   it("reveals the distribution help copy only when requested", async () => {
@@ -219,7 +221,7 @@ describe("web app", () => {
     expect(helpButton).toHaveAttribute("aria-expanded", "false");
     expect(
       screen.queryByText(
-        "출석률과 반대·기권 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다."
+        "출석률과 찬성 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다."
       )
     ).not.toBeInTheDocument();
 
@@ -228,12 +230,108 @@ describe("web app", () => {
     expect(screen.getByRole("button", { name: "분포 설명 닫기" })).toHaveAttribute("aria-expanded", "true");
     expect(
       screen.getByText(
-        "출석률과 반대·기권 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다."
+        "출석률과 찬성 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다."
       )
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "가로축은 출석률, 세로축은 반대·기권 비중입니다. 점 크기는 현재 반대·기권·불참 연속 패턴을 반영합니다."
+        "가로축은 출석률, 세로축은 찬성 비중입니다. 점 크기는 현재 반대·기권·불참 연속 패턴을 반영합니다."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("filters the distribution chart by party and keeps the selected member aligned", async () => {
+    const multiPartyAccountabilityFixture = structuredClone(accountabilitySummaryFixture);
+    const multiPartyActivityFixture = structuredClone(memberActivityCalendarFixture);
+
+    const secondSummaryItem = multiPartyAccountabilityFixture.items.find(
+      (item: (typeof accountabilitySummaryFixture.items)[number]) => item.memberId === "M001"
+    );
+    const secondActivityMember = multiPartyActivityFixture.assembly.members.find(
+      (member: (typeof memberActivityCalendarFixture.assembly.members)[number]) =>
+        member.memberId === "M001"
+    );
+
+    expect(secondSummaryItem).toBeDefined();
+    expect(secondActivityMember).toBeDefined();
+
+    secondSummaryItem!.party = "새로운희망당";
+    secondActivityMember!.party = "새로운희망당";
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request) => {
+        const url = String(input);
+        if (url.endsWith("/exports/latest_votes.json")) {
+          return Promise.resolve(
+            new Response(JSON.stringify(latestVotesFixture), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            })
+          );
+        }
+
+        if (url.endsWith("/exports/accountability_summary.json")) {
+          return Promise.resolve(
+            new Response(JSON.stringify(multiPartyAccountabilityFixture), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            })
+          );
+        }
+
+        if (url.endsWith("/exports/accountability_trends.json")) {
+          return Promise.resolve(
+            new Response(JSON.stringify(accountabilityTrendsFixture), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            })
+          );
+        }
+
+        if (url.endsWith("/exports/member_activity_calendar.json")) {
+          return Promise.resolve(
+            new Response(JSON.stringify(multiPartyActivityFixture), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            })
+          );
+        }
+
+        if (url.endsWith("/manifests/latest.json")) {
+          return Promise.resolve(
+            new Response(JSON.stringify(manifestFixture), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            })
+          );
+        }
+
+        return Promise.resolve(new Response("not found", { status: 404 }));
+      })
+    );
+
+    window.location.hash = "#distribution?member=M002";
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "제22대 국회 의원 분포" })).toBeInTheDocument();
+
+    const partyButtons = screen.getAllByRole("button", { name: "새로운희망당 필터 적용" });
+    expect(partyButtons.length).toBeGreaterThan(0);
+
+    fireEvent.click(partyButtons[0] as HTMLButtonElement);
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "활동 캘린더 열기" })).toHaveAttribute(
+        "href",
+        "#calendar?member=M001"
+      );
+    });
+
+    expect(screen.getAllByRole("button", { name: "새로운희망당 필터 해제" }).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        "새로운희망당만 1명 표시 중입니다. 같은 정당을 다시 누르면 전체 보기로 돌아갑니다."
       )
     ).toBeInTheDocument();
   });

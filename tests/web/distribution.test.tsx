@@ -53,6 +53,7 @@ describe("distribution helpers", () => {
     expect(partySummaries[0]?.party).toBe("미래개혁당");
     expect(partySummaries[0]?.memberCount).toBe(2);
     expect(partySummaries[0]?.averageAttendanceRate).toBeCloseTo(5 / 6);
+    expect(partySummaries[0]?.averageSupportRate).toBeCloseTo(0.25);
     expect(partySummaries[0]?.averageNegativeRate).toBeCloseTo(0.5);
     expect(partySummaries[0]?.averageAbsenceRate).toBeCloseTo(0.25);
     expect(partySummaries[0]?.topCurrentStreak).toBe(3);

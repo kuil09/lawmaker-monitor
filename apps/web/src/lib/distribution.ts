@@ -49,6 +49,7 @@ export type DistributionPartySummary = {
   party: string;
   memberCount: number;
   averageAttendanceRate: number;
+  averageSupportRate: number;
   averageNegativeRate: number;
   averageAbsenceRate: number;
   topCurrentStreak: number;
@@ -201,6 +202,10 @@ export function buildDistributionPartySummaries(
         (sum, member) => sum + member.attendanceRate,
         0
       );
+      const totalSupportRate = partyMembers.reduce(
+        (sum, member) => sum + member.yesRate,
+        0
+      );
       const totalNegativeRate = partyMembers.reduce(
         (sum, member) => sum + member.negativeRate,
         0
@@ -219,6 +224,7 @@ export function buildDistributionPartySummaries(
         party,
         memberCount: partyMembers.length,
         averageAttendanceRate: totalAttendanceRate / partyMembers.length,
+        averageSupportRate: totalSupportRate / partyMembers.length,
         averageNegativeRate: totalNegativeRate / partyMembers.length,
         averageAbsenceRate: totalAbsenceRate / partyMembers.length,
         topCurrentStreak
