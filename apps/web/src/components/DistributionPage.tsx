@@ -24,6 +24,7 @@ import {
   type DistributionMemberPoint
 } from "../lib/distribution.js";
 import { formatNumber, formatPercent } from "../lib/format.js";
+import { getOptimizedMemberPhotoUrl } from "../lib/member-photo.js";
 import { MemberIdentity } from "./MemberIdentity.js";
 import { MemberSearchField } from "./MemberSearchField.js";
 
@@ -175,7 +176,8 @@ function DistributionPointShape({
   const resolvedColor = partyColors.get(payload.party);
   const fill = resolvedColor ?? partyPalette[0];
   const radius = payload.radius + (selected ? 2 : 0);
-  const canUsePhoto = useDistributionPointPhoto(payload.photoUrl);
+  const resolvedPhotoUrl = getOptimizedMemberPhotoUrl(payload.photoUrl);
+  const canUsePhoto = useDistributionPointPhoto(resolvedPhotoUrl);
   const markerIdBase = `distribution-point-${payload.memberId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const clipPathId = `${markerIdBase}-clip`;
   const badgeRadius = Math.max(3.4, Math.round(radius * 0.28 * 10) / 10);
@@ -195,7 +197,7 @@ function DistributionPointShape({
           strokeWidth={2}
         />
       ) : null}
-      {canUsePhoto && payload.photoUrl ? (
+      {canUsePhoto && resolvedPhotoUrl ? (
         <>
           <defs>
             <clipPath id={clipPathId}>
@@ -209,7 +211,7 @@ function DistributionPointShape({
             strokeWidth={selected ? 2.6 : 1.8}
           />
           <image
-            href={payload.photoUrl}
+            href={resolvedPhotoUrl}
             x={-radius}
             y={-radius}
             width={radius * 2}

@@ -1,3 +1,5 @@
+import { getOptimizedMemberPhotoUrl } from "../lib/member-photo.js";
+
 type MemberIdentityProps = {
   name: string;
   party?: string | null;
@@ -15,10 +17,12 @@ export function MemberIdentity({
   size = "medium",
   showParty = true
 }: MemberIdentityProps) {
+  const resolvedPhotoUrl = getOptimizedMemberPhotoUrl(photoUrl);
+
   const identityBody = (
     <>
-      {photoUrl ? (
-        <img className="member-identity__avatar" src={photoUrl} alt="" loading="lazy" />
+      {resolvedPhotoUrl ? (
+        <img className="member-identity__avatar" src={resolvedPhotoUrl} alt="" loading="lazy" />
       ) : (
         <span className="member-identity__avatar member-identity__avatar--fallback" aria-hidden="true">
           {name.slice(0, 1)}
