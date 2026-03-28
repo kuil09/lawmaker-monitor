@@ -45,6 +45,20 @@ export type DistributionMemberPoint = {
   accountability: AccountabilitySummaryItem;
 };
 
+export type DistributionBehaviorFilter =
+  | "high-absence"
+  | "high-negative"
+  | "long-streak"
+  | "committee-risk";
+
+export type DistributionBehaviorSummary = {
+  key: DistributionBehaviorFilter;
+  label: string;
+  description: string;
+  ctaLabel: string;
+  count: number;
+};
+
 export type DistributionPartySummary = {
   party: string;
   memberCount: number;
@@ -59,6 +73,42 @@ const CHART_DOMAIN_FALLBACK: [number, number] = [0, 100];
 const CHART_DOMAIN_STEP = 5;
 const MIN_CHART_DOMAIN_PADDING = 3;
 const MIN_CHART_DOMAIN_SPAN = 15;
+const DISTRIBUTION_BEHAVIOR_DEFINITIONS: Array<{
+  key: DistributionBehaviorFilter;
+  label: string;
+  description: string;
+  ctaLabel: string;
+  matches: (member: DistributionMemberPoint) => boolean;
+}> = [
+  {
+    key: "high-absence",
+    label: "불참 집중",
+    description: "불참 기록이 누적된 의원",
+    ctaLabel: "불참 집중 의원 보기",
+    matches: (member) => member.absentRate >= 0.1 && member.absentVoteCount > 0
+  },
+  {
+    key: "high-negative",
+    label: "반대·기권 다수",
+    description: "반대·기권 비중이 큰 의원",
+    ctaLabel: "반대·기권 다수 의원 보기",
+    matches: (member) => member.negativeRate >= 0.3
+  },
+  {
+    key: "long-streak",
+    label: "연속 패턴 장기화",
+    description: "현재 반대·기권·불참 연속 패턴이 긴 의원",
+    ctaLabel: "연속 패턴 장기화 의원 보기",
+    matches: (member) => member.currentNegativeOrAbsentStreak >= 3
+  },
+  {
+    key: "committee-risk",
+    label: "위원회 참여 주의",
+    description: "현재 소속 위원회 참여 경고가 있는 의원",
+    ctaLabel: "위원회 참여 주의 의원 보기",
+    matches: (member) => member.activity.homeCommitteeAlerts.length > 0
+  }
+];
 
 function roundDownToStep(value: number): number {
   return Math.floor(value / CHART_DOMAIN_STEP) * CHART_DOMAIN_STEP;
@@ -97,6 +147,45 @@ export function buildDistributionChartDomain(values: number[]): [number, number]
   }
 
   return [lowerBound, upperBound];
+}
+
+export function isDistributionBehaviorFilter(
+  value: string | null | undefined
+): value is DistributionBehaviorFilter {
+  return DISTRIBUTION_BEHAVIOR_DEFINITIONS.some((definition) => definition.key === value);
+}
+
+export function matchesDistributionBehavior(
+  member: DistributionMemberPoint,
+  filter: DistributionBehaviorFilter
+): boolean {
+  const definition = DISTRIBUTION_BEHAVIOR_DEFINITIONS.find(
+    (candidate) => candidate.key === filter
+  );
+  return definition ? definition.matches(member) : false;
+}
+
+export function filterDistributionMembersByBehavior(
+  members: DistributionMemberPoint[],
+  filter: DistributionBehaviorFilter | null | undefined
+): DistributionMemberPoint[] {
+  if (!filter) {
+    return members;
+  }
+
+  return members.filter((member) => matchesDistributionBehavior(member, filter));
+}
+
+export function buildDistributionBehaviorSummaries(
+  members: DistributionMemberPoint[]
+): DistributionBehaviorSummary[] {
+  return DISTRIBUTION_BEHAVIOR_DEFINITIONS.map((definition) => ({
+    key: definition.key,
+    label: definition.label,
+    description: definition.description,
+    ctaLabel: definition.ctaLabel,
+    count: members.filter((member) => definition.matches(member)).length
+  }));
 }
 
 export function buildDistributionMembers(

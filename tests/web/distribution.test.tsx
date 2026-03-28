@@ -4,9 +4,11 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildDistributionBehaviorSummaries,
   buildDistributionChartDomain,
   buildDistributionMembers,
   buildDistributionPartySummaries,
+  filterDistributionMembersByBehavior,
   getDefaultDistributionMemberId
 } from "../../apps/web/src/lib/distribution.js";
 
@@ -57,6 +59,29 @@ describe("distribution helpers", () => {
     expect(partySummaries[0]?.averageNegativeRate).toBeCloseTo(0.5);
     expect(partySummaries[0]?.averageAbsenceRate).toBeCloseTo(0.25);
     expect(partySummaries[0]?.topCurrentStreak).toBe(3);
+  });
+
+  it("builds behavior archetype summaries and matching cohorts", () => {
+    const members = buildDistributionMembers(
+      accountabilitySummaryFixture,
+      memberActivityCalendarFixture
+    );
+    const behaviorSummaries = buildDistributionBehaviorSummaries(members);
+
+    expect(
+      behaviorSummaries.map((summary) => [summary.key, summary.count])
+    ).toEqual([
+      ["high-absence", 1],
+      ["high-negative", 2],
+      ["long-streak", 1],
+      ["committee-risk", 1]
+    ]);
+    expect(
+      filterDistributionMembersByBehavior(members, "high-absence").map((member) => member.memberId)
+    ).toEqual(["M002"]);
+    expect(
+      filterDistributionMembersByBehavior(members, "committee-risk").map((member) => member.memberId)
+    ).toEqual(["M002"]);
   });
 
   it("builds padded chart domains from the observed member spread", () => {

@@ -117,6 +117,34 @@
   word-break: keep-all;
 }
 
+.distribution-chart__filter-row {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.distribution-chart__filter-pill {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.62rem 0.82rem;
+  border: 1px solid rgba(123, 49, 40, 0.18);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--accent-strong);
+}
+
+.distribution-chart__filter-pill span,
+.distribution-chart__filter-pill small {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.distribution-chart__filter-pill strong {
+  font-size: 0.92rem;
+}
+
 .distribution-chart__summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));

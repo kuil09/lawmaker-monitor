@@ -140,6 +140,8 @@ describe("web app", () => {
     expect(
       within(distributionExplore).getByText("정당 평균과 함께 전체 위치를 먼저 훑어볼 수 있습니다.")
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "불참 집중 의원 보기" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "반대·기권 다수 의원 보기" })).toBeInTheDocument();
     expect(screen.getByText("제22대 국회 최근 12주 참여·불참 추세")).toBeInTheDocument();
     expect(screen.getByText("최근 주 참여율")).toBeInTheDocument();
     expect(screen.getByText("최고 불참 비중")).toBeInTheDocument();
@@ -192,6 +194,24 @@ describe("web app", () => {
     expect(window.location.hash).toBe("#distribution");
     expect(await screen.findByRole("heading", { name: "제22대 국회 의원 분포" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "분포에서 의원 찾기" })).toBeInTheDocument();
+  });
+
+  it("opens the distribution route with a behavior filter from the home browse shelf", async () => {
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "국회 책임성 모니터" });
+    fireEvent.click(screen.getByRole("button", { name: "불참 집중 의원 보기" }));
+
+    expect(window.location.hash).toBe("#distribution?behavior=high-absence");
+    expect(await screen.findByRole("heading", { name: "제22대 국회 의원 분포" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "불참 집중 의원을 먼저 보고 있습니다." })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "행동 분류 불참 집중 해제" })).toBeInTheDocument();
+    expect(
+      screen.getByText("불참 기록이 누적된 의원. 현재 1명을 같은 기준으로 묶었습니다.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "행동 분류 불참 집중 해제" })
+    ).toHaveTextContent("1명");
   });
 
   it("renders the distribution route with the selected member summary and calendar deep link", async () => {
@@ -338,6 +358,24 @@ describe("web app", () => {
       screen.getByText(
         "새로운희망당만 1명 표시 중입니다. 같은 정당을 다시 누르면 전체 보기로 돌아갑니다."
       )
+    ).toBeInTheDocument();
+  });
+
+  it("clears the behavior filter while preserving the selected member", async () => {
+    window.location.hash = "#distribution?behavior=committee-risk";
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "제22대 국회 의원 분포" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "행동 분류 위원회 참여 주의 해제" }));
+
+    await waitFor(() => {
+      expect(window.location.hash).toBe("#distribution?member=M002");
+    });
+
+    expect(
+      screen.getByRole("heading", {
+        name: "위로 갈수록 반대·기권 비중이 낮고, 오른쪽으로 갈수록 출석률이 높습니다."
+      })
     ).toBeInTheDocument();
   });
 
