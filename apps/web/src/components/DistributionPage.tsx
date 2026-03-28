@@ -41,7 +41,7 @@ type DistributionPageProps = {
 
 type DistributionChartPoint = DistributionMemberPoint & {
   attendancePercent: number;
-  supportPercent: number;
+  negativePercent: number;
   radius: number;
 };
 
@@ -91,7 +91,7 @@ function buildChartPoints(members: DistributionMemberPoint[]): DistributionChart
   return members.map((member) => ({
     ...member,
     attendancePercent: Number((member.attendanceRate * 100).toFixed(1)),
-    supportPercent: Number((member.yesRate * 100).toFixed(1)),
+    negativePercent: Number((member.negativeRate * 100).toFixed(1)),
     radius: 7 + Math.min(member.currentNegativeOrAbsentStreak, 4) + Math.min(member.absentVoteCount, 3)
   }));
 }
@@ -363,8 +363,8 @@ export function DistributionPage({
     () => buildDistributionChartDomain(chartPoints.map((member) => member.attendancePercent)),
     [chartPoints]
   );
-  const supportDomain = useMemo(
-    () => buildDistributionChartDomain(chartPoints.map((member) => member.supportPercent)),
+  const negativeDomain = useMemo(
+    () => buildDistributionChartDomain(chartPoints.map((member) => member.negativePercent)),
     [chartPoints]
   );
   const selectedMemberId =
@@ -408,9 +408,9 @@ export function DistributionPage({
     members.length > 0
       ? members.reduce((sum, member) => sum + member.attendanceRate, 0) / members.length
       : 0;
-  const averageSupportRate =
+  const averageNegativeRate =
     members.length > 0
-      ? members.reduce((sum, member) => sum + member.yesRate, 0) / members.length
+      ? members.reduce((sum, member) => sum + member.negativeRate, 0) / members.length
       : 0;
   const highNegativeMembers = [...members]
     .sort((left, right) => {
@@ -558,14 +558,14 @@ export function DistributionPage({
                   ?
                 </button>
               </div>
-              <h2>위로 갈수록 찬성 비중이 높고, 오른쪽으로 갈수록 출석률이 높습니다.</h2>
+              <h2>위로 갈수록 반대·기권 비중이 낮고, 오른쪽으로 갈수록 출석률이 높습니다.</h2>
               {isChartHelpOpen ? (
                 <div id="distribution-chart-help" className="distribution-chart__help-panel" role="note">
                   <p className="distribution-page__copy">
-                    출석률과 찬성 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다.
+                    출석률과 반대·기권 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다.
                   </p>
                   <p className="distribution-chart__copy">
-                    가로축은 출석률, 세로축은 찬성 비중입니다. 점 크기는 현재 반대·기권·불참 연속 패턴을 반영합니다.
+                    가로축은 출석률, 세로축은 반대·기권 비중이며 값이 낮을수록 위로 올라갑니다. 점 크기는 현재 반대·기권·불참 연속 패턴을 반영합니다.
                   </p>
                   <p className="distribution-page__search-note">
                     {activePartyFilter
@@ -587,8 +587,8 @@ export function DistributionPage({
                 <small>캘린더 날짜 기준</small>
               </div>
               <div className="chart-card__summary">
-                <span>평균 찬성 비중</span>
-                <strong>{formatPercent(averageSupportRate)}</strong>
+                <span>평균 반대·기권 비중</span>
+                <strong>{formatPercent(averageNegativeRate)}</strong>
                 <small>
                   {activePartySummary
                     ? `${activePartySummary.party} 필터 적용 중`
@@ -607,7 +607,7 @@ export function DistributionPage({
                   strokeDasharray="4 4"
                 />
                 <ReferenceLine
-                  y={Number((averageSupportRate * 100).toFixed(1))}
+                  y={Number((averageNegativeRate * 100).toFixed(1))}
                   stroke="rgba(123, 49, 40, 0.22)"
                   strokeDasharray="4 4"
                 />
@@ -621,12 +621,13 @@ export function DistributionPage({
                 />
                 <YAxis
                   type="number"
-                  dataKey="supportPercent"
-                  domain={supportDomain}
+                  dataKey="negativePercent"
+                  domain={negativeDomain}
+                  reversed
                   tick={{ fill: "rgba(29, 24, 18, 0.72)", fontSize: 12 }}
                   tickFormatter={(value) => `${value}%`}
                   width={44}
-                  label={{ value: "찬성 비중", angle: -90, position: "insideLeft" }}
+                  label={{ value: "반대·기권 비중", angle: -90, position: "insideLeft" }}
                 />
                 <Tooltip content={<DistributionTooltipPanel />} />
                 <Scatter
@@ -687,7 +688,7 @@ export function DistributionPage({
                     <i style={{ backgroundColor: partyColors.get(summary.party) ?? partyPalette[0] }} />
                     <span>{summary.party}</span>
                     <strong>{`${formatNumber(summary.memberCount)}명`}</strong>
-                    <small>{`평균 찬성 ${formatPercent(summary.averageSupportRate)}`}</small>
+                    <small>{`평균 반대·기권 ${formatPercent(summary.averageNegativeRate)}`}</small>
                   </button>
                 </li>
               ))}
@@ -745,10 +746,10 @@ export function DistributionPage({
                   )}일`}
                 </small>
               </article>
-              <article className="distribution-focus__metric distribution-focus__metric--support">
-                <span>찬성 비중</span>
-                <strong>{formatPercent(selectedMember.yesRate)}</strong>
-                <small>{formatPercentPointDelta(selectedMember.yesRate - averageSupportRate)}</small>
+              <article className="distribution-focus__metric distribution-focus__metric--alert">
+                <span>반대·기권 비중</span>
+                <strong>{formatPercent(selectedMember.negativeRate)}</strong>
+                <small>{formatPercentPointDelta(selectedMember.negativeRate - averageNegativeRate)}</small>
               </article>
               <article className="distribution-focus__metric">
                 <span>불참 비중</span>
@@ -876,7 +877,7 @@ export function DistributionPage({
                   </div>
                   <div className="distribution-party-list__stats">
                     <span>{`평균 출석률 ${formatPercent(summary.averageAttendanceRate)}`}</span>
-                    <span>{`평균 찬성 ${formatPercent(summary.averageSupportRate)}`}</span>
+                    <span>{`평균 반대·기권 ${formatPercent(summary.averageNegativeRate)}`}</span>
                     <span>{`평균 불참 ${formatPercent(summary.averageAbsenceRate)}`}</span>
                     <span>{`최대 연속 ${formatNumber(summary.topCurrentStreak)}일`}</span>
                   </div>
