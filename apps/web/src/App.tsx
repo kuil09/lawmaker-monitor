@@ -20,6 +20,12 @@ import { rankAccountabilityItems } from "./lib/accountability.js";
 import { buildCalendarHash, type ActivityViewMode } from "./lib/calendar-route.js";
 import { buildDistributionHash } from "./lib/distribution-route.js";
 import {
+  buildDistributionBehaviorSummaries,
+  buildDistributionMembers,
+  isDistributionBehaviorFilter,
+  type DistributionBehaviorFilter
+} from "./lib/distribution.js";
+import {
   loadAccountabilitySummary,
   loadAccountabilityTrends,
   loadLatestVotes,
@@ -37,6 +43,7 @@ type RouteState = {
   memberId: string | null;
   compareMemberId: string | null;
   view: ActivityViewMode;
+  behaviorFilter: DistributionBehaviorFilter | null;
 };
 
 function buildEmbeddedActivityMemberDetail(
@@ -63,16 +70,19 @@ function getRouteStateFromHash(hash: string): RouteState {
       route: "calendar",
       memberId: params.get("member"),
       compareMemberId: params.get("compare"),
-      view: params.get("view") === "compare" ? "compare" : "single"
+      view: params.get("view") === "compare" ? "compare" : "single",
+      behaviorFilter: null
     };
   }
 
   if (path === "distribution") {
+    const rawBehaviorFilter = params.get("behavior");
     return {
       route: "distribution",
       memberId: params.get("member"),
       compareMemberId: null,
-      view: "single"
+      view: "single",
+      behaviorFilter: isDistributionBehaviorFilter(rawBehaviorFilter) ? rawBehaviorFilter : null
     };
   }
 
@@ -80,7 +90,8 @@ function getRouteStateFromHash(hash: string): RouteState {
     route: "home",
     memberId: null,
     compareMemberId: null,
-    view: "single"
+    view: "single",
+    behaviorFilter: null
   };
 }
 
@@ -108,7 +119,13 @@ export default function App() {
   const [isActivityLoading, setIsActivityLoading] = useState(false);
   const [routeState, setRouteState] = useState<RouteState>(() =>
     typeof window === "undefined"
-      ? { route: "home", memberId: null, compareMemberId: null, view: "single" }
+      ? {
+          route: "home",
+          memberId: null,
+          compareMemberId: null,
+          view: "single",
+          behaviorFilter: null
+        }
       : getRouteStateFromHash(window.location.hash)
   );
   const [selectedSearchMemberId, setSelectedSearchMemberId] = useState<string | null>(null);
@@ -386,8 +403,11 @@ export default function App() {
     window.location.hash = buildCalendarHash({ memberId, view });
   }
 
-  function navigateToDistribution(memberId?: string | null): void {
-    window.location.hash = buildDistributionHash({ memberId });
+  function navigateToDistribution(
+    memberId?: string | null,
+    behaviorFilter?: DistributionBehaviorFilter | null
+  ): void {
+    window.location.hash = buildDistributionHash({ memberId, behaviorFilter });
   }
 
   function navigateHome(): void {
@@ -403,6 +423,11 @@ export default function App() {
       getMemberAttendanceSummary(member)
     ])
   );
+  const distributionMembers =
+    accountabilitySummary && activityCalendar
+      ? buildDistributionMembers(accountabilitySummary, activityCalendar)
+      : [];
+  const homeBehaviorSummaries = buildDistributionBehaviorSummaries(distributionMembers);
   const homeSearchOptions = combinedRankingItems.map((item) => ({
     id: item.memberId,
     label: `${item.name} · ${item.party}`
@@ -429,9 +454,19 @@ export default function App() {
         errors={distributionErrors}
         assemblyLabel={currentAssemblyLabel}
         initialMemberId={routeState.memberId}
+        initialBehaviorFilter={routeState.behaviorFilter}
         onBack={navigateHome}
-        onSelectMember={(memberId) => {
-          navigateToDistribution(memberId);
+        onSelectMember={(memberId, behaviorFilter) => {
+          navigateToDistribution(
+            memberId,
+            behaviorFilter === undefined ? routeState.behaviorFilter : behaviorFilter
+          );
+        }}
+        onSelectBehaviorFilter={(behaviorFilter, memberId) => {
+          navigateToDistribution(
+            memberId === undefined ? routeState.memberId : memberId,
+            behaviorFilter
+          );
         }}
       />
     );
@@ -588,6 +623,33 @@ export default function App() {
                 국회 전체 분포 보기
               </button>
             </aside>
+          </div>
+          <div className="search-panel__browse" aria-label="행동 분류 탐색">
+            <div className="search-panel__browse-copy">
+              <p className="section-label">행동 분류</p>
+              <h3>이름을 모를 때는 행동 패턴으로 먼저 좁혀서 전체 분포로 이동합니다.</h3>
+              <p className="search-panel__browse-note">
+                각 분류는 분포 화면에서 같은 기준을 유지한 채 의원 선택으로 이어집니다.
+              </p>
+            </div>
+            <ul className="search-panel__browse-list">
+              {homeBehaviorSummaries.map((summary) => (
+                <li key={summary.key}>
+                  <button
+                    type="button"
+                    className="search-panel__browse-button"
+                    aria-label={summary.ctaLabel}
+                    onClick={() => navigateToDistribution(null, summary.key)}
+                    disabled={summary.count === 0}
+                  >
+                    <span className="search-panel__browse-kicker">Behavior</span>
+                    <strong>{summary.label}</strong>
+                    <span>{summary.description}</span>
+                    <small>{`${formatNumber(summary.count)}명`}</small>
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
