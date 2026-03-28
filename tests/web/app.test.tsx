@@ -140,6 +140,8 @@ describe("web app", () => {
     expect(
       within(distributionExplore).getByText("정당 평균과 함께 전체 위치를 먼저 훑어볼 수 있습니다.")
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "불참 집중 의원 보기" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "반대·기권 다수 의원 보기" })).toBeInTheDocument();
     expect(screen.getByText("제22대 국회 최근 12주 참여·불참 추세")).toBeInTheDocument();
     expect(screen.getByText("최근 주 참여율")).toBeInTheDocument();
     expect(screen.getByText("최고 불참 비중")).toBeInTheDocument();
@@ -194,11 +196,34 @@ describe("web app", () => {
     expect(screen.getByRole("combobox", { name: "분포에서 의원 찾기" })).toBeInTheDocument();
   });
 
+  it("opens the distribution route with a behavior filter from the home browse shelf", async () => {
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "국회 책임성 모니터" });
+    fireEvent.click(screen.getByRole("button", { name: "불참 집중 의원 보기" }));
+
+    expect(window.location.hash).toBe("#distribution?behavior=high-absence");
+    expect(await screen.findByRole("heading", { name: "제22대 국회 의원 분포" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "불참 집중 의원을 먼저 보고 있습니다." })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "행동 분류 불참 집중 해제" })).toBeInTheDocument();
+    expect(
+      screen.getByText("불참 기록이 누적된 의원. 현재 1명을 같은 기준으로 묶었습니다.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "행동 분류 불참 집중 해제" })
+    ).toHaveTextContent("1명");
+  });
+
   it("renders the distribution route with the selected member summary and calendar deep link", async () => {
     window.location.hash = "#distribution?member=M002";
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "제22대 국회 의원 분포" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: "위로 갈수록 반대·기권 비중이 낮고, 오른쪽으로 갈수록 출석률이 높습니다."
+      })
+    ).toBeInTheDocument();
     expect(screen.getByText("부산 남구")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "분포에서 의원 찾기" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "활동 캘린더 열기" })).toHaveAttribute(
@@ -221,7 +246,7 @@ describe("web app", () => {
     expect(helpButton).toHaveAttribute("aria-expanded", "false");
     expect(
       screen.queryByText(
-        "출석률과 찬성 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다."
+        "출석률과 반대·기권 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다."
       )
     ).not.toBeInTheDocument();
 
@@ -230,12 +255,12 @@ describe("web app", () => {
     expect(screen.getByRole("button", { name: "분포 설명 닫기" })).toHaveAttribute("aria-expanded", "true");
     expect(
       screen.getByText(
-        "출석률과 찬성 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다."
+        "출석률과 반대·기권 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다."
       )
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "가로축은 출석률, 세로축은 찬성 비중입니다. 점 크기는 현재 반대·기권·불참 연속 패턴을 반영합니다."
+        "가로축은 출석률, 세로축은 반대·기권 비중이며 값이 낮을수록 위로 올라갑니다. 점 크기는 현재 반대·기권·불참 연속 패턴을 반영합니다."
       )
     ).toBeInTheDocument();
   });
@@ -333,6 +358,24 @@ describe("web app", () => {
       screen.getByText(
         "새로운희망당만 1명 표시 중입니다. 같은 정당을 다시 누르면 전체 보기로 돌아갑니다."
       )
+    ).toBeInTheDocument();
+  });
+
+  it("clears the behavior filter while preserving the selected member", async () => {
+    window.location.hash = "#distribution?behavior=committee-risk";
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "제22대 국회 의원 분포" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "행동 분류 위원회 참여 주의 해제" }));
+
+    await waitFor(() => {
+      expect(window.location.hash).toBe("#distribution?member=M002");
+    });
+
+    expect(
+      screen.getByRole("heading", {
+        name: "위로 갈수록 반대·기권 비중이 낮고, 오른쪽으로 갈수록 출석률이 높습니다."
+      })
     ).toBeInTheDocument();
   });
 
