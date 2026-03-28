@@ -681,7 +681,13 @@ export function DistributionPage({
               <div className="chart-card__summary">
                 <span>평균 반대·기권 비중</span>
                 <strong>{formatPercent(averageNegativeRate)}</strong>
-                <small>{activeBehaviorSummary ? "행동 분류 기준" : "기록표결 분모 기준"}</small>
+                <small>
+                  {activeBehaviorSummary
+                    ? "행동 분류 기준"
+                    : activePartySummary
+                    ? `${activePartySummary.party} 필터 적용 중`
+                    : "기록표결 분모 기준"}
+                </small>
               </div>
             </div>
           </div>
