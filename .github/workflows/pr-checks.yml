@@ -1,0 +1,37 @@
+name: pr-checks
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node, install dependencies, and build shared workspaces
+        uses: ./.github/actions/setup-node-workspaces
+        with:
+          build-target: schemas-and-ingest
+
+      - name: Build web app
+        run: npm run build --workspace @lawmaker-monitor/web
+        env:
+          VITE_DATA_REPO_BASE_URL: http://127.0.0.1:4174
+
+      - name: Run test suite
+        run: npm test
+
+      - name: Run typecheck
+        run: npm run typecheck
