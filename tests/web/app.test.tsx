@@ -199,6 +199,11 @@ describe("web app", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "제22대 국회 의원 분포" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: "위로 갈수록 반대·기권 비중이 낮고, 오른쪽으로 갈수록 출석률이 높습니다."
+      })
+    ).toBeInTheDocument();
     expect(screen.getByText("부산 남구")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "분포에서 의원 찾기" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "활동 캘린더 열기" })).toHaveAttribute(
@@ -221,7 +226,7 @@ describe("web app", () => {
     expect(helpButton).toHaveAttribute("aria-expanded", "false");
     expect(
       screen.queryByText(
-        "출석률과 찬성 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다."
+        "출석률과 반대·기권 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다."
       )
     ).not.toBeInTheDocument();
 
@@ -230,12 +235,12 @@ describe("web app", () => {
     expect(screen.getByRole("button", { name: "분포 설명 닫기" })).toHaveAttribute("aria-expanded", "true");
     expect(
       screen.getByText(
-        "출석률과 찬성 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다."
+        "출석률과 반대·기권 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다."
       )
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "가로축은 출석률, 세로축은 찬성 비중입니다. 점 크기는 현재 반대·기권·불참 연속 패턴을 반영합니다."
+        "가로축은 출석률, 세로축은 반대·기권 비중이며 값이 낮을수록 위로 올라갑니다. 점 크기는 현재 반대·기권·불참 연속 패턴을 반영합니다."
       )
     ).toBeInTheDocument();
   });
