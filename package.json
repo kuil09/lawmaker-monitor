@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "build": "npm run build --workspace @lawmaker-monitor/schemas && npm run build --workspace @lawmaker-monitor/ingest && npm run build --workspace @lawmaker-monitor/web",
+    "build:constituency-boundaries": "npm run build:constituency-boundaries --workspace @lawmaker-monitor/ingest",
     "build:data": "npm run build:data --workspace @lawmaker-monitor/ingest",
     "dev:web": "npm run dev --workspace @lawmaker-monitor/web",
     "ingest:live": "npm run ingest:live --workspace @lawmaker-monitor/ingest",

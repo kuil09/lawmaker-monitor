@@ -1,0 +1,79 @@
+{
+  "type": "Topology",
+  "objects": {
+    "constituencies": {
+      "type": "GeometryCollection",
+      "geometries": [
+        {
+          "type": "Polygon",
+          "properties": {
+            "constituencyId": "서울중구",
+            "lawDistrictName": "중구선거구",
+            "districtName": "중구",
+            "memberDistrictLabel": "서울 중구",
+            "memberDistrictKey": "서울중구",
+            "provinceName": "서울특별시",
+            "provinceShortName": "서울",
+            "areaText": "명동, 회현동",
+            "aliases": [
+              "중구",
+              "서울 중구",
+              "서울중구",
+              "서울특별시 중구",
+              "서울특별시중구"
+            ],
+            "sigunguCodes": [
+              "11140"
+            ],
+            "sigunguNames": [
+              "중구"
+            ],
+            "emdCodes": [
+              "11140101",
+              "11140102"
+            ],
+            "emdNames": [
+              "명동",
+              "회현동"
+            ]
+          },
+          "arcs": [
+            [
+              0
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "arcs": [
+    [
+      [
+        20,
+        0
+      ],
+      [
+        210,
+        0
+      ],
+      [
+        240,
+        160
+      ],
+      [
+        30,
+        210
+      ],
+      [
+        20,
+        0
+      ]
+    ]
+  ],
+  "bbox": [
+    20,
+    0,
+    240,
+    210
+  ]
+}

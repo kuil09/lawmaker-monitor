@@ -1,6 +1,7 @@
 import type {
   AccountabilitySummaryExport,
   AccountabilityTrendsExport,
+  ConstituencyBoundariesIndexExport,
   CurrentAssembly,
   LatestVotesExport,
   Manifest,
@@ -26,6 +27,7 @@ type BuildArtifactsInput = {
   accountabilitySummary?: AccountabilitySummaryExport;
   accountabilityTrends?: AccountabilityTrendsExport;
   memberActivityCalendar?: MemberActivityCalendarExport;
+  constituencyBoundariesIndex?: ConstituencyBoundariesIndexExport;
 };
 
 type ExportBuildOptions = {
@@ -1358,6 +1360,7 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
     input.accountabilityTrends ?? buildAccountabilityTrendsExport(bundle);
   const memberActivityCalendar =
     input.memberActivityCalendar ?? buildMemberActivityCalendarExport(bundle);
+  const constituencyBoundariesIndex = input.constituencyBoundariesIndex;
   const normalizedPayloads = {
     members: toNdjson(bundle.members),
     rollCalls: toNdjson(bundle.rollCalls),
@@ -1408,7 +1411,16 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
         "exports/member_activity_calendar.json",
         memberActivityCalendar,
         memberActivityCalendar.assembly.members.length
-      )
+      ),
+      ...(constituencyBoundariesIndex
+        ? {
+            constituencyBoundariesIndex: createPublishedExportFile(
+              "exports/constituency_boundaries/index.json",
+              constituencyBoundariesIndex,
+              constituencyBoundariesIndex.provinces.length
+            )
+          }
+        : {})
     }
   };
 }

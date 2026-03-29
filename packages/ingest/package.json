@@ -12,6 +12,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "build:constituency-boundaries": "node ./dist/scripts/build-constituency-boundaries.js",
     "build:data": "node ./dist/scripts/build-data.js",
     "ingest:live": "node ./dist/scripts/ingest-live.js",
     "mirror:documents": "node ./dist/scripts/mirror-documents.js",
@@ -20,6 +21,11 @@
   "dependencies": {
     "@lawmaker-monitor/schemas": "0.1.0",
     "fast-xml-parser": "^5.2.5",
-    "playwright": "^1.54.2"
+    "iconv-lite": "^0.7.0",
+    "playwright": "^1.54.2",
+    "shapefile": "^0.6.6",
+    "topojson-client": "^3.1.0",
+    "topojson-server": "^3.0.1",
+    "wkx": "^0.5.0"
   }
 }
