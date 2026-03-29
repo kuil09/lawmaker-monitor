@@ -320,6 +320,36 @@ describe("web app", () => {
     expect(screen.getAllByText("명동, 회현동").length).toBeGreaterThan(0);
   });
 
+  it("reveals the constituency map help only when requested", async () => {
+    window.location.hash = "#distribution?member=M002";
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "부산 지역구별 핵심 통계" })).toBeInTheDocument();
+    const helpButton = screen.getByRole("button", { name: "지역구 지도 설명 보기" });
+
+    expect(helpButton).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByText(
+        "지도에서 선거구를 누르면 대표 의원과 출석 흐름을 먼저 보고, 상세 패널에서 다른 표결 지표를 함께 확인할 수 있습니다."
+      )
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(helpButton);
+
+    expect(screen.getByRole("button", { name: "지역구 지도 설명 닫기" })).toHaveAttribute(
+      "aria-expanded",
+      "true"
+    );
+    expect(
+      screen.getByText(
+        "지도에서 선거구를 누르면 대표 의원과 출석 흐름을 먼저 보고, 상세 패널에서 다른 표결 지표를 함께 확인할 수 있습니다."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("현재 선택한 지역에서 1개 지역구 통계를 연결했습니다.")
+    ).toBeInTheDocument();
+  });
+
   it("reveals the distribution help copy only when requested", async () => {
     window.location.hash = "#distribution";
     render(<App />);

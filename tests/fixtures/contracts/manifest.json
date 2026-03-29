@@ -64,6 +64,12 @@
       "url": "https://data.example.test/lawmaker-monitor/exports/member_activity_calendar.json",
       "checksumSha256": "member-activity-calendar-checksum",
       "rowCount": 3
+    },
+    "constituencyBoundariesIndex": {
+      "path": "exports/constituency_boundaries/index.json",
+      "url": "https://data.example.test/lawmaker-monitor/exports/constituency_boundaries/index.json",
+      "checksumSha256": "constituency-index-checksum",
+      "rowCount": 2
     }
   }
 }
