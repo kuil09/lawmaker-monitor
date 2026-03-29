@@ -1,0 +1,44 @@
+{
+  "generatedAt": "2026-03-22T11:45:00+09:00",
+  "snapshotId": "snapshot-20260322-114500",
+  "lawEffectiveDate": "2026-03-19",
+  "lawSourceUrl": "https://law.example.test/boundaries",
+  "sourceGeneratedAt": "2026-03-22T11:45:00+09:00",
+  "sourceFeatureCount": 2,
+  "sources": [
+    {
+      "sourceId": "law-table",
+      "title": "Current constituency law table",
+      "sourcePageUrl": "https://law.example.test/boundaries",
+      "downloadUrl": "https://law.example.test/boundaries/download",
+      "requestMethod": "GET",
+      "checksumSha256": "law-checksum",
+      "retrievedAt": "2026-03-22T11:45:00+09:00"
+    },
+    {
+      "sourceId": "sgis-admin",
+      "title": "Administrative boundary bundle",
+      "sourcePageUrl": "https://data.example.test/sgis",
+      "downloadUrl": "https://data.example.test/sgis/download",
+      "requestMethod": "GET",
+      "checksumSha256": "sgis-checksum",
+      "retrievedAt": "2026-03-22T11:45:00+09:00"
+    }
+  ],
+  "provinces": [
+    {
+      "provinceName": "부산광역시",
+      "provinceShortName": "부산",
+      "featureCount": 1,
+      "path": "exports/constituency_boundaries/provinces/부산.topo.json",
+      "checksumSha256": "busan-topo"
+    },
+    {
+      "provinceName": "서울특별시",
+      "provinceShortName": "서울",
+      "featureCount": 1,
+      "path": "exports/constituency_boundaries/provinces/서울.topo.json",
+      "checksumSha256": "seoul-topo"
+    }
+  ]
+}

@@ -1,6 +1,8 @@
 import {
   accountabilitySummaryExportSchema,
   accountabilityTrendsExportSchema,
+  constituencyBoundaryExportSchema,
+  constituencyBoundariesIndexExportSchema,
   latestVotesExportSchema,
   manifestSchema,
   memberActivityCalendarExportSchema,
@@ -11,6 +13,8 @@ import {
 import type {
   AccountabilitySummaryExport,
   AccountabilityTrendsExport,
+  ConstituencyBoundaryExport,
+  ConstituencyBoundariesIndexExport,
   LatestVotesExport,
   Manifest,
   MemberActivityCalendarExport,
@@ -50,6 +54,18 @@ export function validateMemberActivityCalendarMemberDetailExport(
   payload: MemberActivityCalendarMemberDetailExport
 ): MemberActivityCalendarMemberDetailExport {
   return memberActivityCalendarMemberDetailExportSchema.parse(payload);
+}
+
+export function validateConstituencyBoundaryExport(
+  payload: ConstituencyBoundaryExport
+): ConstituencyBoundaryExport {
+  return constituencyBoundaryExportSchema.parse(payload);
+}
+
+export function validateConstituencyBoundariesIndexExport(
+  payload: ConstituencyBoundariesIndexExport
+): ConstituencyBoundariesIndexExport {
+  return constituencyBoundariesIndexExportSchema.parse(payload);
 }
 
 export function validateManifest(payload: Manifest): Manifest {

@@ -1,4 +1,6 @@
 export * from "./assembly-api.js";
+export * from "./constituency-boundary-runtime.js";
+export * from "./constituency-boundaries.js";
 export * from "./document-mirror.js";
 export * from "./exports.js";
 export * from "./normalize.js";

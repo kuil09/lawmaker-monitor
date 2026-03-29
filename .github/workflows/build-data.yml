@@ -44,6 +44,9 @@ jobs:
         with:
           build-target: schemas-and-ingest
 
+      - name: Build constituency boundary source artifact
+        run: npm run build:constituency-boundaries --workspace @lawmaker-monitor/ingest
+
       - name: Resolve raw artifact source for manual build
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.raw_source != 'fixtures'
         id: resolve-manual-run

@@ -270,6 +270,95 @@ export const memberActivityCalendarMemberDetailExportSchema = z.object({
   voteRecords: z.array(memberActivityVoteRecordSchema).default([])
 });
 
+const geoJsonPositionSchema = z.tuple([z.number(), z.number()]);
+
+const geoJsonLinearRingSchema = z.array(geoJsonPositionSchema).min(4);
+
+export const geoJsonPolygonSchema = z.object({
+  type: z.literal("Polygon"),
+  coordinates: z.array(geoJsonLinearRingSchema).min(1)
+});
+
+export const geoJsonMultiPolygonSchema = z.object({
+  type: z.literal("MultiPolygon"),
+  coordinates: z.array(z.array(geoJsonLinearRingSchema).min(1)).min(1)
+});
+
+export const constituencyBoundarySourceSchema = z
+  .object({
+    sourceId: nonEmptyString,
+    title: nonEmptyString,
+    sourcePageUrl: nonEmptyString.url().optional(),
+    downloadUrl: nonEmptyString.url(),
+    requestMethod: z.enum(["GET", "POST"]).optional(),
+    requestBody: nonEmptyString.optional(),
+    encoding: nonEmptyString.optional(),
+    checksumSha256: nonEmptyString,
+    retrievedAt: nonEmptyString,
+    rowCount: z.number().int().positive().optional()
+  })
+  .strict();
+
+export const constituencyBoundaryPropertiesSchema = z
+  .object({
+    constituencyId: nonEmptyString,
+    lawDistrictName: nonEmptyString,
+    districtName: nonEmptyString,
+    memberDistrictLabel: nonEmptyString,
+    memberDistrictKey: nonEmptyString,
+    provinceName: nonEmptyString,
+    provinceShortName: nonEmptyString,
+    areaText: nonEmptyString,
+    aliases: z.array(nonEmptyString).default([]),
+    sigunguCodes: z.array(nonEmptyString),
+    sigunguNames: z.array(nonEmptyString),
+    emdCodes: z.array(nonEmptyString),
+    emdNames: z.array(nonEmptyString)
+  })
+  .strict();
+
+export const constituencyBoundaryFeatureSchema = z
+  .object({
+    type: z.literal("Feature"),
+    properties: constituencyBoundaryPropertiesSchema,
+    geometry: z.union([geoJsonPolygonSchema, geoJsonMultiPolygonSchema])
+  })
+  .strict();
+
+export const constituencyBoundaryExportSchema = z
+  .object({
+    type: z.literal("FeatureCollection"),
+    generatedAt: nonEmptyString,
+    lawEffectiveDate: nonEmptyString,
+    lawSourceUrl: nonEmptyString.url(),
+    sources: z.array(constituencyBoundarySourceSchema).min(2),
+    features: z.array(constituencyBoundaryFeatureSchema).min(1)
+  })
+  .strict();
+
+export const constituencyBoundariesIndexProvinceSchema = z
+  .object({
+    provinceName: nonEmptyString,
+    provinceShortName: nonEmptyString,
+    featureCount: z.number().int().positive(),
+    path: nonEmptyString,
+    checksumSha256: nonEmptyString
+  })
+  .strict();
+
+export const constituencyBoundariesIndexExportSchema = z
+  .object({
+    generatedAt: nonEmptyString,
+    snapshotId: nonEmptyString,
+    lawEffectiveDate: nonEmptyString,
+    lawSourceUrl: nonEmptyString.url(),
+    sourceGeneratedAt: nonEmptyString,
+    sourceFeatureCount: z.number().int().positive(),
+    sources: z.array(constituencyBoundarySourceSchema).min(2),
+    provinces: z.array(constituencyBoundariesIndexProvinceSchema).min(1)
+  })
+  .strict();
+
 export const manifestSchema = z.object({
   schemaVersion: nonEmptyString,
   snapshotId: nonEmptyString,
@@ -287,7 +376,8 @@ export const manifestSchema = z.object({
     latestVotes: datasetFileSchema,
     accountabilitySummary: datasetFileSchema.optional(),
     memberActivityCalendar: datasetFileSchema.optional(),
-    accountabilityTrends: datasetFileSchema.optional()
+    accountabilityTrends: datasetFileSchema.optional(),
+    constituencyBoundariesIndex: datasetFileSchema.optional()
   })
 });
 
@@ -296,6 +386,7 @@ export const publishBundleSchema = z.object({
   latestVotes: latestVotesExportSchema,
   accountabilitySummary: accountabilitySummaryExportSchema,
   accountabilityTrends: accountabilityTrendsExportSchema.optional(),
+  constituencyBoundariesIndex: constituencyBoundariesIndexExportSchema.optional(),
   memberActivityCalendar: memberActivityCalendarExportSchema,
   memberActivityCalendarMemberDetails: z
     .array(memberActivityCalendarMemberDetailExportSchema)
@@ -319,6 +410,18 @@ export type MemberActivityCalendarAssembly = z.infer<typeof memberActivityCalend
 export type MemberActivityCalendarExport = z.infer<typeof memberActivityCalendarExportSchema>;
 export type MemberActivityCalendarMemberDetailExport = z.infer<
   typeof memberActivityCalendarMemberDetailExportSchema
+>;
+export type GeoJsonPolygon = z.infer<typeof geoJsonPolygonSchema>;
+export type GeoJsonMultiPolygon = z.infer<typeof geoJsonMultiPolygonSchema>;
+export type ConstituencyBoundarySource = z.infer<typeof constituencyBoundarySourceSchema>;
+export type ConstituencyBoundaryProperties = z.infer<typeof constituencyBoundaryPropertiesSchema>;
+export type ConstituencyBoundaryFeature = z.infer<typeof constituencyBoundaryFeatureSchema>;
+export type ConstituencyBoundaryExport = z.infer<typeof constituencyBoundaryExportSchema>;
+export type ConstituencyBoundariesIndexProvince = z.infer<
+  typeof constituencyBoundariesIndexProvinceSchema
+>;
+export type ConstituencyBoundariesIndexExport = z.infer<
+  typeof constituencyBoundariesIndexExportSchema
 >;
 export type Manifest = z.infer<typeof manifestSchema>;
 export type PublishBundle = z.infer<typeof publishBundleSchema>;
