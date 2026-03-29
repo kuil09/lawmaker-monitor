@@ -10,6 +10,11 @@ import type { DistributionMemberPoint } from "./distribution.js";
 
 export type ConstituencyMetricMode = "attendance" | "absent" | "negative";
 
+export type ConstituencyMetricDomain = {
+  min: number;
+  max: number;
+};
+
 export type ConstituencyBoundaryTopology = {
   type: "Topology";
   objects: {
@@ -101,6 +106,64 @@ export function getConstituencyMetricValue(
   }
 
   return member.negativeRate;
+}
+
+export function getConstituencyMetricRenderValue(
+  member: DistributionMemberPoint,
+  metricMode: ConstituencyMetricMode
+): number {
+  const value = getConstituencyMetricValue(member, metricMode);
+  return metricMode === "attendance" ? 1 - value : value;
+}
+
+function collectConstituencyMetricValues(
+  regions: Array<Pick<ConstituencyMapRegion, "member" | "highlighted">>,
+  metricMode: ConstituencyMetricMode
+): number[] {
+  return regions.flatMap((region) =>
+    region.member ? [getConstituencyMetricRenderValue(region.member, metricMode)] : []
+  );
+}
+
+export function getConstituencyMetricDomain(
+  regions: Array<Pick<ConstituencyMapRegion, "member" | "highlighted">>,
+  metricMode: ConstituencyMetricMode
+): ConstituencyMetricDomain {
+  const highlightedValues = collectConstituencyMetricValues(
+    regions.filter((region) => region.highlighted),
+    metricMode
+  );
+  const fallbackValues =
+    highlightedValues.length >= 2
+      ? highlightedValues
+      : collectConstituencyMetricValues(regions, metricMode);
+
+  if (fallbackValues.length < 2) {
+    return {
+      min: 0,
+      max: 1
+    };
+  }
+
+  return {
+    min: Math.min(...fallbackValues),
+    max: Math.max(...fallbackValues)
+  };
+}
+
+export function getConstituencyMetricColorIntensity(
+  member: DistributionMemberPoint,
+  metricMode: ConstituencyMetricMode,
+  domain: ConstituencyMetricDomain
+): number {
+  const value = getConstituencyMetricRenderValue(member, metricMode);
+  const span = domain.max - domain.min;
+
+  if (!Number.isFinite(span) || span <= 0) {
+    return Math.min(1, Math.max(0, value));
+  }
+
+  return Math.min(1, Math.max(0, (value - domain.min) / span));
 }
 
 function buildFeatureLookupKeys(properties: ConstituencyBoundaryProperties): string[] {
