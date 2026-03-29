@@ -1,6 +1,7 @@
 import type {
   AccountabilitySummaryExport,
   AccountabilityTrendsExport,
+  ConstituencyBoundariesIndexExport,
   LatestVotesExport,
   MemberActivityCalendarExport,
   MemberActivityCalendarMemberDetailExport,
@@ -9,6 +10,7 @@ import type {
 import {
   accountabilitySummaryExportSchema,
   accountabilityTrendsExportSchema,
+  constituencyBoundariesIndexExportSchema,
   latestVotesExportSchema,
   memberActivityCalendarExportSchema,
   memberActivityCalendarMemberDetailExportSchema,
@@ -89,6 +91,22 @@ export function loadMemberActivityCalendarMemberDetail(
   return fetchOptionalJson(buildUrl(path), (payload) =>
     memberActivityCalendarMemberDetailExportSchema.parse(payload)
   );
+}
+
+export function loadConstituencyBoundariesIndex(
+  manifest?: Manifest | null
+): Promise<ConstituencyBoundariesIndexExport | null> {
+  const indexPath =
+    manifest?.exports.constituencyBoundariesIndex?.path ??
+    "exports/constituency_boundaries/index.json";
+
+  return fetchOptionalJson(buildUrl(indexPath), (payload) =>
+    constituencyBoundariesIndexExportSchema.parse(payload)
+  );
+}
+
+export function loadConstituencyProvinceTopology<T>(path: string): Promise<T | null> {
+  return fetchOptionalJson(buildUrl(path), (payload) => payload as T);
 }
 
 export function getDataRepoBaseUrl(): string {
