@@ -17,7 +17,30 @@ const accountabilitySummaryFixture = JSON.parse(
 const accountabilityTrendsFixture = JSON.parse(
   readFileSync(resolve(fixturesDir, "accountability_trends.json"), "utf8")
 );
-const manifestFixture = JSON.parse(readFileSync(resolve(fixturesDir, "manifest.json"), "utf8"));
+const baseManifestFixture = JSON.parse(readFileSync(resolve(fixturesDir, "manifest.json"), "utf8"));
+const constituencyBoundariesIndexFixture = JSON.parse(
+  readFileSync(resolve(fixturesDir, "constituency_boundaries_index.json"), "utf8")
+);
+const constituencyProvinceFixtures = {
+  "부산": JSON.parse(
+    readFileSync(resolve(fixturesDir, "constituency_province_busan.topo.json"), "utf8")
+  ),
+  "서울": JSON.parse(
+    readFileSync(resolve(fixturesDir, "constituency_province_seoul.topo.json"), "utf8")
+  )
+};
+const manifestFixture = {
+  ...baseManifestFixture,
+  exports: {
+    ...baseManifestFixture.exports,
+    constituencyBoundariesIndex: {
+      path: "exports/constituency_boundaries/index.json",
+      url: "https://data.example.test/lawmaker-monitor/exports/constituency_boundaries/index.json",
+      checksumSha256: "constituency-index-checksum",
+      rowCount: 2
+    }
+  }
+};
 const memberActivityCalendarFixture = JSON.parse(
   readFileSync(resolve(fixturesDir, "member_activity_calendar.json"), "utf8")
 );
@@ -30,9 +53,9 @@ const memberActivityCalendarMemberDetailFixtures = {
   )
 };
 const legacyManifestFixture = {
-  ...manifestFixture,
+  ...baseManifestFixture,
   exports: {
-    latestVotes: manifestFixture.exports.latestVotes
+    latestVotes: baseManifestFixture.exports.latestVotes
   }
 };
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -44,7 +67,8 @@ describe("web app", () => {
     window.location.hash = "";
     fetchMock = vi.fn((input: string | URL | Request) => {
       const url = String(input);
-      if (url.endsWith("/exports/latest_votes.json")) {
+      const decodedUrl = decodeURIComponent(url);
+      if (decodedUrl.endsWith("/exports/latest_votes.json")) {
         return Promise.resolve(
           new Response(JSON.stringify(latestVotesFixture), {
             status: 200,
@@ -53,7 +77,7 @@ describe("web app", () => {
         );
       }
 
-      if (url.endsWith("/exports/accountability_summary.json")) {
+      if (decodedUrl.endsWith("/exports/accountability_summary.json")) {
         return Promise.resolve(
           new Response(JSON.stringify(accountabilitySummaryFixture), {
             status: 200,
@@ -62,7 +86,7 @@ describe("web app", () => {
         );
       }
 
-      if (url.endsWith("/exports/accountability_trends.json")) {
+      if (decodedUrl.endsWith("/exports/accountability_trends.json")) {
         return Promise.resolve(
           new Response(JSON.stringify(accountabilityTrendsFixture), {
             status: 200,
@@ -71,7 +95,7 @@ describe("web app", () => {
         );
       }
 
-      if (url.endsWith("/exports/member_activity_calendar.json")) {
+      if (decodedUrl.endsWith("/exports/member_activity_calendar.json")) {
         return Promise.resolve(
           new Response(JSON.stringify(memberActivityCalendarFixture), {
             status: 200,
@@ -80,7 +104,7 @@ describe("web app", () => {
         );
       }
 
-      if (url.endsWith("/exports/member_activity_calendar_members/M001.json")) {
+      if (decodedUrl.endsWith("/exports/member_activity_calendar_members/M001.json")) {
         return Promise.resolve(
           new Response(JSON.stringify(memberActivityCalendarMemberDetailFixtures.M001), {
             status: 200,
@@ -89,7 +113,7 @@ describe("web app", () => {
         );
       }
 
-      if (url.endsWith("/exports/member_activity_calendar_members/M002.json")) {
+      if (decodedUrl.endsWith("/exports/member_activity_calendar_members/M002.json")) {
         return Promise.resolve(
           new Response(JSON.stringify(memberActivityCalendarMemberDetailFixtures.M002), {
             status: 200,
@@ -98,9 +122,36 @@ describe("web app", () => {
         );
       }
 
-      if (url.endsWith("/manifests/latest.json")) {
+      if (decodedUrl.endsWith("/manifests/latest.json")) {
         return Promise.resolve(
           new Response(JSON.stringify(manifestFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/constituency_boundaries/index.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(constituencyBoundariesIndexFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/constituency_boundaries/provinces/부산.topo.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(constituencyProvinceFixtures["부산"]), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/constituency_boundaries/provinces/서울.topo.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(constituencyProvinceFixtures["서울"]), {
             status: 200,
             headers: { "Content-Type": "application/json" }
           })
@@ -219,12 +270,13 @@ describe("web app", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "제22대 국회 의원 분포" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "부산 지역구별 핵심 통계" })).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
         name: "위로 갈수록 반대·기권 비중이 낮고, 오른쪽으로 갈수록 출석률이 높습니다."
       })
     ).toBeInTheDocument();
-    expect(screen.getByText("부산 남구")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "부산 남구" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "분포에서 의원 찾기" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "활동 캘린더 열기" })).toHaveAttribute(
       "href",
@@ -234,6 +286,24 @@ describe("web app", () => {
     expect(
       screen.getByText("정당 평균을 눌러 차트를 해당 정당만 남기는 강조 모드로 전환합니다.")
     ).toBeInTheDocument();
+  });
+
+  it("switches province on the constituency map and links the chosen district back to distribution selection", async () => {
+    window.location.hash = "#distribution?member=M002";
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "부산 지역구별 핵심 통계" })).toBeInTheDocument();
+    const provinceTabs = screen.getByRole("tablist", { name: "province 선택" });
+    fireEvent.click(within(provinceTabs).getByRole("button", { name: /서울/ }));
+
+    expect(await screen.findByRole("heading", { name: "서울 지역구별 핵심 통계" })).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("서울 중구"));
+
+    await waitFor(() => {
+      expect(window.location.hash).toBe("#distribution?member=M001");
+    });
+    expect(screen.getAllByText("김아라").length).toBeGreaterThan(0);
+    expect(screen.getByText("명동, 회현동")).toBeInTheDocument();
   });
 
   it("reveals the distribution help copy only when requested", async () => {

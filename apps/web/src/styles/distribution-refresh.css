@@ -1,4 +1,5 @@
 .distribution-page__masthead,
+.distribution-map,
 .distribution-chart,
 .distribution-focus,
 .distribution-signal-card,
@@ -14,9 +15,20 @@
 
 .distribution-page__masthead,
 .distribution-page__layout,
+.distribution-page__main-column,
 .distribution-signal-grid,
 .distribution-page__headline,
 .distribution-page__search,
+.distribution-map,
+.distribution-map__header,
+.distribution-map__controls,
+.distribution-map__province-list,
+.distribution-map__metric-list,
+.distribution-map__legend,
+.distribution-map__layout,
+.distribution-map__detail-actions,
+.distribution-map__detail-metrics,
+.distribution-map__detail-facts,
 .distribution-chart__header,
 .distribution-chart__legend,
 .distribution-focus__header,
@@ -32,6 +44,7 @@
 }
 
 .distribution-page__masthead::before,
+.distribution-map::before,
 .distribution-chart::before,
 .distribution-focus::before,
 .distribution-signal-card::before,
@@ -97,6 +110,10 @@
   align-items: start;
 }
 
+.distribution-page__main-column {
+  min-width: 0;
+}
+
 .distribution-chart__eyebrow {
   display: flex;
   align-items: center;
@@ -109,12 +126,206 @@
   align-items: start;
 }
 
+.distribution-map h2,
 .distribution-chart h2,
+.distribution-map__detail h3,
 .distribution-signal-card h3 {
   margin: 0.1rem 0 0;
   font-size: clamp(1.18rem, 2.1vw, 1.52rem);
   line-height: 1.18;
   word-break: keep-all;
+}
+
+.distribution-map__summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.72rem;
+}
+
+.distribution-map__controls {
+  gap: 0.72rem;
+}
+
+.distribution-map__province-list,
+.distribution-map__metric-list {
+  grid-template-columns: repeat(auto-fit, minmax(5.5rem, max-content));
+  align-items: start;
+}
+
+.distribution-map__province-button,
+.distribution-map__metric-button,
+.distribution-map__detail-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.75rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgba(72, 56, 40, 0.12);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--accent-strong);
+}
+
+.distribution-map__province-button,
+.distribution-map__metric-button {
+  justify-content: space-between;
+}
+
+.distribution-map__province-button.is-active,
+.distribution-map__metric-button.is-active,
+.distribution-map__detail-action:not(:disabled) {
+  border-color: rgba(123, 49, 40, 0.24);
+  box-shadow: 0 14px 28px rgba(123, 49, 40, 0.14);
+}
+
+.distribution-map__province-button.is-active,
+.distribution-map__metric-button.is-active {
+  background: linear-gradient(135deg, rgba(123, 49, 40, 0.14), rgba(255, 255, 255, 0.94));
+}
+
+.distribution-map__province-button strong {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.distribution-map__legend {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem 0.85rem;
+}
+
+.distribution-map__legend-scale {
+  width: 8.5rem;
+  height: 0.88rem;
+  border-radius: 999px;
+  border: 1px solid rgba(72, 56, 40, 0.1);
+  background: linear-gradient(90deg, #f6e8d5, var(--accent-strong));
+}
+
+.distribution-map__legend-scale span {
+  display: none;
+}
+
+.distribution-map__layout {
+  grid-template-columns: minmax(0, 1.45fr) minmax(18rem, 0.92fr);
+  align-items: start;
+}
+
+.distribution-map__surface,
+.distribution-map__detail,
+.distribution-map__state {
+  border: 1px solid rgba(72, 56, 40, 0.1);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(249, 245, 239, 0.94));
+}
+
+.distribution-map__surface {
+  min-height: 32rem;
+  padding: 0.95rem;
+}
+
+.distribution-map__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.distribution-map__region {
+  stroke: rgba(72, 56, 40, 0.24);
+  stroke-width: 1.4;
+  transition:
+    fill 180ms ease,
+    stroke 180ms ease,
+    stroke-width 180ms ease,
+    filter 180ms ease;
+}
+
+.distribution-map__region:hover,
+.distribution-map__region:focus-visible {
+  stroke: rgba(29, 24, 18, 0.64);
+  stroke-width: 2.2;
+  filter: saturate(1.05);
+}
+
+.distribution-map__region.is-selected {
+  stroke: rgba(29, 24, 18, 0.94);
+  stroke-width: 3;
+  filter: drop-shadow(0 8px 18px rgba(72, 56, 40, 0.18));
+}
+
+.distribution-map__detail,
+.distribution-map__state {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.distribution-map__detail-area {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.distribution-map__detail-actions {
+  margin-top: -0.1rem;
+}
+
+.distribution-map__detail-action:disabled {
+  color: var(--text-muted);
+  opacity: 0.9;
+  cursor: default;
+}
+
+.distribution-map__detail-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.distribution-map__detail-metrics article {
+  display: grid;
+  gap: 0.16rem;
+  padding: 0.82rem 0.88rem;
+  border: 1px solid rgba(72, 56, 40, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.distribution-map__detail-metrics span,
+.distribution-map__detail-facts dt {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.distribution-map__detail-metrics strong {
+  font-size: 1.15rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.distribution-map__detail-facts {
+  margin: 0;
+}
+
+.distribution-map__detail-facts > div {
+  display: grid;
+  gap: 0.12rem;
+  padding-top: 0.72rem;
+  border-top: 1px solid rgba(72, 56, 40, 0.1);
+}
+
+.distribution-map__detail-facts > div:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.distribution-map__detail-facts dd {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.55;
 }
 
 .distribution-chart__filter-row {
@@ -542,6 +753,7 @@
 @media (max-width: 1080px) {
   .distribution-page__masthead,
   .distribution-page__layout,
+  .distribution-map__layout,
   .distribution-chart__header,
   .distribution-chart__legend,
   .distribution-signal-grid {
@@ -551,6 +763,7 @@
 
 @media (max-width: 760px) {
   .distribution-page__masthead,
+  .distribution-map,
   .distribution-chart,
   .distribution-focus,
   .distribution-signal-card,
@@ -569,6 +782,13 @@
     border-radius: 18px;
   }
 
+  .distribution-map__surface,
+  .distribution-map__detail,
+  .distribution-map__state {
+    padding: 0.8rem;
+    border-radius: 18px;
+  }
+
   .distribution-chart__help-button {
     width: 2.75rem;
     height: 2.75rem;
@@ -576,6 +796,7 @@
     min-height: 2.75rem;
   }
 
+  .distribution-map__detail-metrics,
   .distribution-focus__metric-grid,
   .distribution-focus__composition-list,
   .distribution-party-list__stats {

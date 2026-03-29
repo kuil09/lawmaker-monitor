@@ -447,6 +447,7 @@ export default function App() {
       <DistributionPage
         accountabilitySummary={accountabilitySummary}
         activityCalendar={activityCalendar}
+        manifest={manifest}
         loading={
           (!accountabilitySummary && !leaderboardError) ||
           (!activityCalendar && !activityError)
