@@ -2,7 +2,11 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { CurrentAssembly, NormalizedBundle } from "@lawmaker-monitor/schemas";
+import type {
+  ConstituencyBoundaryExport,
+  CurrentAssembly,
+  NormalizedBundle
+} from "@lawmaker-monitor/schemas";
 
 import {
   assertPublishedJsonFileSize,
@@ -15,6 +19,10 @@ import {
   serializePublishedJson,
   toNdjson
 } from "../exports.js";
+import {
+  buildConstituencyBoundaryRuntimeArtifacts,
+  CONSTITUENCY_BOUNDARIES_INDEX_PATH
+} from "../constituency-boundary-runtime.js";
 import { createNormalizedBundle } from "../normalize.js";
 import {
   createSourceRecord,
@@ -40,6 +48,7 @@ import {
   validateAccountabilitySummaryExport,
   validateAccountabilityTrendsExport,
   assertSinglePublicAssembly,
+  validateConstituencyBoundariesIndexExport,
   validateLatestVotesExport,
   validateManifest,
   validateMemberActivityCalendarExport,
@@ -112,6 +121,11 @@ async function writeBundle(outputDir: string, bundle: NormalizedBundle): Promise
 
 async function main(): Promise<void> {
   const repositoryRoot = resolve(fileURLToPath(new URL("../../../../", import.meta.url)));
+  const constituencyBoundaryDir = resolvePathFromRoot(
+    repositoryRoot,
+    process.env.CONSTITUENCY_BOUNDARIES_DIR ??
+      join(repositoryRoot, "artifacts/constituency-boundaries/current")
+  );
   const rawRoot = resolvePathFromRoot(
     repositoryRoot,
     process.env.RAW_DIR ?? join(repositoryRoot, "tests/fixtures")
@@ -474,6 +488,21 @@ async function main(): Promise<void> {
   const memberActivityCalendarMemberDetails = builtMemberDetails.map((detail) =>
     validateMemberActivityCalendarMemberDetailExport(detail)
   );
+  // The boundary artifact is validated when it is built; build-data consumes and republishes it.
+  const constituencyBoundaryExport = JSON.parse(
+    await readFile(
+      join(constituencyBoundaryDir, "constituency_boundaries.geojson"),
+      "utf8"
+    )
+  ) as ConstituencyBoundaryExport;
+  const constituencyBoundaryRuntimeArtifacts = buildConstituencyBoundaryRuntimeArtifacts({
+    boundaryExport: constituencyBoundaryExport,
+    generatedAt: latestVotes.generatedAt,
+    snapshotId
+  });
+  const constituencyBoundariesIndex = validateConstituencyBoundariesIndexExport(
+    constituencyBoundaryRuntimeArtifacts.index
+  );
   const manifest = validateManifest(
     buildManifest({
       bundle,
@@ -482,7 +511,8 @@ async function main(): Promise<void> {
       latestVotes,
       accountabilitySummary,
       accountabilityTrends,
-      memberActivityCalendar
+      memberActivityCalendar,
+      constituencyBoundariesIndex
     })
   );
 
@@ -490,6 +520,7 @@ async function main(): Promise<void> {
   const accountabilitySummaryJson = serializePublishedJson(accountabilitySummary);
   const accountabilityTrendsJson = serializePublishedJson(accountabilityTrends);
   const memberActivityCalendarJson = serializePublishedJson(memberActivityCalendar);
+  const constituencyBoundariesIndexJson = constituencyBoundaryRuntimeArtifacts.indexJson;
   const manifestJson = JSON.stringify(manifest, null, 2);
   const memberActivityCalendarDetailWrites = memberActivityCalendarMemberDetails.map((detail) => {
     const relativePath = buildMemberActivityCalendarMemberDetailPath(detail.memberId);
@@ -504,8 +535,18 @@ async function main(): Promise<void> {
   assertPublishedJsonFileSize("exports/accountability_summary.json", accountabilitySummaryJson);
   assertPublishedJsonFileSize("exports/accountability_trends.json", accountabilityTrendsJson);
   assertPublishedJsonFileSize("exports/member_activity_calendar.json", memberActivityCalendarJson);
+  assertPublishedJsonFileSize(
+    CONSTITUENCY_BOUNDARIES_INDEX_PATH,
+    constituencyBoundariesIndexJson
+  );
+  for (const shard of constituencyBoundaryRuntimeArtifacts.shards) {
+    assertPublishedJsonFileSize(shard.path, shard.content);
+  }
 
   await mkdir(join(outputDir, "exports", "member_activity_calendar_members"), { recursive: true });
+  await mkdir(join(outputDir, "exports", "constituency_boundaries", "provinces"), {
+    recursive: true
+  });
 
   await Promise.all([
     writeFile(join(outputDir, "exports", "latest_votes.json"), latestVotesJson),
@@ -521,7 +562,14 @@ async function main(): Promise<void> {
       join(outputDir, "exports", "member_activity_calendar.json"),
       memberActivityCalendarJson
     ),
+    writeFile(
+      join(outputDir, CONSTITUENCY_BOUNDARIES_INDEX_PATH),
+      constituencyBoundariesIndexJson
+    ),
     writeFile(join(outputDir, "manifests", "latest.json"), manifestJson),
+    ...constituencyBoundaryRuntimeArtifacts.shards.map((shard) =>
+      writeFile(join(outputDir, shard.path), shard.content)
+    ),
     ...memberActivityCalendarDetailWrites.map((item) => writeFile(item.path, item.content))
   ]);
 }

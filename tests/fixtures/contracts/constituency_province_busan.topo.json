@@ -1,0 +1,79 @@
+{
+  "type": "Topology",
+  "objects": {
+    "constituencies": {
+      "type": "GeometryCollection",
+      "geometries": [
+        {
+          "type": "Polygon",
+          "properties": {
+            "constituencyId": "부산남구",
+            "lawDistrictName": "남구선거구",
+            "districtName": "남구",
+            "memberDistrictLabel": "부산 남구",
+            "memberDistrictKey": "부산남구",
+            "provinceName": "부산광역시",
+            "provinceShortName": "부산",
+            "areaText": "대연동, 용호동",
+            "aliases": [
+              "남구",
+              "부산 남구",
+              "부산남구",
+              "부산광역시 남구",
+              "부산광역시남구"
+            ],
+            "sigunguCodes": [
+              "26290"
+            ],
+            "sigunguNames": [
+              "남구"
+            ],
+            "emdCodes": [
+              "26290101",
+              "26290102"
+            ],
+            "emdNames": [
+              "대연동",
+              "용호동"
+            ]
+          },
+          "arcs": [
+            [
+              0
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "arcs": [
+    [
+      [
+        0,
+        0
+      ],
+      [
+        220,
+        0
+      ],
+      [
+        220,
+        180
+      ],
+      [
+        0,
+        180
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  ],
+  "bbox": [
+    0,
+    0,
+    220,
+    180
+  ]
+}
