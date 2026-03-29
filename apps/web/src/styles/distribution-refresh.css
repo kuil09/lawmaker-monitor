@@ -22,6 +22,7 @@
 .distribution-map,
 .distribution-map__header,
 .distribution-map__controls,
+.distribution-map__province-picker,
 .distribution-map__province-list,
 .distribution-map__metric-list,
 .distribution-map__legend,
@@ -146,6 +147,42 @@
   gap: 0.72rem;
 }
 
+.distribution-map__province-picker {
+  max-width: 18rem;
+}
+
+.distribution-map__field-label {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.distribution-map__province-select {
+  width: 100%;
+  min-height: 2.95rem;
+  padding: 0.75rem 0.95rem;
+  border: 1px solid rgba(72, 56, 40, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--accent-strong);
+  font: inherit;
+  box-shadow: 0 14px 28px rgba(72, 56, 40, 0.1);
+}
+
+.distribution-map__province-select:focus-visible {
+  outline: 2px solid rgba(123, 49, 40, 0.28);
+  outline-offset: 2px;
+}
+
+.distribution-map__control-note {
+  margin: 0;
+  max-width: 32rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
 .distribution-map__province-list,
 .distribution-map__metric-list {
   grid-template-columns: repeat(auto-fit, minmax(5.5rem, max-content));
@@ -212,6 +249,15 @@
   align-items: start;
 }
 
+.distribution-map__surface-frame {
+  position: relative;
+  min-width: 0;
+}
+
+.distribution-map__mobile-detail-shell {
+  display: none;
+}
+
 .distribution-map__surface,
 .distribution-map__detail,
 .distribution-map__state {
@@ -262,6 +308,15 @@
   padding: 1rem;
 }
 
+.distribution-map__detail--compact {
+  gap: 0.65rem;
+  padding: 0.9rem;
+  border-color: rgba(123, 49, 40, 0.16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(247, 240, 231, 0.98));
+  box-shadow: 0 18px 34px rgba(72, 56, 40, 0.16);
+}
+
 .distribution-map__detail-area {
   margin: 0;
   color: var(--text-muted);
@@ -304,6 +359,33 @@
   font-size: 1.15rem;
   line-height: 1;
   letter-spacing: -0.03em;
+}
+
+.distribution-map__detail--compact .distribution-map__detail-area {
+  font-size: 0.84rem;
+}
+
+.distribution-map__detail--compact .distribution-map__detail-actions {
+  margin-top: 0;
+}
+
+.distribution-map__detail--compact .distribution-map__detail-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.distribution-map__detail--compact .distribution-map__detail-metrics article {
+  padding: 0.7rem 0.68rem;
+  border-radius: 16px;
+}
+
+.distribution-map__detail--compact .distribution-map__detail-metrics span {
+  font-size: 0.64rem;
+  letter-spacing: 0.04em;
+}
+
+.distribution-map__detail--compact .distribution-map__detail-metrics strong {
+  font-size: 0.98rem;
 }
 
 .distribution-map__detail-facts {
@@ -787,6 +869,26 @@
   .distribution-map__state {
     padding: 0.8rem;
     border-radius: 18px;
+  }
+
+  .distribution-map__surface {
+    padding-bottom: 11rem;
+  }
+
+  .distribution-map__mobile-detail-shell {
+    display: block;
+    position: absolute;
+    inset: auto 0.8rem 0.8rem;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .distribution-map__mobile-detail-shell .distribution-map__detail {
+    pointer-events: auto;
+  }
+
+  .distribution-map__layout > .distribution-map__detail {
+    display: none;
   }
 
   .distribution-chart__help-button {
