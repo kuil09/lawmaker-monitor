@@ -577,10 +577,12 @@ async function openDistributionFlow(viewportName: string): Promise<void> {
 
     await page.getByRole("heading", { name: "제22대 국회 의원 분포" }).waitFor();
     await page.getByRole("combobox", { name: "분포에서 의원 찾기" }).waitFor();
+    await page.getByRole("heading", { name: "부산 지역구별 핵심 통계" }).waitFor();
     await expect
       .poll(async () => page.locator(".distribution-focus__district").textContent())
       .toBe("부산 남구");
     await page.getByText("정당 평균을 눌러 차트를 해당 정당만 남기는 강조 모드로 전환합니다.").waitFor();
+    await page.locator(".distribution-map").scrollIntoViewIfNeeded();
 
     const layout = await page.locator(".distribution-page__layout").evaluate((element) => {
       const layoutElement = element as HTMLElement;
@@ -606,21 +608,70 @@ async function openDistributionFlow(viewportName: string): Promise<void> {
     expect(layout?.chartOverflow ?? 99).toBeLessThanOrEqual(1);
     expect(layout?.focusOverflow ?? 99).toBeLessThanOrEqual(1);
 
+    const mapLayout = await page.locator(".distribution-map").evaluate((element) => {
+      const panel = element as HTMLElement;
+      const panelRect = panel.getBoundingClientRect();
+      const surface = panel.querySelector(".distribution-map__surface") as HTMLElement | null;
+      const fullDetail = panel.querySelector(
+        ".distribution-map__layout > .distribution-map__detail"
+      ) as HTMLElement | null;
+      const mobileDetailShell = panel.querySelector(
+        ".distribution-map__mobile-detail-shell"
+      ) as HTMLElement | null;
+      const compactDetail = mobileDetailShell?.querySelector(
+        ".distribution-map__detail--compact"
+      ) as HTMLElement | null;
+      const helpPanel = panel.querySelector(".distribution-map__help-panel") as HTMLElement | null;
+
+      if (!surface || !fullDetail) {
+        return null;
+      }
+
+      const surfaceRect = surface.getBoundingClientRect();
+      const compactRect = compactDetail?.getBoundingClientRect() ?? null;
+
+      return {
+        surfaceOverflow: surface.scrollWidth - surface.clientWidth,
+        surfaceTopWithinViewport: surfaceRect.top < window.innerHeight,
+        fullDetailDisplay: window.getComputedStyle(fullDetail).display,
+        mobileDetailDisplay: mobileDetailShell
+          ? window.getComputedStyle(mobileDetailShell).display
+          : "none",
+        helpPanelVisible: helpPanel !== null,
+        compactBelowSurface:
+          compactRect !== null &&
+          compactRect.top >= surfaceRect.bottom - 1 &&
+          compactRect.top >= panelRect.top
+      };
+    });
+
+    expect(mapLayout).not.toBeNull();
+    expect(mapLayout?.surfaceOverflow ?? 99).toBeLessThanOrEqual(1);
+
     if (viewportName === "mobile" || viewportName === "tablet") {
       expect(layout?.layoutColumns).toBe(1);
     }
 
     if (viewportName === "mobile") {
       expect(layout?.metricColumns).toBe(1);
+      expect(mapLayout?.mobileDetailDisplay).not.toBe("none");
+      expect(mapLayout?.fullDetailDisplay).toBe("none");
+      expect(mapLayout?.surfaceTopWithinViewport).toBe(true);
+      expect(mapLayout?.helpPanelVisible).toBe(false);
+      expect(mapLayout?.compactBelowSurface).toBe(true);
     }
 
     if (viewportName === "tablet") {
       expect(layout?.metricColumns).toBe(2);
+      expect(mapLayout?.mobileDetailDisplay).toBe("none");
+      expect(mapLayout?.fullDetailDisplay).not.toBe("none");
     }
 
     if (viewportName === "desktop") {
       expect(layout?.layoutColumns).toBe(2);
       expect(layout?.metricColumns).toBe(2);
+      expect(mapLayout?.mobileDetailDisplay).toBe("none");
+      expect(mapLayout?.fullDetailDisplay).not.toBe("none");
     }
 
     const streakSignal = page.getByRole("button", { name: /김아라 미래개혁당/ }).first();
@@ -635,6 +686,15 @@ async function openDistributionFlow(viewportName: string): Promise<void> {
       viewport: viewportName,
       scenario: "distribution-overview",
       screenshot: distributionScreenshot
+    });
+    const distributionMapScreenshot = await saveLocatorScreenshot(
+      page.locator(".distribution-map"),
+      `${viewportName}/distribution-map.png`
+    );
+    scenarioManifest.push({
+      viewport: viewportName,
+      scenario: "distribution-map",
+      screenshot: distributionMapScreenshot
     });
 
     expect(await page.getByRole("link", { name: "활동 캘린더 열기" }).getAttribute("href")).toBe(
