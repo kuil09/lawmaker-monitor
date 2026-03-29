@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type {
   AccountabilitySummaryExport,
+  Manifest,
   MemberActivityCalendarExport
 } from "@lawmaker-monitor/schemas";
 import {
@@ -29,12 +30,14 @@ import {
 } from "../lib/distribution.js";
 import { formatNumber, formatPercent } from "../lib/format.js";
 import { getOptimizedMemberPhotoUrl } from "../lib/member-photo.js";
+import { DistributionConstituencyMap } from "./DistributionConstituencyMap.js";
 import { MemberIdentity } from "./MemberIdentity.js";
 import { MemberSearchField } from "./MemberSearchField.js";
 
 type DistributionPageProps = {
   accountabilitySummary: AccountabilitySummaryExport | null;
   activityCalendar: MemberActivityCalendarExport | null;
+  manifest: Manifest | null;
   loading: boolean;
   errors: string[];
   assemblyLabel: string;
@@ -350,6 +353,7 @@ function DistributionSignalList({
 export function DistributionPage({
   accountabilitySummary,
   activityCalendar,
+  manifest,
   loading,
   errors,
   assemblyLabel,
@@ -432,6 +436,10 @@ export function DistributionPage({
   const otherChartPoints = filteredChartPoints.filter((member) => member.memberId !== selectedMemberId);
   const activePartySummary =
     partySummaries.find((summary) => summary.party === activePartyFilter) ?? null;
+  const highlightedMemberIds = useMemo(
+    () => new Set(filteredMembers.map((member) => member.memberId)),
+    [filteredMembers]
+  );
 
   const averageAttendanceRate =
     behaviorFilteredMembers.length > 0
@@ -621,168 +629,178 @@ export function DistributionPage({
       </section>
 
       <div className="distribution-page__layout">
-        <section className="distribution-chart" aria-label="의원 분포 차트">
-          <div className="distribution-chart__header">
-            <div>
-              <div className="distribution-chart__eyebrow">
-                <p className="section-label">좌표 분포</p>
-                <button
-                  type="button"
-                  className="distribution-chart__help-button"
-                  aria-label={isChartHelpOpen ? "분포 설명 닫기" : "분포 설명 보기"}
-                  aria-expanded={isChartHelpOpen}
-                  aria-controls="distribution-chart-help"
-                  onClick={() => setIsChartHelpOpen((current) => !current)}
-                >
-                  ?
-                </button>
-              </div>
-              <h2>{chartHeading}</h2>
-              {activeBehaviorSummary ? (
-                <div className="distribution-chart__filter-row">
-                  <p className="distribution-page__search-note">
-                    {`${activeBehaviorSummary.description}. 현재 ${formatNumber(behaviorFilteredMembers.length)}명을 같은 기준으로 묶었습니다.`}
-                  </p>
+        <div className="distribution-page__main-column">
+          <DistributionConstituencyMap
+            manifest={manifest}
+            members={members}
+            highlightedMemberIds={highlightedMemberIds}
+            selectedMemberId={selectedMemberId}
+            onSelectMember={handleSelectMember}
+          />
+
+          <section className="distribution-chart" aria-label="의원 분포 차트">
+            <div className="distribution-chart__header">
+              <div>
+                <div className="distribution-chart__eyebrow">
+                  <p className="section-label">좌표 분포</p>
                   <button
                     type="button"
-                    className="distribution-chart__filter-pill"
-                    onClick={handleClearBehaviorFilter}
-                    aria-label={`행동 분류 ${activeBehaviorSummary.label} 해제`}
+                    className="distribution-chart__help-button"
+                    aria-label={isChartHelpOpen ? "분포 설명 닫기" : "분포 설명 보기"}
+                    aria-expanded={isChartHelpOpen}
+                    aria-controls="distribution-chart-help"
+                    onClick={() => setIsChartHelpOpen((current) => !current)}
                   >
-                    <span>행동 분류</span>
-                    <strong>{activeBehaviorSummary.label}</strong>
-                    <small>{`${formatNumber(behaviorFilteredMembers.length)}명`}</small>
+                    ?
                   </button>
                 </div>
-              ) : null}
-              {isChartHelpOpen ? (
-                <div id="distribution-chart-help" className="distribution-chart__help-panel" role="note">
-                  <p className="distribution-page__copy">
-                    출석률과 반대·기권 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다.
-                  </p>
-                  <p className="distribution-chart__copy">
-                    가로축은 출석률, 세로축은 반대·기권 비중이며 값이 낮을수록 위로 올라갑니다. 점 크기는 현재 반대·기권·불참 연속 패턴을 반영합니다.
-                  </p>
-                  <p className="distribution-page__search-note">{chartSearchNote}</p>
+                <h2>{chartHeading}</h2>
+                {activeBehaviorSummary ? (
+                  <div className="distribution-chart__filter-row">
+                    <p className="distribution-page__search-note">
+                      {`${activeBehaviorSummary.description}. 현재 ${formatNumber(behaviorFilteredMembers.length)}명을 같은 기준으로 묶었습니다.`}
+                    </p>
+                    <button
+                      type="button"
+                      className="distribution-chart__filter-pill"
+                      onClick={handleClearBehaviorFilter}
+                      aria-label={`행동 분류 ${activeBehaviorSummary.label} 해제`}
+                    >
+                      <span>행동 분류</span>
+                      <strong>{activeBehaviorSummary.label}</strong>
+                      <small>{`${formatNumber(behaviorFilteredMembers.length)}명`}</small>
+                    </button>
+                  </div>
+                ) : null}
+                {isChartHelpOpen ? (
+                  <div id="distribution-chart-help" className="distribution-chart__help-panel" role="note">
+                    <p className="distribution-page__copy">
+                      출석률과 반대·기권 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다.
+                    </p>
+                    <p className="distribution-chart__copy">
+                      가로축은 출석률, 세로축은 반대·기권 비중이며 값이 낮을수록 위로 올라갑니다. 점 크기는 현재 반대·기권·불참 연속 패턴을 반영합니다.
+                    </p>
+                    <p className="distribution-page__search-note">{chartSearchNote}</p>
+                  </div>
+                ) : null}
+              </div>
+              <div className="distribution-chart__summary-grid" aria-label="분포 요약">
+                <div className="chart-card__summary">
+                  <span>대상 의원</span>
+                  <strong>{`${formatNumber(filteredMembers.length)}명`}</strong>
+                  <small>{filterScopeText}</small>
                 </div>
-              ) : null}
-            </div>
-            <div className="distribution-chart__summary-grid" aria-label="분포 요약">
-              <div className="chart-card__summary">
-                <span>대상 의원</span>
-                <strong>{`${formatNumber(filteredMembers.length)}명`}</strong>
-                <small>{filterScopeText}</small>
-              </div>
-              <div className="chart-card__summary">
-                <span>평균 출석률</span>
-                <strong>{formatPercent(averageAttendanceRate)}</strong>
-                <small>캘린더 날짜 기준</small>
-              </div>
-              <div className="chart-card__summary">
-                <span>평균 반대·기권 비중</span>
-                <strong>{formatPercent(averageNegativeRate)}</strong>
-                <small>{activeBehaviorSummary ? "행동 분류 기준" : "기록표결 분모 기준"}</small>
+                <div className="chart-card__summary">
+                  <span>평균 출석률</span>
+                  <strong>{formatPercent(averageAttendanceRate)}</strong>
+                  <small>캘린더 날짜 기준</small>
+                </div>
+                <div className="chart-card__summary">
+                  <span>평균 반대·기권 비중</span>
+                  <strong>{formatPercent(averageNegativeRate)}</strong>
+                  <small>{activeBehaviorSummary ? "행동 분류 기준" : "기록표결 분모 기준"}</small>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="distribution-chart__surface">
-            <ResponsiveContainer width="100%" height={420}>
-              <ScatterChart margin={{ top: 22, right: 28, bottom: 34, left: 12 }}>
-                <CartesianGrid stroke="rgba(72, 56, 40, 0.12)" />
-                <ReferenceLine
-                  x={Number((averageAttendanceRate * 100).toFixed(1))}
-                  stroke="rgba(123, 49, 40, 0.22)"
-                  strokeDasharray="4 4"
-                />
-                <ReferenceLine
-                  y={Number((averageNegativeRate * 100).toFixed(1))}
-                  stroke="rgba(123, 49, 40, 0.22)"
-                  strokeDasharray="4 4"
-                />
-                <XAxis
-                  type="number"
-                  dataKey="attendancePercent"
-                  domain={attendanceDomain}
-                  tick={{ fill: "rgba(29, 24, 18, 0.72)", fontSize: 12 }}
-                  tickFormatter={(value) => `${value}%`}
-                  label={{ value: "출석률", position: "insideBottom", offset: -12 }}
-                />
-                <YAxis
-                  type="number"
-                  dataKey="negativePercent"
-                  domain={negativeDomain}
-                  reversed
-                  tick={{ fill: "rgba(29, 24, 18, 0.72)", fontSize: 12 }}
-                  tickFormatter={(value) => `${value}%`}
-                  width={44}
-                  label={{ value: "반대·기권 비중", angle: -90, position: "insideLeft" }}
-                />
-                <Tooltip content={<DistributionTooltipPanel />} />
-                <Scatter
-                  data={otherChartPoints}
-                  shape={(props) => (
-                    <DistributionPointShape
-                      {...props}
-                      partyColors={partyColors}
-                      onSelectMember={handleSelectMember}
-                      showPhoto={!activePartyFilter}
-                    />
-                  )}
-                />
-                {selectedChartPoint ? (
+            <div className="distribution-chart__surface">
+              <ResponsiveContainer width="100%" height={420}>
+                <ScatterChart margin={{ top: 22, right: 28, bottom: 34, left: 12 }}>
+                  <CartesianGrid stroke="rgba(72, 56, 40, 0.12)" />
+                  <ReferenceLine
+                    x={Number((averageAttendanceRate * 100).toFixed(1))}
+                    stroke="rgba(123, 49, 40, 0.22)"
+                    strokeDasharray="4 4"
+                  />
+                  <ReferenceLine
+                    y={Number((averageNegativeRate * 100).toFixed(1))}
+                    stroke="rgba(123, 49, 40, 0.22)"
+                    strokeDasharray="4 4"
+                  />
+                  <XAxis
+                    type="number"
+                    dataKey="attendancePercent"
+                    domain={attendanceDomain}
+                    tick={{ fill: "rgba(29, 24, 18, 0.72)", fontSize: 12 }}
+                    tickFormatter={(value) => `${value}%`}
+                    label={{ value: "출석률", position: "insideBottom", offset: -12 }}
+                  />
+                  <YAxis
+                    type="number"
+                    dataKey="negativePercent"
+                    domain={negativeDomain}
+                    reversed
+                    tick={{ fill: "rgba(29, 24, 18, 0.72)", fontSize: 12 }}
+                    tickFormatter={(value) => `${value}%`}
+                    width={44}
+                    label={{ value: "반대·기권 비중", angle: -90, position: "insideLeft" }}
+                  />
+                  <Tooltip content={<DistributionTooltipPanel />} />
                   <Scatter
-                    data={[selectedChartPoint]}
+                    data={otherChartPoints}
                     shape={(props) => (
                       <DistributionPointShape
                         {...props}
-                        selected
                         partyColors={partyColors}
                         onSelectMember={handleSelectMember}
                         showPhoto={!activePartyFilter}
                       />
                     )}
                   />
-                ) : null}
-              </ScatterChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="distribution-chart__legend">
-            <div className="distribution-chart__legend-copy">
-              <strong>정당 필터</strong>
-              <span>
-                {activePartySummary
-                  ? `${activePartySummary.party}만 ${formatNumber(filteredMembers.length)}명 표시 중입니다. 같은 정당을 다시 누르면 전체 보기로 돌아갑니다.`
-                  : "정당을 누르면 해당 정당만 남기고 점은 얼굴 대신 정당색으로 전환됩니다."}
-              </span>
+                  {selectedChartPoint ? (
+                    <Scatter
+                      data={[selectedChartPoint]}
+                      shape={(props) => (
+                        <DistributionPointShape
+                          {...props}
+                          selected
+                          partyColors={partyColors}
+                          onSelectMember={handleSelectMember}
+                          showPhoto={!activePartyFilter}
+                        />
+                      )}
+                    />
+                  ) : null}
+                </ScatterChart>
+              </ResponsiveContainer>
             </div>
-            <ul className="distribution-chart__legend-list" aria-label="정당 필터">
-              {partySummaries.map((summary) => (
-                <li key={summary.party}>
-                  <button
-                    type="button"
-                    className={
-                      summary.party === activePartyFilter
-                        ? "distribution-chart__legend-button is-active"
-                        : "distribution-chart__legend-button"
-                    }
-                    aria-pressed={summary.party === activePartyFilter}
-                    aria-label={
-                      summary.party === activePartyFilter
-                        ? `${summary.party} 필터 해제`
-                        : `${summary.party} 필터 적용`
-                    }
-                    onClick={() => handleTogglePartyFilter(summary.party)}
-                  >
-                    <i style={{ backgroundColor: partyColors.get(summary.party) ?? partyPalette[0] }} />
-                    <span>{summary.party}</span>
-                    <strong>{`${formatNumber(summary.memberCount)}명`}</strong>
-                    <small>{`평균 반대·기권 ${formatPercent(summary.averageNegativeRate)}`}</small>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
+            <div className="distribution-chart__legend">
+              <div className="distribution-chart__legend-copy">
+                <strong>정당 필터</strong>
+                <span>
+                  {activePartySummary
+                    ? `${activePartySummary.party}만 ${formatNumber(filteredMembers.length)}명 표시 중입니다. 같은 정당을 다시 누르면 전체 보기로 돌아갑니다.`
+                    : "정당을 누르면 해당 정당만 남기고 점은 얼굴 대신 정당색으로 전환됩니다."}
+                </span>
+              </div>
+              <ul className="distribution-chart__legend-list" aria-label="정당 필터">
+                {partySummaries.map((summary) => (
+                  <li key={summary.party}>
+                    <button
+                      type="button"
+                      className={
+                        summary.party === activePartyFilter
+                          ? "distribution-chart__legend-button is-active"
+                          : "distribution-chart__legend-button"
+                      }
+                      aria-pressed={summary.party === activePartyFilter}
+                      aria-label={
+                        summary.party === activePartyFilter
+                          ? `${summary.party} 필터 해제`
+                          : `${summary.party} 필터 적용`
+                      }
+                      onClick={() => handleTogglePartyFilter(summary.party)}
+                    >
+                      <i style={{ backgroundColor: partyColors.get(summary.party) ?? partyPalette[0] }} />
+                      <span>{summary.party}</span>
+                      <strong>{`${formatNumber(summary.memberCount)}명`}</strong>
+                      <small>{`평균 반대·기권 ${formatPercent(summary.averageNegativeRate)}`}</small>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        </div>
 
         {selectedMember ? (
           <aside className="distribution-focus" aria-label="선택 의원 요약">
