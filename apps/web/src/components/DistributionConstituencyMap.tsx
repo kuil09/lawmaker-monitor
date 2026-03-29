@@ -222,6 +222,7 @@ export function DistributionConstituencyMap({
   selectedMemberId,
   onSelectMember
 }: DistributionConstituencyMapProps) {
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [boundaryIndex, setBoundaryIndex] = useState<ConstituencyBoundariesIndexExport | null>(null);
   const [isIndexLoading, setIsIndexLoading] = useState(false);
   const [indexError, setIndexError] = useState<string | null>(null);
@@ -411,6 +412,11 @@ export function DistributionConstituencyMap({
     highlightedRegions.length > 0 ? "현재 강조 집합 기준" : "현재 지역 전체 기준";
   const matchedCoverageLabel =
     regions.length > 0 ? "boundary 대비 현재 의원 연결 수" : "표시할 지역구 없음";
+  const regionScopeText = buildRegionScopeText({
+    matchedRegions,
+    highlightedRegions,
+    totalRegions: regions.length
+  });
 
   function handleSelectProvince(provinceShortName: string) {
     setActiveProvinceShortName(provinceShortName);
@@ -463,11 +469,20 @@ export function DistributionConstituencyMap({
     <section className="distribution-map" aria-label="지역구 지도 패널">
       <div className="distribution-map__header">
         <div>
-          <p className="section-label">지역구 지도</p>
+          <div className="distribution-map__eyebrow">
+            <p className="section-label">지역구 지도</p>
+            <button
+              type="button"
+              className="distribution-map__help-button"
+              aria-label={isHelpOpen ? "지역구 지도 설명 닫기" : "지역구 지도 설명 보기"}
+              aria-expanded={isHelpOpen}
+              aria-controls="distribution-map-help"
+              onClick={() => setIsHelpOpen((current) => !current)}
+            >
+              ?
+            </button>
+          </div>
           <h2>{`${activeProvince?.provinceShortName ?? "선택한"} 지역구별 핵심 통계`}</h2>
-          <p className="distribution-page__search-note">
-            지도에서 선거구를 누르면 대표 의원과 출석 흐름을 먼저 보고, 상세 패널에서 다른 표결 지표를 함께 확인할 수 있습니다.
-          </p>
         </div>
         <div className="distribution-map__summary-grid" aria-label="지역구 지도 요약">
           <article className="chart-card__summary">
@@ -509,25 +524,31 @@ export function DistributionConstituencyMap({
             ))}
           </select>
         </label>
-        <p className="distribution-map__control-note">
-          지역을 바꾸면 같은 화면에서 해당 지역구 출석률 분포를 다시 읽습니다.
-        </p>
       </div>
 
       <div className="distribution-map__legend">
+        <span className="distribution-map__legend-label">높은 출석</span>
         <div className="distribution-map__legend-scale" aria-hidden="true">
           <span />
           <span />
         </div>
-        <p className="distribution-page__search-note">{ATTENDANCE_LEGEND_COPY}</p>
-        <p className="distribution-page__search-note">
-          {buildRegionScopeText({
-            matchedRegions,
-            highlightedRegions,
-            totalRegions: regions.length
-          })}
-        </p>
+        <span className="distribution-map__legend-label distribution-map__legend-label--end">
+          낮은 출석
+        </span>
       </div>
+
+      {isHelpOpen ? (
+        <div id="distribution-map-help" className="distribution-map__help-panel" role="note">
+          <p className="distribution-page__search-note">
+            지도에서 선거구를 누르면 대표 의원과 출석 흐름을 먼저 보고, 상세 패널에서 다른 표결 지표를 함께 확인할 수 있습니다.
+          </p>
+          <p className="distribution-page__search-note">
+            지역을 바꾸면 같은 화면에서 해당 지역구 출석률 분포를 다시 읽습니다.
+          </p>
+          <p className="distribution-page__search-note">{ATTENDANCE_LEGEND_COPY}</p>
+          <p className="distribution-page__search-note">{regionScopeText}</p>
+        </div>
+      ) : null}
 
       <div className="distribution-map__layout">
         <div className="distribution-map__surface-frame">

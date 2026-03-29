@@ -44,7 +44,19 @@ type BrowserSession = {
 };
 
 const fixtureOverrides = new Map<string, string>([
-  ["/manifests/latest.json", resolve(fixturesRoot, "manifest.json")]
+  ["/manifests/latest.json", resolve(fixturesRoot, "manifest.json")],
+  [
+    "/exports/constituency_boundaries/index.json",
+    resolve(fixturesRoot, "constituency_boundaries_index.json")
+  ],
+  [
+    "/exports/constituency_boundaries/provinces/부산.topo.json",
+    resolve(fixturesRoot, "constituency_province_busan.topo.json")
+  ],
+  [
+    "/exports/constituency_boundaries/provinces/서울.topo.json",
+    resolve(fixturesRoot, "constituency_province_seoul.topo.json")
+  ]
 ]);
 
 function getContentType(filePath: string): string {
