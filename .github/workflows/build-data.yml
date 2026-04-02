@@ -44,7 +44,15 @@ jobs:
         with:
           build-target: schemas-and-ingest
 
+      - name: Restore constituency boundary cache
+        id: constituency-cache
+        uses: actions/cache@v4
+        with:
+          path: artifacts/constituency-boundaries/current
+          key: constituency-boundaries-${{ hashFiles('packages/ingest/src/constituency-boundaries.ts') }}
+
       - name: Build constituency boundary source artifact
+        if: steps.constituency-cache.outputs.cache-hit != 'true'
         run: npm run build:constituency-boundaries --workspace @lawmaker-monitor/ingest
 
       - name: Resolve raw artifact source for manual build

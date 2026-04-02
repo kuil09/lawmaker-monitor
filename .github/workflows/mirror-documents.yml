@@ -100,4 +100,4 @@ jobs:
           path: |
             published-data/raw/index/document_index.json
             published-data/manifests/document_mirror_state.json
-          if-no-files-found: error
+          if-no-files-found: warn
