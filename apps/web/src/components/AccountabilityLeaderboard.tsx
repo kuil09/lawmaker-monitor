@@ -90,6 +90,10 @@ export function AccountabilityLeaderboard({
             { key: "absent", label: "불참", count: item.absentCount }
           ] as const;
 
+          const absentRate = item.totalRecordedVotes > 0
+            ? item.absentCount / item.totalRecordedVotes
+            : null;
+
           return (
             <li key={item.memberId} className="ranking-item">
               <div className="ranking-item__rank">{formatNumber(index + 1)}</div>
@@ -103,6 +107,11 @@ export function AccountabilityLeaderboard({
                       calendarHref={buildCalendarHref({ memberId: item.memberId })}
                       size="small"
                     />
+                    {metric === "absent" && absentRate !== null ? (
+                      <span className="ranking-item__absent-rate">
+                        불참 {formatPercent(absentRate)}
+                      </span>
+                    ) : null}
                   </div>
                   <div className="ranking-item__stats">
                     <span className="ranking-item__stats-label">출석 현황</span>
