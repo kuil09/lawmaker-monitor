@@ -1,74 +1,104 @@
+/* ─── Global Navigation ─────────────────────────────────────────── */
+
 .global-nav {
   position: sticky;
   top: 0;
   z-index: 100;
-  border-bottom: 1px solid var(--border);
-  background: rgba(239, 230, 215, 0.94);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  /* 마스트헤드 강조선: 좌→우 브랜드 컬러 */
+  border-top: 3px solid var(--accent);
+  border-bottom: 1px solid rgba(62, 48, 34, 0.14);
+  background: rgba(242, 235, 222, 0.97);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 1px 0 rgba(62, 48, 34, 0.06), 0 4px 16px rgba(62, 48, 34, 0.04);
 }
 
 .global-nav__inner {
   display: flex;
   align-items: center;
-  gap: 0;
   width: min(1240px, calc(100% - 2rem));
   margin: 0 auto;
-  height: 2.75rem;
+  height: 3rem;
+  gap: 0;
 }
 
+/* 브랜드: 신문 마스트헤드 느낌 — serif + 강한 레터스페이싱 제거, 대신 무게감 */
 .global-nav__brand {
   flex-shrink: 0;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--accent-strong);
   text-decoration: none;
+  position: relative;
+  padding-right: 1rem;
+  transition: color 0.15s;
+}
+
+/* 브랜드 우측 구분선 */
+.global-nav__brand::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 1rem;
+  background: rgba(62, 48, 34, 0.22);
 }
 
 .global-nav__brand:hover {
   color: var(--accent);
 }
 
+/* 구분자 › */
 .global-nav__sep {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
-  opacity: 0.45;
-  margin: 0 0.3rem;
+  opacity: 0.4;
+  margin: 0 0.5rem;
   line-height: 1;
+  user-select: none;
 }
 
+/* 현재 페이지 레이블 */
 .global-nav__crumb-current {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 600;
+  letter-spacing: 0.01em;
   color: var(--text);
 }
 
+/* 국회 기수 배지 — 우측 정렬, accent 색상으로 강조 */
 .global-nav__assembly {
   margin-left: auto;
-  font-size: 0.69rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.65);
-  border: 1px solid var(--border);
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent) 8%, white);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   border-radius: var(--radius-pill);
-  padding: 0.18rem 0.58rem;
+  padding: 0.22rem 0.65rem;
   white-space: nowrap;
 }
 
 @media (max-width: 760px) {
   .global-nav__inner {
-    height: 2.5rem;
+    height: 2.75rem;
     width: calc(100% - 1.5rem);
   }
 
   .global-nav__brand {
-    font-size: 0.72rem;
+    font-size: 0.88rem;
+    padding-right: 0.75rem;
   }
 
   .global-nav__assembly {
-    font-size: 0.65rem;
+    font-size: 0.64rem;
+    padding: 0.18rem 0.5rem;
   }
 }
