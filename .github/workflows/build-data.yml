@@ -44,16 +44,15 @@ jobs:
         with:
           build-target: schemas-and-ingest
 
-      - name: Restore constituency boundary cache
-        id: constituency-cache
-        uses: actions/cache@v4
-        with:
-          path: artifacts/constituency-boundaries/current
-          key: constituency-boundaries-${{ hashFiles('packages/ingest/src/constituency-boundaries.ts') }}
-
-      - name: Build constituency boundary source artifact
-        if: steps.constituency-cache.outputs.cache-hit != 'true'
-        run: npm run build:constituency-boundaries --workspace @lawmaker-monitor/ingest
+      - name: Download constituency boundary artifact
+        run: |
+          mkdir -p artifacts/constituency-boundaries/current
+          gh release download constituency-boundaries-v1 \
+            --repo kuil09/lawmaker-monitor-data \
+            --dir artifacts/constituency-boundaries/current \
+            --pattern "*.geojson" --pattern "*.json"
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Resolve raw artifact source for manual build
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.raw_source != 'fixtures'
