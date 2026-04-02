@@ -1193,13 +1193,24 @@ export async function fetchOfficialConstituencyBoundaryInputs(args?: {
       {
         method: "POST",
         headers: {
-          "content-type": "application/x-www-form-urlencoded; charset=UTF-8"
+          "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+          "user-agent":
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         },
         body: CONSTITUENCY_LAW_DOWNLOAD_BODY
       },
       timeoutMs
     ),
-    fetchBufferWithTimeout(SGIS_BOUNDARY_DOWNLOAD_URL, {}, timeoutMs)
+    fetchBufferWithTimeout(
+      SGIS_BOUNDARY_DOWNLOAD_URL,
+      {
+        headers: {
+          "user-agent":
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        }
+      },
+      timeoutMs
+    )
   ]);
 
   return {
