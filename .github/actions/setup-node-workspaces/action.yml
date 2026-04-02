@@ -24,7 +24,17 @@ runs:
       shell: bash
       run: npm ci
 
+    - name: Restore TypeScript build cache
+      id: ts-cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          packages/schemas/dist
+          packages/ingest/dist
+        key: ts-build-${{ inputs.build-target }}-${{ hashFiles('packages/schemas/src/**', 'packages/ingest/src/**', 'packages/schemas/tsconfig.json', 'packages/ingest/tsconfig.json', 'package-lock.json') }}
+
     - name: Build shared workspaces
+      if: steps.ts-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
         case "${{ inputs.build-target }}" in
