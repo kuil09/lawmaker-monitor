@@ -13,6 +13,7 @@ import type {
 import { AccountabilityLeaderboard } from "./components/AccountabilityLeaderboard.js";
 import { ActivityCalendarPage } from "./components/ActivityCalendarPage.js";
 import { DistributionPage } from "./components/DistributionPage.js";
+import { GlobalNav } from "./components/GlobalNav.js";
 import { MemberSearchField } from "./components/MemberSearchField.js";
 import { VisualizationOverview } from "./components/VisualizationOverview.js";
 import { VoteCarousel } from "./components/VoteCarousel.js";
@@ -442,9 +443,22 @@ export default function App() {
   ].filter(Boolean) as string[];
   const distributionErrors = [leaderboardError, activityError].filter(Boolean) as string[];
 
+  const calendarMemberName =
+    routeState.route === "calendar" && routeState.memberId && activityCalendar
+      ? (activityCalendar.assembly.members.find(
+          (m) => m.memberId === routeState.memberId
+        )?.name ?? null)
+      : null;
+
   if (routeState.route === "distribution") {
     return (
-      <DistributionPage
+      <>
+        <GlobalNav
+          route="distribution"
+          assemblyLabel={currentAssemblyLabel}
+          onHome={navigateHome}
+        />
+        <DistributionPage
         accountabilitySummary={accountabilitySummary}
         activityCalendar={activityCalendar}
         manifest={manifest}
@@ -470,12 +484,19 @@ export default function App() {
           );
         }}
       />
+      </>
     );
   }
 
   if (routeState.route === "calendar") {
     return (
       <>
+        <GlobalNav
+          route="calendar"
+          assemblyLabel={currentAssemblyLabel}
+          memberName={calendarMemberName}
+          onHome={navigateHome}
+        />
         <main className="app-shell">
           <ActivityCalendarPage
             activityCalendar={activityCalendar}
@@ -500,6 +521,11 @@ export default function App() {
 
   return (
     <>
+      <GlobalNav
+        route="home"
+        assemblyLabel={currentAssemblyLabel}
+        onHome={navigateHome}
+      />
       <main className="app-shell">
         <section className="hero-panel">
           <div className="hero-panel__grid">
@@ -568,16 +594,41 @@ export default function App() {
           </div>
         </section>
 
-        <section className="search-panel">
-          <div className="search-panel__copy search-panel__lead">
-            <p className="section-label">의원 찾기</p>
-            <h2>이름이나 정당으로 바로 찾아서 활동 캘린더로 이동합니다.</h2>
-            <p className="search-panel__hint">
-              가장 빠른 경로는 의원 이름이나 정당을 입력한 뒤 개인 분석 화면으로 바로 넘어가는 것입니다.
+        {homeStatusMessages.length > 0 ? (
+          <section className="status-panel" role="status" aria-live="polite">
+            <p className="section-label">상태 안내</p>
+            <ul>
+              {homeStatusMessages.map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {accountabilitySummary ? (
+          <AccountabilityLeaderboard
+            items={accountabilitySummary.items}
+            assemblyLabel={currentAssemblyLabel}
+            attendanceByMemberId={leaderboardAttendanceByMemberId}
+          />
+        ) : (
+          <section className="leaderboard-panel">
+            <div className="leaderboard-panel__header">
+              <div>
+                <p className="section-label">의원 랭킹</p>
+                <h2>{`${currentAssemblyLabel} 의원 순위`}</h2>
+              </div>
+            </div>
+            <p className="leaderboard-panel__copy">
+              책임성 랭킹 데이터가 아직 준비되지 않았습니다.
             </p>
-          </div>
+          </section>
+        )}
+
+        <section className="search-panel">
           <div className="search-panel__layout">
             <div className="search-panel__command">
+              <p className="section-label">의원 직접 검색</p>
               <form
                 className="search-panel__form"
                 onSubmit={(event) => {
@@ -606,15 +657,11 @@ export default function App() {
                   활동 캘린더 열기
                 </button>
               </form>
-              <p className="search-panel__note">
-                개인 분석이 목적이면 이름이나 정당을 먼저 입력하는 흐름이 가장 빠릅니다.
-              </p>
             </div>
             <aside className="search-panel__explore" aria-label="분포 탐색">
               <p className="section-label">전체 분포</p>
-              <h3>정당 평균과 함께 전체 위치를 먼저 훑어볼 수 있습니다.</h3>
               <p className="search-panel__explore-copy">
-                개별 의원을 아직 정하지 않았다면, 분포 화면에서 전체 지형을 본 뒤 관심 의원으로 내려가세요.
+                정당 평균과 함께 전체 위치를 먼저 훑어볼 수 있습니다.
               </p>
               <button
                 type="button"
@@ -626,13 +673,6 @@ export default function App() {
             </aside>
           </div>
           <div className="search-panel__browse" aria-label="행동 분류 탐색">
-            <div className="search-panel__browse-copy">
-              <p className="section-label">행동 분류</p>
-              <h3>이름을 모를 때는 행동 패턴으로 먼저 좁혀서 전체 분포로 이동합니다.</h3>
-              <p className="search-panel__browse-note">
-                각 분류는 분포 화면에서 같은 기준을 유지한 채 의원 선택으로 이어집니다.
-              </p>
-            </div>
             <ul className="search-panel__browse-list">
               {homeBehaviorSummaries.map((summary) => (
                 <li key={summary.key}>
@@ -654,41 +694,10 @@ export default function App() {
           </div>
         </section>
 
-        {homeStatusMessages.length > 0 ? (
-          <section className="status-panel" role="status" aria-live="polite">
-            <p className="section-label">상태 안내</p>
-            <ul>
-              {homeStatusMessages.map((message) => (
-                <li key={message}>{message}</li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
         <VisualizationOverview
           accountabilityTrends={accountabilityTrends}
           assemblyLabel={currentAssemblyLabel}
         />
-
-        {accountabilitySummary ? (
-          <AccountabilityLeaderboard
-            items={accountabilitySummary.items}
-            assemblyLabel={currentAssemblyLabel}
-            attendanceByMemberId={leaderboardAttendanceByMemberId}
-          />
-        ) : (
-          <section className="leaderboard-panel">
-            <div className="leaderboard-panel__header">
-              <div>
-                <p className="section-label">의원 랭킹</p>
-                <h2>{`${currentAssemblyLabel} 의원 순위`}</h2>
-              </div>
-            </div>
-            <p className="leaderboard-panel__copy">
-              책임성 랭킹 데이터가 아직 준비되지 않았습니다.
-            </p>
-          </section>
-        )}
 
         <section className="feed-panel">
           <div className="feed-panel__header">
