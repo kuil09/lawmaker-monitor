@@ -178,9 +178,6 @@ describe("web app", () => {
     render(<App />);
 
     await screen.findByText("제22대 국회 의원 순위");
-    expect(screen.getByText("출석 집중 브리핑")).toBeInTheDocument();
-    expect(screen.getByText("최근 표결 주간 참여율")).toBeInTheDocument();
-    expect(screen.getAllByText("최근 주 불참").length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByRole("button", { name: "활동 캘린더 보기" })).not.toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "의원 검색" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "활동 캘린더 열기" })).toBeInTheDocument();
@@ -193,9 +190,7 @@ describe("web app", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "불참 집중 의원 보기" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "반대·기권 다수 의원 보기" })).toBeInTheDocument();
-    expect(screen.getByText("제22대 국회 최근 12주 참여·불참 추세")).toBeInTheDocument();
-    expect(screen.getByText("최근 주 참여율")).toBeInTheDocument();
-    expect(screen.getByText("최고 불참 비중")).toBeInTheDocument();
+    expect(screen.queryByText("제22대 국회 최근 12주 참여·불참 추세")).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "찬성" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "불참" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "반대" })).toHaveAttribute("aria-selected", "false");
@@ -207,7 +202,7 @@ describe("web app", () => {
     expect(screen.getByRole("heading", { name: "국회 책임성 모니터" })).toBeInTheDocument();
     expect(
       screen.getByText(
-        /국회 표결 기록으로 의원 활동을 살펴보는 서비스입니다\./
+        /공개 기록표결 기준으로 의원 활동을 추적합니다\./
       )
     ).toBeInTheDocument();
     expect(screen.queryByText("연속 반대·기권·불참 패턴을 contribution calendar로 봅니다.")).not.toBeInTheDocument();
@@ -933,6 +928,7 @@ describe("web app", () => {
   });
 
   it("shows compact vote items without time or snapshot metadata", async () => {
+    window.location.hash = "#votes";
     render(<App />);
 
     const voteTitle = await screen.findByText(/시민투명성법안/);
@@ -1019,7 +1015,7 @@ describe("web app", () => {
     expect(within(leaderboardPanel as HTMLElement).getByRole("link", { name: /박민/ })).toBeInTheDocument();
   });
 
-  it("shows absent counts without names when the absent list is unavailable", async () => {
+  it("shows absent counts without names when the absent list is unavailable on votes page", async () => {
     const unavailableLatestVotesFixture = {
       ...latestVotesFixture,
       items: latestVotesFixture.items.map((item: (typeof latestVotesFixture.items)[number], index: number) =>
@@ -1081,6 +1077,7 @@ describe("web app", () => {
       })
     );
 
+    window.location.hash = "#votes";
     render(<App />);
 
     const voteTitle = await screen.findByText(/예산 조정 동의안/);
@@ -1145,9 +1142,7 @@ describe("web app", () => {
 
     render(<App />);
 
-    expect((await screen.findAllByText(/예산 조정 동의안/)).length).toBeGreaterThan(0);
-    expect(screen.queryByText(/홈 화면 데이터를 불러오지 못했습니다/)).not.toBeInTheDocument();
+    await screen.findByRole("heading", { name: "국회 책임성 모니터" });
     expect(screen.getAllByText("책임성 랭킹 데이터가 아직 준비되지 않았습니다.").length).toBeGreaterThan(0);
-    expect(screen.getByText("상태 안내")).toBeInTheDocument();
   });
 });

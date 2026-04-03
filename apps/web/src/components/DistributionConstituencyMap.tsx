@@ -7,6 +7,7 @@ import type {
 
 import {
   buildConstituencyMapRegions,
+  findLowestAttendanceRegion,
   getConstituencyMetricColorIntensity,
   getConstituencyMetricDomain,
   resolveProvinceForDistrict,
@@ -31,8 +32,8 @@ type DistributionConstituencyMapProps = {
 
 const MAP_WIDTH = 920;
 const MAP_HEIGHT = 760;
-const COLOR_LOW = "#f6e8d5";
-const COLOR_HIGH = "#7b3128";
+const COLOR_LOW = "#e8eaf0";
+const COLOR_HIGH = "#3730a3";
 const COLOR_INTENSITY_MIN = 0.14;
 const COLOR_INTENSITY_MAX = 0.96;
 const ATTENDANCE_METRIC_MODE = "attendance";
@@ -57,11 +58,11 @@ function getRegionFill(
   metricDomain: ReturnType<typeof getConstituencyMetricDomain>
 ): string {
   if (!region.member) {
-    return "rgba(214, 203, 191, 0.45)";
+    return "rgba(200, 204, 212, 0.45)";
   }
 
   if (!region.highlighted) {
-    return "rgba(191, 178, 163, 0.42)";
+    return "rgba(180, 186, 198, 0.42)";
   }
 
   const normalizedIntensity = getConstituencyMetricColorIntensity(
@@ -382,21 +383,18 @@ export function DistributionConstituencyMap({
     () => regions.find((region) => region.member?.memberId === selectedMemberId) ?? null,
     [regions, selectedMemberId]
   );
+  const lowestAttendanceRegion = useMemo(
+    () => findLowestAttendanceRegion(highlightedRegions.length > 0 ? highlightedRegions : matchedRegions),
+    [highlightedRegions, matchedRegions]
+  );
   const selectedRegion =
     regions.find((region) => region.districtKey === selectedDistrictKey) ??
     selectedMemberRegion ??
+    lowestAttendanceRegion ??
     highlightedRegions[0] ??
     matchedRegions[0] ??
     regions[0] ??
     null;
-
-  useEffect(() => {
-    if (!selectedRegion || selectedRegion.districtKey === selectedDistrictKey) {
-      return;
-    }
-
-    setSelectedDistrictKey(selectedRegion.districtKey);
-  }, [selectedDistrictKey, selectedRegion]);
 
   const visibleRegions = highlightedRegions.length > 0 ? highlightedRegions : matchedRegions;
   const provinceAttendanceAverage =
@@ -466,7 +464,14 @@ export function DistributionConstituencyMap({
   }
 
   return (
-    <section className="distribution-map" aria-label="지역구 지도 패널">
+    <section
+      className="distribution-map"
+      aria-label="지역구 지도 패널"
+      style={{
+        "--map-color-low": mixHexColor(COLOR_LOW, COLOR_HIGH, COLOR_INTENSITY_MIN),
+        "--map-color-high": mixHexColor(COLOR_LOW, COLOR_HIGH, COLOR_INTENSITY_MAX)
+      } as React.CSSProperties}
+    >
       <div className="distribution-map__header">
         <div>
           <div className="distribution-map__eyebrow">
