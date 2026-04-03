@@ -16,6 +16,8 @@
 
 /* 공통 상단 강조선 — 인디고 그라디언트 */
 .hero-panel::before,
+.search-panel::before,
+.leaderboard-panel::before,
 .visualization-panel::before,
 .feed-panel::before,
 .info-panel::before {
@@ -25,17 +27,6 @@
   width: 100%;
   height: 0.2rem;
   background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 55%, transparent), transparent 70%);
-  pointer-events: none;
-}
-
-/* 리더보드 — 강렬한 적색 강조선, 데이터의 심각성 표현 */
-.leaderboard-panel::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto auto 0;
-  width: 100%;
-  height: 0.35rem;
-  background: linear-gradient(90deg, var(--negative) 0%, color-mix(in srgb, var(--negative) 30%, transparent) 60%, transparent 88%);
   pointer-events: none;
 }
 
