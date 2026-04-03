@@ -1,13 +1,13 @@
 import type React from "react";
 
-type GlobalNavRoute = "home" | "calendar" | "distribution" | "votes" | "trends";
+type GlobalNavRoute = "home" | "calendar" | "distribution" | "votes" | "trends" | "explore";
 
 type GlobalNavProps = {
   route: GlobalNavRoute;
   assemblyLabel?: string;
   memberName?: string | null;
   onHome?: () => void;
-  onNavigate?: (route: "votes" | "trends") => void;
+  onNavigate?: (route: "votes" | "trends" | "explore") => void;
 };
 
 export function GlobalNav({ route, assemblyLabel, memberName, onHome, onNavigate }: GlobalNavProps) {
@@ -16,7 +16,7 @@ export function GlobalNav({ route, assemblyLabel, memberName, onHome, onNavigate
     onHome?.();
   }
 
-  function handleNavClick(event: React.MouseEvent, target: "votes" | "trends") {
+  function handleNavClick(event: React.MouseEvent, target: "votes" | "trends" | "explore") {
     event.preventDefault();
     onNavigate?.(target);
   }
@@ -30,7 +30,9 @@ export function GlobalNav({ route, assemblyLabel, memberName, onHome, onNavigate
           ? "최근 표결"
           : route === "trends"
             ? "출석 추이"
-            : null;
+            : route === "explore"
+              ? "3D 탐색"
+              : null;
 
   return (
     <nav className="global-nav" aria-label="사이트 내비게이션">
@@ -68,6 +70,13 @@ export function GlobalNav({ route, assemblyLabel, memberName, onHome, onNavigate
               onClick={(e) => handleNavClick(e, "trends")}
             >
               출석 추이
+            </a>
+            <a
+              href="#explore"
+              className="global-nav__link"
+              onClick={(e) => handleNavClick(e, "explore")}
+            >
+              3D 탐색
             </a>
           </div>
         ) : null}

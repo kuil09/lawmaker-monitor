@@ -13,6 +13,11 @@ import type {
 import { AccountabilityLeaderboard } from "./components/AccountabilityLeaderboard.js";
 import { ActivityCalendarPage } from "./components/ActivityCalendarPage.js";
 import { DistributionPage } from "./components/DistributionPage.js";
+import { lazy, Suspense } from "react";
+
+const ExplorePage = lazy(() =>
+  import("./components/ExplorePage.js").then((mod) => ({ default: mod.ExplorePage }))
+);
 import { GlobalNav } from "./components/GlobalNav.js";
 import { MemberSearchField } from "./components/MemberSearchField.js";
 import { TrendsPage } from "./components/TrendsPage.js";
@@ -37,7 +42,7 @@ import {
 import { formatDateTime, formatNumber } from "./lib/format.js";
 import { getMemberAttendanceSummary } from "./lib/member-activity.js";
 
-type AppRoute = "home" | "calendar" | "distribution" | "votes" | "trends";
+type AppRoute = "home" | "calendar" | "distribution" | "votes" | "trends" | "explore";
 
 type RouteState = {
   route: AppRoute;
@@ -100,6 +105,16 @@ function getRouteStateFromHash(hash: string): RouteState {
   if (path === "trends") {
     return {
       route: "trends",
+      memberId: null,
+      compareMemberId: null,
+      view: "single",
+      behaviorFilter: null
+    };
+  }
+
+  if (path === "explore") {
+    return {
+      route: "explore",
       memberId: null,
       compareMemberId: null,
       view: "single",
@@ -370,11 +385,13 @@ export default function App() {
     window.location.hash = "trends";
   }
 
-  function handleNavNavigate(target: "votes" | "trends"): void {
+  function handleNavNavigate(target: "votes" | "trends" | "explore"): void {
     if (target === "votes") {
       navigateToVotes();
-    } else {
+    } else if (target === "trends") {
       navigateToTrends();
+    } else {
+      window.location.hash = "explore";
     }
   }
 
@@ -515,6 +532,18 @@ export default function App() {
           />
         </main>
       </>
+    );
+  }
+
+  if (routeState.route === "explore") {
+    return (
+      <Suspense fallback={<div style={{ background: "#0a0a0f", position: "fixed", inset: 0 }} />}>
+        <ExplorePage
+          members={distributionMembers}
+          assemblyLabel={currentAssemblyLabel}
+          onSelectMember={(memberId) => navigateToCalendar(memberId)}
+        />
+      </Suspense>
     );
   }
 
