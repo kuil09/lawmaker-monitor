@@ -6,8 +6,8 @@
   position: relative;
   padding: 1.45rem 1.4rem;
   background:
-    linear-gradient(135deg, rgba(123, 49, 40, 0.14), rgba(255, 255, 255, 0.74)),
-    rgba(255, 252, 247, 0.76);
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, transparent), rgba(255, 255, 255, 0.74)),
+    rgba(255, 255, 255, 0.76);
 }
 
 .activity-page__masthead::before {
@@ -16,12 +16,12 @@
   inset: 0 auto auto 0;
   width: 100%;
   height: 0.2rem;
-  background: linear-gradient(90deg, rgba(123, 49, 40, 0.7), rgba(67, 101, 123, 0.4), transparent 78%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 70%, transparent), rgba(67, 101, 123, 0.4), transparent 78%);
   pointer-events: none;
 }
 
 .activity-page__masthead h1 {
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
   font-size: clamp(2rem, 4vw, 3.25rem);
   line-height: 0.98;
   letter-spacing: -0.05em;
@@ -45,34 +45,34 @@
 }
 
 .activity-page__help-button {
-  border-color: rgba(72, 56, 40, 0.12);
+  border-color: rgba(0, 0, 0, 0.12);
   background: rgba(255, 255, 255, 0.78);
   box-shadow: var(--shadow-soft);
 }
 
 .activity-page__back,
 .activity-page__help-button {
-  border-color: rgba(72, 56, 40, 0.14);
+  border-color: rgba(0, 0, 0, 0.14);
   background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 12px 26px rgba(72, 56, 40, 0.12);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.12);
 }
 
 .activity-page__back:hover,
 .activity-page__help-button:hover {
-  border-color: rgba(123, 49, 40, 0.24);
+  border-color: color-mix(in srgb, var(--accent) 24%, transparent);
   background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 16px 30px rgba(123, 49, 40, 0.16);
+  box-shadow: 0 16px 30px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 .activity-page__panel-copy--help {
-  border-color: rgba(72, 56, 40, 0.1);
+  border-color: rgba(0, 0, 0, 0.1);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.62);
 }
 
 .activity-drawer__tabs {
   padding: 0.26rem;
-  border-color: rgba(72, 56, 40, 0.1);
+  border-color: rgba(0, 0, 0, 0.1);
   background: rgba(255, 255, 255, 0.7);
 }
 
@@ -84,16 +84,16 @@
 
 .activity-drawer__tab.is-active {
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: #fff9f5;
-  box-shadow: 0 12px 20px rgba(123, 49, 40, 0.18);
+  color: #fff;
+  box-shadow: 0 12px 20px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .activity-drawer__toolbar {
   padding: 1rem;
-  border: 1px solid rgba(72, 56, 40, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 22px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(248, 243, 236, 0.92));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(238, 240, 244, 0.92));
 }
 
 .activity-drawer__toolbar > .activity-drawer__field {
@@ -116,10 +116,10 @@
   grid-template-columns: minmax(0, 1.15fr) minmax(16rem, 0.8fr) auto;
   gap: 1rem;
   padding: 1rem;
-  border: 1px solid rgba(72, 56, 40, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 24px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(244, 237, 227, 0.92));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(238, 240, 244, 0.92));
   box-shadow: var(--shadow-soft);
 }
 
@@ -151,9 +151,9 @@
 
 .activity-drawer__committee-memberships {
   padding: 0.82rem 0.95rem;
-  border: 1px solid rgba(72, 56, 40, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 18px;
-  background: rgba(123, 49, 40, 0.04);
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
 }
 
 .activity-drawer__committee-memberships strong {
@@ -175,7 +175,7 @@
   display: inline-flex;
   align-items: center;
   padding: 0.36rem 0.62rem;
-  border: 1px solid rgba(72, 56, 40, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.74);
   font-size: 0.82rem;
@@ -217,7 +217,7 @@
   align-content: start;
   min-height: 5.2rem;
   padding: 0.78rem 0.84rem;
-  border: 1px solid rgba(72, 56, 40, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.82);
   box-shadow: var(--shadow-soft);
@@ -250,10 +250,10 @@
   gap: 1rem;
   margin-top: 1rem;
   padding: 1rem;
-  border: 1px solid rgba(72, 56, 40, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 24px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(245, 238, 230, 0.92));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(238, 240, 244, 0.92));
   box-shadow: var(--shadow-soft);
 }
 
@@ -305,7 +305,7 @@
   align-items: center;
   gap: 0.42rem;
   padding: 0.36rem 0.56rem;
-  border: 1px solid rgba(72, 56, 40, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.78);
   color: var(--text-muted);
@@ -317,7 +317,7 @@
   display: inline-block;
   width: 0.72rem;
   height: 0.72rem;
-  border: 1px solid rgba(72, 56, 40, 0.12);
+  border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 3px;
 }
 
@@ -338,7 +338,7 @@
 }
 
 .contribution-calendar__legend-swatch--empty {
-  background: rgba(72, 56, 40, 0.1);
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .contribution-calendar__legend-note {
@@ -360,7 +360,7 @@
 .contribution-calendar__month-spacer,
 .contribution-calendar__weekdays {
   background:
-    linear-gradient(180deg, rgba(245, 238, 230, 0.95), rgba(245, 238, 230, 0.82));
+    linear-gradient(180deg, rgba(238, 240, 244, 0.95), rgba(238, 240, 244, 0.82));
 }
 
 .contribution-calendar__cell {
@@ -371,10 +371,10 @@
 .activity-vote-records,
 .activity-committee-sections {
   padding: 1rem 1.05rem;
-  border: 1px solid rgba(72, 56, 40, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 24px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(244, 237, 227, 0.9));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(238, 240, 244, 0.9));
   box-shadow: var(--shadow-soft);
 }
 
@@ -420,7 +420,7 @@
 .activity-vote-records__group,
 .activity-committee-sections__group {
   padding: 0.85rem;
-  border: 1px solid rgba(72, 56, 40, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.56);
 }
@@ -450,7 +450,7 @@
   border-color: color-mix(
     in srgb,
     var(--activity-vote-records-accent) 18%,
-    rgba(72, 56, 40, 0.1)
+    rgba(0, 0, 0, 0.1)
   );
   background: color-mix(
     in srgb,
@@ -464,7 +464,7 @@
   align-items: center;
   justify-content: center;
   padding: 0.22rem 0.56rem;
-  border: 1px solid rgba(72, 56, 40, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.78);
   color: var(--text-muted);
@@ -483,7 +483,7 @@
 }
 
 .activity-committee-card {
-  border-color: rgba(72, 56, 40, 0.1);
+  border-color: rgba(0, 0, 0, 0.1);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.76);
 }
@@ -507,9 +507,9 @@
   gap: 0.65rem;
   min-height: 2.75rem;
   padding: 0.7rem 0.78rem;
-  border: 1px solid rgba(72, 56, 40, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 14px;
-  background: rgba(245, 238, 230, 0.9);
+  background: rgba(238, 240, 244, 0.9);
   color: var(--text);
   font-size: 0.8rem;
   font-weight: 700;
@@ -521,12 +521,12 @@
   border-color: color-mix(
     in srgb,
     var(--activity-vote-records-accent) 14%,
-    rgba(72, 56, 40, 0.08)
+    rgba(0, 0, 0, 0.08)
   );
   background: color-mix(
     in srgb,
     var(--activity-vote-records-accent) 10%,
-    rgba(245, 238, 230, 0.9)
+    rgba(238, 240, 244, 0.9)
   );
 }
 
@@ -556,13 +556,13 @@
 }
 
 .activity-committee-card__record-link {
-  border: 1px solid rgba(72, 56, 40, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 14px;
-  background: rgba(245, 238, 230, 0.9);
+  background: rgba(238, 240, 244, 0.9);
 }
 
 .activity-committee-card__record-link:hover {
-  border-color: rgba(152, 45, 34, 0.18);
+  border-color: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .activity-committee-card__record-link em {
@@ -571,7 +571,7 @@
 
 .activity-committee-sections__toggle {
   justify-self: start;
-  border-color: rgba(72, 56, 40, 0.1);
+  border-color: rgba(0, 0, 0, 0.1);
   background: rgba(255, 255, 255, 0.82);
   color: var(--accent);
 }
@@ -588,14 +588,14 @@
 .activity-compare__summary-card {
   gap: 0.46rem;
   border-radius: 20px;
-  border-color: rgba(72, 56, 40, 0.1);
+  border-color: rgba(0, 0, 0, 0.1);
   background: rgba(255, 255, 255, 0.88);
   box-shadow: var(--shadow-soft);
 }
 
 .activity-compare__summary-card--left {
-  border-color: rgba(123, 49, 40, 0.18);
-  background: linear-gradient(180deg, rgba(123, 49, 40, 0.08), rgba(255, 255, 255, 0.94));
+  border-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, transparent), rgba(255, 255, 255, 0.94));
 }
 
 .activity-compare__summary-card--right {
@@ -604,7 +604,7 @@
 }
 
 .activity-compare__summary-card--tie {
-  background: linear-gradient(180deg, rgba(72, 56, 40, 0.05), rgba(255, 255, 255, 0.94));
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.94));
 }
 
 .activity-compare__summary-kicker {
@@ -623,10 +623,10 @@
 .activity-compare__column {
   gap: 0.95rem;
   padding: 1rem;
-  border: 1px solid rgba(72, 56, 40, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 24px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(245, 238, 230, 0.92));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(238, 240, 244, 0.92));
   box-shadow: var(--shadow-soft);
 }
 

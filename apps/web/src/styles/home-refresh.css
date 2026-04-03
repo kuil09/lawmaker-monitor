@@ -14,7 +14,7 @@
   padding: clamp(1.2rem, 3vw, 1.75rem);
 }
 
-/* 공통 상단 강조선 제거 — 리더보드만 남김 */
+/* 공통 상단 강조선 — 인디고 그라디언트 */
 .hero-panel::before,
 .visualization-panel::before,
 .feed-panel::before,
@@ -24,7 +24,7 @@
   inset: 0 auto auto 0;
   width: 100%;
   height: 0.2rem;
-  background: linear-gradient(90deg, rgba(123, 49, 40, 0.55), transparent 70%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 55%, transparent), transparent 70%);
   pointer-events: none;
 }
 
@@ -66,12 +66,12 @@
   max-width: 42rem;
 }
 
-/* h1은 컴팩트하게 — GlobalNav가 브랜드를 이미 표시함 */
 .hero-panel h1 {
   margin: 0;
   max-width: 18ch;
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
   font-size: clamp(1.75rem, 3.2vw, 2.6rem);
+  font-weight: 800;
   line-height: 1.05;
   letter-spacing: -0.045em;
   text-wrap: balance;
@@ -88,7 +88,6 @@
   line-height: 1.48;
 }
 
-/* 설명 텍스트는 de-emphasize — 아직 DOM에 있어야 함(테스트용) */
 .hero-panel__copy {
   max-width: 48rem;
   font-size: 0.85rem;
@@ -102,10 +101,10 @@
   display: grid;
   gap: 0.85rem;
   padding: 1rem;
-  border: 1px solid rgba(72, 56, 40, 0.12);
+  border: 1px solid var(--border);
   border-radius: 22px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(245, 238, 228, 0.92));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), var(--surface-accent));
   box-shadow: var(--shadow-soft);
 }
 
@@ -126,10 +125,10 @@
   display: grid;
   gap: 0.75rem;
   padding: 0.95rem;
-  border: 1px solid rgba(123, 49, 40, 0.16);
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
   border-radius: 20px;
   background:
-    linear-gradient(145deg, rgba(123, 49, 40, 0.08), rgba(255, 255, 255, 0.96));
+    linear-gradient(145deg, color-mix(in srgb, var(--accent) 6%, white), rgba(255, 255, 255, 0.96));
 }
 
 .hero-panel__spotlight-header,
@@ -167,12 +166,11 @@
   display: grid;
   gap: 0.15rem;
   padding: 0.85rem 0.9rem;
-  border: 1px solid rgba(72, 56, 40, 0.1);
+  border: 1px solid var(--border);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.82);
 }
 
-/* 핵심 수치 — 크게 */
 .hero-panel__spotlight-metric strong {
   font-size: clamp(1.75rem, 3.2vw, 2.5rem);
   line-height: 1;
@@ -187,7 +185,7 @@
   text-transform: uppercase;
 }
 
-/* 불참 비중 — 적색 뉴스 알림 카드 */
+/* 불참 비중 — 적색 알림 카드 */
 .hero-panel__spotlight-metric--alert {
   border-color: color-mix(in srgb, var(--negative) 28%, transparent);
   background:
@@ -205,7 +203,6 @@
 .hero-panel__spotlight-metric--alert strong,
 .chart-card__summary--alert strong {
   color: var(--negative);
-  font-family: var(--font-display);
 }
 
 .hero-panel__stat-grid {
@@ -217,7 +214,7 @@
   display: grid;
   gap: 0.15rem;
   padding: 0.78rem 0.9rem;
-  border: 1px solid rgba(72, 56, 40, 0.1);
+  border: 1px solid var(--border);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.76);
 }
@@ -272,7 +269,8 @@
 
 /* ─── 리더보드 랭킹 ─────────────────────────────────── */
 .leaderboard-panel h2 {
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
+  font-weight: 800;
 }
 
 .ranking-list {
@@ -281,7 +279,7 @@
 
 .ranking-item {
   padding: 0.9rem 0;
-  border-bottom: 1px solid rgba(62, 48, 34, 0.07);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   transition: background 0.12s;
 }
 
@@ -290,23 +288,23 @@
 }
 
 .ranking-item:hover {
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.02);
   border-radius: 12px;
   margin-inline: -0.5rem;
   padding-inline: 0.5rem;
 }
 
-/* 랭크 번호 — 강하고 그래픽적으로 */
+/* 랭크 번호 */
 .ranking-item__rank {
   width: 2.2rem;
   height: 2.2rem;
   border-radius: 8px;
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: #fff9f5;
-  font-family: var(--font-display);
+  color: #fff;
+  font-family: var(--font-sans);
   font-size: 1rem;
   font-weight: 700;
-  box-shadow: 0 6px 16px rgba(123, 49, 40, 0.22);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 /* 1~3위 — 적색 그라디언트로 심각도 표현 */
@@ -316,12 +314,12 @@
 }
 
 .ranking-item:nth-child(2) .ranking-item__rank {
-  background: linear-gradient(135deg, #a93226, var(--accent-strong));
+  background: linear-gradient(135deg, #a93226, #6b1e17);
   box-shadow: 0 6px 16px rgba(169, 50, 38, 0.28);
 }
 
 .ranking-item:nth-child(3) .ranking-item__rank {
-  background: linear-gradient(135deg, #922b21, var(--accent-strong));
+  background: linear-gradient(135deg, #922b21, #6b1e17);
   box-shadow: 0 6px 14px rgba(146, 43, 33, 0.22);
 }
 
@@ -329,13 +327,13 @@
   gap: 0.4rem;
 }
 
-/* 불참 바 — 두껍고 강렬하게, 레이어드 */
+/* 불참 바 */
 .ranking-item__graph {
   height: 0.88rem;
   border-radius: 5px;
   overflow: hidden;
-  background: rgba(72, 56, 40, 0.05);
-  box-shadow: inset 0 1px 2px rgba(72, 56, 40, 0.08);
+  background: rgba(0, 0, 0, 0.04);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .ranking-item__segment--absent {
@@ -358,7 +356,7 @@
   opacity: 0.55;
 }
 
-/* 불참률 배지 — 더 강하게 */
+/* 불참률 배지 */
 .ranking-item__absent-rate {
   display: inline-flex;
   align-items: center;
@@ -374,7 +372,7 @@
   border: 1px solid color-mix(in srgb, #c0392b 22%, transparent);
 }
 
-/* 1~3위 배지는 더 진하게 */
+/* 1~3위 배지 */
 .ranking-item:nth-child(1) .ranking-item__absent-rate,
 .ranking-item:nth-child(2) .ranking-item__absent-rate,
 .ranking-item:nth-child(3) .ranking-item__absent-rate {
@@ -416,10 +414,10 @@
   display: grid;
   gap: 0.65rem;
   padding: 1rem;
-  border: 1px dashed rgba(123, 49, 40, 0.22);
+  border: 1px dashed color-mix(in srgb, var(--accent) 22%, transparent);
   border-radius: 20px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.65), rgba(248, 243, 236, 0.9));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7), var(--surface-accent));
 }
 
 .search-panel__form {
@@ -435,17 +433,17 @@
   padding-inline: 1.15rem;
   border-color: transparent;
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: #fffaf7;
-  box-shadow: 0 14px 24px rgba(123, 49, 40, 0.22);
+  color: #fff;
+  box-shadow: 0 14px 24px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .search-panel__submit:hover {
-  background: linear-gradient(135deg, #8b3b31, var(--accent-strong));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 85%, black), var(--accent-strong));
 }
 
 .search-panel__submit:disabled {
-  background: rgba(123, 49, 40, 0.18);
-  color: rgba(255, 250, 247, 0.88);
+  background: color-mix(in srgb, var(--accent) 18%, white);
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .search-panel__explore {
@@ -453,9 +451,9 @@
   gap: 0.55rem;
   align-content: start;
   padding: 1rem;
-  border: 1px solid rgba(72, 56, 40, 0.12);
+  border: 1px solid var(--border);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(244, 237, 227, 0.9));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), var(--surface-accent));
 }
 
 .search-panel__explore-copy {
@@ -467,13 +465,13 @@
 
 .search-panel__explore-action {
   justify-self: start;
-  border-color: rgba(123, 49, 40, 0.22);
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
   background: rgba(255, 255, 255, 0.88);
   font-size: 0.88rem;
 }
 
 .search-panel__explore-action:hover {
-  background: rgba(123, 49, 40, 0.07);
+  background: color-mix(in srgb, var(--accent) 6%, white);
 }
 
 .search-panel__browse {
@@ -495,15 +493,15 @@
   width: 100%;
   min-height: 100%;
   padding: 0.88rem 1rem;
-  border: 1px solid rgba(72, 56, 40, 0.1);
+  border: 1px solid var(--border);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.84);
   text-align: left;
 }
 
 .search-panel__browse-button:hover:not(:disabled) {
-  border-color: rgba(123, 49, 40, 0.22);
-  box-shadow: 0 12px 22px rgba(123, 49, 40, 0.1);
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  box-shadow: 0 12px 22px color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .search-panel__browse-button:disabled {
@@ -536,7 +534,7 @@
 
 /* ─── 상태 패널 ───────────────────────────────────── */
 .status-panel {
-  border-color: rgba(123, 49, 40, 0.14);
+  border-color: color-mix(in srgb, var(--accent) 14%, transparent);
   background: color-mix(in srgb, var(--accent) 6%, white);
 }
 
@@ -548,9 +546,9 @@
 .chart-card {
   padding: 1.18rem;
   border-radius: 22px;
-  border-color: rgba(72, 56, 40, 0.1);
+  border-color: var(--border);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(244, 237, 227, 0.88));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), var(--surface-accent));
   box-shadow: var(--shadow-soft);
 }
 
@@ -578,7 +576,7 @@
 /* ─── 메트릭 토글 ──────────────────────────────────── */
 .metric-toggle {
   padding: 0.24rem;
-  border: 1px solid rgba(72, 56, 40, 0.1);
+  border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.72);
 }
@@ -590,7 +588,7 @@
 .metric-toggle__button.is-active {
   border-color: transparent;
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: #fff9f5;
+  color: #fff;
 }
 
 /* 불참 탭 선택시 빨간색 */
@@ -605,7 +603,7 @@
 
 .vote-carousel__group + .vote-carousel__group {
   padding-top: 1.2rem;
-  border-top-color: rgba(72, 56, 40, 0.12);
+  border-top-color: var(--border);
 }
 
 .vote-carousel__group-header {
@@ -624,7 +622,7 @@
 }
 
 .vote-carousel__status {
-  border: 1px solid rgba(72, 56, 40, 0.1);
+  border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.76);
 }
 
@@ -637,10 +635,10 @@
   display: grid;
   gap: 0.95rem;
   padding: 1.12rem;
-  border-color: rgba(72, 56, 40, 0.1);
+  border-color: var(--border);
   border-radius: 22px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(244, 237, 227, 0.9));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), var(--surface-accent));
   box-shadow: var(--shadow-soft);
 }
 
@@ -661,7 +659,7 @@
 }
 
 .vote-card__source-link {
-  border-color: rgba(72, 56, 40, 0.12);
+  border-color: var(--border);
   background: rgba(255, 255, 255, 0.82);
 }
 
@@ -677,7 +675,7 @@
 .vote-card__highlight {
   margin-top: 0;
   padding-top: 0.95rem;
-  border-top-color: rgba(72, 56, 40, 0.12);
+  border-top-color: var(--border);
 }
 
 .vote-card__highlight-summary {
@@ -685,13 +683,13 @@
 }
 
 .vote-card__highlight-summary::after {
-  border-color: rgba(72, 56, 40, 0.12);
+  border-color: var(--border);
   background: rgba(255, 255, 255, 0.76);
 }
 
 .vote-card__highlight-count {
   margin-left: auto;
-  border: 1px solid rgba(72, 56, 40, 0.1);
+  border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.76);
   color: var(--text-muted);
   font-size: 0.78rem;
@@ -704,7 +702,7 @@
 
 .vote-card__group {
   padding: 0.82rem;
-  border: 1px solid rgba(72, 56, 40, 0.1);
+  border: 1px solid var(--border);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.7);
 }
@@ -745,6 +743,32 @@
 
 .info-panel__body {
   max-width: 72ch;
+}
+
+/* ─── 페이지 래퍼 (votes, trends 전용 페이지) ──── */
+.page-wrapper {
+  display: grid;
+  gap: 1rem;
+}
+
+.page-wrapper__header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.page-wrapper__header h1 {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.8vw, 2rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.page-wrapper__header p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
 /* ─── 반응형 ──────────────────────────────────────── */
