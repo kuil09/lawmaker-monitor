@@ -10,5 +10,15 @@ export default defineConfig({
     alias: {
       "@lawmaker-monitor/schemas": resolve(__dirname, "../../packages/schemas/src/index.ts")
     }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          deckgl: ["@deck.gl/core", "@deck.gl/layers", "@deck.gl/react", "@deck.gl/aggregation-layers"],
+          maplibre: ["maplibre-gl", "react-map-gl/maplibre"]
+        }
+      }
+    }
   }
 });

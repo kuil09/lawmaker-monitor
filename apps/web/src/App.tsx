@@ -16,6 +16,7 @@ import { DistributionConstituencyMap } from "./components/DistributionConstituen
 import { DistributionPage } from "./components/DistributionPage.js";
 import { GlobalNav } from "./components/GlobalNav.js";
 import { MemberSearchField } from "./components/MemberSearchField.js";
+import { LabPage } from "./components/LabPage.js";
 import { TrendsPage } from "./components/TrendsPage.js";
 import { VotesPage } from "./components/VotesPage.js";
 import { rankAccountabilityItems } from "./lib/accountability.js";
@@ -38,7 +39,7 @@ import {
 import { formatDateTime, formatNumber } from "./lib/format.js";
 import { getMemberAttendanceSummary } from "./lib/member-activity.js";
 
-type AppRoute = "home" | "calendar" | "distribution" | "votes" | "trends";
+type AppRoute = "home" | "calendar" | "distribution" | "votes" | "trends" | "lab";
 
 type RouteState = {
   route: AppRoute;
@@ -108,6 +109,15 @@ function getRouteStateFromHash(hash: string): RouteState {
     };
   }
 
+  if (path === "lab") {
+    return {
+      route: "lab",
+      memberId: null,
+      compareMemberId: null,
+      view: "single",
+      behaviorFilter: null
+    };
+  }
 
   return {
     route: "home",
@@ -372,11 +382,17 @@ export default function App() {
     window.location.hash = "trends";
   }
 
-  function handleNavNavigate(target: "votes" | "trends"): void {
+  function navigateToLab(): void {
+    window.location.hash = "lab";
+  }
+
+  function handleNavNavigate(target: "votes" | "trends" | "lab"): void {
     if (target === "votes") {
       navigateToVotes();
-    } else {
+    } else if (target === "trends") {
       navigateToTrends();
+    } else {
+      navigateToLab();
     }
   }
 
@@ -520,6 +536,24 @@ export default function App() {
     );
   }
 
+  if (routeState.route === "lab") {
+    return (
+      <>
+        <GlobalNav
+          route="lab"
+          assemblyLabel={currentAssemblyLabel}
+          onHome={navigateHome}
+        />
+        <main className="app-shell">
+          <LabPage
+            manifest={manifest}
+            accountabilitySummary={accountabilitySummary}
+            assemblyLabel={currentAssemblyLabel}
+          />
+        </main>
+      </>
+    );
+  }
 
   return (
     <>
