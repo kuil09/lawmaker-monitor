@@ -1,4 +1,4 @@
-import { GeoJsonLayer } from "@deck.gl/layers";
+import { ColumnLayer } from "@deck.gl/layers";
 import DeckGL from "@deck.gl/react";
 import { useEffect, useMemo, useState } from "react";
 import { Map as MapGL } from "react-map-gl/maplibre";
@@ -8,8 +8,8 @@ import type { AccountabilitySummaryExport, Manifest } from "@lawmaker-monitor/sc
 import type { ConstituencyBoundaryTopology } from "../lib/constituency-map.js";
 import { normalizeConstituencyLookupKey } from "../lib/constituency-map.js";
 import { loadConstituencyBoundariesIndex, loadConstituencyProvinceTopology } from "../lib/data.js";
-import type { ExtrudedFeature } from "../lib/geo-utils.js";
-import { extractReprojectedFeatures } from "../lib/geo-utils.js";
+import type { MemberGeoPoint } from "../lib/geo-utils.js";
+import { extractCentroids } from "../lib/geo-utils.js";
 
 const MAP_STYLE = {
   version: 8 as const,
@@ -28,26 +28,24 @@ const INITIAL_VIEW_STATE = {
   longitude: 127.8,
   latitude: 36.5,
   zoom: 6.5,
+  minZoom: 5,
+  maxZoom: 10,
   pitch: 15,
   bearing: 0
 };
 
 type VizMode = "absence" | "negative" | "activity";
 
-type AnnotatedProperties = {
-  districtKey: string;
-  label: string;
+type AnnotatedPoint = MemberGeoPoint & {
   absentRate: number;
   negativeRate: number;
   totalRecordedVotes: number;
 };
 
-type AnnotatedFeature = ExtrudedFeature & { properties: AnnotatedProperties };
-
 type TooltipInfo = {
   x: number;
   y: number;
-  properties: AnnotatedProperties;
+  object: AnnotatedPoint;
 };
 
 function interpolateColor(
@@ -66,7 +64,7 @@ function interpolateColor(
     Math.round(r1 + (r2 - r1) * frac),
     Math.round(g1 + (g2 - g1) * frac),
     Math.round(b1 + (b2 - b1) * frac),
-    230
+    220
   ];
 }
 
@@ -76,15 +74,15 @@ type VizConfig = {
   description: string;
   colorRange: [number, number, number][];
   elevationScale: number;
-  getMetric: (p: AnnotatedProperties) => number;
-  tooltipLabel: (p: AnnotatedProperties) => string;
+  getMetric: (p: AnnotatedPoint) => number;
+  tooltipLabel: (p: AnnotatedPoint) => string;
 };
 
 const VIZ_CONFIGS: VizConfig[] = [
   {
     key: "absence",
     label: "결석 핫스팟",
-    description: "선거구 형태의 폴리곤 기둥으로 결석률을 표현합니다. 높고 진한 붉은색일수록 결석률이 높습니다.",
+    description: "선거구 중심에 육각형 기둥으로 결석률을 표현합니다. 높고 진한 붉은색일수록 결석률이 높습니다.",
     colorRange: [
       [254, 229, 217],
       [252, 174, 145],
@@ -99,7 +97,7 @@ const VIZ_CONFIGS: VizConfig[] = [
   {
     key: "negative",
     label: "반대·기권 인덱스",
-    description: "반대 + 기권율을 폴리곤 기둥으로 표현합니다. 높고 진한 노란색일수록 반대·기권 성향이 강합니다.",
+    description: "반대 + 기권율을 육각형 기둥으로 표현합니다. 높고 진한 노란색일수록 반대·기권 성향이 강합니다.",
     colorRange: [
       [255, 255, 212],
       [254, 227, 145],
@@ -114,7 +112,7 @@ const VIZ_CONFIGS: VizConfig[] = [
   {
     key: "activity",
     label: "참여량 밀도",
-    description: "총 기록표결 참여 수를 폴리곤 기둥으로 표현합니다. 높고 진한 초록색일수록 표결 참여량이 많습니다.",
+    description: "총 기록표결 참여 수를 육각형 기둥으로 표현합니다. 높고 진한 초록색일수록 표결 참여량이 많습니다.",
     colorRange: [
       [237, 248, 233],
       [186, 228, 179],
@@ -136,7 +134,7 @@ type LabPageProps = {
 
 export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabPageProps) {
   const [activeViz, setActiveViz] = useState<VizMode>("absence");
-  const [allFeatures, setAllFeatures] = useState<ExtrudedFeature[]>([]);
+  const [allPoints, setAllPoints] = useState<MemberGeoPoint[]>([]);
   const [loadProgress, setLoadProgress] = useState<{ done: number; total: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -159,29 +157,26 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
         const total = index.provinces.length;
         setLoadProgress({ done: 0, total });
 
-        const accumulated: ExtrudedFeature[] = [];
+        let done = 0;
 
-        // 시도를 순차 로드 — 각 시도 처리 후 브라우저에 제어권 반환
-        for (let i = 0; i < index.provinces.length; i++) {
-          if (cancelled) return;
+        const topologies = await Promise.all(
+          index.provinces.map(async (province) => {
+            const topo = await loadConstituencyProvinceTopology<ConstituencyBoundaryTopology>(
+              province.path
+            );
+            if (!cancelled) setLoadProgress({ done: ++done, total });
+            return topo;
+          })
+        );
 
-          const topology = await loadConstituencyProvinceTopology<ConstituencyBoundaryTopology>(
-            index.provinces[i].path
-          );
+        if (cancelled) return;
 
-          if (cancelled) return;
-
-          if (topology) {
-            accumulated.push(...extractReprojectedFeatures(topology));
-          }
-
-          setLoadProgress({ done: i + 1, total });
-
-          // 브라우저가 렌더링·입력을 처리할 수 있도록 제어권 양보
-          await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        const points: MemberGeoPoint[] = [];
+        for (const topo of topologies) {
+          if (topo) points.push(...extractCentroids(topo));
         }
 
-        if (!cancelled) setAllFeatures(accumulated);
+        if (!cancelled) setAllPoints(points);
       } catch (err) {
         if (!cancelled) setError(`데이터 로딩 중 오류: ${(err as Error).message}`);
       } finally {
@@ -196,8 +191,8 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
     return () => { cancelled = true; };
   }, [manifest]);
 
-  const annotatedFeatures = useMemo<AnnotatedFeature[]>(() => {
-    if (!accountabilitySummary || allFeatures.length === 0) return [];
+  const annotatedPoints = useMemo<AnnotatedPoint[]>(() => {
+    if (!accountabilitySummary || allPoints.length === 0) return [];
 
     const memberByKey = new Map(
       accountabilitySummary.items.map((item) => [
@@ -206,64 +201,64 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
       ])
     );
 
-    return allFeatures.flatMap((f) => {
-      const member = memberByKey.get(f.properties.districtKey);
+    return allPoints.flatMap((p) => {
+      const member = memberByKey.get(p.districtKey);
       if (!member) return [];
       return [{
-        ...f,
-        properties: {
-          districtKey: f.properties.districtKey,
-          label: f.properties.label,
-          absentRate: member.absentRate,
-          negativeRate: member.noRate + member.abstainRate,
-          totalRecordedVotes: member.totalRecordedVotes
-        }
+        ...p,
+        absentRate: member.absentRate,
+        negativeRate: member.noRate + member.abstainRate,
+        totalRecordedVotes: member.totalRecordedVotes
       }];
     });
-  }, [allFeatures, accountabilitySummary]);
+  }, [allPoints, accountabilitySummary]);
 
   const vizConfig = VIZ_CONFIGS.find((v) => v.key === activeViz) ?? VIZ_CONFIGS[0];
 
   const layer = useMemo(() => {
-    if (annotatedFeatures.length === 0) return null;
+    if (annotatedPoints.length === 0) return null;
 
-    const metrics = annotatedFeatures.map((f) => vizConfig.getMetric(f.properties));
+    const metrics = annotatedPoints.map((p) => vizConfig.getMetric(p));
     const minVal = Math.min(...metrics);
     const maxVal = Math.max(...metrics);
 
-    return new GeoJsonLayer<AnnotatedFeature>({
-      id: `geojson-${activeViz}`,
-      data: annotatedFeatures,
+    return new ColumnLayer<AnnotatedPoint>({
+      id: `column-${activeViz}`,
+      data: annotatedPoints,
+      diskResolution: 6,
+      radius: 12000,
+      radiusUnits: "meters",
       extruded: true,
-      getElevation: (f) => vizConfig.getMetric(f.properties) * vizConfig.elevationScale,
-      getFillColor: (f) =>
-        interpolateColor(vizConfig.getMetric(f.properties), minVal, maxVal, vizConfig.colorRange),
+      getPosition: (p) => [p.longitude, p.latitude],
+      getElevation: (p) => vizConfig.getMetric(p) * vizConfig.elevationScale,
+      getFillColor: (p) =>
+        interpolateColor(vizConfig.getMetric(p), minVal, maxVal, vizConfig.colorRange),
       getLineColor: [255, 255, 255, 60],
       lineWidthMinPixels: 1,
       pickable: true,
       onHover: (info) => {
         if (info.object && info.x !== undefined && info.y !== undefined) {
-          setTooltip({ x: info.x, y: info.y, properties: info.object.properties });
+          setTooltip({ x: info.x, y: info.y, object: info.object });
         } else {
           setTooltip(null);
         }
       }
     });
-  }, [annotatedFeatures, activeViz, vizConfig]);
+  }, [annotatedPoints, activeViz, vizConfig]);
 
-  const matchedCount = annotatedFeatures.length;
-  const totalFeatures = allFeatures.length;
+  const matchedCount = annotatedPoints.length;
+  const totalPoints = allPoints.length;
 
   return (
     <div className="lab-page">
       <div className="lab-page__header">
         <h1 className="lab-page__title">실험실 · deck.gl 시각화</h1>
-        <p className="lab-page__subtitle">{assemblyLabel} 의원 활동 데이터를 선거구 형태의 3D 지도로 탐색합니다.</p>
+        <p className="lab-page__subtitle">{assemblyLabel} 의원 활동 데이터를 선거구별 3D 육각 기둥으로 탐색합니다.</p>
       </div>
 
       <div className="lab-disclaimer">
         실험적 기능입니다. 비례대표 의원은 지역구가 없어 표시되지 않습니다.
-        {matchedCount > 0 && ` · ${totalFeatures}개 선거구 중 ${matchedCount}개 매칭됨`}
+        {matchedCount > 0 && ` · ${totalPoints}개 선거구 중 ${matchedCount}개 매칭됨`}
       </div>
 
       <div className="lab-viz-selector" role="tablist" aria-label="시각화 선택">
@@ -305,7 +300,7 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
         ) : (
           <DeckGL
             initialViewState={INITIAL_VIEW_STATE}
-            controller
+            controller={{ minZoom: 5, maxZoom: 10 }}
             layers={layer ? [layer] : []}
           >
             <MapGL mapStyle={MAP_STYLE} />
@@ -317,8 +312,8 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
             className="lab-tooltip"
             style={{ left: tooltip.x + 12, top: tooltip.y - 40 }}
           >
-            <div className="lab-tooltip__label">{tooltip.properties.label}</div>
-            <div className="lab-tooltip__value">{vizConfig.tooltipLabel(tooltip.properties)}</div>
+            <div className="lab-tooltip__label">{tooltip.object.label}</div>
+            <div className="lab-tooltip__value">{vizConfig.tooltipLabel(tooltip.object)}</div>
           </div>
         )}
       </div>

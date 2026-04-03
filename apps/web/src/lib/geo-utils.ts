@@ -15,8 +15,8 @@ function toWgs84(x: number, y: number): [number, number] {
   return [x, y];
 }
 
-// zoom 6~7 수준에서는 6개 중 1개 버텍스만으로도 충분한 해상도
-function reprojectRing(ring: number[][], step = 6): number[][] {
+// zoom 6~7 수준에서 20개 중 1개 버텍스로도 선거구 윤곽 식별 가능
+function reprojectRing(ring: number[][], step = 20): number[][] {
   const result: number[][] = [];
   for (let i = 0; i < ring.length; i++) {
     if (i === 0 || i === ring.length - 1 || i % step === 0) {
@@ -77,10 +77,61 @@ export function extractReprojectedFeatures(topology: ConstituencyBoundaryTopolog
   });
 }
 
-// 레거시 centroid export (사용처 없으나 타입 호환 유지)
 export type MemberGeoPoint = {
   longitude: number;
   latitude: number;
   districtKey: string;
   label: string;
 };
+
+// 외곽 링 버텍스의 표본 평균으로 시각적 센트로이드 계산
+function computeCentroid(ring: number[][], step = 50): [number, number] {
+  let sumLng = 0, sumLat = 0, count = 0;
+  for (let i = 0; i < ring.length; i += step) {
+    const [lng, lat] = toWgs84(ring[i][0], ring[i][1]);
+    sumLng += lng;
+    sumLat += lat;
+    count++;
+  }
+  return [sumLng / count, sumLat / count];
+}
+
+export function extractCentroids(topology: ConstituencyBoundaryTopology): MemberGeoPoint[] {
+  const collection = feature(
+    topology,
+    topology.objects.constituencies
+  ) as {
+    type: "FeatureCollection";
+    features: Array<{
+      type: "Feature";
+      properties: Record<string, unknown>;
+      geometry: { type: string; coordinates: unknown };
+    }>;
+  };
+
+  return collection.features.flatMap(f => {
+    const label = (f.properties.memberDistrictLabel as string | undefined) ?? "";
+    if (!label) return [];
+
+    let ring: number[][];
+    if (f.geometry.type === "Polygon") {
+      ring = (f.geometry.coordinates as number[][][])[0];
+    } else if (f.geometry.type === "MultiPolygon") {
+      const polys = f.geometry.coordinates as number[][][][];
+      ring = polys.reduce(
+        (best, poly) => (poly[0].length > best.length ? poly[0] : best),
+        polys[0][0]
+      );
+    } else {
+      return [];
+    }
+
+    const [longitude, latitude] = computeCentroid(ring);
+    return [{
+      longitude,
+      latitude,
+      districtKey: normalizeConstituencyLookupKey(label),
+      label
+    }];
+  });
+}
