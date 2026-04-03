@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildConstituencyMapRegions,
+  findLowestAttendanceRegion,
   resolveProvinceForDistrict
 } from "../../apps/web/src/lib/constituency-map.js";
 import { buildDistributionMembers } from "../../apps/web/src/lib/distribution.js";
@@ -62,5 +63,36 @@ describe("constituency map helpers", () => {
       }
     });
     expect(regions[0]?.path.startsWith("M")).toBe(true);
+  });
+
+  it("finds the region with the lowest attendance rate among matched regions", () => {
+    const members = buildDistributionMembers(
+      accountabilitySummaryFixture,
+      memberActivityCalendarFixture
+    );
+    const regions = buildConstituencyMapRegions({
+      topology: busanTopologyFixture,
+      members,
+      highlightedMemberIds: new Set(members.map((m) => m.memberId))
+    });
+
+    const lowest = findLowestAttendanceRegion(regions);
+    expect(lowest).not.toBeNull();
+    expect(lowest?.member?.memberId).toBe("M002");
+  });
+
+  it("returns null from findLowestAttendanceRegion when no regions have members", () => {
+    expect(findLowestAttendanceRegion([])).toBeNull();
+    expect(
+      findLowestAttendanceRegion([
+        {
+          districtKey: "test",
+          properties: {} as never,
+          path: "",
+          member: null,
+          highlighted: false
+        }
+      ])
+    ).toBeNull();
   });
 });

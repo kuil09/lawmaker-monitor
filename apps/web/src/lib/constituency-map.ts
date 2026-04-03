@@ -321,3 +321,21 @@ export function buildConstituencyMapRegions(args: {
       left.properties.memberDistrictLabel.localeCompare(right.properties.memberDistrictLabel, "ko")
     );
 }
+
+export function findLowestAttendanceRegion(
+  regions: ConstituencyMapRegion[]
+): ConstituencyMapRegion | null {
+  let lowest: ConstituencyMapRegion | null = null;
+
+  for (const region of regions) {
+    if (!region.member) {
+      continue;
+    }
+
+    if (!lowest || !lowest.member || region.member.attendanceRate < lowest.member.attendanceRate) {
+      lowest = region;
+    }
+  }
+
+  return lowest;
+}
