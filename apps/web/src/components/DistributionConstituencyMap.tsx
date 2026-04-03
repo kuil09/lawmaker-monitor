@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   ConstituencyBoundariesIndexExport,
@@ -273,6 +273,24 @@ export function DistributionConstituencyMap({
     matchedRegions[0] ??
     regions[0] ??
     null;
+
+  // When the map's auto-selected region has a member that differs from the
+  // global selection (e.g. selected member is proportional-rep with no
+  // district), push the map's choice up so both panels stay in sync.
+  const lastSyncedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      selectedRegion?.member &&
+      selectedMemberId &&
+      selectedRegion.member.memberId !== selectedMemberId &&
+      !selectedMemberRegion &&
+      !selectedDistrictKey &&
+      lastSyncedRef.current !== selectedRegion.member.memberId
+    ) {
+      lastSyncedRef.current = selectedRegion.member.memberId;
+      onSelectMember(selectedRegion.member.memberId);
+    }
+  }, [selectedRegion, selectedMemberId, selectedMemberRegion, selectedDistrictKey, onSelectMember]);
 
   const visibleRegions = highlightedRegions.length > 0 ? highlightedRegions : matchedRegions;
   const provinceAttendanceAverage =
