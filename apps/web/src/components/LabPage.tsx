@@ -1,4 +1,3 @@
-import { GeoJsonLayer } from "@deck.gl/layers";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import DeckGL from "@deck.gl/react";
 import { cellToParent, latLngToCell } from "h3-js";
@@ -10,9 +9,8 @@ import type { AccountabilitySummaryExport, ConstituencyBoundariesIndexExport, Ma
 import type { ConstituencyBoundaryTopology } from "../lib/constituency-map.js";
 import { normalizeConstituencyLookupKey } from "../lib/constituency-map.js";
 import { loadConstituencyBoundariesIndex, loadConstituencyProvinceTopology } from "../lib/data.js";
-import type { ExtrudedFeature } from "../lib/geo-utils.js";
 import type { MemberGeoPoint } from "../lib/geo-utils.js";
-import { extractCentroids, extractReprojectedFeatures } from "../lib/geo-utils.js";
+import { extractCentroids } from "../lib/geo-utils.js";
 
 const MAP_STYLE = {
   version: 8 as const,
@@ -122,26 +120,8 @@ const VIZ_CONFIGS: VizConfig[] = [
   }
 ];
 
-type DetailFeature = {
-  type: "Feature";
-  geometry: { type: string; coordinates: unknown };
-  properties: {
-    districtKey: string;
-    label: string;
-    party: string | null;
-    metric: number;
-    hasData: boolean;
-  };
-};
-
-type DetailTooltipInfo = {
-  x: number;
-  y: number;
-  label: string;
-  party: string | null;
-  metric: number;
-  hasData: boolean;
-};
+// 실험 B: 시·도별 H3 상세 해상도 (1지역구 ≈ 1셀)
+const DETAIL_RES = 8;
 
 const INITIAL_DETAIL_VIEW_STATE = {
   longitude: 127.8,
@@ -152,33 +132,6 @@ const INITIAL_DETAIL_VIEW_STATE = {
   minZoom: 5,
   maxZoom: 14
 };
-
-function computeProvinceViewState(features: ExtrudedFeature[]) {
-  let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
-  for (const f of features) {
-    const rings: number[][][] = [];
-    if (f.geometry.type === "Polygon") {
-      rings.push(...(f.geometry.coordinates as number[][][]));
-    } else if (f.geometry.type === "MultiPolygon") {
-      for (const poly of (f.geometry.coordinates as number[][][][])) rings.push(...poly);
-    }
-    for (const ring of rings) {
-      for (const [lng, lat] of ring) {
-        if (lng < minLng) minLng = lng;
-        if (lng > maxLng) maxLng = lng;
-        if (lat < minLat) minLat = lat;
-        if (lat > maxLat) maxLat = lat;
-      }
-    }
-  }
-  if (!Number.isFinite(minLng)) return null;
-  const span = Math.max(maxLng - minLng, (maxLat - minLat) * 1.3);
-  return {
-    longitude: (minLng + maxLng) / 2,
-    latitude: (minLat + maxLat) / 2,
-    zoom: Math.min(10, Math.max(6, Math.log2(360 / span) - 1))
-  };
-}
 
 type LabPageProps = {
   manifest: Manifest | null;
@@ -194,14 +147,11 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
   const [error, setError] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
 
-  // 지역구 상세 지도 state
+  // 실험 B: 시·도별 상세 지도 state
   const [boundaryIndex, setBoundaryIndex] = useState<ConstituencyBoundariesIndexExport | null>(null);
   const [detailProvince, setDetailProvince] = useState<string | null>(null);
-  const [detailTopology, setDetailTopology] = useState<ConstituencyBoundaryTopology | null | undefined>(undefined);
-  const [isDetailLoading, setIsDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
   const [detailViewState, setDetailViewState] = useState(INITIAL_DETAIL_VIEW_STATE);
-  const [detailTooltip, setDetailTooltip] = useState<DetailTooltipInfo | null>(null);
+  const [detailTooltip, setDetailTooltip] = useState<TooltipInfo | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -259,30 +209,6 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
     if (boundaryIndex && !detailProvince) {
       setDetailProvince(boundaryIndex.provinces[0]?.provinceShortName ?? null);
     }
-  }, [boundaryIndex, detailProvince]);
-
-  // 상세 지도 topology 로딩
-  useEffect(() => {
-    if (!boundaryIndex || !detailProvince) return;
-    const province = boundaryIndex.provinces.find(p => p.provinceShortName === detailProvince);
-    if (!province) return;
-
-    let cancelled = false;
-    setIsDetailLoading(true);
-    setDetailError(null);
-    setDetailTopology(undefined);
-
-    void loadConstituencyProvinceTopology<ConstituencyBoundaryTopology>(province.path)
-      .then(topo => { if (!cancelled) setDetailTopology(topo); })
-      .catch(err => {
-        if (!cancelled) {
-          setDetailError((err as Error).message);
-          setDetailTopology(null);
-        }
-      })
-      .finally(() => { if (!cancelled) setIsDetailLoading(false); });
-
-    return () => { cancelled = true; };
   }, [boundaryIndex, detailProvince]);
 
   const annotatedPoints = useMemo<AnnotatedPoint[]>(() => {
@@ -404,90 +330,79 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
     return [bgLayer, dataLayer];
   }, [bgCells, dataCells, activeViz, vizConfig]);
 
-  // ── 상세 지도 계산 ──────────────────────────────────────────────────────────
+  // ── 실험 B: 시·도별 H3 상세 지도 ────────────────────────────────────────────
 
-  const detailRawFeatures = useMemo<ExtrudedFeature[]>(() => {
-    if (!detailTopology) return [];
-    return extractReprojectedFeatures(detailTopology);
-  }, [detailTopology]);
-
-  // 로드 완료 시 해당 province로 뷰 자동 이동
+  // province 선택 시 해당 의원 좌표를 기준으로 뷰 자동 이동
   useEffect(() => {
-    if (detailRawFeatures.length === 0) return;
-    const vs = computeProvinceViewState(detailRawFeatures);
-    if (vs) {
-      setDetailViewState(prev => ({ ...prev, ...vs }));
+    if (!detailProvince || !boundaryIndex || annotatedPoints.length === 0) return;
+    const province = boundaryIndex.provinces.find(p => p.provinceShortName === detailProvince);
+    if (!province) return;
+
+    const shortKey = normalizeConstituencyLookupKey(province.provinceShortName);
+    const filtered = annotatedPoints.filter(p => p.districtKey.startsWith(shortKey));
+    if (filtered.length === 0) return;
+
+    const lngs = filtered.map(p => p.longitude);
+    const lats = filtered.map(p => p.latitude);
+    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+    const span = Math.max(maxLng - minLng, (maxLat - minLat) * 1.3, 0.1);
+    setDetailViewState(prev => ({
+      ...prev,
+      longitude: (minLng + maxLng) / 2,
+      latitude: (minLat + maxLat) / 2,
+      zoom: Math.min(11, Math.max(7, Math.log2(360 / span) - 1.5))
+    }));
+  }, [detailProvince, boundaryIndex, annotatedPoints]);
+
+  // 선택된 province의 의원들을 H3 res 8 셀에 1:1 매핑
+  const detailCells = useMemo<H3DataCell[]>(() => {
+    if (!detailProvince || !boundaryIndex || annotatedPoints.length === 0) return [];
+    const province = boundaryIndex.provinces.find(p => p.provinceShortName === detailProvince);
+    if (!province) return [];
+
+    const shortKey = normalizeConstituencyLookupKey(province.provinceShortName);
+    const filtered = annotatedPoints.filter(p => p.districtKey.startsWith(shortKey));
+
+    const cellMap = new Map<string, AnnotatedPoint>();
+    for (const p of filtered) {
+      const h3Index = latLngToCell(p.latitude, p.longitude, DETAIL_RES);
+      if (!cellMap.has(h3Index)) cellMap.set(h3Index, p);
     }
-  }, [detailRawFeatures]);
 
-  const detailFeatures = useMemo<DetailFeature[]>(() => {
-    if (detailRawFeatures.length === 0) return [];
-
-    const memberByKey = accountabilitySummary
-      ? new Map(accountabilitySummary.items.map(item => [
-          normalizeConstituencyLookupKey(item.district),
-          item
-        ]))
-      : new Map();
-
-    return detailRawFeatures.map(f => {
-      const member = memberByKey.get(f.properties.districtKey);
-      const metric = member
-        ? vizConfig.getMetric({
-            absentRate: member.absentRate,
-            negativeRate: member.noRate + member.abstainRate,
-            totalRecordedVotes: member.totalRecordedVotes
-          } as AnnotatedPoint)
-        : 0;
-
-      return {
-        type: "Feature" as const,
-        geometry: f.geometry,
-        properties: {
-          districtKey: f.properties.districtKey,
-          label: f.properties.label,
-          party: member?.party ?? null,
-          metric,
-          hasData: Boolean(member)
-        }
-      };
-    });
-  }, [detailRawFeatures, accountabilitySummary, vizConfig]);
+    return [...cellMap.entries()].map(([h3Index, p]) => ({
+      h3Index,
+      party: p.party,
+      metric: vizConfig.getMetric(p),
+      memberCount: 1,
+      memberNames: [p.name],
+      memberParties: [p.party]
+    }));
+  }, [detailProvince, boundaryIndex, annotatedPoints, vizConfig]);
 
   const detailLayers = useMemo(() => {
-    if (detailFeatures.length === 0) return [];
+    if (detailCells.length === 0) return [];
     return [
-      new GeoJsonLayer<DetailFeature>({
-        id: `detail-geo-${activeViz}-${detailProvince ?? ""}`,
-        data: detailFeatures,
-        filled: true,
-        extruded: true,
-        wireframe: true,
-        getFillColor: (f) =>
-          f.properties.hasData
-            ? getPartyColor(f.properties.party ?? "")
-            : [190, 195, 205, 80],
-        getElevation: (f) => f.properties.metric * vizConfig.elevationScale,
-        getLineColor: [255, 255, 255, 60],
+      new H3HexagonLayer<H3DataCell>({
+        id: `h3-detail-${activeViz}-${detailProvince ?? ""}`,
+        data: detailCells,
+        getHexagon: (d) => d.h3Index,
+        getFillColor: (d) => getPartyColor(d.party),
+        getElevation: (d) => d.metric * vizConfig.elevationScale,
+        getLineColor: [255, 255, 255, 40],
         lineWidthMinPixels: 1,
+        extruded: true,
         pickable: true,
         onHover: (info) => {
           if (info.object && info.x !== undefined && info.y !== undefined) {
-            setDetailTooltip({
-              x: info.x,
-              y: info.y,
-              label: info.object.properties.label,
-              party: info.object.properties.party,
-              metric: info.object.properties.metric,
-              hasData: info.object.properties.hasData
-            });
+            setDetailTooltip({ x: info.x, y: info.y, cell: info.object });
           } else {
             setDetailTooltip(null);
           }
         }
       })
     ];
-  }, [detailFeatures, activeViz, detailProvince, vizConfig]);
+  }, [detailCells, activeViz, detailProvince, vizConfig]);
 
   return (
     <div className="lab-page">
@@ -616,9 +531,10 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
       </p>
 
       <div className="lab-section-divider">
-        <h2 className="lab-section-title">실험 B · 지역구 폴리곤 3D 지도</h2>
+        <h2 className="lab-section-title">실험 B · 시·도별 H3 상세 지도</h2>
         <p className="lab-section-desc">
-          선거구 경계를 deck.gl GeoJsonLayer로 렌더링합니다. 높이·색상은 위에서 선택한 지표와 동일한 기준입니다.
+          시·도를 선택하면 해당 지역 지역구를 H3 res {DETAIL_RES} 헥사곤(1지역구 ≈ 1셀)으로 확대 탐색합니다.
+          높이·색상 기준은 실험 A와 동일합니다.
         </p>
       </div>
 
@@ -636,25 +552,23 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
             >
               {boundaryIndex.provinces.map(p => (
                 <option key={p.provinceShortName} value={p.provinceShortName}>
-                  {p.provinceShortName}
+                  {`${p.provinceShortName} · ${p.featureCount}곳`}
                 </option>
               ))}
             </select>
           </label>
+          {detailCells.length > 0 && (
+            <span className="lab-detail-info">
+              {detailCells.length}개 셀 (res {DETAIL_RES})
+            </span>
+          )}
         </div>
       )}
 
-      <div
-        className={`lab-map-container${isDetailLoading && detailTopology === undefined ? " lab-map-container--loading" : detailError ? " lab-map-container--error" : ""}`}
-      >
-        {isDetailLoading && detailTopology === undefined ? (
+      <div className={`lab-map-container${detailCells.length === 0 && !isLoading ? " lab-map-container--loading" : ""}`}>
+        {detailCells.length === 0 && !isLoading ? (
           <div className="lab-state">
-            <div className="lab-state__title">{detailProvince} 지역구 데이터 로딩 중…</div>
-          </div>
-        ) : detailError ? (
-          <div className="lab-state">
-            <div className="lab-state__title">데이터를 불러오지 못했습니다</div>
-            <p>{detailError}</p>
+            <div className="lab-state__title">시·도를 선택하거나 데이터 로딩을 기다려 주세요.</div>
           </div>
         ) : (
           <DeckGL
@@ -675,34 +589,19 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
             style={{ left: detailTooltip.x + 12, top: detailTooltip.y - 56 }}
           >
             <div className="lab-tooltip__member">
-              {detailTooltip.party && (
-                <span
-                  className="lab-tooltip__party-dot"
-                  style={{
-                    background: (() => {
-                      const [r, g, b] = getPartyColor(detailTooltip.party);
-                      return `rgb(${r},${g},${b})`;
-                    })()
-                  }}
-                />
-              )}
-              <span className="lab-tooltip__name">{detailTooltip.label}</span>
+              <span
+                className="lab-tooltip__party-dot"
+                style={{
+                  background: (() => {
+                    const [r, g, b] = getPartyColor(detailTooltip.cell.party);
+                    return `rgb(${r},${g},${b})`;
+                  })()
+                }}
+              />
+              <span className="lab-tooltip__name">{detailTooltip.cell.memberNames[0]}</span>
             </div>
-            {detailTooltip.party && (
-              <div className="lab-tooltip__party">{detailTooltip.party}</div>
-            )}
-            {detailTooltip.hasData && (
-              <div className="lab-tooltip__value">
-                {vizConfig.tooltipLabel({
-                  metric: detailTooltip.metric,
-                  h3Index: "",
-                  party: detailTooltip.party ?? "",
-                  memberCount: 1,
-                  memberNames: [],
-                  memberParties: []
-                })}
-              </div>
-            )}
+            <div className="lab-tooltip__party">{detailTooltip.cell.party}</div>
+            <div className="lab-tooltip__value">{vizConfig.tooltipLabel(detailTooltip.cell)}</div>
           </div>
         )}
       </div>

@@ -275,3 +275,8 @@
   font-size: 0.875rem;
   cursor: pointer;
 }
+
+.lab-detail-info {
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+}
