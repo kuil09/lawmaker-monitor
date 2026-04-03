@@ -1,9 +1,9 @@
 html,
 body {
   background:
-    radial-gradient(circle at top left, rgba(123, 49, 40, 0.12), transparent 28%),
-    radial-gradient(circle at top right, rgba(164, 109, 40, 0.08), transparent 24%),
-    linear-gradient(180deg, #ebdfcf 0%, #f3ebe0 18%, #f5f0e8 100%);
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 8%, transparent), transparent 28%),
+    radial-gradient(circle at top right, rgba(99, 102, 241, 0.06), transparent 24%),
+    linear-gradient(180deg, #eef0f4 0%, #f2f3f6 18%, #f6f7f9 100%);
 }
 
 body {
@@ -25,15 +25,15 @@ button {
 }
 
 button:hover {
-  background: rgba(123, 49, 40, 0.07);
-  border-color: rgba(123, 49, 40, 0.18);
+  background: color-mix(in srgb, var(--accent) 6%, white);
+  border-color: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 button:focus-visible,
 a:focus-visible,
 summary:focus-visible,
 input:focus-visible {
-  outline: 2px solid rgba(123, 49, 40, 0.28);
+  outline: 2px solid color-mix(in srgb, var(--accent) 36%, transparent);
   outline-offset: 3px;
 }
 
@@ -86,7 +86,7 @@ input:focus-visible {
   height: 0.48rem;
   border-radius: 999px;
   background: var(--accent);
-  box-shadow: 0 0 0 0.24rem rgba(123, 49, 40, 0.1);
+  box-shadow: 0 0 0 0.24rem color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .context-chip,
@@ -103,7 +103,7 @@ input:focus-visible {
 }
 
 .freshness-indicator {
-  border-color: rgba(123, 49, 40, 0.14);
+  border-color: color-mix(in srgb, var(--accent) 14%, transparent);
   background: rgba(255, 255, 255, 0.72);
   color: var(--accent-strong);
 }
@@ -128,7 +128,7 @@ input:focus-visible {
   width: 0.38rem;
   height: 0.38rem;
   border-radius: 999px;
-  background: rgba(123, 49, 40, 0.22);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .member-search-field__control {
@@ -142,7 +142,7 @@ input:focus-visible {
   left: 1rem;
   width: 0.7rem;
   height: 0.7rem;
-  border: 2px solid rgba(85, 28, 23, 0.45);
+  border: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
   border-radius: 999px;
   transform: translateY(-60%);
   pointer-events: none;
@@ -155,7 +155,7 @@ input:focus-visible {
   left: 1.63rem;
   width: 0.48rem;
   height: 2px;
-  background: rgba(85, 28, 23, 0.45);
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
   transform: rotate(45deg);
   transform-origin: left center;
   pointer-events: none;
@@ -165,26 +165,26 @@ input:focus-visible {
   width: 100%;
   min-width: 0;
   padding-left: 2.5rem;
-  border: 1px solid rgba(72, 56, 40, 0.12);
+  border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.86);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.74),
-    0 8px 24px rgba(68, 48, 28, 0.06);
+    0 8px 24px rgba(0, 0, 0, 0.04);
 }
 
 .member-search-field input.member-search-field__input::placeholder {
-  color: rgba(107, 98, 88, 0.82);
+  color: rgba(113, 113, 122, 0.82);
 }
 
 .member-identity__avatar {
-  border-color: rgba(72, 56, 40, 0.12);
+  border-color: var(--border);
   box-shadow: var(--shadow-soft);
 }
 
 .member-identity__avatar--fallback {
   color: var(--accent-strong);
-  background: linear-gradient(135deg, rgba(123, 49, 40, 0.16), rgba(255, 255, 255, 0.95));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, white), rgba(255, 255, 255, 0.95));
 }
 
 .chart-card__eyebrow {
@@ -196,7 +196,7 @@ input:focus-visible {
   gap: 0.12rem;
   min-width: 7rem;
   padding: 0.82rem 0.9rem;
-  border: 1px solid rgba(72, 56, 40, 0.12);
+  border: 1px solid var(--border);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.72);
 }
@@ -216,7 +216,7 @@ input:focus-visible {
 }
 
 .chart-tooltip {
-  border-color: rgba(72, 56, 40, 0.16);
+  border-color: var(--border);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.97);
   box-shadow: var(--shadow-soft);
@@ -245,8 +245,8 @@ input:focus-visible {
 .status-badge--trace,
 .status-badge--unknown,
 .status-badge--invalid {
-  border-color: rgba(72, 56, 40, 0.1);
-  background: rgba(72, 56, 40, 0.06);
+  border-color: var(--border);
+  background: rgba(0, 0, 0, 0.04);
   color: var(--text-muted);
 }
 
@@ -269,8 +269,8 @@ input:focus-visible {
 }
 
 .status-badge--absent {
-  border-color: rgba(72, 56, 40, 0.1);
-  background: rgba(72, 56, 40, 0.06);
+  border-color: var(--border);
+  background: rgba(0, 0, 0, 0.04);
   color: var(--text-muted);
 }
 
