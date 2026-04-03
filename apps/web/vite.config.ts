@@ -12,13 +12,6 @@ export default defineConfig({
     }
   },
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          deckgl: ["@deck.gl/core", "@deck.gl/layers", "@deck.gl/react", "@deck.gl/aggregation-layers"],
-          maplibre: ["maplibre-gl", "react-map-gl/maplibre"]
-        }
-      }
-    }
+    chunkSizeWarningLimit: 2000
   }
 });
