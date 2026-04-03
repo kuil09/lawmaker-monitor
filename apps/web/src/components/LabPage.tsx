@@ -1,4 +1,4 @@
-import { HexagonLayer } from "@deck.gl/aggregation-layers";
+import { ColumnLayer, ScatterplotLayer } from "@deck.gl/layers";
 import DeckGL from "@deck.gl/react";
 import { useEffect, useMemo, useState } from "react";
 import { Map } from "react-map-gl/maplibre";
@@ -27,23 +27,11 @@ const INITIAL_VIEW_STATE = {
   longitude: 127.8,
   latitude: 36.5,
   zoom: 6.5,
-  pitch: 40,
+  pitch: 45,
   bearing: 0
 };
 
 type VizMode = "absence" | "negative" | "activity";
-
-type VizConfig = {
-  key: VizMode;
-  label: string;
-  description: string;
-  colorRange: [number, number, number][];
-  elevationScale: number;
-  radius: number;
-  aggregation: "MEAN" | "SUM";
-  getWeight: (d: AnnotatedPoint) => number;
-  tooltipLabel: (value: number, count: number) => string;
-};
 
 type AnnotatedPoint = {
   longitude: number;
@@ -57,15 +45,45 @@ type AnnotatedPoint = {
 type TooltipInfo = {
   x: number;
   y: number;
-  points: AnnotatedPoint[];
-  value: number;
+  object: AnnotatedPoint;
+};
+
+// 0~1 값을 colorRange에서 선형 보간해 [r, g, b, a] 반환
+function interpolateColor(
+  value: number,
+  min: number,
+  max: number,
+  colorRange: [number, number, number][]
+): [number, number, number, number] {
+  const t = max === min ? 0 : Math.max(0, Math.min(1, (value - min) / (max - min)));
+  const segments = colorRange.length - 1;
+  const idx = Math.min(Math.floor(t * segments), segments - 1);
+  const frac = t * segments - idx;
+  const [r1, g1, b1] = colorRange[idx];
+  const [r2, g2, b2] = colorRange[idx + 1] ?? colorRange[idx];
+  return [
+    Math.round(r1 + (r2 - r1) * frac),
+    Math.round(g1 + (g2 - g1) * frac),
+    Math.round(b1 + (b2 - b1) * frac),
+    220
+  ];
+}
+
+type VizConfig = {
+  key: VizMode;
+  label: string;
+  description: string;
+  colorRange: [number, number, number][];
+  elevationScale: number;
+  getMetric: (d: AnnotatedPoint) => number;
+  tooltipLabel: (d: AnnotatedPoint) => string;
 };
 
 const VIZ_CONFIGS: VizConfig[] = [
   {
     key: "absence",
     label: "결석 핫스팟",
-    description: "각 선거구 중심점을 결석률로 가중치를 부여해 헥사곤으로 집계합니다. 높이·색상이 진할수록 해당 지역 의원의 평균 결석률이 높습니다.",
+    description: "각 선거구 중심에 의원의 결석률을 높이로 표현한 3D 기둥 지도입니다. 높고 진할수록 결석률이 높습니다.",
     colorRange: [
       [237, 248, 233],
       [186, 228, 188],
@@ -74,16 +92,14 @@ const VIZ_CONFIGS: VizConfig[] = [
       [0, 109, 44],
       [0, 68, 27]
     ],
-    elevationScale: 3000,
-    radius: 20000,
-    aggregation: "MEAN",
-    getWeight: (d) => d.absentRate,
-    tooltipLabel: (value, count) => `평균 결석률 ${(value * 100).toFixed(1)}% · ${count}명`
+    elevationScale: 400000,
+    getMetric: (d) => d.absentRate,
+    tooltipLabel: (d) => `결석률 ${(d.absentRate * 100).toFixed(1)}%`
   },
   {
     key: "negative",
     label: "반대·기권 인덱스",
-    description: "반대 + 기권율(negativeRate)로 가중치를 부여합니다. 높이·색상이 진할수록 해당 지역 의원의 반대·기권 성향이 강합니다.",
+    description: "반대 + 기권율(negativeRate)을 높이로 표현합니다. 높고 붉을수록 반대·기권 성향이 강합니다.",
     colorRange: [
       [255, 247, 236],
       [254, 232, 200],
@@ -92,16 +108,14 @@ const VIZ_CONFIGS: VizConfig[] = [
       [227, 26, 28],
       [177, 0, 38]
     ],
-    elevationScale: 2500,
-    radius: 20000,
-    aggregation: "MEAN",
-    getWeight: (d) => d.negativeRate,
-    tooltipLabel: (value, count) => `평균 반대·기권율 ${(value * 100).toFixed(1)}% · ${count}명`
+    elevationScale: 300000,
+    getMetric: (d) => d.negativeRate,
+    tooltipLabel: (d) => `반대·기권율 ${(d.negativeRate * 100).toFixed(1)}%`
   },
   {
     key: "activity",
     label: "참여량 밀도",
-    description: "총 기록표결 참여 수의 합산으로 집계합니다. 수도권 지역의 의원 집중도와 지역별 입법 활동 밀도를 보여줍니다.",
+    description: "총 기록표결 참여 수를 높이로 표현합니다. 수도권 의원 밀집도와 입법 활동량을 보여줍니다.",
     colorRange: [
       [237, 248, 251],
       [178, 226, 226],
@@ -110,11 +124,9 @@ const VIZ_CONFIGS: VizConfig[] = [
       [0, 109, 44],
       [0, 68, 27]
     ],
-    elevationScale: 0.1,
-    radius: 25000,
-    aggregation: "SUM",
-    getWeight: (d) => d.totalRecordedVotes,
-    tooltipLabel: (value, count) => `총 표결 ${Math.round(value).toLocaleString()}건 · ${count}명`
+    elevationScale: 20,
+    getMetric: (d) => d.totalRecordedVotes,
+    tooltipLabel: (d) => `총 표결 ${d.totalRecordedVotes.toLocaleString()}건`
   }
 ];
 
@@ -126,7 +138,7 @@ type LabPageProps = {
 
 export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabPageProps) {
   const [activeViz, setActiveViz] = useState<VizMode>("absence");
-  const [allCentroids, setAllCentroids] = useState<{ longitude: number; latitude: number; districtKey: string; label: string }[]>([]);
+  const [allCentroids, setAllCentroids] = useState<ReturnType<typeof extractCentroids>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
@@ -197,35 +209,41 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
 
   const vizConfig = VIZ_CONFIGS.find((v) => v.key === activeViz) ?? VIZ_CONFIGS[0];
 
-  const layer = useMemo(() => {
-    if (annotatedPoints.length === 0) return null;
+  const layers = useMemo(() => {
+    if (annotatedPoints.length === 0) return [];
 
-    return new HexagonLayer<AnnotatedPoint>({
-      id: `hex-${activeViz}`,
-      data: annotatedPoints,
-      getPosition: (d) => [d.longitude, d.latitude],
-      getElevationWeight: vizConfig.getWeight,
-      getColorWeight: vizConfig.getWeight,
-      elevationAggregation: vizConfig.aggregation,
-      colorAggregation: vizConfig.aggregation,
-      radius: vizConfig.radius,
-      elevationScale: vizConfig.elevationScale,
-      extruded: true,
-      colorRange: vizConfig.colorRange.map(([r, g, b]) => [r, g, b, 220]) as [number, number, number, number][],
-      pickable: true,
-      onHover: (info) => {
-        if (info.object && info.x !== undefined && info.y !== undefined) {
-          const pts = (info.object.points ?? []) as AnnotatedPoint[];
-          const value = pts.length === 0
-            ? 0
-            : pts.reduce((sum, p) => sum + vizConfig.getWeight(p), 0) /
-              (vizConfig.aggregation === "MEAN" ? pts.length : 1);
-          setTooltip({ x: info.x, y: info.y, points: pts, value });
-        } else {
-          setTooltip(null);
+    const metrics = annotatedPoints.map((d) => vizConfig.getMetric(d));
+    const minVal = Math.min(...metrics);
+    const maxVal = Math.max(...metrics);
+
+    return [
+      new ScatterplotLayer<AnnotatedPoint>({
+        id: `scatter-${activeViz}`,
+        data: annotatedPoints,
+        getPosition: (d) => [d.longitude, d.latitude],
+        getRadius: 4000,
+        getFillColor: (d) => interpolateColor(vizConfig.getMetric(d), minVal, maxVal, vizConfig.colorRange),
+        opacity: 0.3,
+        pickable: false
+      }),
+      new ColumnLayer<AnnotatedPoint>({
+        id: `column-${activeViz}`,
+        data: annotatedPoints,
+        getPosition: (d) => [d.longitude, d.latitude],
+        getElevation: (d) => vizConfig.getMetric(d) * vizConfig.elevationScale,
+        getFillColor: (d) => interpolateColor(vizConfig.getMetric(d), minVal, maxVal, vizConfig.colorRange),
+        radius: 4000,
+        extruded: true,
+        pickable: true,
+        onHover: (info) => {
+          if (info.object && info.x !== undefined && info.y !== undefined) {
+            setTooltip({ x: info.x, y: info.y, object: info.object });
+          } else {
+            setTooltip(null);
+          }
         }
-      }
-    });
+      })
+    ];
   }, [annotatedPoints, activeViz, vizConfig]);
 
   const matchedCount = annotatedPoints.length;
@@ -235,7 +253,7 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
     <div className="lab-page">
       <div className="lab-page__header">
         <h1 className="lab-page__title">실험실 · deck.gl 시각화</h1>
-        <p className="lab-page__subtitle">{assemblyLabel} 의원 활동 데이터를 3D 헥사곤 지도로 탐색합니다.</p>
+        <p className="lab-page__subtitle">{assemblyLabel} 의원 활동 데이터를 3D 기둥 지도로 탐색합니다.</p>
       </div>
 
       <div className="lab-disclaimer">
@@ -280,7 +298,7 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
           <DeckGL
             initialViewState={INITIAL_VIEW_STATE}
             controller
-            layers={layer ? [layer] : []}
+            layers={layers}
           >
             <Map mapStyle={MAP_STYLE} />
           </DeckGL>
@@ -289,15 +307,10 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
         {tooltip && (
           <div
             className="lab-tooltip"
-            style={{
-              left: tooltip.x + 12,
-              top: tooltip.y - 40
-            }}
+            style={{ left: tooltip.x + 12, top: tooltip.y - 40 }}
           >
-            <div className="lab-tooltip__label">{vizConfig.label}</div>
-            <div className="lab-tooltip__value">
-              {vizConfig.tooltipLabel(tooltip.value, tooltip.points.length)}
-            </div>
+            <div className="lab-tooltip__label">{tooltip.object.label}</div>
+            <div className="lab-tooltip__value">{vizConfig.tooltipLabel(tooltip.object)}</div>
           </div>
         )}
       </div>
