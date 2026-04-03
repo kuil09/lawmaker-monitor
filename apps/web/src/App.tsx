@@ -559,26 +559,6 @@ export default function App() {
           </section>
         ) : null}
 
-        {accountabilitySummary ? (
-          <AccountabilityLeaderboard
-            items={accountabilitySummary.items}
-            assemblyLabel={currentAssemblyLabel}
-            attendanceByMemberId={leaderboardAttendanceByMemberId}
-          />
-        ) : (
-          <section className="leaderboard-panel">
-            <div className="leaderboard-panel__header">
-              <div>
-                <p className="section-label">의원 랭킹</p>
-                <h2>{`${currentAssemblyLabel} 의원 순위`}</h2>
-              </div>
-            </div>
-            <p className="leaderboard-panel__copy">
-              책임성 랭킹 데이터가 아직 준비되지 않았습니다.
-            </p>
-          </section>
-        )}
-
         <section className="search-panel">
           <div className="search-panel__layout">
             <div className="search-panel__command">
@@ -647,6 +627,26 @@ export default function App() {
             </ul>
           </div>
         </section>
+
+        {accountabilitySummary ? (
+          <AccountabilityLeaderboard
+            items={accountabilitySummary.items}
+            assemblyLabel={currentAssemblyLabel}
+            attendanceByMemberId={leaderboardAttendanceByMemberId}
+          />
+        ) : (
+          <section className="leaderboard-panel">
+            <div className="leaderboard-panel__header">
+              <div>
+                <p className="section-label">의원 랭킹</p>
+                <h2>{`${currentAssemblyLabel} 의원 순위`}</h2>
+              </div>
+            </div>
+            <p className="leaderboard-panel__copy">
+              책임성 랭킹 데이터가 아직 준비되지 않았습니다.
+            </p>
+          </section>
+        )}
 
         <footer className="info-panel">
           <p className="info-panel__body">
