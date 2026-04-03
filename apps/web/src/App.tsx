@@ -13,11 +13,7 @@ import type {
 import { AccountabilityLeaderboard } from "./components/AccountabilityLeaderboard.js";
 import { ActivityCalendarPage } from "./components/ActivityCalendarPage.js";
 import { DistributionPage } from "./components/DistributionPage.js";
-import { lazy, Suspense } from "react";
-
-const ExplorePage = lazy(() =>
-  import("./components/ExplorePage.js").then((mod) => ({ default: mod.ExplorePage }))
-);
+import { HemicyclePage } from "./components/HemicyclePage.js";
 import { GlobalNav } from "./components/GlobalNav.js";
 import { MemberSearchField } from "./components/MemberSearchField.js";
 import { TrendsPage } from "./components/TrendsPage.js";
@@ -537,13 +533,12 @@ export default function App() {
 
   if (routeState.route === "explore") {
     return (
-      <Suspense fallback={<div style={{ background: "#0a0a0f", position: "fixed", inset: 0 }} />}>
-        <ExplorePage
-          members={distributionMembers}
-          assemblyLabel={currentAssemblyLabel}
-          onSelectMember={(memberId) => navigateToCalendar(memberId)}
-        />
-      </Suspense>
+      <HemicyclePage
+        accountabilitySummary={accountabilitySummary}
+        assemblyLabel={currentAssemblyLabel}
+        onBack={navigateHome}
+        onSelectMember={(memberId) => navigateToCalendar(memberId)}
+      />
     );
   }
 

@@ -31,7 +31,7 @@ export function GlobalNav({ route, assemblyLabel, memberName, onHome, onNavigate
           : route === "trends"
             ? "출석 추이"
             : route === "explore"
-              ? "3D 탐색"
+              ? "본회의장"
               : null;
 
   return (
@@ -76,7 +76,7 @@ export function GlobalNav({ route, assemblyLabel, memberName, onHome, onNavigate
               className="global-nav__link"
               onClick={(e) => handleNavClick(e, "explore")}
             >
-              3D 탐색
+              본회의장
             </a>
           </div>
         ) : null}
