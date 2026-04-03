@@ -630,14 +630,6 @@ export function DistributionPage({
 
       <div className="distribution-page__layout">
         <div className="distribution-page__main-column">
-          <DistributionConstituencyMap
-            manifest={manifest}
-            members={members}
-            highlightedMemberIds={highlightedMemberIds}
-            selectedMemberId={selectedMemberId}
-            onSelectMember={handleSelectMember}
-          />
-
           <section className="distribution-chart" aria-label="의원 분포 차트">
             <div className="distribution-chart__header">
               <div>
@@ -927,6 +919,14 @@ export function DistributionPage({
           </aside>
         ) : null}
       </div>
+
+      <DistributionConstituencyMap
+        manifest={manifest}
+        members={members}
+        highlightedMemberIds={highlightedMemberIds}
+        selectedMemberId={selectedMemberId}
+        onSelectMember={handleSelectMember}
+      />
 
       <div className="distribution-signal-grid">
         <DistributionSignalList
