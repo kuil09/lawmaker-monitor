@@ -271,21 +271,13 @@ describe("web app", () => {
         name: "위로 갈수록 반대·기권 비중이 낮고, 오른쪽으로 갈수록 출석률이 높습니다."
       })
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("heading", { name: "부산 남구" }).length).toBeGreaterThan(0);
     expect(screen.getByRole("combobox", { name: "분포에서 의원 찾기" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "지역 선택" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "불참 비중" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "반대·기권 비중" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "활동 캘린더 열기" })).toHaveAttribute(
       "href",
       "#calendar?member=M002"
     );
-    const compactMapDetail = document.querySelector(".distribution-map__detail--compact");
-    expect(compactMapDetail).not.toBeNull();
-    expect(within(compactMapDetail as HTMLElement).getByText("박민")).toBeInTheDocument();
-    expect(
-      within(compactMapDetail as HTMLElement).getByRole("button", { name: "현재 상세와 연결됨" })
-    ).toBeDisabled();
+    expect(screen.getByText(/부산 남구 · 박민/)).toBeInTheDocument();
     expect(screen.getByText("반대·기권 비중이 높은 의원")).toBeInTheDocument();
     expect(
       screen.getByText("정당 평균을 눌러 차트를 해당 정당만 남기는 강조 모드로 전환합니다.")
@@ -307,12 +299,8 @@ describe("web app", () => {
     await waitFor(() => {
       expect(window.location.hash).toBe("#distribution?member=M001");
     });
-    const compactMapDetail = document.querySelector(".distribution-map__detail--compact");
-    expect(compactMapDetail).not.toBeNull();
-    expect(within(compactMapDetail as HTMLElement).getByText("김아라")).toBeInTheDocument();
-    expect(within(compactMapDetail as HTMLElement).getByText("명동, 회현동")).toBeInTheDocument();
     expect(screen.getAllByText("김아라").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("명동, 회현동").length).toBeGreaterThan(0);
+    expect(screen.getByText(/서울 중구 · 김아라/)).toBeInTheDocument();
   });
 
   it("reveals the constituency map help only when requested", async () => {

@@ -20,7 +20,6 @@ import {
 } from "../lib/data.js";
 import type { DistributionMemberPoint } from "../lib/distribution.js";
 import { formatNumber, formatPercent } from "../lib/format.js";
-import { MemberIdentity } from "./MemberIdentity.js";
 
 type DistributionConstituencyMapProps = {
   manifest: Manifest | null;
@@ -91,130 +90,6 @@ function buildRegionScopeText(args: {
   return `필터 조건 안에서 ${formatNumber(args.highlightedRegions.length)}개 지역구를 강조하고, 나머지 ${formatNumber(args.matchedRegions.length - args.highlightedRegions.length)}개는 옅게 유지합니다.`;
 }
 
-function DistributionConstituencyMapDetail({
-  region,
-  selectedMemberId,
-  onSelectMember,
-  variant = "full"
-}: {
-  region: ConstituencyMapRegion | null;
-  selectedMemberId: string | null;
-  onSelectMember: (memberId: string) => void;
-  variant?: "compact" | "full";
-}) {
-  const detailClassName =
-    variant === "compact"
-      ? "distribution-map__detail distribution-map__detail--compact"
-      : "distribution-map__detail";
-
-  if (!region) {
-    return (
-      <aside className={detailClassName} aria-live="polite">
-        <p className="section-label">{variant === "compact" ? "현재 선택" : "선택 지역구"}</p>
-        <h3>지도에서 지역구를 선택해 주세요.</h3>
-        <p className="distribution-page__search-note">
-          지도 클릭 또는 지역 전환으로 지역구별 통계를 살펴볼 수 있습니다.
-        </p>
-      </aside>
-    );
-  }
-
-  return (
-    <aside className={detailClassName} aria-live="polite">
-      <p className="section-label">{variant === "compact" ? "현재 선택" : "선택 지역구"}</p>
-      <h3>{region.properties.memberDistrictLabel}</h3>
-      <p className="distribution-map__detail-area">{region.properties.areaText}</p>
-      {region.member ? (
-        <>
-          <MemberIdentity
-            name={region.member.name}
-            party={region.member.party}
-            photoUrl={region.member.photoUrl}
-            size={variant === "compact" ? "medium" : "large"}
-          />
-          <div className="distribution-map__detail-actions">
-            <button
-              type="button"
-              className="distribution-map__detail-action"
-              onClick={() => onSelectMember(region.member!.memberId)}
-              disabled={selectedMemberId === region.member.memberId}
-            >
-              {selectedMemberId === region.member.memberId
-                ? variant === "compact"
-                  ? "현재 상세와 연결됨"
-                  : "현재 분포 상세와 연결됨"
-                : variant === "compact"
-                  ? "이 의원 상세 보기"
-                  : "이 의원 상세와 연결"}
-            </button>
-          </div>
-          <div className="distribution-map__detail-metrics">
-            <article>
-              <span>출석률</span>
-              <strong>{formatPercent(region.member.attendanceRate)}</strong>
-            </article>
-            <article>
-              <span>불참 비중</span>
-              <strong>{formatPercent(region.member.absentRate)}</strong>
-            </article>
-            <article>
-              <span>반대·기권 비중</span>
-              <strong>{formatPercent(region.member.negativeRate)}</strong>
-            </article>
-            {variant === "compact" ? null : (
-              <article>
-                <span>현재 연속 패턴</span>
-                <strong>{`${formatNumber(region.member.currentNegativeOrAbsentStreak)}일`}</strong>
-              </article>
-            )}
-          </div>
-          {variant === "compact" ? (
-            <p className="distribution-page__search-note">
-              {`${region.member.party} · 기록표결 ${formatNumber(region.member.totalRecordedVotes)}건 · 현재 연속 패턴 ${formatNumber(region.member.currentNegativeOrAbsentStreak)}일`}
-            </p>
-          ) : (
-            <dl className="distribution-map__detail-facts">
-              <div>
-                <dt>대표 의원</dt>
-                <dd>{`${region.member.name} · ${region.member.party}`}</dd>
-              </div>
-              <div>
-                <dt>기록표결</dt>
-                <dd>{`${formatNumber(region.member.totalRecordedVotes)}건`}</dd>
-              </div>
-              <div>
-                <dt>시군구</dt>
-                <dd>{region.properties.sigunguNames.join(", ")}</dd>
-              </div>
-              <div>
-                <dt>읍면동 수</dt>
-                <dd>{`${formatNumber(region.properties.emdNames.length)}개`}</dd>
-              </div>
-            </dl>
-          )}
-        </>
-      ) : (
-        <>
-          <p className="distribution-page__search-note">
-            이 지역구는 boundary는 준비됐지만 현재 의원 통계 export와의 연결이 아직 없습니다.
-          </p>
-          {variant === "compact" ? null : (
-            <dl className="distribution-map__detail-facts">
-              <div>
-                <dt>시군구</dt>
-                <dd>{region.properties.sigunguNames.join(", ")}</dd>
-              </div>
-              <div>
-                <dt>읍면동 수</dt>
-                <dd>{`${formatNumber(region.properties.emdNames.length)}개`}</dd>
-              </div>
-            </dl>
-          )}
-        </>
-      )}
-    </aside>
-  );
-}
 
 export function DistributionConstituencyMap({
   manifest,
@@ -399,21 +274,6 @@ export function DistributionConstituencyMap({
     regions[0] ??
     null;
 
-  // Sync: when the map auto-selects a region whose member differs from
-  // the global selectedMemberId (e.g. proportional-rep member with no
-  // district), push the region's member up so the focus panel matches.
-  useEffect(() => {
-    if (
-      selectedRegion?.member &&
-      selectedMemberId &&
-      selectedRegion.member.memberId !== selectedMemberId &&
-      !selectedDistrictKey &&
-      !selectedMemberRegion
-    ) {
-      onSelectMember(selectedRegion.member.memberId);
-    }
-  }, [selectedRegion, selectedMemberId, selectedDistrictKey, selectedMemberRegion, onSelectMember]);
-
   const visibleRegions = highlightedRegions.length > 0 ? highlightedRegions : matchedRegions;
   const provinceAttendanceAverage =
     visibleRegions.length > 0
@@ -573,86 +433,71 @@ export function DistributionConstituencyMap({
         </div>
       ) : null}
 
-      <div className="distribution-map__layout">
-        <div className="distribution-map__surface-frame">
-          <div className="distribution-map__surface">
-            {isProvinceLoading && activeTopology === undefined ? (
-              <div className="distribution-map__state">
-                <h3>{`${activeProvince?.provinceShortName ?? "선택한 지역"} 지도를 불러오는 중입니다.`}</h3>
-                <p className="distribution-page__search-note">
-                  지역 shard를 받은 뒤 지역구별 SVG 경계를 그립니다.
-                </p>
-              </div>
-            ) : provinceError ? (
-              <div className="distribution-map__state">
-                <h3>지역 shard를 열 수 없습니다.</h3>
-                <p className="distribution-page__search-note">{provinceError}</p>
-              </div>
-            ) : activeTopology === null ? (
-              <div className="distribution-map__state">
-                <h3>선택한 지역 shard가 아직 발행되지 않았습니다.</h3>
-                <p className="distribution-page__search-note">
-                  boundary index는 보이지만 실제 지도 파일이 없어 로컬 기준으로만 준비된 상태입니다.
-                </p>
-              </div>
-            ) : (
-              <svg
-                className="distribution-map__svg"
-                viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
-                role="img"
-                aria-label={`${activeProvince?.provinceShortName ?? "선택한 지역"} 지역구 지도`}
-              >
-                {regions.map((region) => {
-                  const isSelected = selectedRegion?.districtKey === region.districtKey;
-                  return (
-                    <g
-                      key={region.districtKey}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={region.properties.memberDistrictLabel}
-                      onClick={() => handleSelectRegion(region)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          handleSelectRegion(region);
-                        }
-                      }}
-                    >
-                      <title>{region.properties.memberDistrictLabel}</title>
-                      <path
-                        d={region.path}
-                        className={
-                          isSelected
-                            ? "distribution-map__region is-selected"
-                            : "distribution-map__region"
-                        }
-                        fill={getRegionFill(region, metricDomain)}
-                      />
-                    </g>
-                  );
-                })}
-              </svg>
-            )}
+      <div className="distribution-map__surface">
+        {isProvinceLoading && activeTopology === undefined ? (
+          <div className="distribution-map__state">
+            <h3>{`${activeProvince?.provinceShortName ?? "선택한 지역"} 지도를 불러오는 중입니다.`}</h3>
+            <p className="distribution-page__search-note">
+              지역 shard를 받은 뒤 지역구별 SVG 경계를 그립니다.
+            </p>
           </div>
-
-          {activeTopology ? (
-            <div className="distribution-map__mobile-detail-shell">
-              <DistributionConstituencyMapDetail
-                region={selectedRegion}
-                selectedMemberId={selectedMemberId}
-                onSelectMember={onSelectMember}
-                variant="compact"
-              />
-            </div>
-          ) : null}
-        </div>
-
-        <DistributionConstituencyMapDetail
-          region={selectedRegion}
-          selectedMemberId={selectedMemberId}
-          onSelectMember={onSelectMember}
-        />
+        ) : provinceError ? (
+          <div className="distribution-map__state">
+            <h3>지역 shard를 열 수 없습니다.</h3>
+            <p className="distribution-page__search-note">{provinceError}</p>
+          </div>
+        ) : activeTopology === null ? (
+          <div className="distribution-map__state">
+            <h3>선택한 지역 shard가 아직 발행되지 않았습니다.</h3>
+            <p className="distribution-page__search-note">
+              boundary index는 보이지만 실제 지도 파일이 없어 로컬 기준으로만 준비된 상태입니다.
+            </p>
+          </div>
+        ) : (
+          <svg
+            className="distribution-map__svg"
+            viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
+            role="img"
+            aria-label={`${activeProvince?.provinceShortName ?? "선택한 지역"} 지역구 지도`}
+          >
+            {regions.map((region) => {
+              const isSelected = selectedRegion?.districtKey === region.districtKey;
+              return (
+                <g
+                  key={region.districtKey}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={region.properties.memberDistrictLabel}
+                  onClick={() => handleSelectRegion(region)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleSelectRegion(region);
+                    }
+                  }}
+                >
+                  <title>{region.properties.memberDistrictLabel}</title>
+                  <path
+                    d={region.path}
+                    className={
+                      isSelected
+                        ? "distribution-map__region is-selected"
+                        : "distribution-map__region"
+                    }
+                    fill={getRegionFill(region, metricDomain)}
+                  />
+                </g>
+              );
+            })}
+          </svg>
+        )}
       </div>
+
+      {selectedRegion?.member ? (
+        <p className="distribution-map__selected-label">
+          {`${selectedRegion.properties.memberDistrictLabel} · ${selectedRegion.member.name} · 출석률 ${formatPercent(selectedRegion.member.attendanceRate)}`}
+        </p>
+      ) : null}
     </section>
   );
 }

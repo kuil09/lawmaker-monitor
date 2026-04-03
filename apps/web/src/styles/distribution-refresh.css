@@ -255,6 +255,18 @@
   display: none;
 }
 
+.distribution-map__selected-label {
+  margin: 0.55rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+}
+
 .distribution-map__legend-label {
   flex: none;
   color: var(--text-muted);
