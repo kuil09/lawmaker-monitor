@@ -13,14 +13,14 @@ import { extractCentroids } from "../lib/geo-utils.js";
 const MAP_STYLE = {
   version: 8 as const,
   sources: {
-    osm: {
+    carto: {
       type: "raster" as const,
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tiles: ["https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"],
       tileSize: 256,
-      attribution: "© OpenStreetMap contributors"
+      attribution: "© OpenStreetMap contributors © CARTO"
     }
   },
-  layers: [{ id: "osm", type: "raster" as const, source: "osm" }]
+  layers: [{ id: "carto", type: "raster" as const, source: "carto" }]
 };
 
 const INITIAL_VIEW_STATE = {
@@ -92,7 +92,7 @@ const VIZ_CONFIGS: VizConfig[] = [
       [0, 109, 44],
       [0, 68, 27]
     ],
-    elevationScale: 400000,
+    elevationScale: 60000,
     getMetric: (d) => d.absentRate,
     tooltipLabel: (d) => `결석률 ${(d.absentRate * 100).toFixed(1)}%`
   },
@@ -108,7 +108,7 @@ const VIZ_CONFIGS: VizConfig[] = [
       [227, 26, 28],
       [177, 0, 38]
     ],
-    elevationScale: 300000,
+    elevationScale: 40000,
     getMetric: (d) => d.negativeRate,
     tooltipLabel: (d) => `반대·기권율 ${(d.negativeRate * 100).toFixed(1)}%`
   },
