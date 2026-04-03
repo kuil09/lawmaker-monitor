@@ -1,5 +1,6 @@
-import { ColumnLayer } from "@deck.gl/layers";
+import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import DeckGL from "@deck.gl/react";
+import { cellToParent, latLngToCell } from "h3-js";
 import { useEffect, useMemo, useState } from "react";
 import { Map as MapGL } from "react-map-gl/maplibre";
 
@@ -34,15 +35,19 @@ const INITIAL_VIEW_STATE = {
   bearing: 0
 };
 
+// H3 해상도 설정
+const BG_RES = 4;   // 배경 타일 (~42km 셀)
+const DATA_RES = 6; // 데이터 셀 (~6km 셀, BG_RES 셀 안에 ~49개 내접)
+
 // 정당별 고유색 (RGBA)
 const PARTY_COLORS: Record<string, [number, number, number, number]> = {
-  "더불어민주당":  [30,  100, 210, 230],
-  "국민의힘":      [220,  50,  32, 230],
-  "조국혁신당":    [0,   170, 120, 230],
-  "개혁신당":      [230, 120,   0, 230],
-  "진보당":        [170,   0,  50, 230],
-  "기본소득당":    [100,  60, 180, 230],
-  "사회민주당":    [80,  160,  80, 230],
+  "더불어민주당": [30,  100, 210, 230],
+  "국민의힘":     [220,  50,  32, 230],
+  "조국혁신당":   [0,   170, 120, 230],
+  "개혁신당":     [230, 120,   0, 230],
+  "진보당":       [170,   0,  50, 230],
+  "기본소득당":   [100,  60, 180, 230],
+  "사회민주당":   [80,  160,  80, 230],
 };
 
 function getPartyColor(party: string): [number, number, number, number] {
@@ -59,10 +64,24 @@ type AnnotatedPoint = MemberGeoPoint & {
   totalRecordedVotes: number;
 };
 
+// H3 셀 단위로 집계된 데이터
+type H3DataCell = {
+  h3Index: string;
+  party: string;           // 다수당
+  metric: number;          // 평균값
+  memberCount: number;
+  memberNames: string[];
+  memberParties: string[];
+};
+
+type H3BgCell = {
+  h3Index: string;
+};
+
 type TooltipInfo = {
   x: number;
   y: number;
-  object: AnnotatedPoint;
+  cell: H3DataCell;
 };
 
 type VizConfig = {
@@ -71,33 +90,33 @@ type VizConfig = {
   description: string;
   elevationScale: number;
   getMetric: (p: AnnotatedPoint) => number;
-  tooltipLabel: (p: AnnotatedPoint) => string;
+  tooltipLabel: (cell: H3DataCell) => string;
 };
 
 const VIZ_CONFIGS: VizConfig[] = [
   {
     key: "absence",
     label: "결석 핫스팟",
-    description: "선거구 중심에 육각형 기둥으로 결석률을 표현합니다. 기둥이 높을수록 결석률이 높습니다. 색상은 소속 정당을 나타냅니다.",
+    description: "셀 높이 = 결석률 평균. 색상은 셀 내 다수당.",
     elevationScale: 60000,
     getMetric: (p) => p.absentRate,
-    tooltipLabel: (p) => `결석률 ${(p.absentRate * 100).toFixed(1)}%`
+    tooltipLabel: (c) => `결석률 ${(c.metric * 100).toFixed(1)}%`
   },
   {
     key: "negative",
     label: "반대·기권 인덱스",
-    description: "반대 + 기권율을 육각형 기둥으로 표현합니다. 기둥이 높을수록 반대·기권 성향이 강합니다. 색상은 소속 정당을 나타냅니다.",
+    description: "셀 높이 = 반대·기권율 평균. 색상은 셀 내 다수당.",
     elevationScale: 40000,
     getMetric: (p) => p.negativeRate,
-    tooltipLabel: (p) => `반대·기권율 ${(p.negativeRate * 100).toFixed(1)}%`
+    tooltipLabel: (c) => `반대·기권율 ${(c.metric * 100).toFixed(1)}%`
   },
   {
     key: "activity",
     label: "참여량 밀도",
-    description: "총 기록표결 참여 수를 육각형 기둥으로 표현합니다. 기둥이 높을수록 표결 참여량이 많습니다. 색상은 소속 정당을 나타냅니다.",
+    description: "셀 높이 = 총 표결 참여 수 평균. 색상은 셀 내 다수당.",
     elevationScale: 10,
     getMetric: (p) => p.totalRecordedVotes,
-    tooltipLabel: (p) => `총 표결 ${p.totalRecordedVotes.toLocaleString()}건`
+    tooltipLabel: (c) => `표결 ${c.metric.toLocaleString(undefined, { maximumFractionDigits: 0 })}건`
   }
 ];
 
@@ -131,7 +150,6 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
 
         const total = index.provinces.length;
         setLoadProgress({ done: 0, total });
-
         let done = 0;
 
         const topologies = await Promise.all(
@@ -190,58 +208,114 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
     });
   }, [allPoints, accountabilitySummary]);
 
-  // 실제 데이터에 등장하는 정당 목록 (범례용)
-  const partiesPresent = useMemo<Array<{ party: string; color: [number, number, number, number] }>>(() => {
-    const seen = new Map<string, [number, number, number, number]>();
+  const vizConfig = VIZ_CONFIGS.find((v) => v.key === activeViz) ?? VIZ_CONFIGS[0];
+
+  // H3 셀 집계: 데이터 셀(res 6) + 배경 셀(res 4)
+  const { dataCells, bgCells } = useMemo<{ dataCells: H3DataCell[]; bgCells: H3BgCell[] }>(() => {
+    if (annotatedPoints.length === 0) return { dataCells: [], bgCells: [] };
+
+    const cellMap = new Map<string, AnnotatedPoint[]>();
     for (const p of annotatedPoints) {
-      if (!seen.has(p.party)) seen.set(p.party, getPartyColor(p.party));
+      const h3Index = latLngToCell(p.latitude, p.longitude, DATA_RES);
+      const existing = cellMap.get(h3Index);
+      if (existing) existing.push(p);
+      else cellMap.set(h3Index, [p]);
+    }
+
+    const data: H3DataCell[] = [];
+    const bgSet = new Set<string>();
+
+    for (const [h3Index, points] of cellMap) {
+      // 다수당 결정
+      const partyCounts = new Map<string, number>();
+      for (const p of points) {
+        partyCounts.set(p.party, (partyCounts.get(p.party) ?? 0) + 1);
+      }
+      const dominantParty = [...partyCounts.entries()].reduce(
+        (a, b) => (b[1] > a[1] ? b : a)
+      )[0];
+
+      const avgMetric =
+        points.reduce((sum, p) => sum + vizConfig.getMetric(p), 0) / points.length;
+
+      data.push({
+        h3Index,
+        party: dominantParty,
+        metric: avgMetric,
+        memberCount: points.length,
+        memberNames: points.map((p) => p.name),
+        memberParties: points.map((p) => p.party)
+      });
+
+      bgSet.add(cellToParent(h3Index, BG_RES));
+    }
+
+    return {
+      dataCells: data,
+      bgCells: [...bgSet].map((h3Index) => ({ h3Index }))
+    };
+  }, [annotatedPoints, vizConfig]);
+
+  // 범례: 실제 등장 정당
+  const partiesPresent = useMemo(() => {
+    const seen = new Map<string, [number, number, number, number]>();
+    for (const c of dataCells) {
+      if (!seen.has(c.party)) seen.set(c.party, getPartyColor(c.party));
     }
     return [...seen.entries()]
       .sort((a, b) => a[0].localeCompare(b[0], "ko"))
       .map(([party, color]) => ({ party, color }));
-  }, [annotatedPoints]);
+  }, [dataCells]);
 
-  const vizConfig = VIZ_CONFIGS.find((v) => v.key === activeViz) ?? VIZ_CONFIGS[0];
+  const layers = useMemo(() => {
+    if (bgCells.length === 0) return [];
 
-  const layer = useMemo(() => {
-    if (annotatedPoints.length === 0) return null;
+    const bgLayer = new H3HexagonLayer<H3BgCell>({
+      id: "h3-bg",
+      data: bgCells,
+      getHexagon: (d) => d.h3Index,
+      getFillColor: [220, 225, 232, 60],
+      getLineColor: [180, 190, 200, 100],
+      lineWidthMinPixels: 1,
+      extruded: false,
+      pickable: false
+    });
 
-    return new ColumnLayer<AnnotatedPoint>({
-      id: `column-${activeViz}`,
-      data: annotatedPoints,
-      diskResolution: 6,
-      radius: 12000,
-      radiusUnits: "meters",
-      extruded: true,
-      getPosition: (p) => [p.longitude, p.latitude],
-      getElevation: (p) => vizConfig.getMetric(p) * vizConfig.elevationScale,
-      getFillColor: (p) => getPartyColor(p.party),
+    const dataLayer = new H3HexagonLayer<H3DataCell>({
+      id: `h3-data-${activeViz}`,
+      data: dataCells,
+      getHexagon: (d) => d.h3Index,
+      getFillColor: (d) => getPartyColor(d.party),
+      getElevation: (d) => d.metric * vizConfig.elevationScale,
       getLineColor: [255, 255, 255, 40],
       lineWidthMinPixels: 1,
+      extruded: true,
       pickable: true,
       onHover: (info) => {
         if (info.object && info.x !== undefined && info.y !== undefined) {
-          setTooltip({ x: info.x, y: info.y, object: info.object });
+          setTooltip({ x: info.x, y: info.y, cell: info.object });
         } else {
           setTooltip(null);
         }
       }
     });
-  }, [annotatedPoints, activeViz, vizConfig]);
 
-  const matchedCount = annotatedPoints.length;
-  const totalPoints = allPoints.length;
+    return [bgLayer, dataLayer];
+  }, [bgCells, dataCells, activeViz, vizConfig]);
 
   return (
     <div className="lab-page">
       <div className="lab-page__header">
         <h1 className="lab-page__title">실험실 · deck.gl 시각화</h1>
-        <p className="lab-page__subtitle">{assemblyLabel} 의원 활동 데이터를 선거구별 3D 육각 기둥으로 탐색합니다.</p>
+        <p className="lab-page__subtitle">
+          {assemblyLabel} 의원 활동 데이터를 H3 헥사곤 격자로 탐색합니다.
+        </p>
       </div>
 
       <div className="lab-disclaimer">
         실험적 기능입니다. 비례대표 의원은 지역구가 없어 표시되지 않습니다.
-        {matchedCount > 0 && ` · ${totalPoints}개 선거구 중 ${matchedCount}개 매칭됨`}
+        {dataCells.length > 0 &&
+          ` · ${annotatedPoints.length}명, ${dataCells.length}개 셀 (res ${DATA_RES}) / ${bgCells.length}개 구역 (res ${BG_RES})`}
       </div>
 
       <div className="lab-viz-selector" role="tablist" aria-label="시각화 선택">
@@ -300,7 +374,7 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
           <DeckGL
             initialViewState={INITIAL_VIEW_STATE}
             controller={{ minZoom: 5, maxZoom: 10 }}
-            layers={layer ? [layer] : []}
+            layers={layers}
           >
             <MapGL mapStyle={MAP_STYLE} />
           </DeckGL>
@@ -311,27 +385,48 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
             className="lab-tooltip"
             style={{ left: tooltip.x + 12, top: tooltip.y - 56 }}
           >
-            <div className="lab-tooltip__member">
-              <span
-                className="lab-tooltip__party-dot"
-                style={{
-                  background: (() => {
-                    const [r, g, b] = getPartyColor(tooltip.object.party);
-                    return `rgb(${r},${g},${b})`;
-                  })()
-                }}
-              />
-              <span className="lab-tooltip__name">{tooltip.object.name}</span>
-            </div>
-            <div className="lab-tooltip__party">{tooltip.object.party}</div>
-            <div className="lab-tooltip__district">{tooltip.object.label}</div>
-            <div className="lab-tooltip__value">{vizConfig.tooltipLabel(tooltip.object)}</div>
+            {tooltip.cell.memberCount === 1 ? (
+              <>
+                <div className="lab-tooltip__member">
+                  <span
+                    className="lab-tooltip__party-dot"
+                    style={{
+                      background: (() => {
+                        const [r, g, b] = getPartyColor(tooltip.cell.party);
+                        return `rgb(${r},${g},${b})`;
+                      })()
+                    }}
+                  />
+                  <span className="lab-tooltip__name">{tooltip.cell.memberNames[0]}</span>
+                </div>
+                <div className="lab-tooltip__party">{tooltip.cell.party}</div>
+              </>
+            ) : (
+              <>
+                <div className="lab-tooltip__member">
+                  <span
+                    className="lab-tooltip__party-dot"
+                    style={{
+                      background: (() => {
+                        const [r, g, b] = getPartyColor(tooltip.cell.party);
+                        return `rgb(${r},${g},${b})`;
+                      })()
+                    }}
+                  />
+                  <span className="lab-tooltip__name">
+                    {tooltip.cell.memberNames[0]} 외 {tooltip.cell.memberCount - 1}명
+                  </span>
+                </div>
+                <div className="lab-tooltip__party">다수당: {tooltip.cell.party}</div>
+              </>
+            )}
+            <div className="lab-tooltip__value">{vizConfig.tooltipLabel(tooltip.cell)}</div>
           </div>
         )}
       </div>
 
       <p className="lab-footer-note">
-        데이터: 공개 기록표결 기준 · 지도: © OpenStreetMap contributors © CARTO · 시각화: deck.gl
+        데이터: 공개 기록표결 기준 · 지도: © OpenStreetMap contributors © CARTO · 시각화: deck.gl · 격자: Uber H3
       </p>
     </div>
   );
