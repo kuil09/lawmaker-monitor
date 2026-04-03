@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
 import type { DistributionMemberPoint } from "../lib/distribution.js";
 import { formatPercent } from "../lib/format.js";
@@ -10,25 +13,55 @@ type ExplorePageProps = {
   onSelectMember: (memberId: string) => void;
 };
 
-const PARTY_COLORS: Record<string, string> = {
-  "더불어민주당": "#1a56db",
-  "국민의힘": "#dc2626",
-  "조국혁신당": "#2563eb",
-  "개혁신당": "#f97316",
-  "진보당": "#e11d48",
-  "사회민주당": "#7c3aed",
-  "기본소득당": "#059669",
-  "무소속": "#71717a"
+const PARTY_COLORS: Record<string, number> = {
+  "더불어민주당": 0x3b82f6,
+  "국민의힘": 0xef4444,
+  "조국혁신당": 0x60a5fa,
+  "개혁신당": 0xfb923c,
+  "진보당": 0xf43f5e,
+  "사회민주당": 0xa78bfa,
+  "기본소득당": 0x34d399,
+  "무소속": 0x94a3b8
+};
+const PARTY_COLORS_HEX: Record<string, string> = {
+  "더불어민주당": "#3b82f6",
+  "국민의힘": "#ef4444",
+  "조국혁신당": "#60a5fa",
+  "개혁신당": "#fb923c",
+  "진보당": "#f43f5e",
+  "사회민주당": "#a78bfa",
+  "기본소득당": "#34d399",
+  "무소속": "#94a3b8"
+};
+const FALLBACK_COLOR = 0x94a3b8;
+
+type Particle = {
+  member: DistributionMemberPoint;
+  position: THREE.Vector3;
+  velocity: THREE.Vector3;
+  targetPosition: THREE.Vector3;
+  baseSize: number;
+  phase: number;
+  risk: number;
 };
 
-const FALLBACK_COLOR = "#71717a";
-
-function getPartyColor(party: string): string {
-  return PARTY_COLORS[party] ?? FALLBACK_COLOR;
+function computeRisk(m: DistributionMemberPoint): number {
+  return Math.min(1, m.absentRate * 1.5 + m.negativeRate * 0.5 + (m.currentNegativeOrAbsentStreak / 30) * 0.8);
 }
 
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
+function buildPartyClusterCenters(members: DistributionMemberPoint[]): Map<string, THREE.Vector3> {
+  const parties = [...new Set(members.map((m) => m.party))];
+  const centers = new Map<string, THREE.Vector3>();
+  const radius = 6;
+  parties.forEach((party, i) => {
+    const angle = (i / parties.length) * Math.PI * 2;
+    centers.set(party, new THREE.Vector3(
+      Math.cos(angle) * radius,
+      (Math.random() - 0.5) * 2,
+      Math.sin(angle) * radius
+    ));
+  });
+  return centers;
 }
 
 type HoveredMember = {
@@ -39,313 +72,420 @@ type HoveredMember = {
 
 export function ExplorePage({ members, assemblyLabel, onSelectMember }: ExplorePageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const sceneRef = useRef<THREE.Scene | null>(null);
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const particlesRef = useRef<THREE.Points | null>(null);
-  const raycasterRef = useRef(new THREE.Raycaster());
-  const mouseRef = useRef(new THREE.Vector2(-999, -999));
-  const frameRef = useRef(0);
-  const memberIndexMapRef = useRef<DistributionMemberPoint[]>([]);
-  const isDraggingRef = useRef(false);
-  const prevMouseRef = useRef({ x: 0, y: 0 });
-  const cameraAngleRef = useRef({ theta: Math.PI * 0.25, phi: Math.PI * 0.35, radius: 14 });
-  const targetAngleRef = useRef({ theta: Math.PI * 0.25, phi: Math.PI * 0.35, radius: 14 });
+  const stateRef = useRef<{
+    renderer: THREE.WebGLRenderer;
+    scene: THREE.Scene;
+    camera: THREE.PerspectiveCamera;
+    composer: EffectComposer;
+    particles: Particle[];
+    points: THREE.Points;
+    linesMesh: THREE.LineSegments;
+    ringMeshes: THREE.Mesh[];
+    clock: THREE.Clock;
+    frame: number;
+    isDragging: boolean;
+    prevMouse: { x: number; y: number };
+    cameraAngle: { theta: number; phi: number; radius: number };
+    targetAngle: { theta: number; phi: number; radius: number };
+    raycaster: THREE.Raycaster;
+    mouse: THREE.Vector2;
+    selectedIndex: number | null;
+  } | null>(null);
 
   const [hovered, setHovered] = useState<HoveredMember | null>(null);
   const [selected, setSelected] = useState<DistributionMemberPoint | null>(null);
-  const [metric, setMetric] = useState<"attendance" | "disruption" | "streak">("attendance");
 
-  const buildParticles = useCallback(
-    (scene: THREE.Scene) => {
-      if (particlesRef.current) {
-        scene.remove(particlesRef.current);
-        particlesRef.current.geometry.dispose();
-        (particlesRef.current.material as THREE.PointsMaterial).dispose();
-      }
+  const initScene = useCallback(() => {
+    const container = containerRef.current;
+    if (!container || members.length === 0) return;
 
-      const count = members.length;
-      if (count === 0) return;
+    // Clean up previous
+    if (stateRef.current) {
+      cancelAnimationFrame(stateRef.current.frame);
+      stateRef.current.renderer.dispose();
+      stateRef.current.composer.dispose();
+      const oldCanvas = stateRef.current.renderer.domElement;
+      if (container.contains(oldCanvas)) container.removeChild(oldCanvas);
+      stateRef.current = null;
+    }
 
-      const positions = new Float32Array(count * 3);
-      const colors = new Float32Array(count * 3);
-      const sizes = new Float32Array(count);
-      const color = new THREE.Color();
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    const dpr = Math.min(window.devicePixelRatio, 2);
 
-      memberIndexMapRef.current = [];
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setSize(w, h);
+    renderer.setPixelRatio(dpr);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    container.appendChild(renderer.domElement);
 
-      for (let i = 0; i < count; i++) {
-        const m = members[i]!;
-        memberIndexMapRef.current.push(m);
+    // Scene
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color("#06060c");
 
-        let x: number, y: number, z: number;
-        if (metric === "attendance") {
-          x = (m.attendanceRate - 0.5) * 10;
-          y = (m.negativeRate) * 10 - 2;
-          z = (m.absentRate) * 10 - 2;
-        } else if (metric === "disruption") {
-          x = (m.disruptionRate) * 10 - 3;
-          y = (m.currentNegativeOrAbsentStreak / 40) * 10 - 2;
-          z = (m.absentRate) * 10 - 2;
-        } else {
-          x = (m.currentNegativeOrAbsentStreak / 40) * 10 - 3;
-          y = (m.longestNegativeOrAbsentStreak / 40) * 10 - 2;
-          z = (m.negativeRate) * 10 - 2;
+    // Camera
+    const camera = new THREE.PerspectiveCamera(55, w / h, 0.1, 200);
+    const initAngle = { theta: 0.4, phi: 1.2, radius: 18 };
+
+    // Post-processing
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 1.8, 0.6, 0.15);
+    composer.addPass(bloom);
+
+    // Background stars
+    const starCount = 2000;
+    const starGeo = new THREE.BufferGeometry();
+    const starPos = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      starPos[i * 3] = (Math.random() - 0.5) * 120;
+      starPos[i * 3 + 1] = (Math.random() - 0.5) * 120;
+      starPos[i * 3 + 2] = (Math.random() - 0.5) * 120;
+    }
+    starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
+    const starMat = new THREE.PointsMaterial({ color: 0x334155, size: 0.08, sizeAttenuation: true });
+    scene.add(new THREE.Points(starGeo, starMat));
+
+    // Party cluster centers
+    const clusterCenters = buildPartyClusterCenters(members);
+
+    // Build particles
+    const particles: Particle[] = members.map((m) => {
+      const center = clusterCenters.get(m.party) ?? new THREE.Vector3();
+      const risk = computeRisk(m);
+      const spread = 2.5 + risk * 1.5;
+      const target = new THREE.Vector3(
+        center.x + (Math.random() - 0.5) * spread,
+        center.y + (Math.random() - 0.5) * spread + risk * 2,
+        center.z + (Math.random() - 0.5) * spread
+      );
+      return {
+        member: m,
+        position: new THREE.Vector3(
+          (Math.random() - 0.5) * 30,
+          (Math.random() - 0.5) * 30,
+          (Math.random() - 0.5) * 30
+        ),
+        velocity: new THREE.Vector3(),
+        targetPosition: target,
+        baseSize: 0.12 + risk * 0.35,
+        phase: Math.random() * Math.PI * 2,
+        risk
+      };
+    });
+
+    // Points geometry
+    const count = particles.length;
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+    const sizes = new Float32Array(count);
+    const color = new THREE.Color();
+
+    for (let i = 0; i < count; i++) {
+      const p = particles[i]!;
+      positions[i * 3] = p.position.x;
+      positions[i * 3 + 1] = p.position.y;
+      positions[i * 3 + 2] = p.position.z;
+      color.set(PARTY_COLORS[p.member.party] ?? FALLBACK_COLOR);
+      const brightness = 0.6 + p.risk * 0.4;
+      colors[i * 3] = color.r * brightness;
+      colors[i * 3 + 1] = color.g * brightness;
+      colors[i * 3 + 2] = color.b * brightness;
+      sizes[i] = p.baseSize;
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    geo.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
+
+    const pointsMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uPixelRatio: { value: dpr }
+      },
+      vertexShader: `
+        attribute float size;
+        varying vec3 vColor;
+        varying float vSize;
+        uniform float uTime;
+        uniform float uPixelRatio;
+        void main() {
+          vColor = color;
+          vSize = size;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = size * uPixelRatio * (280.0 / -mv.z);
+          gl_Position = projectionMatrix * mv;
         }
+      `,
+      fragmentShader: `
+        varying vec3 vColor;
+        varying float vSize;
+        void main() {
+          float d = length(gl_PointCoord - vec2(0.5));
+          if (d > 0.5) discard;
+          float core = smoothstep(0.5, 0.0, d);
+          float glow = exp(-d * 3.5) * 0.6;
+          float halo = exp(-d * 1.2) * 0.15;
+          vec3 c = vColor * (core * 1.8 + glow + halo);
+          float alpha = core * 0.95 + glow * 0.7 + halo * 0.3;
+          gl_FragColor = vec4(c, alpha);
+        }
+      `,
+      vertexColors: true,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
 
-        positions[i * 3] = x;
-        positions[i * 3 + 1] = y;
-        positions[i * 3 + 2] = z;
+    const points = new THREE.Points(geo, pointsMat);
+    scene.add(points);
 
-        color.set(getPartyColor(m.party));
-        colors[i * 3] = color.r;
-        colors[i * 3 + 1] = color.g;
-        colors[i * 3 + 2] = color.b;
-
-        const baseSize = 0.18;
-        const absentBonus = m.absentRate * 0.4;
-        const streakBonus = Math.min(m.currentNegativeOrAbsentStreak / 20, 0.3);
-        sizes[i] = baseSize + absentBonus + streakBonus;
+    // Connection lines (similar voting pattern)
+    const linePositions: number[] = [];
+    const lineColors: number[] = [];
+    for (let i = 0; i < count; i++) {
+      for (let j = i + 1; j < count; j++) {
+        const a = particles[i]!;
+        const b = particles[j]!;
+        const dist = Math.abs(a.member.attendanceRate - b.member.attendanceRate) +
+          Math.abs(a.member.negativeRate - b.member.negativeRate);
+        if (dist < 0.05 && a.member.party === b.member.party) {
+          linePositions.push(
+            a.targetPosition.x, a.targetPosition.y, a.targetPosition.z,
+            b.targetPosition.x, b.targetPosition.y, b.targetPosition.z
+          );
+          color.set(PARTY_COLORS[a.member.party] ?? FALLBACK_COLOR);
+          lineColors.push(color.r * 0.15, color.g * 0.15, color.b * 0.15);
+          lineColors.push(color.r * 0.15, color.g * 0.15, color.b * 0.15);
+        }
       }
+    }
+    const lineGeo = new THREE.BufferGeometry();
+    lineGeo.setAttribute("position", new THREE.Float32BufferAttribute(linePositions, 3));
+    lineGeo.setAttribute("color", new THREE.Float32BufferAttribute(lineColors, 3));
+    const lineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending });
+    const linesMesh = new THREE.LineSegments(lineGeo, lineMat);
+    scene.add(linesMesh);
 
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-      geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-      geometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
-
-      const material = new THREE.ShaderMaterial({
-        uniforms: {
-          uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) }
-        },
-        vertexShader: `
-          attribute float size;
-          varying vec3 vColor;
-          uniform float uPixelRatio;
-          void main() {
-            vColor = color;
-            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-            gl_PointSize = size * uPixelRatio * (180.0 / -mvPosition.z);
-            gl_Position = projectionMatrix * mvPosition;
-          }
-        `,
-        fragmentShader: `
-          varying vec3 vColor;
-          void main() {
-            float d = length(gl_PointCoord - vec2(0.5));
-            if (d > 0.5) discard;
-            float alpha = 1.0 - smoothstep(0.35, 0.5, d);
-            float glow = exp(-d * 4.0) * 0.3;
-            gl_FragColor = vec4(vColor + glow, alpha * 0.92);
-          }
-        `,
-        vertexColors: true,
+    // Party orbit rings
+    const ringMeshes: THREE.Mesh[] = [];
+    for (const [party, center] of clusterCenters) {
+      const ringGeo = new THREE.TorusGeometry(3.2, 0.008, 8, 96);
+      color.set(PARTY_COLORS[party] ?? FALLBACK_COLOR);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color,
         transparent: true,
-        depthWrite: false,
+        opacity: 0.08,
         blending: THREE.AdditiveBlending
       });
-
-      const points = new THREE.Points(geometry, material);
-      scene.add(points);
-      particlesRef.current = points;
-    },
-    [members, metric]
-  );
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#0a0a0f");
-    scene.fog = new THREE.FogExp2("#0a0a0f", 0.035);
-    sceneRef.current = scene;
-
-    const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 100);
-    cameraRef.current = camera;
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    container.appendChild(renderer.domElement);
-    rendererRef.current = renderer;
-
-    // Grid helper
-    const gridSize = 12;
-    const gridGeo = new THREE.BufferGeometry();
-    const gridPositions: number[] = [];
-    for (let i = -gridSize; i <= gridSize; i += 2) {
-      gridPositions.push(-gridSize, -3, i, gridSize, -3, i);
-      gridPositions.push(i, -3, -gridSize, i, -3, gridSize);
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.position.copy(center);
+      ring.rotation.x = Math.PI * 0.5 + (Math.random() - 0.5) * 0.3;
+      ring.rotation.z = (Math.random() - 0.5) * 0.4;
+      scene.add(ring);
+      ringMeshes.push(ring);
     }
-    gridGeo.setAttribute("position", new THREE.Float32BufferAttribute(gridPositions, 3));
-    const gridMat = new THREE.LineBasicMaterial({ color: 0x1a1a2e, transparent: true, opacity: 0.4 });
-    scene.add(new THREE.LineSegments(gridGeo, gridMat));
 
-    // Axis lines
-    const axisGeo = new THREE.BufferGeometry();
-    axisGeo.setAttribute("position", new THREE.Float32BufferAttribute([
-      -6, -3, -6, 6, -3, -6,  // X
-      -6, -3, -6, -6, 6, -6,  // Y
-      -6, -3, -6, -6, -3, 6   // Z
-    ], 3));
-    const axisMat = new THREE.LineBasicMaterial({ color: 0x3730a3, transparent: true, opacity: 0.5 });
-    scene.add(new THREE.LineSegments(axisGeo, axisMat));
+    const clock = new THREE.Clock();
 
-    buildParticles(scene);
+    const state = {
+      renderer,
+      scene,
+      camera,
+      composer,
+      particles,
+      points,
+      linesMesh,
+      ringMeshes,
+      clock,
+      frame: 0,
+      isDragging: false,
+      prevMouse: { x: 0, y: 0 },
+      cameraAngle: { ...initAngle },
+      targetAngle: { ...initAngle },
+      raycaster: new THREE.Raycaster(),
+      mouse: new THREE.Vector2(-999, -999),
+      selectedIndex: null as number | null
+    };
+    stateRef.current = state;
 
+    // Animation loop
     const animate = () => {
-      frameRef.current = requestAnimationFrame(animate);
+      state.frame = requestAnimationFrame(animate);
+      const t = state.clock.getElapsedTime();
+      const dt = Math.min(state.clock.getDelta(), 0.05);
 
-      const angle = cameraAngleRef.current;
-      const target = targetAngleRef.current;
-      angle.theta = lerp(angle.theta, target.theta, 0.08);
-      angle.phi = lerp(angle.phi, target.phi, 0.08);
-      angle.radius = lerp(angle.radius, target.radius, 0.08);
+      // Camera smooth orbit
+      const ca = state.cameraAngle;
+      const ta = state.targetAngle;
+      ca.theta += (ta.theta - ca.theta) * 0.06;
+      ca.phi += (ta.phi - ca.phi) * 0.06;
+      ca.radius += (ta.radius - ca.radius) * 0.06;
+      if (!state.isDragging) ta.theta += 0.0015;
 
-      if (!isDraggingRef.current) {
-        target.theta += 0.001;
-      }
-
-      camera.position.x = angle.radius * Math.sin(angle.phi) * Math.cos(angle.theta);
-      camera.position.y = angle.radius * Math.cos(angle.phi);
-      camera.position.z = angle.radius * Math.sin(angle.phi) * Math.sin(angle.theta);
+      camera.position.x = ca.radius * Math.sin(ca.phi) * Math.cos(ca.theta);
+      camera.position.y = ca.radius * Math.cos(ca.phi);
+      camera.position.z = ca.radius * Math.sin(ca.phi) * Math.sin(ca.theta);
       camera.lookAt(0, 0, 0);
 
-      renderer.render(scene, camera);
+      // Physics: spring toward target + damping
+      const posAttr = points.geometry.attributes.position as THREE.BufferAttribute;
+      const sizeAttr = points.geometry.attributes.size as THREE.BufferAttribute;
+
+      for (let i = 0; i < count; i++) {
+        const p = particles[i]!;
+        const dx = p.targetPosition.x - p.position.x;
+        const dy = p.targetPosition.y - p.position.y;
+        const dz = p.targetPosition.z - p.position.z;
+        const spring = 1.8;
+        const damping = 0.92;
+
+        p.velocity.x = (p.velocity.x + dx * spring * dt) * damping;
+        p.velocity.y = (p.velocity.y + dy * spring * dt) * damping;
+        p.velocity.z = (p.velocity.z + dz * spring * dt) * damping;
+        p.position.x += p.velocity.x * dt * 2;
+        p.position.y += p.velocity.y * dt * 2;
+        p.position.z += p.velocity.z * dt * 2;
+
+        posAttr.array[i * 3] = p.position.x;
+        posAttr.array[i * 3 + 1] = p.position.y;
+        posAttr.array[i * 3 + 2] = p.position.z;
+
+        // Pulsating size for high-risk members
+        const pulse = p.risk > 0.3
+          ? Math.sin(t * (2 + p.risk * 3) + p.phase) * 0.08 * p.risk
+          : 0;
+        const isSelected = state.selectedIndex === i;
+        sizeAttr.array[i] = p.baseSize + pulse + (isSelected ? 0.15 : 0);
+      }
+      posAttr.needsUpdate = true;
+      sizeAttr.needsUpdate = true;
+
+      // Rotate rings slowly
+      for (const ring of ringMeshes) {
+        ring.rotation.z += 0.002;
+      }
+
+      (pointsMat.uniforms.uTime as { value: number }).value = t;
+      state.composer.render();
     };
     animate();
 
     const handleResize = () => {
       if (!container) return;
-      camera.aspect = container.clientWidth / container.clientHeight;
+      const nw = container.clientWidth;
+      const nh = container.clientHeight;
+      camera.aspect = nw / nh;
       camera.updateProjectionMatrix();
-      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setSize(nw, nh);
+      composer.setSize(nw, nh);
     };
     window.addEventListener("resize", handleResize);
 
     return () => {
-      cancelAnimationFrame(frameRef.current);
+      cancelAnimationFrame(state.frame);
       window.removeEventListener("resize", handleResize);
       renderer.dispose();
-      if (container.contains(renderer.domElement)) {
-        container.removeChild(renderer.domElement);
-      }
+      composer.dispose();
+      if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
+      stateRef.current = null;
     };
-  }, []);
+  }, [members]);
 
   useEffect(() => {
-    const scene = sceneRef.current;
-    if (!scene) return;
-    buildParticles(scene);
-  }, [buildParticles]);
+    const cleanup = initScene();
+    return cleanup;
+  }, [initScene]);
 
-  const handlePointerMove = useCallback(
-    (event: React.PointerEvent) => {
-      const container = containerRef.current;
-      const camera = cameraRef.current;
-      const particles = particlesRef.current;
-      if (!container || !camera || !particles) return;
+  const handlePointerMove = useCallback((event: React.PointerEvent) => {
+    const s = stateRef.current;
+    const container = containerRef.current;
+    if (!s || !container) return;
 
-      const rect = container.getBoundingClientRect();
-      mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    const rect = container.getBoundingClientRect();
 
-      if (isDraggingRef.current) {
-        const dx = event.clientX - prevMouseRef.current.x;
-        const dy = event.clientY - prevMouseRef.current.y;
-        targetAngleRef.current.theta -= dx * 0.005;
-        targetAngleRef.current.phi = Math.max(0.2, Math.min(Math.PI - 0.2, targetAngleRef.current.phi + dy * 0.005));
-        prevMouseRef.current = { x: event.clientX, y: event.clientY };
-        setHovered(null);
+    if (s.isDragging) {
+      const dx = event.clientX - s.prevMouse.x;
+      const dy = event.clientY - s.prevMouse.y;
+      s.targetAngle.theta -= dx * 0.005;
+      s.targetAngle.phi = Math.max(0.3, Math.min(Math.PI - 0.3, s.targetAngle.phi + dy * 0.005));
+      s.prevMouse = { x: event.clientX, y: event.clientY };
+      setHovered(null);
+      return;
+    }
+
+    s.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    s.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    s.raycaster.setFromCamera(s.mouse, s.camera);
+    s.raycaster.params.Points = { threshold: 0.4 };
+    const intersects = s.raycaster.intersectObject(s.points);
+
+    if (intersects.length > 0 && intersects[0]!.index !== undefined) {
+      const p = s.particles[intersects[0]!.index];
+      if (p) {
+        setHovered({
+          member: p.member,
+          screenX: event.clientX - rect.left,
+          screenY: event.clientY - rect.top
+        });
+        container.style.cursor = "pointer";
         return;
       }
-
-      raycasterRef.current.setFromCamera(mouseRef.current, camera);
-      raycasterRef.current.params.Points = { threshold: 0.35 };
-      const intersects = raycasterRef.current.intersectObject(particles);
-
-      if (intersects.length > 0 && intersects[0]!.index !== undefined) {
-        const member = memberIndexMapRef.current[intersects[0]!.index];
-        if (member) {
-          setHovered({ member, screenX: event.clientX - rect.left, screenY: event.clientY - rect.top });
-          container.style.cursor = "pointer";
-          return;
-        }
-      }
-
-      setHovered(null);
-      container.style.cursor = isDraggingRef.current ? "grabbing" : "grab";
-    },
-    []
-  );
+    }
+    setHovered(null);
+    container.style.cursor = "grab";
+  }, []);
 
   const handlePointerDown = useCallback((event: React.PointerEvent) => {
-    isDraggingRef.current = true;
-    prevMouseRef.current = { x: event.clientX, y: event.clientY };
+    if (stateRef.current) {
+      stateRef.current.isDragging = true;
+      stateRef.current.prevMouse = { x: event.clientX, y: event.clientY };
+    }
     if (containerRef.current) containerRef.current.style.cursor = "grabbing";
   }, []);
 
   const handlePointerUp = useCallback(() => {
-    isDraggingRef.current = false;
+    if (stateRef.current) stateRef.current.isDragging = false;
     if (containerRef.current) containerRef.current.style.cursor = "grab";
   }, []);
 
   const handleClick = useCallback(() => {
-    if (hovered) {
+    if (hovered && stateRef.current) {
       setSelected(hovered.member);
+      const idx = stateRef.current.particles.findIndex((p) => p.member.memberId === hovered.member.memberId);
+      stateRef.current.selectedIndex = idx >= 0 ? idx : null;
     }
   }, [hovered]);
 
   const handleWheel = useCallback((event: React.WheelEvent) => {
-    targetAngleRef.current.radius = Math.max(5, Math.min(30, targetAngleRef.current.radius + event.deltaY * 0.01));
+    if (stateRef.current) {
+      stateRef.current.targetAngle.radius = Math.max(6, Math.min(35, stateRef.current.targetAngle.radius + event.deltaY * 0.012));
+    }
   }, []);
 
-  const metricLabels = {
-    attendance: { x: "출석률", y: "반대·기권 비중", z: "불참 비중" },
-    disruption: { x: "이탈률", y: "연속 패턴", z: "불참 비중" },
-    streak: { x: "현재 연속", y: "최장 연속", z: "반대·기권 비중" }
-  };
-  const currentLabels = metricLabels[metric];
+  const handleClose = useCallback(() => {
+    setSelected(null);
+    if (stateRef.current) stateRef.current.selectedIndex = null;
+  }, []);
 
   return (
     <div className="explore-page">
       <div className="explore-page__hud">
         <div className="explore-page__title">
           <h1>의원 활동 3D 시각화</h1>
-          <p>{members.length}명 시각화</p>
-        </div>
-        <div className="explore-page__controls">
-          <button
-            type="button"
-            className={metric === "attendance" ? "explore-page__tab is-active" : "explore-page__tab"}
-            onClick={() => setMetric("attendance")}
-          >
-            출석 기반
-          </button>
-          <button
-            type="button"
-            className={metric === "disruption" ? "explore-page__tab is-active" : "explore-page__tab"}
-            onClick={() => setMetric("disruption")}
-          >
-            이탈 기반
-          </button>
-          <button
-            type="button"
-            className={metric === "streak" ? "explore-page__tab is-active" : "explore-page__tab"}
-            onClick={() => setMetric("streak")}
-          >
-            연속 패턴
-          </button>
+          <p>{assemblyLabel} · {members.length}명</p>
         </div>
         <div className="explore-page__axes">
-          <span>X: {currentLabels.x}</span>
-          <span>Y: {currentLabels.y}</span>
-          <span>Z: {currentLabels.z}</span>
+          <span>정당별 클러스터 · 위험도 = 크기 + 맥동</span>
         </div>
       </div>
 
       <div className="explore-page__legend">
-        {Object.entries(PARTY_COLORS).map(([party, hex]) => (
+        {Object.entries(PARTY_COLORS_HEX).map(([party, hex]) => (
           <span key={party} className="explore-page__legend-item">
             <i style={{ background: hex }} />
             {party}
@@ -353,53 +493,39 @@ export function ExplorePage({ members, assemblyLabel, onSelectMember }: ExploreP
         ))}
       </div>
 
-      {hovered && !isDraggingRef.current ? (
+      {hovered ? (
         <div
           className="explore-page__tooltip"
           style={{ left: hovered.screenX + 16, top: hovered.screenY - 8 }}
         >
           <strong>{hovered.member.name}</strong>
-          <span>{hovered.member.party}</span>
-          <span>출석률 {formatPercent(hovered.member.attendanceRate)}</span>
-          <span>불참 {formatPercent(hovered.member.absentRate)}</span>
+          <span>{hovered.member.party}{hovered.member.district ? ` · ${hovered.member.district}` : ""}</span>
+          <span>출석률 {formatPercent(hovered.member.attendanceRate)} · 불참 {formatPercent(hovered.member.absentRate)}</span>
+          {hovered.member.currentNegativeOrAbsentStreak >= 3 ? (
+            <span className="explore-page__tooltip-alert">연속 패턴 {hovered.member.currentNegativeOrAbsentStreak}일</span>
+          ) : null}
         </div>
       ) : null}
 
       {selected ? (
         <div className="explore-page__detail">
-          <button
-            type="button"
-            className="explore-page__detail-close"
-            onClick={() => setSelected(null)}
-          >
-            ×
-          </button>
+          <button type="button" className="explore-page__detail-close" onClick={handleClose}>×</button>
           <strong>{selected.name}</strong>
           <span className="explore-page__detail-party">{selected.party}</span>
-          {selected.district ? <span>{selected.district}</span> : null}
+          {selected.district ? <span className="explore-page__detail-district">{selected.district}</span> : null}
           <div className="explore-page__detail-grid">
-            <div>
-              <span>출석률</span>
-              <strong>{formatPercent(selected.attendanceRate)}</strong>
-            </div>
-            <div>
-              <span>불참</span>
-              <strong>{formatPercent(selected.absentRate)}</strong>
-            </div>
-            <div>
-              <span>반대·기권</span>
-              <strong>{formatPercent(selected.negativeRate)}</strong>
-            </div>
-            <div>
-              <span>연속 패턴</span>
-              <strong>{selected.currentNegativeOrAbsentStreak}일</strong>
-            </div>
+            <div><span>출석률</span><strong>{formatPercent(selected.attendanceRate)}</strong></div>
+            <div><span>불참</span><strong>{formatPercent(selected.absentRate)}</strong></div>
+            <div><span>반대·기권</span><strong>{formatPercent(selected.negativeRate)}</strong></div>
+            <div><span>연속 패턴</span><strong>{selected.currentNegativeOrAbsentStreak}일</strong></div>
           </div>
-          <button
-            type="button"
-            className="explore-page__detail-action"
-            onClick={() => onSelectMember(selected.memberId)}
-          >
+          <div className="explore-page__detail-bar">
+            <div style={{ width: `${selected.yesRate * 100}%`, background: "#34d399" }} />
+            <div style={{ width: `${selected.noRate * 100}%`, background: "#ef4444" }} />
+            <div style={{ width: `${selected.abstainRate * 100}%`, background: "#fb923c" }} />
+            <div style={{ width: `${selected.absentRate * 100}%`, background: "#94a3b8" }} />
+          </div>
+          <button type="button" className="explore-page__detail-action" onClick={() => onSelectMember(selected.memberId)}>
             활동 캘린더 열기
           </button>
         </div>

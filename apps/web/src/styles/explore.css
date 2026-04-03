@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: #0a0a0f;
+  background: #06060c;
   color: #e4e4e7;
   font-family: "SUIT Variable", "Pretendard Variable", system-ui, sans-serif;
   overflow: hidden;
@@ -145,6 +145,11 @@
   color: rgba(228, 228, 231, 0.6);
 }
 
+.explore-page__tooltip-alert {
+  color: #fbbf24 !important;
+  font-weight: 700 !important;
+}
+
 /* ─── Detail panel (right) ─── */
 .explore-page__detail {
   position: absolute;
@@ -230,6 +235,24 @@
 .explore-page__detail-grid strong {
   font-size: 0.95rem;
   color: #e4e4e7;
+}
+
+.explore-page__detail-district {
+  font-size: 0.78rem;
+  color: rgba(228, 228, 231, 0.45);
+}
+
+.explore-page__detail-bar {
+  display: flex;
+  overflow: hidden;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.explore-page__detail-bar > div {
+  height: 100%;
+  min-width: 1px;
 }
 
 .explore-page__detail-action {
