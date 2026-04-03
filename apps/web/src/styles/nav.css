@@ -4,13 +4,12 @@
   position: sticky;
   top: 0;
   z-index: 100;
-  /* 마스트헤드 강조선: 좌→우 브랜드 컬러 */
   border-top: 3px solid var(--accent);
-  border-bottom: 1px solid rgba(62, 48, 34, 0.14);
-  background: rgba(242, 235, 222, 0.97);
+  border-bottom: 1px solid var(--border);
+  background: rgba(244, 245, 247, 0.97);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  box-shadow: 0 1px 0 rgba(62, 48, 34, 0.06), 0 4px 16px rgba(62, 48, 34, 0.04);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.03);
 }
 
 .global-nav__inner {
@@ -22,10 +21,9 @@
   gap: 0;
 }
 
-/* 브랜드: 신문 마스트헤드 느낌 — serif + 강한 레터스페이싱 제거, 대신 무게감 */
 .global-nav__brand {
   flex-shrink: 0;
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
   font-size: 0.98rem;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -36,7 +34,6 @@
   transition: color 0.15s;
 }
 
-/* 브랜드 우측 구분선 */
 .global-nav__brand::after {
   content: "";
   position: absolute;
@@ -45,7 +42,7 @@
   transform: translateY(-50%);
   width: 1px;
   height: 1rem;
-  background: rgba(62, 48, 34, 0.22);
+  background: var(--border-strong);
 }
 
 .global-nav__brand:hover {
@@ -70,7 +67,35 @@
   color: var(--text);
 }
 
-/* 국회 기수 배지 — 우측 정렬, accent 색상으로 강조 */
+/* 네비게이션 링크들 */
+.global-nav__links {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-left: 0.5rem;
+}
+
+.global-nav__link {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 0.32rem 0.65rem;
+  border-radius: var(--radius-pill);
+  transition: color 0.15s, background 0.15s;
+}
+
+.global-nav__link:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.global-nav__link[aria-current="page"] {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* 국회 기수 배지 */
 .global-nav__assembly {
   margin-left: auto;
   font-family: var(--font-sans);
@@ -95,6 +120,15 @@
   .global-nav__brand {
     font-size: 0.88rem;
     padding-right: 0.75rem;
+  }
+
+  .global-nav__links {
+    margin-left: 0.25rem;
+  }
+
+  .global-nav__link {
+    font-size: 0.76rem;
+    padding: 0.28rem 0.45rem;
   }
 
   .global-nav__assembly {
