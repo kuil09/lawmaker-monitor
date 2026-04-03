@@ -34,9 +34,26 @@ const INITIAL_VIEW_STATE = {
   bearing: 0
 };
 
+// 정당별 고유색 (RGBA)
+const PARTY_COLORS: Record<string, [number, number, number, number]> = {
+  "더불어민주당":  [30,  100, 210, 230],
+  "국민의힘":      [220,  50,  32, 230],
+  "조국혁신당":    [0,   170, 120, 230],
+  "개혁신당":      [230, 120,   0, 230],
+  "진보당":        [170,   0,  50, 230],
+  "기본소득당":    [100,  60, 180, 230],
+  "사회민주당":    [80,  160,  80, 230],
+};
+
+function getPartyColor(party: string): [number, number, number, number] {
+  return PARTY_COLORS[party] ?? [130, 130, 130, 230];
+}
+
 type VizMode = "absence" | "negative" | "activity";
 
 type AnnotatedPoint = MemberGeoPoint & {
+  name: string;
+  party: string;
   absentRate: number;
   negativeRate: number;
   totalRecordedVotes: number;
@@ -48,31 +65,10 @@ type TooltipInfo = {
   object: AnnotatedPoint;
 };
 
-function interpolateColor(
-  value: number,
-  min: number,
-  max: number,
-  colorRange: [number, number, number][]
-): [number, number, number, number] {
-  const t = max === min ? 0 : Math.max(0, Math.min(1, (value - min) / (max - min)));
-  const segments = colorRange.length - 1;
-  const idx = Math.min(Math.floor(t * segments), segments - 1);
-  const frac = t * segments - idx;
-  const [r1, g1, b1] = colorRange[idx];
-  const [r2, g2, b2] = colorRange[Math.min(idx + 1, segments)];
-  return [
-    Math.round(r1 + (r2 - r1) * frac),
-    Math.round(g1 + (g2 - g1) * frac),
-    Math.round(b1 + (b2 - b1) * frac),
-    220
-  ];
-}
-
 type VizConfig = {
   key: VizMode;
   label: string;
   description: string;
-  colorRange: [number, number, number][];
   elevationScale: number;
   getMetric: (p: AnnotatedPoint) => number;
   tooltipLabel: (p: AnnotatedPoint) => string;
@@ -82,14 +78,7 @@ const VIZ_CONFIGS: VizConfig[] = [
   {
     key: "absence",
     label: "결석 핫스팟",
-    description: "선거구 중심에 육각형 기둥으로 결석률을 표현합니다. 높고 진한 붉은색일수록 결석률이 높습니다.",
-    colorRange: [
-      [254, 229, 217],
-      [252, 174, 145],
-      [251, 106, 74],
-      [222, 45, 38],
-      [165, 15, 21]
-    ],
+    description: "선거구 중심에 육각형 기둥으로 결석률을 표현합니다. 기둥이 높을수록 결석률이 높습니다. 색상은 소속 정당을 나타냅니다.",
     elevationScale: 60000,
     getMetric: (p) => p.absentRate,
     tooltipLabel: (p) => `결석률 ${(p.absentRate * 100).toFixed(1)}%`
@@ -97,14 +86,7 @@ const VIZ_CONFIGS: VizConfig[] = [
   {
     key: "negative",
     label: "반대·기권 인덱스",
-    description: "반대 + 기권율을 육각형 기둥으로 표현합니다. 높고 진한 노란색일수록 반대·기권 성향이 강합니다.",
-    colorRange: [
-      [255, 255, 212],
-      [254, 227, 145],
-      [254, 196, 79],
-      [254, 153, 41],
-      [204, 76, 2]
-    ],
+    description: "반대 + 기권율을 육각형 기둥으로 표현합니다. 기둥이 높을수록 반대·기권 성향이 강합니다. 색상은 소속 정당을 나타냅니다.",
     elevationScale: 40000,
     getMetric: (p) => p.negativeRate,
     tooltipLabel: (p) => `반대·기권율 ${(p.negativeRate * 100).toFixed(1)}%`
@@ -112,14 +94,7 @@ const VIZ_CONFIGS: VizConfig[] = [
   {
     key: "activity",
     label: "참여량 밀도",
-    description: "총 기록표결 참여 수를 육각형 기둥으로 표현합니다. 높고 진한 초록색일수록 표결 참여량이 많습니다.",
-    colorRange: [
-      [237, 248, 233],
-      [186, 228, 179],
-      [116, 196, 118],
-      [49, 163, 84],
-      [0, 109, 44]
-    ],
+    description: "총 기록표결 참여 수를 육각형 기둥으로 표현합니다. 기둥이 높을수록 표결 참여량이 많습니다. 색상은 소속 정당을 나타냅니다.",
     elevationScale: 10,
     getMetric: (p) => p.totalRecordedVotes,
     tooltipLabel: (p) => `총 표결 ${p.totalRecordedVotes.toLocaleString()}건`
@@ -206,6 +181,8 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
       if (!member) return [];
       return [{
         ...p,
+        name: member.name,
+        party: member.party,
         absentRate: member.absentRate,
         negativeRate: member.noRate + member.abstainRate,
         totalRecordedVotes: member.totalRecordedVotes
@@ -213,14 +190,21 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
     });
   }, [allPoints, accountabilitySummary]);
 
+  // 실제 데이터에 등장하는 정당 목록 (범례용)
+  const partiesPresent = useMemo<Array<{ party: string; color: [number, number, number, number] }>>(() => {
+    const seen = new Map<string, [number, number, number, number]>();
+    for (const p of annotatedPoints) {
+      if (!seen.has(p.party)) seen.set(p.party, getPartyColor(p.party));
+    }
+    return [...seen.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0], "ko"))
+      .map(([party, color]) => ({ party, color }));
+  }, [annotatedPoints]);
+
   const vizConfig = VIZ_CONFIGS.find((v) => v.key === activeViz) ?? VIZ_CONFIGS[0];
 
   const layer = useMemo(() => {
     if (annotatedPoints.length === 0) return null;
-
-    const metrics = annotatedPoints.map((p) => vizConfig.getMetric(p));
-    const minVal = Math.min(...metrics);
-    const maxVal = Math.max(...metrics);
 
     return new ColumnLayer<AnnotatedPoint>({
       id: `column-${activeViz}`,
@@ -231,9 +215,8 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
       extruded: true,
       getPosition: (p) => [p.longitude, p.latitude],
       getElevation: (p) => vizConfig.getMetric(p) * vizConfig.elevationScale,
-      getFillColor: (p) =>
-        interpolateColor(vizConfig.getMetric(p), minVal, maxVal, vizConfig.colorRange),
-      getLineColor: [255, 255, 255, 60],
+      getFillColor: (p) => getPartyColor(p.party),
+      getLineColor: [255, 255, 255, 40],
       lineWidthMinPixels: 1,
       pickable: true,
       onHover: (info) => {
@@ -280,6 +263,22 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
 
       <p className="lab-viz-description">{vizConfig.description}</p>
 
+      {partiesPresent.length > 0 && (
+        <div className="lab-party-legend" aria-label="정당 범례">
+          <span className="lab-party-legend__heading">정당</span>
+          {partiesPresent.map(({ party, color: [r, g, b] }) => (
+            <span key={party} className="lab-party-legend__item">
+              <span
+                className="lab-party-legend__dot"
+                style={{ background: `rgb(${r},${g},${b})` }}
+                aria-hidden="true"
+              />
+              {party}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div
         className={`lab-map-container${isLoading ? " lab-map-container--loading" : error ? " lab-map-container--error" : ""}`}
       >
@@ -310,9 +309,22 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
         {tooltip && (
           <div
             className="lab-tooltip"
-            style={{ left: tooltip.x + 12, top: tooltip.y - 40 }}
+            style={{ left: tooltip.x + 12, top: tooltip.y - 56 }}
           >
-            <div className="lab-tooltip__label">{tooltip.object.label}</div>
+            <div className="lab-tooltip__member">
+              <span
+                className="lab-tooltip__party-dot"
+                style={{
+                  background: (() => {
+                    const [r, g, b] = getPartyColor(tooltip.object.party);
+                    return `rgb(${r},${g},${b})`;
+                  })()
+                }}
+              />
+              <span className="lab-tooltip__name">{tooltip.object.name}</span>
+            </div>
+            <div className="lab-tooltip__party">{tooltip.object.party}</div>
+            <div className="lab-tooltip__district">{tooltip.object.label}</div>
             <div className="lab-tooltip__value">{vizConfig.tooltipLabel(tooltip.object)}</div>
           </div>
         )}
