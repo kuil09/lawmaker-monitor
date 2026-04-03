@@ -376,8 +376,11 @@ export function DistributionConstituencyMap({
     [matchedRegions]
   );
   const metricDomain = useMemo(
-    () => getConstituencyMetricDomain(regions, ATTENDANCE_METRIC_MODE),
-    [regions]
+    () => getConstituencyMetricDomain(
+      highlightedRegions.length > 0 ? highlightedRegions : regions,
+      ATTENDANCE_METRIC_MODE
+    ),
+    [highlightedRegions, regions]
   );
   const selectedMemberRegion = useMemo(
     () => regions.find((region) => region.member?.memberId === selectedMemberId) ?? null,

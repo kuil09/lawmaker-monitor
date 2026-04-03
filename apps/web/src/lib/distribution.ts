@@ -83,28 +83,28 @@ const DISTRIBUTION_BEHAVIOR_DEFINITIONS: Array<{
   {
     key: "high-absence",
     label: "불참 집중",
-    description: "불참 기록이 누적된 의원",
+    description: "불참 비중 10% 이상인 의원",
     ctaLabel: "불참 집중 의원 보기",
     matches: (member) => member.absentRate >= 0.1 && member.absentVoteCount > 0
   },
   {
     key: "high-negative",
     label: "반대·기권 다수",
-    description: "반대·기권 비중이 큰 의원",
+    description: "반대·기권 비중 30% 이상인 의원",
     ctaLabel: "반대·기권 다수 의원 보기",
     matches: (member) => member.negativeRate >= 0.3
   },
   {
     key: "long-streak",
     label: "연속 패턴 장기화",
-    description: "현재 반대·기권·불참 연속 패턴이 긴 의원",
+    description: "반대·기권·불참 연속 3회 이상 의원",
     ctaLabel: "연속 패턴 장기화 의원 보기",
     matches: (member) => member.currentNegativeOrAbsentStreak >= 3
   },
   {
     key: "committee-risk",
     label: "위원회 참여 주의",
-    description: "현재 소속 위원회 참여 경고가 있는 의원",
+    description: "소속 위원회 참여 경고가 있는 의원",
     ctaLabel: "위원회 참여 주의 의원 보기",
     matches: (member) => member.activity.homeCommitteeAlerts.length > 0
   }

@@ -617,10 +617,10 @@ export default function App() {
                     onClick={() => navigateToDistribution(null, summary.key)}
                     disabled={summary.count === 0}
                   >
-                    <span className="search-panel__browse-kicker">Behavior</span>
+                    <span className="search-panel__browse-kicker">분포에서 보기</span>
                     <strong>{summary.label}</strong>
                     <span>{summary.description}</span>
-                    <small>{`${formatNumber(summary.count)}명`}</small>
+                    <small>{`${formatNumber(summary.count)}명 → 전체 분포`}</small>
                   </button>
                 </li>
               ))}

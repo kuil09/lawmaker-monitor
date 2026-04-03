@@ -253,7 +253,7 @@ describe("web app", () => {
     expect(screen.getByRole("heading", { name: "불참 집중 의원을 먼저 보고 있습니다." })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "행동 분류 불참 집중 해제" })).toBeInTheDocument();
     expect(
-      screen.getByText("불참 기록이 누적된 의원. 현재 1명을 같은 기준으로 묶었습니다.")
+      screen.getByText("불참 비중 10% 이상인 의원. 현재 1명을 같은 기준으로 묶었습니다.")
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "행동 분류 불참 집중 해제" })
