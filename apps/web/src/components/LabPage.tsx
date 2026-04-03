@@ -1,6 +1,7 @@
+import { WebMercatorViewport } from "@deck.gl/core";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import DeckGL from "@deck.gl/react";
-import { cellToParent, latLngToCell } from "h3-js";
+import { cellToParent, latLngToCell, polygonToCells } from "h3-js";
 import { useEffect, useMemo, useState } from "react";
 import { Map as MapGL } from "react-map-gl/maplibre";
 
@@ -9,8 +10,8 @@ import type { AccountabilitySummaryExport, ConstituencyBoundariesIndexExport, Ma
 import type { ConstituencyBoundaryTopology } from "../lib/constituency-map.js";
 import { normalizeConstituencyLookupKey } from "../lib/constituency-map.js";
 import { loadConstituencyBoundariesIndex, loadConstituencyProvinceTopology } from "../lib/data.js";
-import type { MemberGeoPoint } from "../lib/geo-utils.js";
-import { extractCentroids } from "../lib/geo-utils.js";
+import type { ExtrudedFeature, MemberGeoPoint } from "../lib/geo-utils.js";
+import { extractCentroids, extractReprojectedFeatures } from "../lib/geo-utils.js";
 
 const MAP_STYLE = {
   version: 8 as const,
@@ -133,6 +134,30 @@ const INITIAL_DETAIL_VIEW_STATE = {
   maxZoom: 14
 };
 
+// 지역 면적에 따른 H3 해상도 자동 결정
+function getDetailRes(features: ExtrudedFeature[]): number {
+  let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
+  for (const f of features) {
+    const polys = f.geometry.type === "Polygon"
+      ? [(f.geometry.coordinates as number[][][])]
+      : (f.geometry.coordinates as number[][][][]);
+    for (const poly of polys) {
+      for (const ring of poly) {
+        for (const [lng, lat] of ring) {
+          if (lng < minLng) minLng = lng;
+          if (lng > maxLng) maxLng = lng;
+          if (lat < minLat) minLat = lat;
+          if (lat > maxLat) maxLat = lat;
+        }
+      }
+    }
+  }
+  const span = Math.max(maxLng - minLng, (maxLat - minLat) * 1.3);
+  if (span > 2) return 6;
+  if (span > 0.8) return 7;
+  return 8;
+}
+
 type LabPageProps = {
   manifest: Manifest | null;
   accountabilitySummary: AccountabilitySummaryExport | null;
@@ -150,6 +175,8 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
   // 실험 B: 시·도별 상세 지도 state
   const [boundaryIndex, setBoundaryIndex] = useState<ConstituencyBoundariesIndexExport | null>(null);
   const [detailProvince, setDetailProvince] = useState<string | null>(null);
+  const [detailTopology, setDetailTopology] = useState<ConstituencyBoundaryTopology | null | undefined>(undefined);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [detailViewState, setDetailViewState] = useState(INITIAL_DETAIL_VIEW_STATE);
   const [detailTooltip, setDetailTooltip] = useState<TooltipInfo | null>(null);
 
@@ -332,53 +359,118 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
 
   // ── 실험 B: 시·도별 H3 상세 지도 ────────────────────────────────────────────
 
-  // province 선택 시 해당 의원 좌표를 기준으로 뷰 자동 이동
+  // topology 로딩
   useEffect(() => {
-    if (!detailProvince || !boundaryIndex || annotatedPoints.length === 0) return;
+    if (!boundaryIndex || !detailProvince) return;
     const province = boundaryIndex.provinces.find(p => p.provinceShortName === detailProvince);
     if (!province) return;
 
-    const shortKey = normalizeConstituencyLookupKey(province.provinceShortName);
-    const filtered = annotatedPoints.filter(p => p.districtKey.startsWith(shortKey));
-    if (filtered.length === 0) return;
+    let cancelled = false;
+    setIsDetailLoading(true);
+    setDetailTopology(undefined);
 
-    const lngs = filtered.map(p => p.longitude);
-    const lats = filtered.map(p => p.latitude);
-    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-    const span = Math.max(maxLng - minLng, (maxLat - minLat) * 1.3, 0.1);
-    setDetailViewState(prev => ({
-      ...prev,
-      longitude: (minLng + maxLng) / 2,
-      latitude: (minLat + maxLat) / 2,
-      zoom: Math.min(11, Math.max(7, Math.log2(360 / span) - 1.5))
-    }));
-  }, [detailProvince, boundaryIndex, annotatedPoints]);
+    void loadConstituencyProvinceTopology<ConstituencyBoundaryTopology>(province.path)
+      .then(topo => { if (!cancelled) setDetailTopology(topo); })
+      .catch(() => { if (!cancelled) setDetailTopology(null); })
+      .finally(() => { if (!cancelled) setIsDetailLoading(false); });
 
-  // 선택된 province의 의원들을 H3 res 8 셀에 1:1 매핑
+    return () => { cancelled = true; };
+  }, [boundaryIndex, detailProvince]);
+
+  // topology → reprojected GeoJSON features
+  const detailFeatures = useMemo<ExtrudedFeature[]>(() => {
+    if (!detailTopology) return [];
+    return extractReprojectedFeatures(detailTopology);
+  }, [detailTopology]);
+
+  // features 로드 시 WebMercatorViewport.fitBounds로 정확한 줌 설정
+  useEffect(() => {
+    if (detailFeatures.length === 0) return;
+    let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
+    for (const f of detailFeatures) {
+      const polys = f.geometry.type === "Polygon"
+        ? [(f.geometry.coordinates as number[][][])]
+        : (f.geometry.coordinates as number[][][][]);
+      for (const poly of polys) {
+        for (const ring of poly) {
+          for (const [lng, lat] of ring) {
+            if (lng < minLng) minLng = lng;
+            if (lng > maxLng) maxLng = lng;
+            if (lat < minLat) minLat = lat;
+            if (lat > maxLat) maxLat = lat;
+          }
+        }
+      }
+    }
+    if (!Number.isFinite(minLng)) return;
+    try {
+      const vp = new WebMercatorViewport({ width: 900, height: 480 });
+      const { longitude, latitude, zoom } = vp.fitBounds(
+        [[minLng, minLat], [maxLng, maxLat]],
+        { padding: 48 }
+      );
+      setDetailViewState(prev => ({ ...prev, longitude, latitude, zoom: Math.min(zoom, 12) }));
+    } catch {
+      const span = Math.max(maxLng - minLng, (maxLat - minLat) * 1.3, 0.1);
+      setDetailViewState(prev => ({
+        ...prev,
+        longitude: (minLng + maxLng) / 2,
+        latitude: (minLat + maxLat) / 2,
+        zoom: Math.min(11, Math.max(6, Math.log2(360 / span) - 1.5))
+      }));
+    }
+  }, [detailFeatures]);
+
+  // features → polygonToCells → H3DataCell (지역구 경계를 헥사곤으로 채움)
   const detailCells = useMemo<H3DataCell[]>(() => {
-    if (!detailProvince || !boundaryIndex || annotatedPoints.length === 0) return [];
-    const province = boundaryIndex.provinces.find(p => p.provinceShortName === detailProvince);
-    if (!province) return [];
+    if (detailFeatures.length === 0 || !accountabilitySummary) return [];
 
-    const shortKey = normalizeConstituencyLookupKey(province.provinceShortName);
-    const filtered = annotatedPoints.filter(p => p.districtKey.startsWith(shortKey));
+    const detailRes = getDetailRes(detailFeatures);
+    const memberByKey = new Map(
+      accountabilitySummary.items.map(item => [
+        normalizeConstituencyLookupKey(item.district),
+        item
+      ])
+    );
 
-    const cellMap = new Map<string, AnnotatedPoint>();
-    for (const p of filtered) {
-      const h3Index = latLngToCell(p.latitude, p.longitude, DETAIL_RES);
-      if (!cellMap.has(h3Index)) cellMap.set(h3Index, p);
+    const result: H3DataCell[] = [];
+
+    for (const feature of detailFeatures) {
+      const member = memberByKey.get(feature.properties.districtKey);
+      if (!member) continue;
+
+      const metric = vizConfig.getMetric({
+        absentRate: member.absentRate,
+        negativeRate: member.noRate + member.abstainRate,
+        totalRecordedVotes: member.totalRecordedVotes
+      } as AnnotatedPoint);
+
+      const polys = feature.geometry.type === "Polygon"
+        ? [(feature.geometry.coordinates as number[][][])]
+        : (feature.geometry.coordinates as number[][][][]);
+
+      for (const poly of polys) {
+        try {
+          // isGeoJson=true: 좌표가 [lng, lat] 순서
+          const cells = polygonToCells(poly as number[][][], detailRes, true);
+          for (const h3Index of cells) {
+            result.push({
+              h3Index,
+              party: member.party,
+              metric,
+              memberCount: 1,
+              memberNames: [member.name],
+              memberParties: [member.party]
+            });
+          }
+        } catch {
+          // 폴리곤이 너무 작거나 비정상인 경우 무시
+        }
+      }
     }
 
-    return [...cellMap.entries()].map(([h3Index, p]) => ({
-      h3Index,
-      party: p.party,
-      metric: vizConfig.getMetric(p),
-      memberCount: 1,
-      memberNames: [p.name],
-      memberParties: [p.party]
-    }));
-  }, [detailProvince, boundaryIndex, annotatedPoints, vizConfig]);
+    return result;
+  }, [detailFeatures, accountabilitySummary, vizConfig]);
 
   const detailLayers = useMemo(() => {
     if (detailCells.length === 0) return [];
@@ -565,10 +657,10 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
         </div>
       )}
 
-      <div className={`lab-map-container${detailCells.length === 0 && !isLoading ? " lab-map-container--loading" : ""}`}>
-        {detailCells.length === 0 && !isLoading ? (
+      <div className={`lab-map-container${isDetailLoading ? " lab-map-container--loading" : ""}`}>
+        {isDetailLoading ? (
           <div className="lab-state">
-            <div className="lab-state__title">시·도를 선택하거나 데이터 로딩을 기다려 주세요.</div>
+            <div className="lab-state__title">{detailProvince} 지역구 데이터 로딩 중…</div>
           </div>
         ) : (
           <DeckGL
