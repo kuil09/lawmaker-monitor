@@ -50,64 +50,88 @@ const CENTER_Y = SVG_HEIGHT - 40;
 const MIN_RADIUS = 100;
 const ROW_GAP = 22;
 
+const PARTY_ORDER = [
+  "더불어민주당", "조국혁신당", "진보당", "사회민주당", "기본소득당",
+  "무소속",
+  "개혁신당", "국민의힘"
+];
+const PARTY_GAP_RAD = 0.035;
+
 function buildSeatPositions(seats: SeatData[]): SeatPosition[] {
   const count = seats.length;
   if (count === 0) return [];
 
-  // Sort: party groups together, within party by attendance (worst first for outer rows)
-  const partyOrder = [
-    "더불어민주당", "조국혁신당", "진보당", "사회민주당", "기본소득당",
-    "무소속",
-    "개혁신당", "국민의힘"
-  ];
-  const sorted = [...seats].sort((a, b) => {
-    const ai = partyOrder.indexOf(a.party);
-    const bi = partyOrder.indexOf(b.party);
-    const aIdx = ai >= 0 ? ai : partyOrder.length;
-    const bIdx = bi >= 0 ? bi : partyOrder.length;
-    if (aIdx !== bIdx) return aIdx - bIdx;
-    return a.attendanceRate - b.attendanceRate;
-  });
-
-  // Calculate rows: fill inner rows first
-  const rows: SeatData[][] = [];
-  let remaining = count;
-  let rowRadius = MIN_RADIUS;
-  while (remaining > 0) {
-    const circumference = Math.PI * rowRadius;
-    const maxSeats = Math.floor(circumference / (SEAT_RADIUS * 2.6));
-    const seatsInRow = Math.min(maxSeats, remaining);
-    rows.push([]);
-    remaining -= seatsInRow;
-    rowRadius += ROW_GAP;
+  // Group by party, sorted within each group by attendance (worst → outer)
+  const partyGroups: Map<string, SeatData[]> = new Map();
+  for (const party of PARTY_ORDER) {
+    partyGroups.set(party, []);
   }
-
-  // Distribute seats to rows
-  let seatIdx = 0;
-  for (const row of rows) {
-    const rowCapacity = Math.floor((Math.PI * (MIN_RADIUS + rows.indexOf(row) * ROW_GAP)) / (SEAT_RADIUS * 2.6));
-    const seatsInRow = Math.min(rowCapacity, sorted.length - seatIdx);
-    for (let i = 0; i < seatsInRow; i++) {
-      if (seatIdx < sorted.length) {
-        row.push(sorted[seatIdx]!);
-        seatIdx++;
-      }
+  for (const seat of seats) {
+    const group = partyGroups.get(seat.party);
+    if (group) {
+      group.push(seat);
+    } else {
+      const misc = partyGroups.get("무소속")!;
+      misc.push(seat);
     }
   }
+  // Remove empty groups
+  for (const [party, group] of partyGroups) {
+    if (group.length === 0) partyGroups.delete(party);
+    else group.sort((a, b) => b.attendanceRate - a.attendanceRate);
+  }
 
-  // Position each seat along semicircle arc
+  const parties = [...partyGroups.keys()];
+  const partyTotals = parties.map((p) => partyGroups.get(p)!.length);
+  const totalGapRad = PARTY_GAP_RAD * Math.max(parties.length - 1, 0);
+  const edgePadding = 0.06;
+  const availableArc = Math.PI - 2 * edgePadding - totalGapRad;
+
+  // Each party gets proportional arc
+  const partyArcs = partyTotals.map((n) => (n / count) * availableArc);
+
+  // Determine row count
+  let rowCount = 0;
+  let testRadius = MIN_RADIUS;
+  let testRemaining = count;
+  while (testRemaining > 0) {
+    const maxSeats = Math.floor((Math.PI * testRadius) / (SEAT_RADIUS * 2.6));
+    testRemaining -= Math.min(maxSeats, testRemaining);
+    testRadius += ROW_GAP;
+    rowCount++;
+  }
+
+  // Build flat seat list per-party (each party fills rows proportionally)
   const positions: SeatPosition[] = [];
-  for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
-    const row = rows[rowIdx]!;
+
+  for (let rowIdx = 0; rowIdx < rowCount; rowIdx++) {
     const radius = MIN_RADIUS + rowIdx * ROW_GAP;
-    const padding = 0.08; // rad padding from edges
-    for (let i = 0; i < row.length; i++) {
-      const angle = padding + ((Math.PI - 2 * padding) * i) / Math.max(row.length - 1, 1);
-      positions.push({
-        x: CENTER_X - radius * Math.cos(angle),
-        y: CENTER_Y - radius * Math.sin(angle),
-        seat: row[i]!
-      });
+    const maxRowCapacity = Math.floor((Math.PI * radius) / (SEAT_RADIUS * 2.6));
+    let arcStart = edgePadding;
+
+    for (let pi = 0; pi < parties.length; pi++) {
+      const party = parties[pi]!;
+      const group = partyGroups.get(party)!;
+      const partyArc = partyArcs[pi]!;
+
+      // How many seats this party gets in this row (proportional to arc)
+      const partyRowCapacity = Math.max(1, Math.round((partyArc / availableArc) * maxRowCapacity));
+      const seatsInRow = Math.min(partyRowCapacity, group.length);
+
+      if (seatsInRow > 0) {
+        const taken = group.splice(0, seatsInRow);
+        for (let i = 0; i < taken.length; i++) {
+          const t = taken.length > 1 ? i / (taken.length - 1) : 0.5;
+          const angle = arcStart + t * partyArc;
+          positions.push({
+            x: CENTER_X - radius * Math.cos(angle),
+            y: CENTER_Y - radius * Math.sin(angle),
+            seat: taken[i]!
+          });
+        }
+      }
+
+      arcStart += partyArc + (pi < parties.length - 1 ? PARTY_GAP_RAD : 0);
     }
   }
 
