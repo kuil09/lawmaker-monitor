@@ -1,7 +1,20 @@
+import proj4 from "proj4";
 import { feature } from "topojson-client";
 
 import type { ConstituencyBoundaryTopology } from "./constituency-map.js";
 import { normalizeConstituencyLookupKey } from "./constituency-map.js";
+
+// 한국 TM 투영좌표계 (EPSG:5179) → WGS84 (EPSG:4326) 변환
+const KOREAN_TM = "+proj=tmerc +lat_0=38 +lon_0=127.5 +k=0.9996 +x_0=1000000 +y_0=2000000 +ellps=GRS80 +units=m +no_defs";
+const WGS84 = "+proj=longlat +datum=WGS84 +no_defs";
+
+function toWgs84(x: number, y: number): [number, number] {
+  // WGS84 범위(경도 -180~180, 위도 -90~90)가 아니면 투영좌표로 판단하고 변환
+  if (Math.abs(x) > 180 || Math.abs(y) > 90) {
+    return proj4(KOREAN_TM, WGS84, [x, y]) as [number, number];
+  }
+  return [x, y];
+}
 
 export type MemberGeoPoint = {
   longitude: number;
@@ -76,7 +89,7 @@ export function extractCentroids(topology: ConstituencyBoundaryTopology): Member
     const centroid = featureCentroid(f.geometry);
     if (!centroid) continue;
 
-    const [lng, lat] = centroid;
+    const [lng, lat] = toWgs84(centroid[0], centroid[1]);
     const label = (f.properties.memberDistrictLabel as string | undefined) ?? "";
     const districtKey = normalizeConstituencyLookupKey(label);
 
