@@ -606,27 +606,23 @@ export default function App() {
               >
                 국회 전체 분포 보기
               </button>
+              <ul className="search-panel__browse-list">
+                {homeBehaviorSummaries.map((summary) => (
+                  <li key={summary.key}>
+                    <button
+                      type="button"
+                      className="search-panel__browse-button"
+                      aria-label={summary.ctaLabel}
+                      onClick={() => navigateToDistribution(null, summary.key)}
+                      disabled={summary.count === 0}
+                    >
+                      <strong>{summary.label}</strong>
+                      <small>{`${formatNumber(summary.count)}명`}</small>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </aside>
-          </div>
-          <div className="search-panel__browse" aria-label="행동 분류 탐색">
-            <ul className="search-panel__browse-list">
-              {homeBehaviorSummaries.map((summary) => (
-                <li key={summary.key}>
-                  <button
-                    type="button"
-                    className="search-panel__browse-button"
-                    aria-label={summary.ctaLabel}
-                    onClick={() => navigateToDistribution(null, summary.key)}
-                    disabled={summary.count === 0}
-                  >
-                    <span className="search-panel__browse-kicker">분포에서 보기</span>
-                    <strong>{summary.label}</strong>
-                    <span>{summary.description}</span>
-                    <small>{`${formatNumber(summary.count)}명 → 전체 분포`}</small>
-                  </button>
-                </li>
-              ))}
-            </ul>
           </div>
         </section>
 
