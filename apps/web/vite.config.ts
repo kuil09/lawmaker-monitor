@@ -11,6 +11,9 @@ export default defineConfig({
       "@lawmaker-monitor/schemas": resolve(__dirname, "../../packages/schemas/src/index.ts")
     }
   },
+  esbuild: {
+    keepNames: true
+  },
   build: {
     chunkSizeWarningLimit: 2000
   }
