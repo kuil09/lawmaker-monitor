@@ -7,7 +7,6 @@ import type {
 
 import {
   buildConstituencyMapRegions,
-  findLowestAttendanceRegion,
   getConstituencyMetricColorIntensity,
   getConstituencyMetricDomain,
   resolveProvinceForDistrict,
@@ -261,17 +260,9 @@ export function DistributionConstituencyMap({
     () => regions.find((region) => region.member?.memberId === selectedMemberId) ?? null,
     [regions, selectedMemberId]
   );
-  const lowestAttendanceRegion = useMemo(
-    () => findLowestAttendanceRegion(highlightedRegions.length > 0 ? highlightedRegions : matchedRegions),
-    [highlightedRegions, matchedRegions]
-  );
   const selectedRegion =
     regions.find((region) => region.districtKey === selectedDistrictKey) ??
     selectedMemberRegion ??
-    lowestAttendanceRegion ??
-    highlightedRegions[0] ??
-    matchedRegions[0] ??
-    regions[0] ??
     null;
 
   // When the map's auto-selected region has a member that differs from the
