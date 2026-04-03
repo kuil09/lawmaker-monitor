@@ -11,12 +11,10 @@
   "dependencies": {
     "@duckdb/duckdb-wasm": "^1.29.0",
     "@lawmaker-monitor/schemas": "0.1.0",
-    "@types/three": "^0.183.1",
     "html-to-image": "^1.11.13",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^3.8.0",
-    "three": "^0.183.2",
     "topojson-client": "^3.1.0"
   },
   "devDependencies": {

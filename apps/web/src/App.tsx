@@ -13,7 +13,6 @@ import type {
 import { AccountabilityLeaderboard } from "./components/AccountabilityLeaderboard.js";
 import { ActivityCalendarPage } from "./components/ActivityCalendarPage.js";
 import { DistributionPage } from "./components/DistributionPage.js";
-import { HemicyclePage } from "./components/HemicyclePage.js";
 import { GlobalNav } from "./components/GlobalNav.js";
 import { MemberSearchField } from "./components/MemberSearchField.js";
 import { TrendsPage } from "./components/TrendsPage.js";
@@ -38,7 +37,7 @@ import {
 import { formatDateTime, formatNumber } from "./lib/format.js";
 import { getMemberAttendanceSummary } from "./lib/member-activity.js";
 
-type AppRoute = "home" | "calendar" | "distribution" | "votes" | "trends" | "explore";
+type AppRoute = "home" | "calendar" | "distribution" | "votes" | "trends";
 
 type RouteState = {
   route: AppRoute;
@@ -108,15 +107,6 @@ function getRouteStateFromHash(hash: string): RouteState {
     };
   }
 
-  if (path === "explore") {
-    return {
-      route: "explore",
-      memberId: null,
-      compareMemberId: null,
-      view: "single",
-      behaviorFilter: null
-    };
-  }
 
   return {
     route: "home",
@@ -381,13 +371,11 @@ export default function App() {
     window.location.hash = "trends";
   }
 
-  function handleNavNavigate(target: "votes" | "trends" | "explore"): void {
+  function handleNavNavigate(target: "votes" | "trends"): void {
     if (target === "votes") {
       navigateToVotes();
-    } else if (target === "trends") {
-      navigateToTrends();
     } else {
-      window.location.hash = "explore";
+      navigateToTrends();
     }
   }
 
@@ -531,16 +519,6 @@ export default function App() {
     );
   }
 
-  if (routeState.route === "explore") {
-    return (
-      <HemicyclePage
-        accountabilitySummary={accountabilitySummary}
-        assemblyLabel={currentAssemblyLabel}
-        onBack={navigateHome}
-        onSelectMember={(memberId) => navigateToCalendar(memberId)}
-      />
-    );
-  }
 
   return (
     <>
