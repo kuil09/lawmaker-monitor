@@ -26,7 +26,6 @@
 .distribution-map__province-picker,
 .distribution-map__province-list,
 .distribution-map__metric-list,
-.distribution-map__legend,
 .distribution-map__layout,
 .distribution-map__detail-actions,
 .distribution-map__detail-metrics,
@@ -234,17 +233,22 @@
 }
 
 .distribution-map__legend {
-  grid-template-columns: auto minmax(8.5rem, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: 0.5rem 0.75rem;
+  gap: 0.65rem;
 }
 
 .distribution-map__legend-scale {
-  width: 8.5rem;
+  flex: 1 1 0%;
+  min-width: 0;
   height: 0.88rem;
   border-radius: 999px;
   border: 1px solid rgba(0, 0, 0, 0.1);
-  background: linear-gradient(90deg, #e8eaf0, var(--accent-strong));
+  background: linear-gradient(
+    90deg,
+    var(--map-color-low, #e8eaf0),
+    var(--map-color-high, #3730a3)
+  );
 }
 
 .distribution-map__legend-scale span {
@@ -252,14 +256,12 @@
 }
 
 .distribution-map__legend-label {
+  flex: none;
   color: var(--text-muted);
   font-size: 0.76rem;
   font-weight: 700;
   line-height: 1.35;
-}
-
-.distribution-map__legend-label--end {
-  text-align: right;
+  white-space: nowrap;
 }
 
 .distribution-map__layout {
@@ -917,7 +919,7 @@
   }
 
   .distribution-map__legend {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.45rem;
   }
 
   .distribution-map__help-panel {

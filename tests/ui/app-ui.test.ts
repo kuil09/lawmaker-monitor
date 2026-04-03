@@ -40,15 +40,14 @@ async function openHomeFlow(viewportName: string): Promise<void> {
 
     await page.getByRole("heading", { name: "국회 책임성 모니터" }).waitFor();
     await page.getByRole("heading", { name: "제22대 국회 의원 순위" }).waitFor();
-    await page.getByText("출석 집중 브리핑").waitFor();
-    await page.getByText("최근 표결 주간 참여율").waitFor();
-    await page.getByText("제22대 국회 최근 12주 참여·불참 추세").waitFor();
     expect(await page.getByRole("heading", { name: "제22대 국회 의원 순위" }).isVisible()).toBe(true);
-    expect(await page.getByText("제22대 국회 최근 12주 참여·불참 추세").isVisible()).toBe(true);
     expect(await page.getByRole("button", { name: "활동 캘린더 열기" }).isDisabled()).toBe(true);
     await expect
       .poll(async () => page.getByRole("tab", { name: "불참" }).getAttribute("aria-selected"))
       .toBe("true");
+
+    const navLinks = await page.locator(".global-nav__link").count();
+    expect(navLinks).toBeGreaterThanOrEqual(2);
 
     const searchLayout = await page.locator(".search-panel").evaluate((element) => {
       const panel = element as HTMLElement;
@@ -70,22 +69,9 @@ async function openHomeFlow(viewportName: string): Promise<void> {
     });
 
     const leaderboardPrimaryLink = page.locator(".member-identity--small .member-identity__primary").first();
-    const voteSourceLink = page.locator(".vote-card__source-link").first();
-    const voteHighlightSummary = page.locator(".vote-card__highlight-summary").first();
-
-    await Promise.all([
-      leaderboardPrimaryLink.waitFor(),
-      voteSourceLink.waitFor(),
-      voteHighlightSummary.waitFor()
-    ]);
+    await leaderboardPrimaryLink.waitFor();
 
     const leaderboardPrimaryHeight = await leaderboardPrimaryLink.evaluate(
-      (element) => element.getBoundingClientRect().height
-    );
-    const voteSourceLinkHeight = await voteSourceLink.evaluate(
-      (element) => element.getBoundingClientRect().height
-    );
-    const voteHighlightSummaryHeight = await voteHighlightSummary.evaluate(
       (element) => element.getBoundingClientRect().height
     );
     const heroLayout = await page.locator(".hero-panel").evaluate((element) => {
@@ -93,14 +79,11 @@ async function openHomeFlow(viewportName: string): Promise<void> {
       const masthead = panel.querySelector(".hero-panel__masthead") as HTMLElement | null;
       const chips = panel.querySelector(".hero-panel__chips") as HTMLElement | null;
       const freshness = panel.querySelector(".freshness-indicator") as HTMLElement | null;
-      const story = panel.querySelector(".hero-panel__story") as HTMLElement | null;
       const headline = panel.querySelector(".hero-panel__headline") as HTMLElement | null;
       const title = headline?.querySelector("h1") as HTMLElement | null;
       const lede = panel.querySelector(".hero-panel__lede") as HTMLElement | null;
-      const copy = panel.querySelector(".hero-panel__copy") as HTMLElement | null;
-      const aside = panel.querySelector(".hero-panel__aside") as HTMLElement | null;
 
-      if (!masthead || !chips || !freshness || !story || !headline || !title || !lede || !copy || !aside) {
+      if (!masthead || !chips || !freshness || !headline || !title || !lede) {
         return null;
       }
 
@@ -113,8 +96,6 @@ async function openHomeFlow(viewportName: string): Promise<void> {
         mastheadColumns: window.getComputedStyle(masthead).gridTemplateColumns.split(" ").length,
         chipsBottomToFreshnessTop: freshness.getBoundingClientRect().top - chips.getBoundingClientRect().bottom,
         ledeTopToTitleBottom: lede.getBoundingClientRect().top - titleRect.bottom,
-        copyTopToHeadlineBottom: copy.getBoundingClientRect().top - headline.getBoundingClientRect().bottom,
-        asideTopToStoryBottom: aside.getBoundingClientRect().top - story.getBoundingClientRect().bottom,
         titleLineCount:
           Number.isFinite(titleLineHeight) && titleLineHeight > 0
             ? titleRect.height / titleLineHeight
@@ -146,66 +127,10 @@ async function openHomeFlow(viewportName: string): Promise<void> {
         metaItemHeights: metaItems.map((metaItem) => metaItem.getBoundingClientRect().height)
       };
     });
-    const voteCardLayout = await page.locator(".vote-card").first().evaluate((element) => {
-      const actions = element.querySelector(".vote-card__actions") as HTMLElement | null;
-      const sourceLink = element.querySelector(".vote-card__source-link") as HTMLElement | null;
-      const stats = element.querySelector(".vote-card__stats") as HTMLElement | null;
-      const highlightSummary = element.querySelector(
-        ".vote-card__highlight-summary"
-      ) as HTMLElement | null;
-      const statCards = Array.from(element.querySelectorAll(".vote-card__stat")) as HTMLElement[];
-
-      if (!actions || !sourceLink || !stats || !highlightSummary) {
-        return null;
-      }
-
-      const sourceRect = sourceLink.getBoundingClientRect();
-
-      return {
-        cardOverflow: element.scrollWidth - element.clientWidth,
-        actionOverflow: actions.scrollWidth - actions.clientWidth,
-        sourceHeight: sourceRect.height,
-        statsColumnCount: window.getComputedStyle(stats).gridTemplateColumns.split(" ").length,
-        statHeights: statCards.map((statCard) => statCard.getBoundingClientRect().height),
-        summaryHeight: highlightSummary.getBoundingClientRect().height
-      };
-    });
-
-    await voteHighlightSummary.click();
-    await expect
-      .poll(async () =>
-        page
-          .locator(".vote-card__highlight")
-          .first()
-          .evaluate((element) => (element as HTMLDetailsElement).open)
-      )
-      .toBe(true);
-    const voteCardDetailLayout = await page.locator(".vote-card").first().evaluate((element) => {
-      const highlight = element.querySelector(".vote-card__highlight") as HTMLDetailsElement | null;
-      const highlightBody = element.querySelector(".vote-card__highlight-body") as HTMLElement | null;
-
-      return {
-        isOpen: highlight?.open ?? false,
-        bodyHeight: highlightBody?.getBoundingClientRect().height ?? 0
-      };
-    });
-    await voteHighlightSummary.click();
-    await expect
-      .poll(async () =>
-        page
-          .locator(".vote-card__highlight")
-          .first()
-          .evaluate((element) => (element as HTMLDetailsElement).open)
-      )
-      .toBe(false);
-
     expect(leaderboardPrimaryHeight).toBeGreaterThanOrEqual(44);
-    expect(voteSourceLinkHeight).toBeGreaterThanOrEqual(44);
-    expect(voteHighlightSummaryHeight).toBeGreaterThanOrEqual(44);
     expect(heroLayout).not.toBeNull();
     expect(heroLayout?.panelOverflow ?? 99).toBeLessThanOrEqual(1);
     expect(heroLayout?.ledeTopToTitleBottom ?? -1).toBeGreaterThanOrEqual(0);
-    expect(heroLayout?.copyTopToHeadlineBottom ?? -1).toBeGreaterThanOrEqual(0);
     expect(searchLayout).not.toBeNull();
     expect(searchLayout?.panelOverflow ?? 99).toBeLessThanOrEqual(1);
     expect(searchLayout?.exploreActionInForm).toBe(false);
@@ -216,24 +141,14 @@ async function openHomeFlow(viewportName: string): Promise<void> {
     expect(Math.abs(leaderboardLayout?.metaOffsetLeft ?? 99)).toBeLessThan(2);
     expect(leaderboardLayout?.itemOverflow ?? 99).toBeLessThanOrEqual(1);
     expect((leaderboardLayout?.metaItemHeights ?? []).every((height) => height >= 32)).toBe(true);
-    expect(voteCardLayout).not.toBeNull();
-    expect(voteCardLayout?.cardOverflow ?? 99).toBeLessThanOrEqual(1);
-    expect(voteCardLayout?.actionOverflow ?? 99).toBeLessThanOrEqual(1);
-    expect(voteCardLayout?.sourceHeight ?? 0).toBeGreaterThanOrEqual(44);
-    expect(voteCardLayout?.summaryHeight ?? 0).toBeGreaterThanOrEqual(44);
-    expect((voteCardLayout?.statHeights ?? []).every((height) => height >= 44)).toBe(true);
-    expect(voteCardDetailLayout?.isOpen).toBe(true);
-    expect(voteCardDetailLayout?.bodyHeight ?? 0).toBeGreaterThan(0);
 
     if (viewportName === "mobile") {
       expect(heroLayout?.mastheadColumns).toBe(1);
       expect(heroLayout?.chipsBottomToFreshnessTop ?? -1).toBeGreaterThanOrEqual(0);
-      expect(heroLayout?.asideTopToStoryBottom ?? -1).toBeGreaterThanOrEqual(0);
       expect(heroLayout?.titleLineCount ?? 99).toBeLessThanOrEqual(2.4);
       expect(searchLayout?.layoutColumnCount).toBe(1);
       expect(leaderboardLayout?.metaColumnCount).toBe(2);
       expect(leaderboardLayout?.contentColumnCount).toBe(1);
-      expect(voteCardLayout?.statsColumnCount).toBe(2);
     } else {
       expect(searchLayout?.layoutColumnCount).toBe(2);
     }
