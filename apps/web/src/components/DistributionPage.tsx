@@ -30,7 +30,6 @@ import {
 } from "../lib/distribution.js";
 import { formatNumber, formatPercent } from "../lib/format.js";
 import { getOptimizedMemberPhotoUrl } from "../lib/member-photo.js";
-import { DistributionConstituencyMap } from "./DistributionConstituencyMap.js";
 import { MemberIdentity } from "./MemberIdentity.js";
 import { MemberSearchField } from "./MemberSearchField.js";
 
@@ -919,14 +918,6 @@ export function DistributionPage({
           </aside>
         ) : null}
       </div>
-
-      <DistributionConstituencyMap
-        manifest={manifest}
-        members={members}
-        highlightedMemberIds={highlightedMemberIds}
-        selectedMemberId={selectedMemberId}
-        onSelectMember={handleSelectMember}
-      />
 
       <div className="distribution-signal-grid">
         <DistributionSignalList

@@ -12,6 +12,7 @@ import type {
 
 import { AccountabilityLeaderboard } from "./components/AccountabilityLeaderboard.js";
 import { ActivityCalendarPage } from "./components/ActivityCalendarPage.js";
+import { DistributionConstituencyMap } from "./components/DistributionConstituencyMap.js";
 import { DistributionPage } from "./components/DistributionPage.js";
 import { GlobalNav } from "./components/GlobalNav.js";
 import { MemberSearchField } from "./components/MemberSearchField.js";
@@ -645,6 +646,14 @@ export default function App() {
             </p>
           </section>
         )}
+
+        <DistributionConstituencyMap
+          manifest={manifest}
+          members={distributionMembers}
+          highlightedMemberIds={new Set(distributionMembers.map((m) => m.memberId))}
+          selectedMemberId={combinedRankingItems[0]?.memberId ?? null}
+          onSelectMember={(memberId) => navigateToCalendar(memberId)}
+        />
 
         <footer className="info-panel">
           <p className="info-panel__body">

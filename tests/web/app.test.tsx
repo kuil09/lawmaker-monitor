@@ -265,50 +265,34 @@ describe("web app", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "제22대 국회 의원 분포" })).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "부산 지역구별 핵심 통계" })).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
         name: "위로 갈수록 반대·기권 비중이 낮고, 오른쪽으로 갈수록 출석률이 높습니다."
       })
     ).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "분포에서 의원 찾기" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "지역 선택" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "활동 캘린더 열기" })).toHaveAttribute(
       "href",
       "#calendar?member=M002"
     );
-    expect(screen.getByText(/부산 남구 · 박민/)).toBeInTheDocument();
     expect(screen.getByText("반대·기권 비중이 높은 의원")).toBeInTheDocument();
     expect(
       screen.getByText("정당 평균을 눌러 차트를 해당 정당만 남기는 강조 모드로 전환합니다.")
     ).toBeInTheDocument();
   });
 
-  it("switches province on the constituency map and links the chosen district back to distribution selection", async () => {
-    window.location.hash = "#distribution?member=M002";
+  it("renders the constituency map on the home page and navigates on region click", async () => {
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "부산 지역구별 핵심 통계" })).toBeInTheDocument();
-    fireEvent.change(screen.getByRole("combobox", { name: "지역 선택" }), {
-      target: { value: "서울" }
-    });
-
-    expect(await screen.findByRole("heading", { name: "서울 지역구별 핵심 통계" })).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("서울 중구"));
-
-    await waitFor(() => {
-      expect(window.location.hash).toBe("#distribution?member=M001");
-    });
-    expect(screen.getAllByText("김아라").length).toBeGreaterThan(0);
-    expect(screen.getByText(/서울 중구 · 김아라/)).toBeInTheDocument();
+    await screen.findByRole("heading", { name: "국회 책임성 모니터" });
+    expect(await screen.findByRole("combobox", { name: "지역 선택" })).toBeInTheDocument();
   });
 
   it("reveals the constituency map help only when requested", async () => {
-    window.location.hash = "#distribution?member=M002";
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "부산 지역구별 핵심 통계" })).toBeInTheDocument();
-    const helpButton = screen.getByRole("button", { name: "지역구 지도 설명 보기" });
+    await screen.findByRole("heading", { name: "국회 책임성 모니터" });
+    const helpButton = await screen.findByRole("button", { name: "지역구 지도 설명 보기" });
 
     expect(helpButton).toHaveAttribute("aria-expanded", "false");
     expect(
