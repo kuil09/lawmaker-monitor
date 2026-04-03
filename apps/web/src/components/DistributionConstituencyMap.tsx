@@ -399,6 +399,21 @@ export function DistributionConstituencyMap({
     regions[0] ??
     null;
 
+  // Sync: when the map auto-selects a region whose member differs from
+  // the global selectedMemberId (e.g. proportional-rep member with no
+  // district), push the region's member up so the focus panel matches.
+  useEffect(() => {
+    if (
+      selectedRegion?.member &&
+      selectedMemberId &&
+      selectedRegion.member.memberId !== selectedMemberId &&
+      !selectedDistrictKey &&
+      !selectedMemberRegion
+    ) {
+      onSelectMember(selectedRegion.member.memberId);
+    }
+  }, [selectedRegion, selectedMemberId, selectedDistrictKey, selectedMemberRegion, onSelectMember]);
+
   const visibleRegions = highlightedRegions.length > 0 ? highlightedRegions : matchedRegions;
   const provinceAttendanceAverage =
     visibleRegions.length > 0
