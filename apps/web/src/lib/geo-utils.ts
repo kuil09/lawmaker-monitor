@@ -15,8 +15,15 @@ function toWgs84(x: number, y: number): [number, number] {
   return [x, y];
 }
 
-function reprojectRing(ring: number[][]): number[][] {
-  return ring.map(([x, y]) => toWgs84(x, y));
+// zoom 6~7 수준에서는 6개 중 1개 버텍스만으로도 충분한 해상도
+function reprojectRing(ring: number[][], step = 6): number[][] {
+  const result: number[][] = [];
+  for (let i = 0; i < ring.length; i++) {
+    if (i === 0 || i === ring.length - 1 || i % step === 0) {
+      result.push(toWgs84(ring[i][0], ring[i][1]));
+    }
+  }
+  return result;
 }
 
 function reprojectGeometry(geometry: { type: string; coordinates: unknown }): { type: string; coordinates: unknown } {

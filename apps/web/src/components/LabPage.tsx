@@ -137,6 +137,7 @@ type LabPageProps = {
 export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabPageProps) {
   const [activeViz, setActiveViz] = useState<VizMode>("absence");
   const [allFeatures, setAllFeatures] = useState<ExtrudedFeature[]>([]);
+  const [loadProgress, setLoadProgress] = useState<{ done: number; total: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
@@ -155,23 +156,39 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
           return;
         }
 
-        const topologies = await Promise.all(
-          index.provinces.map((p) =>
-            loadConstituencyProvinceTopology<ConstituencyBoundaryTopology>(p.path)
-          )
-        );
+        const total = index.provinces.length;
+        setLoadProgress({ done: 0, total });
 
-        if (cancelled) return;
+        const accumulated: ExtrudedFeature[] = [];
 
-        const features = topologies
-          .filter((t): t is ConstituencyBoundaryTopology => t !== null)
-          .flatMap((t) => extractReprojectedFeatures(t));
+        // 시도를 순차 로드 — 각 시도 처리 후 브라우저에 제어권 반환
+        for (let i = 0; i < index.provinces.length; i++) {
+          if (cancelled) return;
 
-        setAllFeatures(features);
+          const topology = await loadConstituencyProvinceTopology<ConstituencyBoundaryTopology>(
+            index.provinces[i].path
+          );
+
+          if (cancelled) return;
+
+          if (topology) {
+            accumulated.push(...extractReprojectedFeatures(topology));
+          }
+
+          setLoadProgress({ done: i + 1, total });
+
+          // 브라우저가 렌더링·입력을 처리할 수 있도록 제어권 양보
+          await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        }
+
+        if (!cancelled) setAllFeatures(accumulated);
       } catch (err) {
         if (!cancelled) setError(`데이터 로딩 중 오류: ${(err as Error).message}`);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+          setLoadProgress(null);
+        }
       }
     }
 
@@ -274,7 +291,11 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
         {isLoading ? (
           <div className="lab-state">
             <div className="lab-state__title">선거구 데이터 로딩 중…</div>
-            <p>전체 시·도 경계 데이터를 불러오고 있습니다.</p>
+            <p>
+              {loadProgress
+                ? `${loadProgress.total}개 시·도 중 ${loadProgress.done}개 완료`
+                : "경계 데이터 인덱스를 불러오는 중입니다."}
+            </p>
           </div>
         ) : error ? (
           <div className="lab-state">
