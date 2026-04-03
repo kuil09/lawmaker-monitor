@@ -1,7 +1,7 @@
 import { ColumnLayer, ScatterplotLayer } from "@deck.gl/layers";
 import DeckGL from "@deck.gl/react";
 import { useEffect, useMemo, useState } from "react";
-import { Map } from "react-map-gl/maplibre";
+import { Map as MapGL } from "react-map-gl/maplibre";
 
 import type { AccountabilitySummaryExport, Manifest } from "@lawmaker-monitor/schemas";
 
@@ -300,7 +300,7 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
             controller
             layers={layers}
           >
-            <Map mapStyle={MAP_STYLE} />
+            <MapGL mapStyle={MAP_STYLE} />
           </DeckGL>
         )}
 
