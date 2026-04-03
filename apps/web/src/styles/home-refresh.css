@@ -328,8 +328,8 @@
 }
 
 .ranking-item__segment--absent {
-  background: linear-gradient(90deg, #c0392b, #a93226) !important;
-  box-shadow: 2px 0 6px rgba(192, 57, 43, 0.25);
+  background: var(--neutral) !important;
+  box-shadow: 2px 0 6px color-mix(in srgb, var(--neutral) 25%, transparent);
 }
 
 .ranking-item__segment--no {
@@ -358,9 +358,9 @@
   font-weight: 900;
   line-height: 1;
   letter-spacing: 0.025em;
-  color: #c0392b;
-  background: color-mix(in srgb, #c0392b 9%, white);
-  border: 1px solid color-mix(in srgb, #c0392b 22%, transparent);
+  color: var(--neutral);
+  background: color-mix(in srgb, var(--neutral) 9%, white);
+  border: 1px solid color-mix(in srgb, var(--neutral) 22%, transparent);
 }
 
 /* 1~3위 배지 */
@@ -368,9 +368,9 @@
 .ranking-item:nth-child(2) .ranking-item__absent-rate,
 .ranking-item:nth-child(3) .ranking-item__absent-rate {
   color: #fff;
-  background: linear-gradient(135deg, #c0392b, #922b21);
+  background: var(--neutral);
   border-color: transparent;
-  box-shadow: 0 3px 8px rgba(192, 57, 43, 0.3);
+  box-shadow: 0 3px 8px color-mix(in srgb, var(--neutral) 30%, transparent);
 }
 
 .ranking-item__stats {
@@ -384,8 +384,8 @@
 
 /* 불참 탭 활성화 시 메트릭 토글 색상 */
 .metric-toggle__button--absent.is-active {
-  background: linear-gradient(135deg, #c0392b, #8b1e17);
-  box-shadow: 0 4px 12px rgba(192, 57, 43, 0.3);
+  background: var(--neutral);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--neutral) 30%, transparent);
 }
 
 /* ─── 검색 패널 (컴팩트) ──────────────────────────── */
@@ -582,9 +582,9 @@
   color: #fff;
 }
 
-/* 불참 탭 선택시 빨간색 */
+/* 불참 탭 선택시 — 뉴트럴 톤 */
 .metric-toggle__button--absent.is-active {
-  background: linear-gradient(135deg, var(--negative), #6b1e17);
+  background: var(--neutral);
 }
 
 /* ─── 투표 카드 ───────────────────────────────────── */
