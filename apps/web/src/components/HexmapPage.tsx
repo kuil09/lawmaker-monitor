@@ -21,6 +21,7 @@ import type { ExtrudedFeature, H3BgCell, H3DataCell, MemberGeoPoint } from "../l
 import {
   extractCentroids,
   extractReprojectedFeatures,
+  getMetricModulatedColor,
   getPartyColor
 } from "../lib/geo-utils.js";
 import { useHexCellsWorker } from "../lib/hex-cells-worker.js";
@@ -45,7 +46,7 @@ const INITIAL_VIEW_STATE = {
   zoom: 6.5,
   minZoom: 5,
   maxZoom: 10,
-  pitch: 15,
+  pitch: 40,
   bearing: 0
 };
 
@@ -90,7 +91,7 @@ const VIZ_CONFIGS: VizConfig[] = [
   {
     key: "absence",
     label: "결석 핫스팟",
-    description: "셀 높이 = 결석률 평균. 색상은 셀 내 다수당.",
+    description: "셀 높이 = 결석률 평균(로그 정규화). 색상은 셀 내 다수당, 색이 진할수록 수치가 높음.",
     elevationScale: 60000,
     getMetric: (p) => p.absentRate,
     tooltipLabel: (c) => `결석률 ${(c.metric * 100).toFixed(1)}%`
@@ -98,7 +99,7 @@ const VIZ_CONFIGS: VizConfig[] = [
   {
     key: "negative",
     label: "반대·기권 인덱스",
-    description: "셀 높이 = 반대·기권율 평균. 색상은 셀 내 다수당.",
+    description: "셀 높이 = 반대·기권율 평균(로그 정규화). 색상은 셀 내 다수당, 색이 진할수록 수치가 높음.",
     elevationScale: 40000,
     getMetric: (p) => p.negativeRate,
     tooltipLabel: (c) => `반대·기권율 ${(c.metric * 100).toFixed(1)}%`
@@ -106,7 +107,7 @@ const VIZ_CONFIGS: VizConfig[] = [
   {
     key: "activity",
     label: "참여량 밀도",
-    description: "셀 높이 = 총 표결 참여 수 평균. 색상은 셀 내 다수당.",
+    description: "셀 높이 = 총 표결 참여 수 평균(로그 정규화). 색상은 셀 내 다수당, 색이 진할수록 수치가 높음.",
     elevationScale: 10,
     getMetric: (p) => p.totalRecordedVotes,
     tooltipLabel: (c) =>
@@ -318,12 +319,24 @@ export function HexmapPage({
   const layers = useMemo(() => {
     if (dataCells.length === 0) return [];
 
+    // 로그 정규화: 데이터셋 내 상대적 위치 → log 곡선 적용
+    let metricMin = Infinity, metricMax = -Infinity;
+    for (const d of dataCells) {
+      if (d.metric < metricMin) metricMin = d.metric;
+      if (d.metric > metricMax) metricMax = d.metric;
+    }
+    const metricRange = metricMax - metricMin || 1;
+    function logNorm(raw: number): number {
+      const x = Math.max(0, Math.min(1, (raw - metricMin) / metricRange));
+      return Math.log1p(x * 9) / Math.log1p(9);
+    }
+
     const dataLayer = new H3HexagonLayer<H3DataCell>({
       id: `h3-data-${activeMetric}`,
       data: dataCells,
       getHexagon: (d) => d.h3Index,
-      getFillColor: (d) => getPartyColor(d.party),
-      getElevation: (d) => d.metric * vizConfig.elevationScale,
+      getFillColor: (d) => getMetricModulatedColor(d.party, logNorm(d.metric)),
+      getElevation: (d) => logNorm(d.metric) * vizConfig.elevationScale,
       getLineColor: [255, 255, 255, 40],
       lineWidthMinPixels: 1,
       extruded: true,
@@ -441,13 +454,26 @@ export function HexmapPage({
   // Detail map layers using worker output
   const detailLayers = useMemo(() => {
     if (workerCells.length === 0) return [];
+
+    // 로그 정규화 (지역 지도 - 도 단위 데이터셋 기준)
+    let detailMetricMin = Infinity, detailMetricMax = -Infinity;
+    for (const d of workerCells) {
+      if (d.metric < detailMetricMin) detailMetricMin = d.metric;
+      if (d.metric > detailMetricMax) detailMetricMax = d.metric;
+    }
+    const detailMetricRange = detailMetricMax - detailMetricMin || 1;
+    function detailLogNorm(raw: number): number {
+      const x = Math.max(0, Math.min(1, (raw - detailMetricMin) / detailMetricRange));
+      return Math.log1p(x * 9) / Math.log1p(9);
+    }
+
     return [
       new H3HexagonLayer<H3DataCell>({
         id: `h3-detail-${activeMetric}-${detailProvince ?? ""}`,
         data: workerCells,
         getHexagon: (d) => d.h3Index,
-        getFillColor: (d) => getPartyColor(d.party),
-        getElevation: (d) => d.metric * vizConfig.elevationScale,
+        getFillColor: (d) => getMetricModulatedColor(d.party, detailLogNorm(d.metric)),
+        getElevation: (d) => detailLogNorm(d.metric) * vizConfig.elevationScale,
         getLineColor: [255, 255, 255, 40],
         lineWidthMinPixels: 1,
         extruded: true,

@@ -126,6 +126,31 @@ export function getPartyColor(party: string): [number, number, number, number] {
   return PARTY_COLORS[party] ?? [130, 130, 130, 230];
 }
 
+// t = logNorm 출력값 [0, 1]. t=0 → 연하게(흰색 블렌드), t=0.5 → 원색, t=1 → 어둡게(검정 블렌드)
+export function getMetricModulatedColor(
+  party: string,
+  t: number
+): [number, number, number, number] {
+  const [r, g, b, a] = getPartyColor(party);
+  if (t <= 0.5) {
+    const whiteMix = (0.5 - t) * 1.2;
+    return [
+      Math.round(r + (255 - r) * whiteMix),
+      Math.round(g + (255 - g) * whiteMix),
+      Math.round(b + (255 - b) * whiteMix),
+      a
+    ];
+  } else {
+    const darkMix = (t - 0.5) * 0.5;
+    return [
+      Math.round(r * (1 - darkMix)),
+      Math.round(g * (1 - darkMix)),
+      Math.round(b * (1 - darkMix)),
+      a
+    ];
+  }
+}
+
 // 지역 면적에 따른 H3 해상도 자동 결정 (step=20 축소본 features 기준 OK)
 export function getDetailRes(features: ExtrudedFeature[]): number {
   let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
