@@ -280,6 +280,7 @@ export default function App() {
     if (
       routeState.route !== "calendar" &&
       routeState.route !== "distribution" &&
+      routeState.route !== "map" &&
       !accountabilitySummary
     ) {
       return;
@@ -566,6 +567,7 @@ export default function App() {
           <HexmapPage
             manifest={manifest}
             accountabilitySummary={accountabilitySummary}
+            activityCalendar={activityCalendar}
             assemblyLabel={currentAssemblyLabel}
             initialProvince={routeState.mapProvince}
             initialMetric={routeState.mapMetric}

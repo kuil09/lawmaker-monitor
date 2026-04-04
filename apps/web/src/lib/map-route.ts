@@ -1,7 +1,7 @@
-export type MapMetric = "absence" | "negative" | "activity";
+export type MapMetric = "absence" | "negative" | "committee";
 
 export function isMapMetric(value: string | null | undefined): value is MapMetric {
-  return value === "absence" || value === "negative" || value === "activity";
+  return value === "absence" || value === "negative" || value === "committee";
 }
 
 export function buildMapHash({

@@ -17,7 +17,7 @@ type SummaryItem = {
   absentRate: number;
   noRate: number;
   abstainRate: number;
-  totalRecordedVotes: number;
+  committeeParticipationRate: number;
 };
 
 type HexCellsWorkerInput = {
@@ -34,7 +34,8 @@ export type HexCellsWorkerOutput =
 function getMetricValue(item: SummaryItem, vizKey: MapMetric): number {
   if (vizKey === "absence") return item.absentRate;
   if (vizKey === "negative") return item.noRate + item.abstainRate;
-  return item.totalRecordedVotes;
+  if (vizKey === "committee") return item.committeeParticipationRate;
+  return 0;
 }
 
 self.onmessage = (event: MessageEvent<HexCellsWorkerInput>) => {
