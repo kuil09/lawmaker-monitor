@@ -11,7 +11,6 @@ import "./styles/nav.css";
 import "./styles/home-refresh.css";
 import "./styles/activity-refresh.css";
 import "./styles/distribution-refresh.css";
-import "./styles/lab.css";
 import "./styles/hexmap.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

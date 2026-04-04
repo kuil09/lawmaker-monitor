@@ -17,7 +17,6 @@ import { DistributionPage } from "./components/DistributionPage.js";
 import { GlobalNav } from "./components/GlobalNav.js";
 import { MemberSearchField } from "./components/MemberSearchField.js";
 import { HexmapPage } from "./components/HexmapPage.js";
-import { LabPage } from "./components/LabPage.js";
 import { TrendsPage } from "./components/TrendsPage.js";
 import { VotesPage } from "./components/VotesPage.js";
 import { rankAccountabilityItems } from "./lib/accountability.js";
@@ -41,7 +40,7 @@ import {
 import { formatDateTime, formatNumber } from "./lib/format.js";
 import { getMemberAttendanceSummary } from "./lib/member-activity.js";
 
-type AppRoute = "home" | "calendar" | "distribution" | "votes" | "trends" | "lab" | "map";
+type AppRoute = "home" | "calendar" | "distribution" | "votes" | "trends" | "map";
 
 type RouteState = {
   route: AppRoute;
@@ -112,18 +111,6 @@ function getRouteStateFromHash(hash: string): RouteState {
   if (path === "trends") {
     return {
       route: "trends",
-      memberId: null,
-      compareMemberId: null,
-      view: "single",
-      behaviorFilter: null,
-      mapProvince: null,
-      mapMetric: "absence"
-    };
-  }
-
-  if (path === "lab") {
-    return {
-      route: "lab",
       memberId: null,
       compareMemberId: null,
       view: "single",
@@ -413,23 +400,17 @@ export default function App() {
     window.location.hash = "trends";
   }
 
-  function navigateToLab(): void {
-    window.location.hash = "lab";
-  }
-
   function navigateToMap(province?: string | null, metric?: MapMetric | null): void {
     window.location.hash = buildMapHash({ province, metric });
   }
 
-  function handleNavNavigate(target: "votes" | "trends" | "lab" | "map"): void {
+  function handleNavNavigate(target: "votes" | "trends" | "map"): void {
     if (target === "votes") {
       navigateToVotes();
     } else if (target === "trends") {
       navigateToTrends();
-    } else if (target === "map") {
-      navigateToMap();
     } else {
-      navigateToLab();
+      navigateToMap();
     }
   }
 
@@ -596,24 +577,6 @@ export default function App() {
     );
   }
 
-  if (routeState.route === "lab") {
-    return (
-      <>
-        <GlobalNav
-          route="lab"
-          assemblyLabel={currentAssemblyLabel}
-          onHome={navigateHome}
-        />
-        <main className="app-shell">
-          <LabPage
-            manifest={manifest}
-            accountabilitySummary={accountabilitySummary}
-            assemblyLabel={currentAssemblyLabel}
-          />
-        </main>
-      </>
-    );
-  }
 
   return (
     <>
