@@ -1138,6 +1138,7 @@ summary:focus-visible {
 .vote-card__highlight ul {
   display: flex;
   flex-wrap: wrap;
+  align-content: flex-start;
   gap: 0.5rem;
   margin: 0.75rem 0 0;
   padding: 0;
