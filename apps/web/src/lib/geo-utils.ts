@@ -96,6 +96,60 @@ function computeCentroid(ring: number[][], step = 50): [number, number] {
   return [sumLng / count, sumLat / count];
 }
 
+// ── H3 시각화 공유 타입 / 상수 ───────────────────────────────────────────────
+
+export type H3DataCell = {
+  h3Index: string;
+  party: string;
+  metric: number;
+  memberCount: number;
+  memberNames: string[];
+  memberParties: string[];
+  memberIds: string[];
+};
+
+export type H3BgCell = {
+  h3Index: string;
+};
+
+export const PARTY_COLORS: Record<string, [number, number, number, number]> = {
+  "더불어민주당": [30,  100, 210, 230],
+  "국민의힘":     [220,  50,  32, 230],
+  "조국혁신당":   [0,   170, 120, 230],
+  "개혁신당":     [230, 120,   0, 230],
+  "진보당":       [170,   0,  50, 230],
+  "기본소득당":   [100,  60, 180, 230],
+  "사회민주당":   [80,  160,  80, 230],
+};
+
+export function getPartyColor(party: string): [number, number, number, number] {
+  return PARTY_COLORS[party] ?? [130, 130, 130, 230];
+}
+
+// 지역 면적에 따른 H3 해상도 자동 결정 (step=20 축소본 features 기준 OK)
+export function getDetailRes(features: ExtrudedFeature[]): number {
+  let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
+  for (const f of features) {
+    const polys = f.geometry.type === "Polygon"
+      ? [(f.geometry.coordinates as number[][][])]
+      : (f.geometry.coordinates as number[][][][]);
+    for (const poly of polys) {
+      for (const ring of poly) {
+        for (const [lng, lat] of ring) {
+          if (lng < minLng) minLng = lng;
+          if (lng > maxLng) maxLng = lng;
+          if (lat < minLat) minLat = lat;
+          if (lat > maxLat) maxLat = lat;
+        }
+      }
+    }
+  }
+  const span = Math.max(maxLng - minLng, (maxLat - minLat) * 1.3);
+  if (span > 2) return 6;
+  if (span > 0.8) return 7;
+  return 8;
+}
+
 export function extractCentroids(topology: ConstituencyBoundaryTopology): MemberGeoPoint[] {
   const collection = feature(
     topology,
