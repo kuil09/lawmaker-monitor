@@ -26,17 +26,17 @@ function reprojectRing(ring: number[][], step = 20): number[][] {
   return result;
 }
 
-function reprojectGeometry(geometry: { type: string; coordinates: unknown }): { type: string; coordinates: unknown } {
+function reprojectGeometry(geometry: { type: string; coordinates: unknown }, step = 20): { type: string; coordinates: unknown } {
   if (geometry.type === "Polygon") {
     return {
       type: "Polygon",
-      coordinates: (geometry.coordinates as number[][][]).map(reprojectRing)
+      coordinates: (geometry.coordinates as number[][][]).map(ring => reprojectRing(ring, step))
     };
   }
   if (geometry.type === "MultiPolygon") {
     return {
       type: "MultiPolygon",
-      coordinates: (geometry.coordinates as number[][][][]).map(poly => poly.map(reprojectRing))
+      coordinates: (geometry.coordinates as number[][][][]).map(poly => poly.map(ring => reprojectRing(ring, step)))
     };
   }
   return geometry;
@@ -51,7 +51,7 @@ export type ExtrudedFeature = {
   };
 };
 
-export function extractReprojectedFeatures(topology: ConstituencyBoundaryTopology): ExtrudedFeature[] {
+export function extractReprojectedFeatures(topology: ConstituencyBoundaryTopology, step = 20): ExtrudedFeature[] {
   const collection = feature(
     topology,
     topology.objects.constituencies
@@ -68,7 +68,7 @@ export function extractReprojectedFeatures(topology: ConstituencyBoundaryTopolog
     const label = (f.properties.memberDistrictLabel as string | undefined) ?? "";
     return {
       type: "Feature" as const,
-      geometry: reprojectGeometry(f.geometry),
+      geometry: reprojectGeometry(f.geometry, step),
       properties: {
         districtKey: normalizeConstituencyLookupKey(label),
         label

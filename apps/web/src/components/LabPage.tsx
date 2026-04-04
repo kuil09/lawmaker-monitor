@@ -422,10 +422,13 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
   }, [detailFeatures]);
 
   // features → polygonToCells → H3DataCell (지역구 경계를 헥사곤으로 채움)
+  // detailFeatures(step=20 축소본)는 bounds 계산용, polygonToCells에는 풀해상도(step=1) 사용
   const detailCells = useMemo<H3DataCell[]>(() => {
-    if (detailFeatures.length === 0 || !accountabilitySummary) return [];
+    if (!detailTopology || !accountabilitySummary) return [];
 
     const detailRes = getDetailRes(detailFeatures);
+    // polygonToCells는 버텍스 수가 너무 적으면 퇴화 폴리곤을 만들므로 풀해상도로 추출
+    const fullResFeatures = extractReprojectedFeatures(detailTopology, 1);
     const memberByKey = new Map(
       accountabilitySummary.items.map(item => [
         normalizeConstituencyLookupKey(item.district),
@@ -435,7 +438,7 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
 
     const result: H3DataCell[] = [];
 
-    for (const feature of detailFeatures) {
+    for (const feature of fullResFeatures) {
       const member = memberByKey.get(feature.properties.districtKey);
       if (!member) continue;
 
@@ -470,7 +473,7 @@ export function LabPage({ manifest, accountabilitySummary, assemblyLabel }: LabP
     }
 
     return result;
-  }, [detailFeatures, accountabilitySummary, vizConfig]);
+  }, [detailTopology, detailFeatures, accountabilitySummary, vizConfig]);
 
   const detailLayers = useMemo(() => {
     if (detailCells.length === 0) return [];
