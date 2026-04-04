@@ -8,8 +8,7 @@ import { Map as MapGL } from "react-map-gl/maplibre";
 import type {
   AccountabilitySummaryExport,
   ConstituencyBoundariesIndexExport,
-  Manifest,
-  MemberActivityCalendarExport
+  Manifest
 } from "@lawmaker-monitor/schemas";
 
 import type { ConstituencyBoundaryTopology } from "../lib/constituency-map.js";
@@ -70,7 +69,6 @@ type AnnotatedPoint = MemberGeoPoint & {
   party: string;
   absentRate: number;
   negativeRate: number;
-  committeeParticipationRate: number;
 };
 
 type TooltipInfo = {
@@ -105,20 +103,11 @@ const VIZ_CONFIGS: VizConfig[] = [
     getMetric: (p) => p.negativeRate,
     tooltipLabel: (c) => `반대·기권율 ${(c.metric * 100).toFixed(1)}%`
   },
-  {
-    key: "committee",
-    label: "위원회 출석률",
-    description: "셀 높이 = 소속 위원회 표결 참여율(로그 정규화). 색상은 셀 내 다수당, 색이 진할수록 참여율이 높음.",
-    elevationScale: 40000,
-    getMetric: (p) => p.committeeParticipationRate,
-    tooltipLabel: (c) => `위원회 참여율 ${(c.metric * 100).toFixed(1)}%`
-  }
 ];
 
 type HexmapPageProps = {
   manifest: Manifest | null;
   accountabilitySummary: AccountabilitySummaryExport | null;
-  activityCalendar: MemberActivityCalendarExport | null;
   assemblyLabel: string;
   initialProvince: string | null;
   initialMetric: MapMetric;
@@ -129,7 +118,6 @@ type HexmapPageProps = {
 export function HexmapPage({
   manifest,
   accountabilitySummary,
-  activityCalendar,
   assemblyLabel,
   initialProvince,
   initialMetric,
@@ -220,17 +208,6 @@ export function HexmapPage({
     }
   }, [boundaryIndex, detailProvince]);
 
-  const committeeRateByMemberId = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const m of activityCalendar?.assembly.members ?? []) {
-      const summaries = m.committeeSummaries ?? [];
-      const totalEligible = summaries.reduce((s, c) => s + c.eligibleRollCallCount, 0);
-      const totalParticipated = summaries.reduce((s, c) => s + c.participatedRollCallCount, 0);
-      map.set(m.memberId, totalEligible > 0 ? totalParticipated / totalEligible : 0);
-    }
-    return map;
-  }, [activityCalendar]);
-
   const annotatedPoints = useMemo<AnnotatedPoint[]>(() => {
     if (!accountabilitySummary || allPoints.length === 0) return [];
 
@@ -250,11 +227,10 @@ export function HexmapPage({
         name: member.name,
         party: member.party,
         absentRate: member.absentRate,
-        negativeRate: member.noRate + member.abstainRate,
-        committeeParticipationRate: committeeRateByMemberId.get(member.memberId) ?? 0
+        negativeRate: member.noRate + member.abstainRate
       }];
     });
-  }, [allPoints, accountabilitySummary, committeeRateByMemberId]);
+  }, [allPoints, accountabilitySummary]);
 
   const vizConfig = VIZ_CONFIGS.find((v) => v.key === activeMetric) ?? VIZ_CONFIGS[0];
 
@@ -452,13 +428,8 @@ export function HexmapPage({
   // Trigger worker when topology or metric changes
   useEffect(() => {
     if (!detailTopology || !accountabilitySummary) return;
-    if (activeMetric === "committee" && !activityCalendar) return;
-    const workerItems = accountabilitySummary.items.map((item) => ({
-      ...item,
-      committeeParticipationRate: committeeRateByMemberId.get(item.memberId) ?? 0
-    }));
-    compute(detailTopology, workerItems, activeMetric);
-  }, [detailTopology, accountabilitySummary, activityCalendar, activeMetric, compute, committeeRateByMemberId]);
+    compute(detailTopology, accountabilitySummary.items, activeMetric);
+  }, [detailTopology, accountabilitySummary, activeMetric, compute]);
 
   // URL sync — skip initial mount
   useEffect(() => {

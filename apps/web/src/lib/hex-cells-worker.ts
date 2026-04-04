@@ -13,7 +13,6 @@ type SummaryItem = {
   absentRate: number;
   noRate: number;
   abstainRate: number;
-  committeeParticipationRate: number;
 };
 
 export type HexCellsStatus = "idle" | "loading" | "done" | "error";
