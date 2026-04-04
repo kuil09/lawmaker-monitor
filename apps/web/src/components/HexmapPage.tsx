@@ -1,7 +1,7 @@
 import { WebMercatorViewport } from "@deck.gl/core";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import DeckGL from "@deck.gl/react";
-import { cellToParent, latLngToCell } from "h3-js";
+import { cellToParent, gridDisk, latLngToCell } from "h3-js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Map as MapGL } from "react-map-gl/maplibre";
 
@@ -60,7 +60,7 @@ const INITIAL_DETAIL_VIEW_STATE = {
 };
 
 const BG_RES = 4;
-const DATA_RES = 6;
+const DATA_RES = 5;
 
 type AnnotatedPoint = MemberGeoPoint & {
   memberId: string;
@@ -300,19 +300,23 @@ export function HexmapPage({
       .map(([party, color]) => ({ party, color }));
   }, [dataCells]);
 
-  const layers = useMemo(() => {
-    if (bgCells.length === 0) return [];
+  // gridDisk(1) 확장: 각 데이터 셀의 이웃 6셀 → 낮은 투명도 bloom 레이어
+  const bloomCells = useMemo<H3DataCell[]>(() => {
+    if (dataCells.length === 0) return [];
+    const dataSet = new Set(dataCells.map((c) => c.h3Index));
+    const bloomMap = new Map<string, H3DataCell>();
+    for (const cell of dataCells) {
+      for (const n of gridDisk(cell.h3Index, 1)) {
+        if (!dataSet.has(n) && !bloomMap.has(n)) {
+          bloomMap.set(n, { ...cell, h3Index: n });
+        }
+      }
+    }
+    return [...bloomMap.values()];
+  }, [dataCells]);
 
-    const bgLayer = new H3HexagonLayer<H3BgCell>({
-      id: "h3-bg",
-      data: bgCells,
-      getHexagon: (d) => d.h3Index,
-      getFillColor: [220, 225, 232, 60],
-      getLineColor: [180, 190, 200, 100],
-      lineWidthMinPixels: 1,
-      extruded: false,
-      pickable: false
-    });
+  const layers = useMemo(() => {
+    if (dataCells.length === 0) return [];
 
     const dataLayer = new H3HexagonLayer<H3DataCell>({
       id: `h3-data-${activeMetric}`,
@@ -333,8 +337,21 @@ export function HexmapPage({
       }
     });
 
-    return [bgLayer, dataLayer];
-  }, [bgCells, dataCells, activeMetric, vizConfig]);
+    const bloomLayer = new H3HexagonLayer<H3DataCell>({
+      id: `h3-bloom-${activeMetric}`,
+      data: bloomCells,
+      getHexagon: (d) => d.h3Index,
+      getFillColor: (d) => {
+        const [r, g, b] = getPartyColor(d.party);
+        return [r, g, b, 55];
+      },
+      extruded: false,
+      pickable: false,
+      lineWidthMinPixels: 0
+    });
+
+    return [bloomLayer, dataLayer];
+  }, [bloomCells, dataCells, activeMetric, vizConfig]);
 
   // Load topology for selected province
   useEffect(() => {
