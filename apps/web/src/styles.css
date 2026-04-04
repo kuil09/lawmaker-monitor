@@ -1180,6 +1180,7 @@ summary:focus-visible {
 
 .vote-card__group {
   display: grid;
+  align-content: start;
   gap: 0.6rem;
   min-width: 0;
 }
