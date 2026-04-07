@@ -176,7 +176,7 @@ describe("HexmapPage", () => {
 
     expect(nationalDeck?.layers).toHaveLength(1);
     expect(detailDeck?.layers).toHaveLength(1);
-    expect(nationalDeck?.initialViewState).toMatchObject({ pitch: 0 });
+    expect(nationalDeck?.initialViewState).toMatchObject({ pitch: 0, zoom: 6.2 });
     expect(detailDeck?.viewState).toMatchObject({ pitch: 0 });
   });
 

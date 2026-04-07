@@ -44,7 +44,7 @@ const MAP_STYLE = {
 const INITIAL_VIEW_STATE = {
   longitude: 127.8,
   latitude: 36.5,
-  zoom: 6.5,
+  zoom: 6.2,
   minZoom: 5,
   maxZoom: 10,
   pitch: 0,
