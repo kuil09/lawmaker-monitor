@@ -1,7 +1,7 @@
 import { WebMercatorViewport } from "@deck.gl/core";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import DeckGL from "@deck.gl/react";
-import { cellToParent, gridDisk, latLngToCell } from "h3-js";
+import { cellToParent, latLngToCell } from "h3-js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Map as MapGL } from "react-map-gl/maplibre";
 
@@ -19,6 +19,7 @@ import {
 } from "../lib/data.js";
 import type { ExtrudedFeature, H3BgCell, H3DataCell, MemberGeoPoint } from "../lib/geo-utils.js";
 import {
+  createLogNormalizer,
   extractCentroids,
   extractReprojectedFeatures,
   getMetricModulatedColor,
@@ -46,7 +47,7 @@ const INITIAL_VIEW_STATE = {
   zoom: 6.5,
   minZoom: 5,
   maxZoom: 10,
-  pitch: 40,
+  pitch: 0,
   bearing: 0
 };
 
@@ -54,7 +55,7 @@ const INITIAL_DETAIL_VIEW_STATE = {
   longitude: 127.8,
   latitude: 36.5,
   zoom: 6.5,
-  pitch: 45,
+  pitch: 0,
   bearing: 0,
   minZoom: 5,
   maxZoom: 14
@@ -71,6 +72,16 @@ type AnnotatedPoint = MemberGeoPoint & {
   negativeRate: number;
 };
 
+type WorkerSummaryItem = {
+  memberId: string;
+  name: string;
+  party: string;
+  district: string;
+  absentRate: number;
+  noRate: number;
+  abstainRate: number;
+};
+
 type TooltipInfo = {
   x: number;
   y: number;
@@ -81,7 +92,6 @@ type VizConfig = {
   key: MapMetric;
   label: string;
   description: string;
-  elevationScale: number;
   getMetric: (p: AnnotatedPoint) => number;
   tooltipLabel: (cell: H3DataCell) => string;
 };
@@ -90,16 +100,14 @@ const VIZ_CONFIGS: VizConfig[] = [
   {
     key: "absence",
     label: "결석 핫스팟",
-    description: "셀 높이 = 결석률 평균(로그 정규화). 색상은 셀 내 다수당, 색이 진할수록 수치가 높음.",
-    elevationScale: 60000,
+    description: "타일 색 진하기 = 결석률 평균(로그 정규화). 색상 hue는 셀 내 다수당을 따르며, 같은 정당 안에서는 값이 높을수록 더 진합니다.",
     getMetric: (p) => p.absentRate,
     tooltipLabel: (c) => `결석률 ${(c.metric * 100).toFixed(1)}%`
   },
   {
     key: "negative",
     label: "반대·기권 인덱스",
-    description: "셀 높이 = 반대·기권율 평균(로그 정규화). 색상은 셀 내 다수당, 색이 진할수록 수치가 높음.",
-    elevationScale: 40000,
+    description: "타일 색 진하기 = 반대·기권율 평균(로그 정규화). 색상 hue는 셀 내 다수당을 따르며, 같은 정당 안에서는 값이 높을수록 더 진합니다.",
     getMetric: (p) => p.negativeRate,
     tooltipLabel: (c) => `반대·기권율 ${(c.metric * 100).toFixed(1)}%`
   },
@@ -232,7 +240,24 @@ export function HexmapPage({
     });
   }, [allPoints, accountabilitySummary]);
 
-  const vizConfig = VIZ_CONFIGS.find((v) => v.key === activeMetric) ?? VIZ_CONFIGS[0];
+  const vizConfig = VIZ_CONFIGS.find((v) => v.key === activeMetric) ?? VIZ_CONFIGS[0]!;
+
+  const workerItems = useMemo<WorkerSummaryItem[]>(() => {
+    if (!accountabilitySummary) return [];
+
+    return accountabilitySummary.items.flatMap((item) => {
+      if (!item.district) return [];
+      return [{
+        memberId: item.memberId,
+        name: item.name,
+        party: item.party,
+        district: item.district,
+        absentRate: item.absentRate,
+        noRate: item.noRate,
+        abstainRate: item.abstainRate
+      }];
+    });
+  }, [accountabilitySummary]);
 
   // National H3 cell aggregation (centroid-based, fixed res)
   const { dataCells, bgCells } = useMemo<{ dataCells: H3DataCell[]; bgCells: H3BgCell[] }>(() => {
@@ -290,45 +315,18 @@ export function HexmapPage({
       .map(([party, color]) => ({ party, color }));
   }, [dataCells]);
 
-  // gridDisk(1) 확장: 각 데이터 셀의 이웃 6셀 → 낮은 투명도 bloom 레이어
-  const bloomCells = useMemo<H3DataCell[]>(() => {
-    if (dataCells.length === 0) return [];
-    const dataSet = new Set(dataCells.map((c) => c.h3Index));
-    const bloomMap = new Map<string, H3DataCell>();
-    for (const cell of dataCells) {
-      for (const n of gridDisk(cell.h3Index, 1)) {
-        if (!dataSet.has(n) && !bloomMap.has(n)) {
-          bloomMap.set(n, { ...cell, h3Index: n });
-        }
-      }
-    }
-    return [...bloomMap.values()];
-  }, [dataCells]);
-
   const layers = useMemo(() => {
     if (dataCells.length === 0) return [];
-
-    // 로그 정규화: 데이터셋 내 상대적 위치 → log 곡선 적용
-    let metricMin = Infinity, metricMax = -Infinity;
-    for (const d of dataCells) {
-      if (d.metric < metricMin) metricMin = d.metric;
-      if (d.metric > metricMax) metricMax = d.metric;
-    }
-    const metricRange = metricMax - metricMin || 1;
-    function logNorm(raw: number): number {
-      const x = Math.max(0, Math.min(1, (raw - metricMin) / metricRange));
-      return Math.log1p(x * 9) / Math.log1p(9);
-    }
+    const normalizeMetric = createLogNormalizer(dataCells.map((d) => d.metric));
 
     const dataLayer = new H3HexagonLayer<H3DataCell>({
       id: `h3-data-${activeMetric}`,
       data: dataCells,
       getHexagon: (d) => d.h3Index,
-      getFillColor: (d) => getMetricModulatedColor(d.party, logNorm(d.metric)),
-      getElevation: (d) => logNorm(d.metric) * vizConfig.elevationScale,
+      getFillColor: (d) => getMetricModulatedColor(d.party, normalizeMetric(d.metric)),
       getLineColor: [255, 255, 255, 40],
       lineWidthMinPixels: 1,
-      extruded: true,
+      extruded: false,
       pickable: true,
       onHover: (info) => {
         if (info.object && info.x !== undefined && info.y !== undefined) {
@@ -339,21 +337,8 @@ export function HexmapPage({
       }
     });
 
-    const bloomLayer = new H3HexagonLayer<H3DataCell>({
-      id: `h3-bloom-${activeMetric}`,
-      data: bloomCells,
-      getHexagon: (d) => d.h3Index,
-      getFillColor: (d) => {
-        const [r, g, b] = getPartyColor(d.party);
-        return [r, g, b, 55];
-      },
-      extruded: false,
-      pickable: false,
-      lineWidthMinPixels: 0
-    });
-
-    return [bloomLayer, dataLayer];
-  }, [bloomCells, dataCells, activeMetric, vizConfig]);
+    return [dataLayer];
+  }, [dataCells, activeMetric]);
 
   // Load topology for selected province
   useEffect(() => {
@@ -392,7 +377,9 @@ export function HexmapPage({
           : (f.geometry.coordinates as number[][][][]);
       for (const poly of polys) {
         for (const ring of poly) {
-          for (const [lng, lat] of ring) {
+          for (const point of ring) {
+            const [lng, lat] = point;
+            if (lng === undefined || lat === undefined) continue;
             if (lng < minLng) minLng = lng;
             if (lng > maxLng) maxLng = lng;
             if (lat < minLat) minLat = lat;
@@ -427,9 +414,9 @@ export function HexmapPage({
 
   // Trigger worker when topology or metric changes
   useEffect(() => {
-    if (!detailTopology || !accountabilitySummary) return;
-    compute(detailTopology, accountabilitySummary.items, activeMetric);
-  }, [detailTopology, accountabilitySummary, activeMetric, compute]);
+    if (!detailTopology || workerItems.length === 0) return;
+    compute(detailTopology, workerItems, activeMetric);
+  }, [detailTopology, workerItems, activeMetric, compute]);
 
   // URL sync — skip initial mount
   useEffect(() => {
@@ -443,29 +430,17 @@ export function HexmapPage({
   // Detail map layers using worker output
   const detailLayers = useMemo(() => {
     if (workerCells.length === 0) return [];
-
-    // 로그 정규화 (지역 지도 - 도 단위 데이터셋 기준)
-    let detailMetricMin = Infinity, detailMetricMax = -Infinity;
-    for (const d of workerCells) {
-      if (d.metric < detailMetricMin) detailMetricMin = d.metric;
-      if (d.metric > detailMetricMax) detailMetricMax = d.metric;
-    }
-    const detailMetricRange = detailMetricMax - detailMetricMin || 1;
-    function detailLogNorm(raw: number): number {
-      const x = Math.max(0, Math.min(1, (raw - detailMetricMin) / detailMetricRange));
-      return Math.log1p(x * 9) / Math.log1p(9);
-    }
+    const normalizeMetric = createLogNormalizer(workerCells.map((d) => d.metric));
 
     return [
       new H3HexagonLayer<H3DataCell>({
         id: `h3-detail-${activeMetric}-${detailProvince ?? ""}`,
         data: workerCells,
         getHexagon: (d) => d.h3Index,
-        getFillColor: (d) => getMetricModulatedColor(d.party, detailLogNorm(d.metric)),
-        getElevation: (d) => detailLogNorm(d.metric) * vizConfig.elevationScale,
+        getFillColor: (d) => getMetricModulatedColor(d.party, normalizeMetric(d.metric)),
         getLineColor: [255, 255, 255, 40],
         lineWidthMinPixels: 1,
-        extruded: true,
+        extruded: false,
         pickable: true,
         onHover: (info) => {
           if (info.object && info.x !== undefined && info.y !== undefined) {
@@ -477,13 +452,14 @@ export function HexmapPage({
         onClick: (info) => {
           if (!info.object) return;
           const cell = info.object as H3DataCell;
-          if (cell.memberCount === 1) {
-            onNavigateToMember(cell.memberIds[0]);
+          const memberId = cell.memberIds[0];
+          if (cell.memberCount === 1 && memberId) {
+            onNavigateToMember(memberId);
           }
         }
       })
     ];
-  }, [workerCells, activeMetric, detailProvince, vizConfig, onNavigateToMember]);
+  }, [workerCells, activeMetric, detailProvince, onNavigateToMember]);
 
   const isWorkerComputing = workerStatus === "loading";
 
@@ -593,7 +569,7 @@ export function HexmapPage({
           ) : (
             <DeckGL
               initialViewState={INITIAL_VIEW_STATE}
-              controller={{ minZoom: 5, maxZoom: 10 }}
+              controller
               layers={layers}
             >
               <MapGL mapStyle={MAP_STYLE} />
@@ -659,7 +635,7 @@ export function HexmapPage({
                 onViewStateChange={({ viewState: vs }) => {
                   setDetailViewState(vs as typeof detailViewState);
                 }}
-                controller={{ minZoom: 5, maxZoom: 14 }}
+                controller
                 layers={detailLayers}
               >
                 <MapGL mapStyle={MAP_STYLE} />

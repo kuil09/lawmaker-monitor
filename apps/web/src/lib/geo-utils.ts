@@ -4,7 +4,7 @@ import { feature } from "topojson-client";
 import type { ConstituencyBoundaryTopology } from "./constituency-map.js";
 import { normalizeConstituencyLookupKey } from "./constituency-map.js";
 
-// 한국 TM 투영좌표계 (EPSG:5179) → WGS84 (EPSG:4326)
+// Korean TM projection (EPSG:5179) -> WGS84 (EPSG:4326)
 const KOREAN_TM = "+proj=tmerc +lat_0=38 +lon_0=127.5 +k=0.9996 +x_0=1000000 +y_0=2000000 +ellps=GRS80 +units=m +no_defs";
 const WGS84 = "+proj=longlat +datum=WGS84 +no_defs";
 
@@ -15,12 +15,15 @@ function toWgs84(x: number, y: number): [number, number] {
   return [x, y];
 }
 
-// zoom 6~7 수준에서 20개 중 1개 버텍스로도 선거구 윤곽 식별 가능
+// At zoom 6-7, one sampled vertex out of 20 still preserves constituency outlines.
 function reprojectRing(ring: number[][], step = 20): number[][] {
   const result: number[][] = [];
   for (let i = 0; i < ring.length; i++) {
     if (i === 0 || i === ring.length - 1 || i % step === 0) {
-      result.push(toWgs84(ring[i][0], ring[i][1]));
+      const point = ring[i];
+      const [x, y] = point ?? [];
+      if (x === undefined || y === undefined) continue;
+      result.push(toWgs84(x, y));
     }
   }
   return result;
@@ -84,19 +87,23 @@ export type MemberGeoPoint = {
   label: string;
 };
 
-// 외곽 링 버텍스의 표본 평균으로 시각적 센트로이드 계산
+// Approximate a visual centroid from sampled outer-ring vertices.
 function computeCentroid(ring: number[][], step = 50): [number, number] {
   let sumLng = 0, sumLat = 0, count = 0;
   for (let i = 0; i < ring.length; i += step) {
-    const [lng, lat] = toWgs84(ring[i][0], ring[i][1]);
+    const point = ring[i];
+    const [x, y] = point ?? [];
+    if (x === undefined || y === undefined) continue;
+    const [lng, lat] = toWgs84(x, y);
     sumLng += lng;
     sumLat += lat;
     count++;
   }
+  if (count === 0) return [0, 0];
   return [sumLng / count, sumLat / count];
 }
 
-// ── H3 시각화 공유 타입 / 상수 ───────────────────────────────────────────────
+// Shared H3 visualization types and constants.
 
 export type H3DataCell = {
   h3Index: string;
@@ -126,7 +133,8 @@ export function getPartyColor(party: string): [number, number, number, number] {
   return PARTY_COLORS[party] ?? [130, 130, 130, 230];
 }
 
-// t = logNorm 출력값 [0, 1]. t=0 → 연하게(흰색 블렌드), t=0.5 → 원색, t=1 → 어둡게(검정 블렌드)
+// t is a normalized value in [0, 1].
+// t=0 -> lighter via white blend, t=0.5 -> base party color, t=1 -> darker via black blend.
 export function getMetricModulatedColor(
   party: string,
   t: number
@@ -151,7 +159,25 @@ export function getMetricModulatedColor(
   }
 }
 
-// 지역 면적에 따른 H3 해상도 자동 결정 (step=20 축소본 features 기준 OK)
+export function createLogNormalizer(values: readonly number[]): (raw: number) => number {
+  if (values.length === 0) return () => 0;
+
+  let min = Infinity;
+  let max = -Infinity;
+  for (const value of values) {
+    if (value < min) min = value;
+    if (value > max) max = value;
+  }
+
+  const range = max - min || 1;
+
+  return (raw: number) => {
+    const x = Math.max(0, Math.min(1, (raw - min) / range));
+    return Math.log1p(x * 9) / Math.log1p(9);
+  };
+}
+
+// Select H3 resolution from feature span. Step=20 reduced features are sufficient here.
 export function getDetailRes(features: ExtrudedFeature[]): number {
   let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
   for (const f of features) {
@@ -160,7 +186,9 @@ export function getDetailRes(features: ExtrudedFeature[]): number {
       : (f.geometry.coordinates as number[][][][]);
     for (const poly of polys) {
       for (const ring of poly) {
-        for (const [lng, lat] of ring) {
+        for (const point of ring) {
+          const [lng, lat] = point;
+          if (lng === undefined || lat === undefined) continue;
           if (lng < minLng) minLng = lng;
           if (lng > maxLng) maxLng = lng;
           if (lat < minLat) minLat = lat;
@@ -194,12 +222,21 @@ export function extractCentroids(topology: ConstituencyBoundaryTopology): Member
 
     let ring: number[][];
     if (f.geometry.type === "Polygon") {
-      ring = (f.geometry.coordinates as number[][][])[0];
+      const polygon = f.geometry.coordinates as number[][][];
+      const firstRing = polygon[0];
+      if (!firstRing) return [];
+      ring = firstRing;
     } else if (f.geometry.type === "MultiPolygon") {
       const polys = f.geometry.coordinates as number[][][][];
+      const firstRing = polys[0]?.[0];
+      if (!firstRing) return [];
       ring = polys.reduce(
-        (best, poly) => (poly[0].length > best.length ? poly[0] : best),
-        polys[0][0]
+        (best, poly) => {
+          const candidate = poly[0];
+          if (!candidate) return best;
+          return candidate.length > best.length ? candidate : best;
+        },
+        firstRing
       );
     } else {
       return [];
