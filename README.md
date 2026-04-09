@@ -1,8 +1,8 @@
 # Lawmaker Monitor
 
-Lawmaker Monitor is a public web app and data pipeline for tracking plenary vote activity in the National Assembly of Korea. The project collects official upstream data, normalizes it into stable datasets, publishes lightweight JSON exports, and renders those exports in a static client.
+Lawmaker Monitor is a public web app and data pipeline for tracking plenary vote activity and asset disclosure history in the National Assembly of Korea. The project collects official upstream data, normalizes it into stable datasets, publishes lightweight JSON exports, and renders those exports in a static client.
 
-The current product is organized around two main views. The home view focuses on recent vote activity and accountability signals, while the calendar view helps readers inspect participation patterns and compare individual lawmakers over time.
+The current product is organized around two main views. The home view focuses on recent vote activity and accountability signals, while the calendar view helps readers inspect participation patterns, compare individual lawmakers over time, and review published asset disclosure history for current members of the 22nd Assembly.
 
 ## What The App Shows
 
@@ -14,6 +14,10 @@ The current product is organized around two main views. The home view focuses on
 - Compare mode for viewing two members side by side in the calendar experience
 - Shareable deep links for member and compare views
 - Lazy member detail loading so detailed vote records are fetched only when needed
+- Member asset disclosure history in the calendar view for current 22nd Assembly lawmakers
+- Asset summary cards with latest total, first disclosure date, latest disclosure date, and cumulative delta
+- Category toggles for asset subtotal series plus a real-estate-focused readout for land and building categories
+- Scope toggle for family-included totals versus self-only totals when item-level disclosure parsing supports it
 
 ## Repository Layout
 
@@ -25,13 +29,16 @@ The current product is organized around two main views. The home view focuses on
 
 ## Data Flow
 
-1. `ingest-live` fetches official Assembly API payloads and writes a raw snapshot artifact.
-2. `build-data` reads the raw snapshot, builds normalized datasets, and publishes public exports plus a manifest.
-3. `deploy-web` builds the frontend against the published data base URL and deploys the static site to GitHub Pages.
-4. `monitor-sources` checks official upstream payloads for changes that could break parsing assumptions.
-5. `mirror-documents` mirrors public Assembly documents into the public data repository and updates mirror state metadata.
+1. `ingest-live` fetches official Assembly API payloads and writes a raw snapshot artifact for vote, member, committee, and meeting data.
+2. `mirror-property-disclosures` queries the official Assembly file-service JSON listing for property disclosure PDFs, mirrors the files into the public data repository, and refreshes a JSON-only property member context cache.
+3. `build-data` reads the raw ingest snapshot plus the mirrored property inputs from the public data repository, builds normalized datasets, and publishes public exports plus a manifest.
+4. `deploy-web` builds the frontend against the published data base URL and deploys the static site to GitHub Pages.
+5. `monitor-sources` checks official upstream payloads for changes that could break parsing assumptions.
+6. `mirror-documents` mirrors other public Assembly documents into the public data repository and updates mirror state metadata.
 
 This repository owns the application code, schemas, tests, and workflow orchestration. Published datasets and exports are meant to live in a separate public data repository referenced by the web app at runtime.
+
+The asset disclosure path is intentionally split from the XML-derived vote snapshot path. Property mapping uses a JSON-only cached roster and tenure context built from official Assembly OpenAPI responses and does not depend on the XML member snapshot used by the main vote pipeline.
 
 ## Published Data
 
@@ -42,6 +49,12 @@ The frontend reads public JSON exports and validates them with the schemas packa
 - `exports/accountability_trends.json`: weekly trend points and mover windows for the overview charts
 - `exports/member_activity_calendar.json`: calendar summary payload for the current assembly
 - `exports/member_activity_calendar_members/<memberId>.json`: lazily loaded member vote record details
+- `exports/member_assets_index.json`: current-member asset disclosure index with latest summary and per-member history pointers
+- `exports/member_assets_history/<memberId>.json`: lazily loaded member asset disclosure history and category subtotal series
+- `curated/asset_disclosures.parquet`: mirrored disclosure file metadata
+- `curated/asset_disclosure_records.parquet`: parsed disclosure record summaries per named filer
+- `curated/asset_disclosure_categories.parquet`: parsed category subtotal rows per disclosure record
+- `curated/asset_disclosure_items.parquet`: parsed asset item rows with relation and detail text fields when available
 - `manifests/latest.json`: manifest with dataset and export metadata, checksums, and current assembly information
 
 Shared contracts for these files are defined in `@lawmaker-monitor/schemas`.
@@ -63,6 +76,7 @@ Useful commands during development:
 npm run dev:web
 npm run ingest:live --workspace @lawmaker-monitor/ingest
 npm run build:data --workspace @lawmaker-monitor/ingest
+npm run sync:property-member-context --workspace @lawmaker-monitor/ingest
 npm run test:ui
 ```
 
@@ -72,6 +86,7 @@ Additional operational scripts:
 
 ```bash
 npm run mirror:documents --workspace @lawmaker-monitor/ingest
+npm run sync:property-member-context --workspace @lawmaker-monitor/ingest
 npm run monitor:sources --workspace @lawmaker-monitor/ingest
 ```
 
@@ -82,6 +97,7 @@ npm run monitor:sources --workspace @lawmaker-monitor/ingest
 - `deploy-web`: builds the frontend and deploys it to GitHub Pages
 - `monitor-sources`: checks upstream source stability and opens an incident issue when parser assumptions fail
 - `mirror-documents`: mirrors public Assembly documents into the public data repository
+- `mirror-property-disclosures`: mirrors official property disclosure PDFs, refreshes property member context JSON caches, and publishes those raw inputs into the public data repository
 
 ## Supported Ingest Environment Variables
 
@@ -130,11 +146,22 @@ Public document mirror settings:
 - `MIRROR_BACKFILL_DAYS`
 - `MIRROR_INCLUDE_APPENDICES`
 
+Property disclosure mirror settings use the same document mirror infrastructure plus Assembly file-service specific inputs:
+
+- `MIRROR_SERVICE_INF_ID`
+- `MIRROR_SERVICE_INF_SEQ`
+- `MIRROR_INDEX_PATH`
+- `MIRROR_STATE_PATH`
+- `PROPERTY_SOURCE_ID`
+- `PROPERTY_MEMBER_CONTEXT_MANIFEST_PATH`
+- `PROPERTY_MEMBER_INFO_PATH`
+- `PROPERTY_MEMBER_HISTORY_PATH`
+
 See `.env.example` for a concrete local configuration template.
 
 ## Source Policy
 
-Lawmaker Monitor is built around official Assembly sources for vote, meeting, member, committee, and related plenary data. The ingest pipeline, source monitoring checks, and public export contracts are all designed around keeping that official-source path stable over time.
+Lawmaker Monitor is built around official Assembly sources for vote, meeting, member, committee, and related plenary data. The asset disclosure pipeline also stays on official Assembly surfaces: the property PDF list comes from the public file-service JSON endpoint, and property member mapping comes from cached official JSON OpenAPI responses for current member roster and member history. The ingest pipeline, source monitoring checks, and public export contracts are all designed around keeping that official-source path stable over time.
 
 ## Reference Material
 
