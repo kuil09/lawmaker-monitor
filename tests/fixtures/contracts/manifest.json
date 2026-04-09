@@ -38,6 +38,30 @@
       "url": "https://data.example.test/lawmaker-monitor/curated/sources.parquet",
       "checksumSha256": "sources-checksum",
       "rowCount": 3
+    },
+    "assetDisclosures": {
+      "path": "curated/asset_disclosures.parquet",
+      "url": "https://data.example.test/lawmaker-monitor/curated/asset_disclosures.parquet",
+      "checksumSha256": "asset-disclosures-checksum",
+      "rowCount": 2
+    },
+    "assetDisclosureRecords": {
+      "path": "curated/asset_disclosure_records.parquet",
+      "url": "https://data.example.test/lawmaker-monitor/curated/asset_disclosure_records.parquet",
+      "checksumSha256": "asset-disclosure-records-checksum",
+      "rowCount": 4
+    },
+    "assetDisclosureCategories": {
+      "path": "curated/asset_disclosure_categories.parquet",
+      "url": "https://data.example.test/lawmaker-monitor/curated/asset_disclosure_categories.parquet",
+      "checksumSha256": "asset-disclosure-categories-checksum",
+      "rowCount": 9
+    },
+    "assetDisclosureItems": {
+      "path": "curated/asset_disclosure_items.parquet",
+      "url": "https://data.example.test/lawmaker-monitor/curated/asset_disclosure_items.parquet",
+      "checksumSha256": "asset-disclosure-items-checksum",
+      "rowCount": 9
     }
   },
   "exports": {
@@ -69,6 +93,12 @@
       "path": "exports/constituency_boundaries/index.json",
       "url": "https://data.example.test/lawmaker-monitor/exports/constituency_boundaries/index.json",
       "checksumSha256": "constituency-index-checksum",
+      "rowCount": 2
+    },
+    "memberAssetsIndex": {
+      "path": "exports/member_assets_index.json",
+      "url": "https://data.example.test/lawmaker-monitor/exports/member_assets_index.json",
+      "checksumSha256": "member-assets-index-checksum",
       "rowCount": 2
     }
   }

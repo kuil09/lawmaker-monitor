@@ -5,6 +5,7 @@ import type {
   CurrentAssembly,
   LatestVotesExport,
   Manifest,
+  MemberAssetsIndexExport,
   MemberPublicProfile,
   MemberActivityCalendarExport,
   MemberActivityCalendarMemberDetailExport,
@@ -27,6 +28,23 @@ type BuildArtifactsInput = {
   accountabilitySummary?: AccountabilitySummaryExport;
   accountabilityTrends?: AccountabilityTrendsExport;
   memberActivityCalendar?: MemberActivityCalendarExport;
+  memberAssetsIndex?: MemberAssetsIndexExport;
+  assetDisclosuresDataset?: {
+    content: string;
+    rowCount: number;
+  };
+  assetDisclosureRecordsDataset?: {
+    content: string;
+    rowCount: number;
+  };
+  assetDisclosureCategoriesDataset?: {
+    content: string;
+    rowCount: number;
+  };
+  assetDisclosureItemsDataset?: {
+    content: string;
+    rowCount: number;
+  };
   constituencyBoundariesIndex?: ConstituencyBoundariesIndexExport;
 };
 
@@ -1360,6 +1378,7 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
     input.accountabilityTrends ?? buildAccountabilityTrendsExport(bundle);
   const memberActivityCalendar =
     input.memberActivityCalendar ?? buildMemberActivityCalendarExport(bundle);
+  const memberAssetsIndex = input.memberAssetsIndex;
   const constituencyBoundariesIndex = input.constituencyBoundariesIndex;
   const normalizedPayloads = {
     members: toNdjson(bundle.members),
@@ -1389,7 +1408,43 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
       rollCalls: createDatasetFile("curated/roll_calls.parquet", normalizedPayloads.rollCalls, bundle.rollCalls.length),
       voteFacts: createDatasetFile("curated/vote_facts.parquet", normalizedPayloads.voteFacts, bundle.voteFacts.length),
       meetings: createDatasetFile("curated/meetings.parquet", normalizedPayloads.meetings, bundle.meetings.length),
-      sources: createDatasetFile("curated/sources.parquet", normalizedPayloads.sources, bundle.sources.length)
+      sources: createDatasetFile("curated/sources.parquet", normalizedPayloads.sources, bundle.sources.length),
+      ...(input.assetDisclosuresDataset
+        ? {
+            assetDisclosures: createDatasetFile(
+              "curated/asset_disclosures.parquet",
+              input.assetDisclosuresDataset.content,
+              input.assetDisclosuresDataset.rowCount
+            )
+          }
+        : {}),
+      ...(input.assetDisclosureRecordsDataset
+        ? {
+            assetDisclosureRecords: createDatasetFile(
+              "curated/asset_disclosure_records.parquet",
+              input.assetDisclosureRecordsDataset.content,
+              input.assetDisclosureRecordsDataset.rowCount
+            )
+          }
+        : {}),
+      ...(input.assetDisclosureCategoriesDataset
+        ? {
+            assetDisclosureCategories: createDatasetFile(
+              "curated/asset_disclosure_categories.parquet",
+              input.assetDisclosureCategoriesDataset.content,
+              input.assetDisclosureCategoriesDataset.rowCount
+            )
+          }
+        : {}),
+      ...(input.assetDisclosureItemsDataset
+        ? {
+            assetDisclosureItems: createDatasetFile(
+              "curated/asset_disclosure_items.parquet",
+              input.assetDisclosureItemsDataset.content,
+              input.assetDisclosureItemsDataset.rowCount
+            )
+          }
+        : {})
     },
     exports: {
       latestVotes: createPublishedExportFile(
@@ -1412,6 +1467,15 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
         memberActivityCalendar,
         memberActivityCalendar.assembly.members.length
       ),
+      ...(memberAssetsIndex
+        ? {
+            memberAssetsIndex: createPublishedExportFile(
+              "exports/member_assets_index.json",
+              memberAssetsIndex,
+              memberAssetsIndex.members.length
+            )
+          }
+        : {}),
       ...(constituencyBoundariesIndex
         ? {
             constituencyBoundariesIndex: createPublishedExportFile(

@@ -1,0 +1,103 @@
+name: mirror-property-disclosures
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "45 15 * * *"
+
+concurrency:
+  group: published-data-property-${{ vars.DATA_REPO || 'none' }}-${{ vars.DATA_REPO_BRANCH || 'main' }}
+  cancel-in-progress: false
+
+jobs:
+  mirror-property-disclosures:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      DATA_REPO: ${{ vars.DATA_REPO }}
+      DATA_REPO_BRANCH: ${{ vars.DATA_REPO_BRANCH }}
+      DATA_REPO_PAT: ${{ secrets.DATA_REPO_PAT }}
+      MIRROR_MODE: assembly_file_service
+      MIRROR_SOURCE_ID: assembly-property-disclosures
+      MIRROR_START_URL: https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700
+      MIRROR_SERVICE_INF_ID: O2853M000835T714700
+      MIRROR_SERVICE_INF_SEQ: "1"
+      MIRROR_MAX_DOWNLOADS: ${{ vars.PROPERTY_MIRROR_MAX_DOWNLOADS || '120' }}
+      MIRROR_TIME_ZONE: Asia/Seoul
+      MIRROR_RECENT_DAYS: "7"
+      MIRROR_BACKFILL_START_DATE: "2024-05-30"
+      MIRROR_BACKFILL_DAYS: "31"
+      MIRROR_INDEX_PATH: raw/index/assembly_property_document_index.json
+      MIRROR_STATE_PATH: manifests/assembly_property_document_mirror_state.json
+      ASSEMBLY_PAGE_SIZE: ${{ vars.ASSEMBLY_PAGE_SIZE }}
+      ASSEMBLY_FETCH_TIMEOUT_MS: ${{ vars.ASSEMBLY_FETCH_TIMEOUT_MS }}
+      ASSEMBLY_FETCH_RETRIES: ${{ vars.ASSEMBLY_FETCH_RETRIES }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node, install dependencies, and build shared workspaces
+        uses: ./.github/actions/setup-node-workspaces
+        with:
+          build-target: schemas-and-ingest
+
+      - name: Clone public data repository
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        run: |
+          REPO_URL="https://x-access-token:${DATA_REPO_PAT}@github.com/${DATA_REPO}.git"
+          TARGET_BRANCH="${DATA_REPO_BRANCH:-main}"
+
+          if git ls-remote --exit-code --heads "${REPO_URL}" "${TARGET_BRANCH}" >/dev/null 2>&1; then
+            git clone --depth 1 --branch "${TARGET_BRANCH}" "${REPO_URL}" published-data
+          else
+            git init published-data
+            cd published-data
+            git checkout -b "${TARGET_BRANCH}"
+            git remote add origin "${REPO_URL}"
+          fi
+
+      - name: Mirror property disclosure PDFs into data repository
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        run: npm run mirror:documents --workspace @lawmaker-monitor/ingest
+        env:
+          DATA_REPO_DIR: published-data
+
+      - name: Sync property member context cache
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        run: npm run sync:property-member-context --workspace @lawmaker-monitor/ingest
+        env:
+          ASSEMBLY_API_KEY: ${{ secrets.ASSEMBLY_API_KEY }}
+          DATA_REPO_DIR: published-data
+
+      - name: Commit and push mirrored property documents
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        working-directory: published-data
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          TARGET_BRANCH="${DATA_REPO_BRANCH:-main}"
+
+          if [ -n "$(git status --short)" ]; then
+            git add raw manifests
+            git commit -m "Mirror property disclosure documents"
+
+            if git ls-remote --exit-code --heads origin "${TARGET_BRANCH}" >/dev/null 2>&1; then
+              git fetch origin "${TARGET_BRANCH}"
+              git rebase "origin/${TARGET_BRANCH}"
+            fi
+
+            git push origin "${TARGET_BRANCH}"
+          else
+            echo "No mirrored property document changes to publish."
+          fi
+
+      - name: Upload property mirror state artifact
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: mirrored-property-document-state
+          path: |
+            published-data/raw/index/assembly_property_document_index.json
+            published-data/manifests/assembly_property_document_mirror_state.json
+          if-no-files-found: warn

@@ -7,6 +7,8 @@ import type {
   MemberActivityCalendarExport,
   MemberActivityCalendarMember,
   MemberActivityCalendarMemberDetailExport,
+  MemberAssetsHistoryExport,
+  MemberAssetsIndexExport,
   Manifest
 } from "@lawmaker-monitor/schemas";
 
@@ -40,7 +42,9 @@ import {
   loadLatestVotes,
   loadManifest,
   loadMemberActivityCalendar,
-  loadMemberActivityCalendarMemberDetail
+  loadMemberActivityCalendarMemberDetail,
+  loadMemberAssetsHistory,
+  loadMemberAssetsIndex
 } from "./lib/data.js";
 import { formatDateTime, formatNumber } from "./lib/format.js";
 import { scheduleHexmapPrewarm } from "./lib/hexmap-static-loader.js";
@@ -168,6 +172,17 @@ export default function App() {
   const [activityMemberDetails, setActivityMemberDetails] = useState<
     Record<string, MemberActivityCalendarMemberDetailExport | undefined>
   >({});
+  const [memberAssetsIndex, setMemberAssetsIndex] = useState<MemberAssetsIndexExport | null>(null);
+  const [memberAssetsIndexError, setMemberAssetsIndexError] = useState<string | null>(null);
+  const [memberAssetHistories, setMemberAssetHistories] = useState<
+    Record<string, MemberAssetsHistoryExport | undefined>
+  >({});
+  const [memberAssetHistoryErrors, setMemberAssetHistoryErrors] = useState<
+    Record<string, string | null | undefined>
+  >({});
+  const [memberAssetHistoryLoading, setMemberAssetHistoryLoading] = useState<
+    Record<string, boolean | undefined>
+  >({});
   const [activityMemberDetailErrors, setActivityMemberDetailErrors] = useState<
     Record<string, string | null | undefined>
   >({});
@@ -198,11 +213,18 @@ export default function App() {
   const activityMemberDetailsRef = useRef<
     Record<string, MemberActivityCalendarMemberDetailExport | undefined>
   >({});
+  const memberAssetsIndexRef = useRef<MemberAssetsIndexExport | null>(null);
+  const memberAssetHistoriesRef = useRef<Record<string, MemberAssetsHistoryExport | undefined>>({});
+  const memberAssetHistoryLoadingRef = useRef<Record<string, boolean | undefined>>({});
   const activityMemberDetailLoadingRef = useRef<Record<string, boolean | undefined>>({});
   const activityMemberDetailRequestsRef = useRef<Record<string, Promise<void> | undefined>>({});
+  const memberAssetHistoryRequestsRef = useRef<Record<string, Promise<void> | undefined>>({});
 
   activityCalendarRef.current = activityCalendar;
   activityMemberDetailsRef.current = activityMemberDetails;
+  memberAssetsIndexRef.current = memberAssetsIndex;
+  memberAssetHistoriesRef.current = memberAssetHistories;
+  memberAssetHistoryLoadingRef.current = memberAssetHistoryLoading;
   activityMemberDetailLoadingRef.current = activityMemberDetailLoading;
 
   useEffect(() => {
@@ -314,6 +336,25 @@ export default function App() {
     void ensureActivityCalendarLoaded();
   }, [routeState.route, manifest, accountabilitySummary]);
 
+  useEffect(() => {
+    if (routeState.route !== "calendar") {
+      return;
+    }
+
+    if (memberAssetsIndex || memberAssetsIndexError) {
+      return;
+    }
+
+    void loadMemberAssetsIndex(manifest)
+      .then((payload) => {
+        setMemberAssetsIndex(payload);
+        setMemberAssetsIndexError(null);
+      })
+      .catch((error: Error) => {
+        setMemberAssetsIndexError(`재산 공개 데이터를 불러오지 못했습니다. ${error.message}`);
+      });
+  }, [routeState.route, manifest, memberAssetsIndex, memberAssetsIndexError]);
+
   const ensureActivityMemberDetailLoaded = useCallback(async (
     member: MemberActivityCalendarMember,
     force = false
@@ -402,6 +443,87 @@ export default function App() {
     });
     void ensureActivityMemberDetailLoaded(member, true);
   }, [ensureActivityMemberDetailLoaded]);
+
+  const ensureMemberAssetHistoryLoaded = useCallback(async (
+    member: MemberActivityCalendarMember,
+    force = false
+  ): Promise<void> => {
+    const indexPayload = memberAssetsIndexRef.current;
+    if (!indexPayload) {
+      return;
+    }
+
+    const indexEntry = indexPayload.members.find((entry) => entry.memberId === member.memberId);
+    if (!indexEntry) {
+      return;
+    }
+
+    const pendingRequest = memberAssetHistoryRequestsRef.current[member.memberId];
+    if (pendingRequest) {
+      await pendingRequest;
+      return;
+    }
+
+    if (
+      !force &&
+      (
+        memberAssetHistoriesRef.current[member.memberId] ||
+        memberAssetHistoryLoadingRef.current[member.memberId]
+      )
+    ) {
+      return;
+    }
+
+    const request = (async () => {
+      setMemberAssetHistoryLoading((current) => ({
+        ...current,
+        [member.memberId]: true
+      }));
+      setMemberAssetHistoryErrors((current) => ({
+        ...current,
+        [member.memberId]: null
+      }));
+
+      try {
+        const payload = await loadMemberAssetsHistory(indexEntry.historyPath);
+        if (!payload) {
+          setMemberAssetHistoryErrors((current) => ({
+            ...current,
+            [member.memberId]: "재산 공개 이력이 아직 발행되지 않았습니다."
+          }));
+          return;
+        }
+
+        setMemberAssetHistories((current) => ({
+          ...current,
+          [member.memberId]: payload
+        }));
+      } catch (error) {
+        setMemberAssetHistoryErrors((current) => ({
+          ...current,
+          [member.memberId]: `재산 공개 이력을 불러오지 못했습니다. ${(error as Error).message}`
+        }));
+      } finally {
+        delete memberAssetHistoryRequestsRef.current[member.memberId];
+        setMemberAssetHistoryLoading((current) => ({
+          ...current,
+          [member.memberId]: false
+        }));
+      }
+    })();
+
+    memberAssetHistoryRequestsRef.current[member.memberId] = request;
+    await request;
+  }, []);
+
+  const retryMemberAssetHistory = useCallback((member: MemberActivityCalendarMember): void => {
+    setMemberAssetHistories((current) => {
+      const next = { ...current };
+      delete next[member.memberId];
+      return next;
+    });
+    void ensureMemberAssetHistoryLoaded(member, true);
+  }, [ensureMemberAssetHistoryLoaded]);
 
   function navigateToCalendar(memberId?: string | null, view: ActivityViewMode = "single"): void {
     window.location.hash = buildCalendarHash({ memberId, view });
@@ -532,8 +654,15 @@ export default function App() {
             memberDetails={activityMemberDetails}
             memberDetailErrors={activityMemberDetailErrors}
             memberDetailLoading={activityMemberDetailLoading}
+            memberAssetsIndex={memberAssetsIndex}
+            memberAssetsIndexError={memberAssetsIndexError}
+            memberAssetHistories={memberAssetHistories}
+            memberAssetHistoryErrors={memberAssetHistoryErrors}
+            memberAssetHistoryLoading={memberAssetHistoryLoading}
             onEnsureMemberDetail={ensureActivityMemberDetailLoaded}
             onRetryMemberDetail={retryActivityMemberDetail}
+            onEnsureMemberAssetHistory={ensureMemberAssetHistoryLoaded}
+            onRetryMemberAssetHistory={retryMemberAssetHistory}
             onBack={navigateHome}
             onRetry={() => void ensureActivityCalendarLoaded()}
           />

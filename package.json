@@ -15,6 +15,7 @@
     "ingest:live": "npm run ingest:live --workspace @lawmaker-monitor/ingest",
     "mirror:documents": "npm run mirror:documents --workspace @lawmaker-monitor/ingest",
     "monitor:sources": "npm run monitor:sources --workspace @lawmaker-monitor/ingest",
+    "sync:property-member-context": "npm run sync:property-member-context --workspace @lawmaker-monitor/ingest",
     "resolve:production-ui-routes": "node ./scripts/resolve-production-ui-routes.mjs",
     "test": "vitest run",
     "test:ui": "node ./scripts/run-ui-tests.mjs",

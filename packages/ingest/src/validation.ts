@@ -5,6 +5,8 @@ import {
   constituencyBoundariesIndexExportSchema,
   latestVotesExportSchema,
   manifestSchema,
+  memberAssetsHistoryExportSchema,
+  memberAssetsIndexExportSchema,
   memberActivityCalendarExportSchema,
   memberActivityCalendarMemberDetailExportSchema,
   normalizedBundleSchema
@@ -17,6 +19,8 @@ import type {
   ConstituencyBoundariesIndexExport,
   LatestVotesExport,
   Manifest,
+  MemberAssetsHistoryExport,
+  MemberAssetsIndexExport,
   MemberActivityCalendarExport,
   MemberActivityCalendarMemberDetailExport,
   NormalizedBundle
@@ -54,6 +58,18 @@ export function validateMemberActivityCalendarMemberDetailExport(
   payload: MemberActivityCalendarMemberDetailExport
 ): MemberActivityCalendarMemberDetailExport {
   return memberActivityCalendarMemberDetailExportSchema.parse(payload);
+}
+
+export function validateMemberAssetsIndexExport(
+  payload: MemberAssetsIndexExport
+): MemberAssetsIndexExport {
+  return memberAssetsIndexExportSchema.parse(payload);
+}
+
+export function validateMemberAssetsHistoryExport(
+  payload: MemberAssetsHistoryExport
+): MemberAssetsHistoryExport {
+  return memberAssetsHistoryExportSchema.parse(payload);
 }
 
 export function validateConstituencyBoundaryExport(

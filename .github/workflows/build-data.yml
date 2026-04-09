@@ -95,10 +95,26 @@ jobs:
 
           gh run download "${RUN_ID}" --name raw-snapshot --dir artifacts/ingest
 
+      - name: Clone public data repository
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        run: |
+          REPO_URL="https://x-access-token:${DATA_REPO_PAT}@github.com/${DATA_REPO}.git"
+          TARGET_BRANCH="${DATA_REPO_BRANCH:-main}"
+
+          if git ls-remote --exit-code --heads "${REPO_URL}" "${TARGET_BRANCH}" >/dev/null 2>&1; then
+            git clone --depth 1 --branch "${TARGET_BRANCH}" "${REPO_URL}" published-data
+          else
+            git init published-data
+            cd published-data
+            git checkout -b "${TARGET_BRANCH}"
+            git remote add origin "${REPO_URL}"
+          fi
+
       - name: Build normalized data and exports
         run: npm run build:data --workspace @lawmaker-monitor/ingest
         env:
           RAW_DIR: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.raw_source == 'fixtures' && 'tests/fixtures' || 'artifacts/ingest' }}
+          DATA_REPO_DIR: published-data
           OUTPUT_DIR: artifacts/build
           DATA_REPO_BASE_URL: ${{ vars.DATA_REPO_BASE_URL }}
 
@@ -122,21 +138,6 @@ jobs:
         run: |
           mkdir -p curated
           ~/.local/duckdb/duckdb :memory: -c ".read ../../packages/ingest/sql/materialize_parquet.sql"
-
-      - name: Clone public data repository
-        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
-        run: |
-          REPO_URL="https://x-access-token:${DATA_REPO_PAT}@github.com/${DATA_REPO}.git"
-          TARGET_BRANCH="${DATA_REPO_BRANCH:-main}"
-
-          if git ls-remote --exit-code --heads "${REPO_URL}" "${TARGET_BRANCH}" >/dev/null 2>&1; then
-            git clone --depth 1 --branch "${TARGET_BRANCH}" "${REPO_URL}" published-data
-          else
-            git init published-data
-            cd published-data
-            git checkout -b "${TARGET_BRANCH}"
-            git remote add origin "${REPO_URL}"
-          fi
 
       - name: Sync build outputs into public data repository
         if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''

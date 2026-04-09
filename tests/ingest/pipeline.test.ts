@@ -46,6 +46,8 @@ import {
   accountabilityTrendsExportSchema,
   latestVotesExportSchema,
   manifestSchema,
+  memberAssetsHistoryExportSchema,
+  memberAssetsIndexExportSchema,
   memberActivityCalendarExportSchema,
   memberActivityCalendarMemberDetailExportSchema,
   memberActivityCalendarMemberSchema
@@ -479,6 +481,12 @@ describe("data pipeline contracts", () => {
         "utf8"
       )
     );
+    const memberAssetsIndexFixture = JSON.parse(
+      readFileSync(resolve(fixturesDir, "contracts/member_assets_index.json"), "utf8")
+    );
+    const memberAssetsHistoryFixture = JSON.parse(
+      readFileSync(resolve(fixturesDir, "contracts/member_assets_history/M001.json"), "utf8")
+    );
     const summaryMemberWithoutEmbeddedRecords = {
       ...memberActivityCalendarFixture.assembly.members[0],
       voteRecords: undefined
@@ -492,6 +500,9 @@ describe("data pipeline contracts", () => {
     expect(accountabilityTrendsExportSchema.parse(accountabilityTrendsFixture).movers).toHaveLength(3);
     expect(manifestSchema.parse(manifestFixture).datasets.members.rowCount).toBe(3);
     expect(manifestSchema.parse(manifestFixture).currentAssembly.assemblyNo).toBe(22);
+    expect(manifestSchema.parse(manifestFixture).exports.memberAssetsIndex?.rowCount).toBe(2);
+    expect(memberAssetsIndexExportSchema.parse(memberAssetsIndexFixture).members).toHaveLength(2);
+    expect(memberAssetsHistoryExportSchema.parse(memberAssetsHistoryFixture).series).toHaveLength(2);
     expect(memberActivityCalendarExportSchema.parse(memberActivityCalendarFixture).assembly.assemblyNo).toBe(22);
     expect(
       memberActivityCalendarMemberSchema.parse(summaryMemberWithoutEmbeddedRecords)

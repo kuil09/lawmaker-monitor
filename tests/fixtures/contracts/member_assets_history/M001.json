@@ -1,0 +1,179 @@
+{
+  "generatedAt": "2025-04-29T00:00:00.000Z",
+  "snapshotId": "fixture-snapshot-20260322-114500",
+  "assemblyNo": 22,
+  "assemblyLabel": "제22대 국회",
+  "memberId": "M001",
+  "series": [
+    {
+      "reportedAt": "2025-03-27",
+      "issueNo": "2025-4",
+      "previousAmount": 750000,
+      "increaseAmount": 50000,
+      "decreaseAmount": 10000,
+      "currentAmount": 790000,
+      "deltaAmount": 40000,
+      "valueChangeAmount": 10000
+    },
+    {
+      "reportedAt": "2025-04-29",
+      "issueNo": "2025-5",
+      "previousAmount": 790000,
+      "increaseAmount": 50000,
+      "decreaseAmount": 20000,
+      "currentAmount": 820000,
+      "deltaAmount": 30000,
+      "valueChangeAmount": 0
+    }
+  ],
+  "categorySeries": [
+    {
+      "categoryKey": "예금",
+      "categoryLabel": "예금",
+      "points": [
+        {
+          "reportedAt": "2025-03-27",
+          "issueNo": "2025-4",
+          "previousAmount": 200000,
+          "increaseAmount": 30000,
+          "decreaseAmount": 10000,
+          "currentAmount": 220000
+        },
+        {
+          "reportedAt": "2025-04-29",
+          "issueNo": "2025-5",
+          "previousAmount": 220000,
+          "increaseAmount": 50000,
+          "decreaseAmount": 20000,
+          "currentAmount": 250000
+        }
+      ]
+    },
+    {
+      "categoryKey": "건물",
+      "categoryLabel": "건물",
+      "points": [
+        {
+          "reportedAt": "2025-03-27",
+          "issueNo": "2025-4",
+          "previousAmount": 500000,
+          "increaseAmount": 10000,
+          "decreaseAmount": 0,
+          "currentAmount": 510000
+        },
+        {
+          "reportedAt": "2025-04-29",
+          "issueNo": "2025-5",
+          "previousAmount": 510000,
+          "increaseAmount": 0,
+          "decreaseAmount": 0,
+          "currentAmount": 510000
+        }
+      ]
+    },
+    {
+      "categoryKey": "증권",
+      "categoryLabel": "증권",
+      "points": [
+        {
+          "reportedAt": "2025-03-27",
+          "issueNo": "2025-4",
+          "previousAmount": 50000,
+          "increaseAmount": 10000,
+          "decreaseAmount": 0,
+          "currentAmount": 60000
+        }
+      ]
+    }
+  ],
+  "latestSummary": {
+    "reportedAt": "2025-04-29",
+    "issueNo": "2025-5",
+    "previousAmount": 790000,
+    "increaseAmount": 50000,
+    "decreaseAmount": 20000,
+    "currentAmount": 820000,
+    "deltaAmount": 30000,
+    "valueChangeAmount": 0
+  },
+  "selfOnly": {
+    "series": [
+      {
+        "reportedAt": "2025-03-27",
+        "issueNo": "2025-4",
+        "previousAmount": 700000,
+        "increaseAmount": 40000,
+        "decreaseAmount": 10000,
+        "currentAmount": 730000,
+        "deltaAmount": 30000,
+        "valueChangeAmount": 0
+      },
+      {
+        "reportedAt": "2025-04-29",
+        "issueNo": "2025-5",
+        "previousAmount": 730000,
+        "increaseAmount": 50000,
+        "decreaseAmount": 20000,
+        "currentAmount": 760000,
+        "deltaAmount": 30000,
+        "valueChangeAmount": 0
+      }
+    ],
+    "categorySeries": [
+      {
+        "categoryKey": "예금",
+        "categoryLabel": "예금",
+        "points": [
+          {
+            "reportedAt": "2025-03-27",
+            "issueNo": "2025-4",
+            "previousAmount": 200000,
+            "increaseAmount": 30000,
+            "decreaseAmount": 10000,
+            "currentAmount": 220000
+          },
+          {
+            "reportedAt": "2025-04-29",
+            "issueNo": "2025-5",
+            "previousAmount": 220000,
+            "increaseAmount": 50000,
+            "decreaseAmount": 20000,
+            "currentAmount": 250000
+          }
+        ]
+      },
+      {
+        "categoryKey": "건물",
+        "categoryLabel": "건물",
+        "points": [
+          {
+            "reportedAt": "2025-03-27",
+            "issueNo": "2025-4",
+            "previousAmount": 500000,
+            "increaseAmount": 10000,
+            "decreaseAmount": 0,
+            "currentAmount": 510000
+          },
+          {
+            "reportedAt": "2025-04-29",
+            "issueNo": "2025-5",
+            "previousAmount": 510000,
+            "increaseAmount": 0,
+            "decreaseAmount": 0,
+            "currentAmount": 510000
+          }
+        ]
+      }
+    ],
+    "latestSummary": {
+      "reportedAt": "2025-04-29",
+      "issueNo": "2025-5",
+      "previousAmount": 730000,
+      "increaseAmount": 50000,
+      "decreaseAmount": 20000,
+      "currentAmount": 760000,
+      "deltaAmount": 30000,
+      "valueChangeAmount": 0
+    }
+  }
+}

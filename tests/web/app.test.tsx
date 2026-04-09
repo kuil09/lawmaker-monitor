@@ -95,6 +95,13 @@ const memberActivityCalendarMemberDetailFixtures = {
     readFileSync(resolve(fixturesDir, "member_activity_calendar_members/M002.json"), "utf8")
   )
 };
+const memberAssetsIndexFixture = JSON.parse(
+  readFileSync(resolve(fixturesDir, "member_assets_index.json"), "utf8")
+);
+const memberAssetsHistoryFixtures = {
+  M001: JSON.parse(readFileSync(resolve(fixturesDir, "member_assets_history/M001.json"), "utf8")),
+  M002: JSON.parse(readFileSync(resolve(fixturesDir, "member_assets_history/M002.json"), "utf8"))
+};
 const legacyManifestFixture = {
   ...baseManifestFixture,
   exports: {
@@ -164,6 +171,33 @@ describe("web app", () => {
       if (decodedUrl.endsWith("/exports/member_activity_calendar_members/M002.json")) {
         return Promise.resolve(
           new Response(JSON.stringify(memberActivityCalendarMemberDetailFixtures.M002), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/member_assets_index.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(memberAssetsIndexFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/member_assets_history/M001.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(memberAssetsHistoryFixtures.M001), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/member_assets_history/M002.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(memberAssetsHistoryFixtures.M002), {
             status: 200,
             headers: { "Content-Type": "application/json" }
           })
@@ -553,6 +587,119 @@ describe("web app", () => {
         String(url).includes("/exports/member_activity_calendar_members/M002.json")
       )
     ).toHaveLength(1);
+  });
+
+  it("loads the selected member asset history lazily on the single-member view", async () => {
+    window.location.hash = "#calendar?member=M001";
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "의원 표결 활동 그래프" })).toBeInTheDocument();
+    const assetCard = screen.getByLabelText("재산 공개 정보");
+    expect(await within(assetCard).findByText("820,000천원")).toBeInTheDocument();
+    expect(within(assetCard).getByText("22대 국회 재산 변동 흐름")).toBeInTheDocument();
+    const scopeBlock = within(assetCard).getByLabelText("공개 범위 비교");
+    expect(within(scopeBlock).getByText("본인 외 가족분")).toBeInTheDocument();
+    expect(within(scopeBlock).getByText("+60,000천원")).toBeInTheDocument();
+    expect(
+      within(scopeBlock).getByText("가족 명의 순재산이 총액에 더해졌습니다.")
+    ).toBeInTheDocument();
+    const realEstateFocus = screen.getByText("부동산 포커스").closest(".activity-asset-focus");
+    expect(realEstateFocus).not.toBeNull();
+    expect(
+      within(realEstateFocus as HTMLElement).getByText("건물과 토지를 따로 읽을 수 있게 묶었습니다")
+    ).toBeInTheDocument();
+    expect(within(realEstateFocus as HTMLElement).getByText("부동산 합계")).toBeInTheDocument();
+    expect(within(realEstateFocus as HTMLElement).getByText("22대 부동산 증감")).toBeInTheDocument();
+    expect(within(realEstateFocus as HTMLElement).getByText("건물")).toBeInTheDocument();
+    expect(within(realEstateFocus as HTMLElement).getByText("토지")).toBeInTheDocument();
+    expect(within(realEstateFocus as HTMLElement).getAllByText("510,000천원").length).toBeGreaterThan(0);
+    expect(within(realEstateFocus as HTMLElement).getAllByText("0천원").length).toBeGreaterThan(0);
+    fireEvent.click(within(scopeBlock).getByRole("button", { name: "본인만" }));
+    expect(await within(assetCard).findByText("760,000천원")).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.filter(([url]) =>
+        String(url).includes("/exports/member_assets_history/M001.json")
+      )
+    ).toHaveLength(1);
+  });
+
+  it("keeps the calendar usable when property exports are unavailable", async () => {
+    fetchMock.mockImplementation((input: string | URL | Request) => {
+      const url = String(input);
+      const decodedUrl = decodeURIComponent(url);
+
+      if (decodedUrl.endsWith("/manifests/latest.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(legacyManifestFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/member_assets_index.json")) {
+        return Promise.resolve(new Response("not found", { status: 404 }));
+      }
+
+      if (decodedUrl.endsWith("/exports/member_assets_history/M002.json")) {
+        return Promise.resolve(new Response("not found", { status: 404 }));
+      }
+
+      if (decodedUrl.endsWith("/exports/latest_votes.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(latestVotesFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/accountability_summary.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(accountabilitySummaryFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/accountability_trends.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(accountabilityTrendsFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/member_activity_calendar.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(memberActivityCalendarFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/member_activity_calendar_members/M002.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(memberActivityCalendarMemberDetailFixtures.M002), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      return Promise.resolve(new Response("not found", { status: 404 }));
+    });
+
+    window.location.hash = "#calendar?member=M002";
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "의원 표결 활동 그래프" })).toBeInTheDocument();
+    expect(
+      await screen.findByText("현직 22대 기준 재산 공개 이력이 없습니다")
+    ).toBeInTheDocument();
   });
 
   it("opens the activity calendar scrolled to the latest dates by default", async () => {

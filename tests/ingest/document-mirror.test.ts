@@ -8,8 +8,13 @@ import {
   isPastDocumentDate,
   mergeDocumentIndex,
   normalizeDocumentDate,
+  selectExistingMirroredMetadata,
   slugifySegment
 } from "../../packages/ingest/src/document-mirror.js";
+import {
+  buildAssemblyFileServiceSourceSnapshot,
+  shouldSkipAssemblyFileServiceRefresh
+} from "../../packages/ingest/src/scripts/mirror-documents.js";
 
 describe("document mirror helpers", () => {
   it("normalizes multiple public document date formats", () => {
@@ -109,5 +114,204 @@ describe("document mirror helpers", () => {
   it("formats cutoff dates in the configured time zone", () => {
     const date = dateInTimeZone("Asia/Seoul", new Date("2026-03-21T15:10:00.000Z"));
     expect(date).toBe("2026-03-22");
+  });
+
+  it("prefers document and download identifiers over shared source pages", () => {
+    const sharedSourceUrl = "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700";
+    const lookup = {
+      byDocumentId: new Map([
+        [
+          "assembly-property-disclosures-file-10001552",
+          {
+            documentId: "assembly-property-disclosures-file-10001552",
+            sourceId: "assembly-property-disclosures",
+            sourceUrl: sharedSourceUrl,
+            downloadUrl:
+              "https://open.assembly.go.kr/portal/data/file/downloadFileData.do?infId=O2853M000835T714700&infSeq=1&fileSeq=10001552",
+            title: "재산신고내역(제2024-6호)",
+            publishedDate: "2024-07-30",
+            discoveredFromUrl: sharedSourceUrl,
+            firstMirroredAt: "2026-04-09T22:04:13.823Z",
+            lastMirroredAt: "2026-04-09T22:04:13.823Z",
+            latestRelativePath: "raw/documents/a/latest.pdf",
+            metadataRelativePath: "raw/documents/a/metadata.json",
+            currentContentSha256: "hash-a",
+            currentContentType: "application/pdf",
+            currentBytes: 100,
+            versions: []
+          }
+        ]
+      ]),
+      bySourceUrl: new Map([
+        [
+          sharedSourceUrl,
+          {
+            documentId: "assembly-property-disclosures-file-10001552",
+            sourceId: "assembly-property-disclosures",
+            sourceUrl: sharedSourceUrl,
+            downloadUrl:
+              "https://open.assembly.go.kr/portal/data/file/downloadFileData.do?infId=O2853M000835T714700&infSeq=1&fileSeq=10001552",
+            title: "재산신고내역(제2024-6호)",
+            publishedDate: "2024-07-30",
+            discoveredFromUrl: sharedSourceUrl,
+            firstMirroredAt: "2026-04-09T22:04:13.823Z",
+            lastMirroredAt: "2026-04-09T22:04:13.823Z",
+            latestRelativePath: "raw/documents/a/latest.pdf",
+            metadataRelativePath: "raw/documents/a/metadata.json",
+            currentContentSha256: "hash-a",
+            currentContentType: "application/pdf",
+            currentBytes: 100,
+            versions: []
+          }
+        ]
+      ]),
+      byDownloadUrl: new Map([
+        [
+          "https://open.assembly.go.kr/portal/data/file/downloadFileData.do?infId=O2853M000835T714700&infSeq=1&fileSeq=10001552",
+          {
+            documentId: "assembly-property-disclosures-file-10001552",
+            sourceId: "assembly-property-disclosures",
+            sourceUrl: sharedSourceUrl,
+            downloadUrl:
+              "https://open.assembly.go.kr/portal/data/file/downloadFileData.do?infId=O2853M000835T714700&infSeq=1&fileSeq=10001552",
+            title: "재산신고내역(제2024-6호)",
+            publishedDate: "2024-07-30",
+            discoveredFromUrl: sharedSourceUrl,
+            firstMirroredAt: "2026-04-09T22:04:13.823Z",
+            lastMirroredAt: "2026-04-09T22:04:13.823Z",
+            latestRelativePath: "raw/documents/a/latest.pdf",
+            metadataRelativePath: "raw/documents/a/metadata.json",
+            currentContentSha256: "hash-a",
+            currentContentType: "application/pdf",
+            currentBytes: 100,
+            versions: []
+          }
+        ]
+      ])
+    };
+
+    expect(
+      selectExistingMirroredMetadata(lookup, {
+        documentId: "assembly-property-disclosures-file-10001553",
+        sourceUrl: sharedSourceUrl,
+        downloadUrl:
+          "https://open.assembly.go.kr/portal/data/file/downloadFileData.do?infId=O2853M000835T714700&infSeq=1&fileSeq=10001553"
+      })
+    ).toBeUndefined();
+
+    expect(
+      selectExistingMirroredMetadata(lookup, {
+        documentId: "assembly-property-disclosures-file-10001552",
+        sourceUrl: sharedSourceUrl,
+        downloadUrl:
+          "https://open.assembly.go.kr/portal/data/file/downloadFileData.do?infId=O2853M000835T714700&infSeq=1&fileSeq=10001552"
+      })?.documentId
+    ).toBe("assembly-property-disclosures-file-10001552");
+
+    expect(
+      selectExistingMirroredMetadata(lookup, {
+        sourceUrl: "https://record.assembly.go.kr/assembly/viewer/minutes/download/pdf.do?id=123"
+      })
+    ).toBeUndefined();
+  });
+
+  it("builds a stable assembly file service snapshot independent of item order", () => {
+    const left = buildAssemblyFileServiceSourceSnapshot([
+      {
+        infId: "O2853M000835T714700",
+        infSeq: 1,
+        fileSeq: 10001553,
+        viewFileNm: "재산신고내역(제2024-7호)",
+        fileExt: "pdf",
+        ftCrDttm: "20240829",
+        cvtFileSize: "12345"
+      },
+      {
+        infId: "O2853M000835T714700",
+        infSeq: 1,
+        fileSeq: 10001552,
+        viewFileNm: "재산신고내역(제2024-6호)",
+        fileExt: "pdf",
+        ftCrDttm: "20240730",
+        cvtFileSize: "67890"
+      }
+    ]);
+    const right = buildAssemblyFileServiceSourceSnapshot([
+      {
+        infId: "O2853M000835T714700",
+        infSeq: 1,
+        fileSeq: 10001552,
+        viewFileNm: "재산신고내역(제2024-6호)",
+        fileExt: "pdf",
+        ftCrDttm: "20240730",
+        cvtFileSize: "67890"
+      },
+      {
+        infId: "O2853M000835T714700",
+        infSeq: 1,
+        fileSeq: 10001553,
+        viewFileNm: "재산신고내역(제2024-7호)",
+        fileExt: "pdf",
+        ftCrDttm: "20240829",
+        cvtFileSize: "12345"
+      }
+    ]);
+
+    expect(left.count).toBe(2);
+    expect(left.sha256).toBe(right.sha256);
+  });
+
+  it("skips assembly file refresh only when backfill is complete and the source snapshot matches", () => {
+    expect(
+      shouldSkipAssemblyFileServiceRefresh({
+        existingState: {
+          sourceId: "assembly-property-disclosures",
+          updatedAt: "2026-04-10T00:00:00.000Z",
+          cutoffDate: "2026-04-10",
+          pagesVisited: 1,
+          discoveredCandidates: 0,
+          downloaded: 0,
+          updated: 0,
+          unchanged: 0,
+          skippedTodayOrFuture: 0,
+          skippedWithoutDate: 0,
+          lastStartUrl:
+            "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700",
+          nextBackfillCursorDate: "2026-04-10",
+          sourceSnapshotSha256: "same-hash",
+          sourceSnapshotCount: 19,
+          skippedBySourceSnapshot: true
+        },
+        hasBackfillWindow: false,
+        sourceSnapshotSha256: "same-hash",
+        sourceSnapshotCount: 19
+      })
+    ).toBe(true);
+
+    expect(
+      shouldSkipAssemblyFileServiceRefresh({
+        existingState: {
+          sourceId: "assembly-property-disclosures",
+          updatedAt: "2026-04-10T00:00:00.000Z",
+          cutoffDate: "2026-04-10",
+          pagesVisited: 1,
+          discoveredCandidates: 0,
+          downloaded: 0,
+          updated: 0,
+          unchanged: 0,
+          skippedTodayOrFuture: 0,
+          skippedWithoutDate: 0,
+          lastStartUrl:
+            "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700",
+          nextBackfillCursorDate: "2025-01-01",
+          sourceSnapshotSha256: "same-hash",
+          sourceSnapshotCount: 19,
+          skippedBySourceSnapshot: false
+        },
+        hasBackfillWindow: true,
+        sourceSnapshotSha256: "same-hash",
+        sourceSnapshotCount: 19
+      })
+    ).toBe(false);
   });
 });

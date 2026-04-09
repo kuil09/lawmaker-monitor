@@ -1,12 +1,14 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { chromium, request, type APIRequestContext, type Locator, type Page } from "playwright";
 
 import type {
   DocumentMirrorState,
   MirroredDocumentIndex,
-  MirroredDocumentMetadata
+  MirroredDocumentMetadata,
+  MirroredDocumentMetadataLookups
 } from "../document-mirror.js";
 import {
   buildDocumentId,
@@ -16,11 +18,12 @@ import {
   isPastDocumentDate,
   mergeDocumentIndex,
   normalizeDocumentDate,
+  selectExistingMirroredMetadata,
   toIndexItem
 } from "../document-mirror.js";
 import { readJsonFile, readString, sha256, sha256Buffer, writeJsonFile } from "../utils.js";
 
-type MirrorMode = "generic" | "assembly_minutes_search";
+type MirrorMode = "generic" | "assembly_minutes_search" | "assembly_file_service";
 
 type MirrorConfig = {
   mode: MirrorMode;
@@ -46,6 +49,8 @@ type MirrorConfig = {
   backfillStartDate: string;
   backfillDays: number;
   includeAppendices: boolean;
+  serviceInfId?: string;
+  serviceInfSeq: number;
 };
 
 type MirrorCandidate = {
@@ -55,16 +60,14 @@ type MirrorCandidate = {
   downloadUrl?: string;
   publishedDate: string | null;
   discoveredFromUrl: string;
+  sourceMetadata?: Record<string, string | number | null>;
 };
 
 type MirrorOutcome =
   | { type: "downloaded"; metadata: MirroredDocumentMetadata; updated: boolean }
   | { type: "unchanged"; metadata: MirroredDocumentMetadata };
 
-type MetadataLookups = {
-  byDocumentId: Map<string, MirroredDocumentMetadata>;
-  bySourceUrl: Map<string, MirroredDocumentMetadata>;
-};
+type MetadataLookups = MirroredDocumentMetadataLookups;
 
 type CandidateCollectionResult = {
   candidates: MirrorCandidate[];
@@ -73,6 +76,9 @@ type CandidateCollectionResult = {
   recentWindowStartDate?: string;
   recentWindowEndDate?: string;
   nextBackfillCursorDate?: string | null;
+  sourceSnapshotSha256?: string;
+  sourceSnapshotCount?: number;
+  sourceSnapshotUnchanged?: boolean;
 };
 
 type SearchWindow = {
@@ -103,6 +109,20 @@ type AssemblySearchResponse = {
   record7?: AssemblySearchRecord;
   record_app?: AssemblySearchRecord;
   record_app_bo?: AssemblySearchRecord;
+};
+
+type AssemblyFileServiceItem = {
+  infId?: string;
+  infSeq?: number;
+  fileSeq?: number;
+  viewFileNm?: string;
+  fileExt?: string;
+  ftCrDttm?: string;
+  cvtFileSize?: string;
+};
+
+type AssemblyFileServiceResponse = {
+  data?: AssemblyFileServiceItem[];
 };
 
 const assemblyMinuteRecordKeys = [
@@ -168,9 +188,15 @@ function minIsoDate(left: string, right: string): string {
   return left <= right ? left : right;
 }
 
+function parseServiceInfId(startUrl: string): string | undefined {
+  const matched = startUrl.match(/\/selectServicePage\.do\/([^/?#]+)/);
+  return matched?.[1];
+}
+
 function loadConfig(): MirrorConfig {
   const startUrl = readRequiredEnv("MIRROR_START_URL");
   const configuredMode = process.env.MIRROR_MODE?.trim() as MirrorMode | undefined;
+  const serviceInfId = process.env.MIRROR_SERVICE_INF_ID?.trim() || parseServiceInfId(startUrl);
 
   return {
     mode:
@@ -203,7 +229,9 @@ function loadConfig(): MirrorConfig {
     backfillStartDate:
       process.env.MIRROR_BACKFILL_START_DATE?.trim() || "2024-05-30",
     backfillDays: readPositiveInteger("MIRROR_BACKFILL_DAYS", 7),
-    includeAppendices: readBooleanEnv("MIRROR_INCLUDE_APPENDICES", true)
+    includeAppendices: readBooleanEnv("MIRROR_INCLUDE_APPENDICES", true),
+    serviceInfId,
+    serviceInfSeq: readPositiveInteger("MIRROR_SERVICE_INF_SEQ", 1)
   };
 }
 
@@ -452,6 +480,53 @@ function normalizeCompactAssemblyDate(value: unknown): string | null {
   return normalizeDocumentDate(text);
 }
 
+export function buildAssemblyFileServiceSourceSnapshot(items: AssemblyFileServiceItem[]): {
+  count: number;
+  sha256: string;
+} {
+  const normalized = [...items]
+    .map((item) => ({
+      cvtFileSize: readString(item.cvtFileSize) ?? "",
+      fileExt: readString(item.fileExt) ?? "",
+      fileSeq: toNumber(item.fileSeq),
+      ftCrDttm: normalizeCompactAssemblyDate(item.ftCrDttm) ?? readString(item.ftCrDttm) ?? "",
+      infId: readString(item.infId) ?? "",
+      infSeq: toNumber(item.infSeq),
+      viewFileNm: readString(item.viewFileNm) ?? ""
+    }))
+    .sort((left, right) => {
+      const byFileSeq = left.fileSeq - right.fileSeq;
+      if (byFileSeq !== 0) {
+        return byFileSeq;
+      }
+
+      const byDate = left.ftCrDttm.localeCompare(right.ftCrDttm);
+      if (byDate !== 0) {
+        return byDate;
+      }
+
+      return left.viewFileNm.localeCompare(right.viewFileNm, "ko-KR");
+    });
+
+  return {
+    count: normalized.length,
+    sha256: sha256(JSON.stringify(normalized))
+  };
+}
+
+export function shouldSkipAssemblyFileServiceRefresh(args: {
+  existingState: DocumentMirrorState | null;
+  hasBackfillWindow: boolean;
+  sourceSnapshotCount: number;
+  sourceSnapshotSha256: string;
+}): boolean {
+  return Boolean(
+    !args.hasBackfillWindow &&
+      args.existingState?.sourceSnapshotSha256 === args.sourceSnapshotSha256 &&
+      args.existingState?.sourceSnapshotCount === args.sourceSnapshotCount
+  );
+}
+
 function buildAssemblyMinutesCandidate(
   item: AssemblySearchItem,
   config: MirrorConfig,
@@ -537,6 +612,47 @@ function buildAssemblyAppendixCandidate(
     downloadUrl,
     publishedDate: normalizeCompactAssemblyDate(item.DATE),
     discoveredFromUrl
+  };
+}
+
+function buildAssemblyFileServiceCandidate(
+  item: AssemblyFileServiceItem,
+  config: MirrorConfig
+): MirrorCandidate | null {
+  const fileSeq = typeof item.fileSeq === "number" ? item.fileSeq : null;
+  const infId = readString(item.infId) ?? config.serviceInfId;
+  const infSeq =
+    typeof item.infSeq === "number" && Number.isFinite(item.infSeq)
+      ? item.infSeq
+      : config.serviceInfSeq;
+  const title = readString(item.viewFileNm);
+  const publishedDate = normalizeDocumentDate(readString(item.ftCrDttm) ?? "");
+
+  if (!fileSeq || !infId || !title || !publishedDate) {
+    return null;
+  }
+
+  const downloadUrl = new URL(
+    `/portal/data/file/downloadFileData.do?infId=${encodeURIComponent(infId)}&infSeq=${encodeURIComponent(String(infSeq))}&fileSeq=${encodeURIComponent(String(fileSeq))}`,
+    config.startUrl
+  ).toString();
+
+  return {
+    documentId: `${config.sourceId}-file-${fileSeq}`,
+    title,
+    sourceUrl: config.startUrl,
+    downloadUrl,
+    publishedDate,
+    discoveredFromUrl: config.startUrl,
+    sourceMetadata: {
+      fileSeq,
+      infId,
+      infSeq,
+      viewFileNm: title,
+      ftCrDttm: publishedDate,
+      fileExt: readString(item.fileExt) ?? "pdf",
+      cvtFileSize: readString(item.cvtFileSize) ?? null
+    }
   };
 }
 
@@ -760,6 +876,95 @@ async function collectAssemblyCandidates(
   };
 }
 
+function isDateWithinSearchWindow(date: string, window: SearchWindow): boolean {
+  return date >= window.startDate && date <= window.endDate;
+}
+
+async function postAssemblyFileServiceSearch(
+  api: APIRequestContext,
+  config: MirrorConfig
+): Promise<AssemblyFileServiceResponse> {
+  if (!config.serviceInfId) {
+    throw new Error("MIRROR_SERVICE_INF_ID must be configured for assembly_file_service mode.");
+  }
+
+  const response = await api.post(
+    new URL("/portal/data/file/searchFileData.do", config.startUrl).toString(),
+    {
+      headers: {
+        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+        referer: config.startUrl
+      },
+      data: new URLSearchParams({
+        infId: config.serviceInfId,
+        infSeq: String(config.serviceInfSeq),
+        page: "1",
+        rows: "500"
+      }).toString(),
+      timeout: config.timeoutMs,
+      failOnStatusCode: true
+    }
+  );
+
+  return (await response.json()) as AssemblyFileServiceResponse;
+}
+
+async function collectAssemblyFileServiceCandidates(
+  api: APIRequestContext,
+  config: MirrorConfig,
+  existingState: DocumentMirrorState | null,
+  cutoffDate: string
+): Promise<CandidateCollectionResult> {
+  const windows = buildAssemblySearchWindows(cutoffDate, config, existingState);
+  const response = await postAssemblyFileServiceSearch(api, config);
+  const sourceSnapshot = buildAssemblyFileServiceSourceSnapshot(response.data ?? []);
+  const hasBackfillWindow = windows.some((window) => window.label === "backfill");
+  const candidates = (response.data ?? [])
+    .map((item) => buildAssemblyFileServiceCandidate(item, config))
+    .filter((candidate): candidate is MirrorCandidate => Boolean(candidate))
+    .filter((candidate) =>
+      windows.some((window) => isDateWithinSearchWindow(candidate.publishedDate ?? "", window))
+    );
+  const yesterday = shiftIsoDate(cutoffDate, -1);
+  const latestBackfillWindow = windows.find((window) => window.label === "backfill");
+  const skipBySourceSnapshot = shouldSkipAssemblyFileServiceRefresh({
+    existingState,
+    hasBackfillWindow,
+    sourceSnapshotCount: sourceSnapshot.count,
+    sourceSnapshotSha256: sourceSnapshot.sha256
+  });
+
+  if (skipBySourceSnapshot) {
+    return {
+      candidates: [],
+      pagesVisited: 1,
+      discoveredCandidates: 0,
+      recentWindowStartDate: windows.find((window) => window.label === "recent")?.startDate,
+      recentWindowEndDate: windows.find((window) => window.label === "recent")?.endDate,
+      nextBackfillCursorDate:
+        existingState?.nextBackfillCursorDate ??
+        (config.backfillStartDate <= yesterday ? config.backfillStartDate : null),
+      sourceSnapshotSha256: sourceSnapshot.sha256,
+      sourceSnapshotCount: sourceSnapshot.count,
+      sourceSnapshotUnchanged: true
+    };
+  }
+
+  return {
+    candidates,
+    pagesVisited: 1,
+    discoveredCandidates: candidates.length,
+    recentWindowStartDate: windows.find((window) => window.label === "recent")?.startDate,
+    recentWindowEndDate: windows.find((window) => window.label === "recent")?.endDate,
+    nextBackfillCursorDate: latestBackfillWindow
+      ? shiftIsoDate(latestBackfillWindow.endDate, 1)
+      : existingState?.nextBackfillCursorDate ?? (config.backfillStartDate <= yesterday ? config.backfillStartDate : null),
+    sourceSnapshotSha256: sourceSnapshot.sha256,
+    sourceSnapshotCount: sourceSnapshot.count,
+    sourceSnapshotUnchanged: false
+  };
+}
+
 async function downloadDocument(
   api: APIRequestContext,
   sourceUrl: string,
@@ -844,6 +1049,7 @@ async function mirrorCandidate(
     documentId,
     sourceId: config.sourceId,
     sourceUrl: candidate.sourceUrl,
+    ...(candidate.downloadUrl ? { downloadUrl: candidate.downloadUrl } : {}),
     title: candidate.title,
     publishedDate: candidate.publishedDate ?? dateInTimeZone(config.timeZone),
     discoveredFromUrl: candidate.discoveredFromUrl,
@@ -854,6 +1060,7 @@ async function mirrorCandidate(
     currentContentSha256: contentSha,
     currentContentType: downloaded.contentType,
     currentBytes: downloaded.body.byteLength,
+    ...(candidate.sourceMetadata ? { sourceMetadata: candidate.sourceMetadata } : {}),
     versions: dedupedVersions
   };
 
@@ -872,6 +1079,7 @@ async function loadExistingMetadata(
 ): Promise<MetadataLookups> {
   const byDocumentId = new Map<string, MirroredDocumentMetadata>();
   const bySourceUrl = new Map<string, MirroredDocumentMetadata>();
+  const byDownloadUrl = new Map<string, MirroredDocumentMetadata>();
 
   for (const item of index.items) {
     const metadata = await readJsonFile<MirroredDocumentMetadata | null>(
@@ -881,10 +1089,13 @@ async function loadExistingMetadata(
     if (metadata) {
       byDocumentId.set(metadata.documentId, metadata);
       bySourceUrl.set(metadata.sourceUrl, metadata);
+      if (metadata.downloadUrl) {
+        byDownloadUrl.set(metadata.downloadUrl, metadata);
+      }
     }
   }
 
-  return { byDocumentId, bySourceUrl };
+  return { byDocumentId, bySourceUrl, byDownloadUrl };
 }
 
 async function main(): Promise<void> {
@@ -903,27 +1114,33 @@ async function main(): Promise<void> {
   const existingMetadata = await loadExistingMetadata(config.dataRepoDir, existingIndex);
   const updatedMetadataByDocumentId = new Map(existingMetadata.byDocumentId);
   const updatedMetadataBySourceUrl = new Map(existingMetadata.bySourceUrl);
+  const updatedMetadataByDownloadUrl = new Map(existingMetadata.byDownloadUrl);
 
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ userAgent: config.userAgent });
-  const page = await context.newPage();
-  await page.goto(config.startUrl, {
-    waitUntil: "domcontentloaded",
-    timeout: config.timeoutMs
-  });
-  if (config.readySelector) {
-    await page.locator(config.readySelector).first().waitFor({ timeout: config.timeoutMs });
+  const needsBrowser = config.mode === "generic" || config.mode === "assembly_minutes_search";
+  const browser = needsBrowser ? await chromium.launch({ headless: true }) : null;
+  const context = browser ? await browser.newContext({ userAgent: config.userAgent }) : null;
+  const page = context ? await context.newPage() : null;
+  if (page) {
+    await page.goto(config.startUrl, {
+      waitUntil: "domcontentloaded",
+      timeout: config.timeoutMs
+    });
+    if (config.readySelector) {
+      await page.locator(config.readySelector).first().waitFor({ timeout: config.timeoutMs });
+    }
   }
 
   const api = await request.newContext({
-    storageState: await context.storageState(),
+    ...(context ? { storageState: await context.storageState() } : {}),
     userAgent: config.userAgent
   });
 
   const collectionResult =
     config.mode === "assembly_minutes_search"
-      ? await collectAssemblyCandidates(page, api, config, existingState, cutoffDate)
-      : await collectGenericCandidates(page, config);
+      ? await collectAssemblyCandidates(page!, api, config, existingState, cutoffDate)
+      : config.mode === "assembly_file_service"
+        ? await collectAssemblyFileServiceCandidates(api, config, existingState, cutoffDate)
+        : await collectGenericCandidates(page!, config);
 
   const seenCandidateKeys = new Set<string>();
   let downloadedCount = 0;
@@ -955,10 +1172,14 @@ async function main(): Promise<void> {
       break;
     }
 
-    const existingCandidateMetadata = candidate.documentId
-      ? updatedMetadataByDocumentId.get(candidate.documentId) ??
-        updatedMetadataBySourceUrl.get(candidate.sourceUrl)
-      : updatedMetadataBySourceUrl.get(candidate.sourceUrl);
+    const existingCandidateMetadata = selectExistingMirroredMetadata(
+      {
+        byDocumentId: updatedMetadataByDocumentId,
+        bySourceUrl: updatedMetadataBySourceUrl,
+        byDownloadUrl: updatedMetadataByDownloadUrl
+      },
+      candidate
+    );
     const outcome = await mirrorCandidate(
       candidate,
       config,
@@ -969,6 +1190,9 @@ async function main(): Promise<void> {
 
     updatedMetadataByDocumentId.set(outcome.metadata.documentId, outcome.metadata);
     updatedMetadataBySourceUrl.set(outcome.metadata.sourceUrl, outcome.metadata);
+    if (outcome.metadata.downloadUrl) {
+      updatedMetadataByDownloadUrl.set(outcome.metadata.downloadUrl, outcome.metadata);
+    }
 
     if (outcome.type === "downloaded") {
       downloadedCount += 1;
@@ -983,8 +1207,8 @@ async function main(): Promise<void> {
   }
 
   await api.dispose();
-  await context.close();
-  await browser.close();
+  await context?.close();
+  await browser?.close();
 
   const index = mergeDocumentIndex(
     config.sourceId,
@@ -1006,7 +1230,10 @@ async function main(): Promise<void> {
     lastStartUrl: config.startUrl,
     recentWindowStartDate: collectionResult.recentWindowStartDate,
     recentWindowEndDate: collectionResult.recentWindowEndDate,
-    nextBackfillCursorDate: collectionResult.nextBackfillCursorDate
+    nextBackfillCursorDate: collectionResult.nextBackfillCursorDate,
+    sourceSnapshotSha256: collectionResult.sourceSnapshotSha256,
+    sourceSnapshotCount: collectionResult.sourceSnapshotCount,
+    skippedBySourceSnapshot: collectionResult.sourceSnapshotUnchanged ?? false
   };
 
   await writeJsonFile(indexFile, index);
@@ -1015,4 +1242,6 @@ async function main(): Promise<void> {
   process.stdout.write(`${JSON.stringify(state, null, 2)}\n`);
 }
 
-void main();
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  void main();
+}

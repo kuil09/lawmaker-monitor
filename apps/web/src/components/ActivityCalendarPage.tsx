@@ -11,15 +11,25 @@ import type {
   MemberActivityCalendarExport,
   MemberActivityCalendarMember,
   MemberActivityCalendarMemberDetailExport,
-  MemberActivityVoteRecord
+  MemberActivityVoteRecord,
+  MemberAssetsHistoryExport,
+  MemberAssetsIndexExport,
+  MemberAssetsIndexItem
 } from "@lawmaker-monitor/schemas";
 import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
   PolarAngleAxis,
   PolarGrid,
   PolarRadiusAxis,
   Radar,
   RadarChart,
-  ResponsiveContainer
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
 } from "recharts";
 
 import {
@@ -48,8 +58,15 @@ type ActivityCalendarPageProps = {
   memberDetails: Record<string, MemberActivityCalendarMemberDetailExport | undefined>;
   memberDetailErrors: Record<string, string | null | undefined>;
   memberDetailLoading: Record<string, boolean | undefined>;
+  memberAssetsIndex: MemberAssetsIndexExport | null;
+  memberAssetsIndexError?: string | null;
+  memberAssetHistories: Record<string, MemberAssetsHistoryExport | undefined>;
+  memberAssetHistoryErrors: Record<string, string | null | undefined>;
+  memberAssetHistoryLoading: Record<string, boolean | undefined>;
   onEnsureMemberDetail: (member: MemberActivityCalendarMember) => void | Promise<void>;
   onRetryMemberDetail: (member: MemberActivityCalendarMember) => void;
+  onEnsureMemberAssetHistory: (member: MemberActivityCalendarMember) => void | Promise<void>;
+  onRetryMemberAssetHistory: (member: MemberActivityCalendarMember) => void;
   onBack: () => void;
   onRetry: () => void;
 };
@@ -91,6 +108,204 @@ const compareRatioColors = {
   rightStroke: "#43657b",
   rightFill: "rgba(67, 101, 123, 0.18)"
 };
+
+const assetCategoryPalette = [
+  "#9b3d2f",
+  "#2f5d73",
+  "#8b6a1e",
+  "#4d6f38",
+  "#704f92",
+  "#8a4d63",
+  "#006d77",
+  "#7f5539"
+] as const;
+
+const assetCategoryPriority = [
+  "건물",
+  "토지",
+  "예금",
+  "증권",
+  "채무",
+  "부동산에 관한 규정이 준용되는 권리와 자동차·건설기계·선박 및 항공기",
+  "정치자금법에 따른 정치자금의 수입 및 지출을 위한 예금계좌의 예금",
+  "현금",
+  "채권"
+] as const;
+
+const explicitRealEstateCategoryLabels = ["건물", "토지"] as const;
+const mixedAssetCategoryLabels = [
+  "부동산에 관한 규정이 준용되는 권리와 자동차·건설기계·선박 및 항공기"
+] as const;
+
+type AssetChartRow = {
+  reportedAt: string;
+  label: string;
+  total: number;
+  [categoryKey: string]: string | number;
+};
+
+type RealEstateFocusSummary = {
+  buildingAmount: number;
+  hasExplicitCategory: boolean;
+  hasMixedCategory: boolean;
+  landAmount: number;
+  latestAmount: number;
+  deltaAmount: number;
+};
+
+type AssetScopeMode = "familyIncluded" | "selfOnly";
+
+type AssetHistorySnapshot = Pick<
+  MemberAssetsHistoryExport,
+  "series" | "categorySeries" | "latestSummary"
+>;
+
+function formatAssetAmount(value: number): string {
+  return `${formatNumber(value)}천원`;
+}
+
+function formatAssetDelta(value: number): string {
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${formatNumber(value)}천원`;
+}
+
+function formatAssetAxisLabel(value: string): string {
+  return value.slice(2).replaceAll("-", ".");
+}
+
+function describeFamilyGap(value: number): string {
+  if (value > 0) {
+    return "가족 명의 순재산이 총액에 더해졌습니다.";
+  }
+
+  if (value < 0) {
+    return "가족 명의 순채무가 총액을 낮추고 있습니다.";
+  }
+
+  return "본인만과 가족 포함 총액이 같습니다.";
+}
+
+function resolveAssetHistorySnapshot(
+  history: MemberAssetsHistoryExport | null,
+  scopeMode: AssetScopeMode
+): AssetHistorySnapshot | null {
+  if (!history) {
+    return null;
+  }
+
+  if (scopeMode === "selfOnly" && history.selfOnly) {
+    return history.selfOnly;
+  }
+
+  return {
+    series: history.series,
+    categorySeries: history.categorySeries,
+    latestSummary: history.latestSummary
+  };
+}
+
+function sortAssetCategorySeries(
+  history: AssetHistorySnapshot | null
+): AssetHistorySnapshot["categorySeries"] {
+  if (!history) {
+    return [];
+  }
+
+  return [...history.categorySeries].sort((left, right) => {
+    const leftPriority = assetCategoryPriority.findIndex((value) => value === left.categoryLabel);
+    const rightPriority = assetCategoryPriority.findIndex((value) => value === right.categoryLabel);
+    const normalizedLeft = leftPriority === -1 ? 99 : leftPriority;
+    const normalizedRight = rightPriority === -1 ? 99 : rightPriority;
+
+    if (normalizedLeft !== normalizedRight) {
+      return normalizedLeft - normalizedRight;
+    }
+
+    return left.categoryLabel.localeCompare(right.categoryLabel, "ko-KR");
+  });
+}
+
+function buildAssetChartRows(
+  history: AssetHistorySnapshot | null,
+  visibleCategoryKeys: string[]
+): AssetChartRow[] {
+  if (!history) {
+    return [];
+  }
+
+  const categoryLookup = new Map(
+    history.categorySeries
+      .filter((series) => visibleCategoryKeys.includes(series.categoryKey))
+      .map((series) => [series.categoryKey, new Map(series.points.map((point) => [point.reportedAt, point.currentAmount]))] as const)
+  );
+
+  return history.series.map((point) => {
+    const row: AssetChartRow = {
+      reportedAt: point.reportedAt,
+      label: formatAssetAxisLabel(point.reportedAt),
+      total: point.currentAmount
+    };
+
+    for (const categoryKey of visibleCategoryKeys) {
+      row[categoryKey] = categoryLookup.get(categoryKey)?.get(point.reportedAt) ?? 0;
+    }
+
+    return row;
+  });
+}
+
+function getCategoryAmountAtDate(
+  history: AssetHistorySnapshot | null,
+  categoryLabel: string,
+  reportedAt: string
+): number {
+  if (!history) {
+    return 0;
+  }
+
+  const series = history.categorySeries.find((entry) => entry.categoryLabel === categoryLabel);
+  return series?.points.find((point) => point.reportedAt === reportedAt)?.currentAmount ?? 0;
+}
+
+function buildRealEstateFocusSummary(
+  history: AssetHistorySnapshot | null
+): RealEstateFocusSummary | null {
+  if (!history || history.series.length === 0) {
+    return null;
+  }
+
+  const firstReportedAt = history.series[0]?.reportedAt;
+  const latestReportedAt = history.latestSummary.reportedAt;
+
+  if (!firstReportedAt || !latestReportedAt) {
+    return null;
+  }
+
+  const buildingAmount = getCategoryAmountAtDate(history, "건물", latestReportedAt);
+  const landAmount = getCategoryAmountAtDate(history, "토지", latestReportedAt);
+  const latestAmount = buildingAmount + landAmount;
+  const firstAmount = explicitRealEstateCategoryLabels.reduce(
+    (sum, categoryLabel) => sum + getCategoryAmountAtDate(history, categoryLabel, firstReportedAt),
+    0
+  );
+
+  return {
+    buildingAmount,
+    hasExplicitCategory: history.categorySeries.some((series) =>
+      explicitRealEstateCategoryLabels.includes(
+        series.categoryLabel as (typeof explicitRealEstateCategoryLabels)[number]
+      )
+    ),
+    hasMixedCategory: history.categorySeries.some((series) =>
+      mixedAssetCategoryLabels.includes(
+        series.categoryLabel as (typeof mixedAssetCategoryLabels)[number]
+      )
+    ),
+    landAmount,
+    latestAmount,
+    deltaAmount: latestAmount - firstAmount
+  };
+}
 
 function buildRatioData(member: MemberActivityCalendarMember): RatioDatum[] {
   const breakdown = getMemberDayBreakdown(member);
@@ -329,6 +544,388 @@ function ExternalSiteLink({ url }: { url?: string | null }) {
       </svg>
       <span>홈페이지</span>
     </a>
+  );
+}
+
+type MemberAssetSectionProps = {
+  indexEntry: MemberAssetsIndexItem | null;
+  indexError?: string | null;
+  history: MemberAssetsHistoryExport | null;
+  loading: boolean;
+  error?: string | null;
+  onRetry?: (() => void) | null;
+};
+
+function MemberAssetSection({
+  indexEntry,
+  indexError,
+  history,
+  loading,
+  error,
+  onRetry
+}: MemberAssetSectionProps) {
+  const [assetScopeMode, setAssetScopeMode] = useState<AssetScopeMode>("familyIncluded");
+  const activeHistory = resolveAssetHistorySnapshot(history, assetScopeMode);
+  const orderedCategorySeries = sortAssetCategorySeries(activeHistory);
+  const realEstateFocus = buildRealEstateFocusSummary(activeHistory);
+  const familyGapLatest =
+    history?.selfOnly != null
+      ? history.latestSummary.currentAmount - history.selfOnly.latestSummary.currentAmount
+      : null;
+  const activeFirstPoint = activeHistory?.series[0] ?? null;
+  const activeLatestTotal = activeHistory?.latestSummary.currentAmount ?? indexEntry?.latestTotal ?? 0;
+  const activeTotalDelta =
+    activeHistory && activeFirstPoint
+      ? activeHistory.latestSummary.currentAmount - activeFirstPoint.currentAmount
+      : indexEntry?.totalDelta ?? 0;
+  const activeScopeLabel = assetScopeMode === "selfOnly" ? "본인만" : "가족 포함";
+  const defaultCategoryKeys = orderedCategorySeries.slice(0, 4).map((series) => series.categoryKey);
+  const orderedCategorySignature = orderedCategorySeries
+    .map((series) => `${series.categoryKey}:${series.points.length}`)
+    .join("|");
+  const [visibleCategoryKeys, setVisibleCategoryKeys] = useState<string[]>(defaultCategoryKeys);
+  const [showAllCategories, setShowAllCategories] = useState(false);
+
+  useEffect(() => {
+    const nextDefaultKeys = orderedCategorySeries.slice(0, 4).map((series) => series.categoryKey);
+    setVisibleCategoryKeys((current) => {
+      const retained = current.filter((categoryKey) =>
+        orderedCategorySeries.some((series) => series.categoryKey === categoryKey)
+      );
+
+      return retained.length > 0 ? retained : nextDefaultKeys;
+    });
+    setShowAllCategories(false);
+  }, [history?.memberId, orderedCategorySignature]);
+
+  useEffect(() => {
+    setAssetScopeMode("familyIncluded");
+  }, [history?.memberId]);
+
+  if (indexError && !indexEntry) {
+    return (
+      <section className="activity-asset-card" aria-label="재산 공개 정보">
+        <div className="activity-drawer__section-head">
+          <div>
+            <p className="section-label">재산 공개</p>
+            <h3>데이터를 불러오지 못했습니다</h3>
+          </div>
+        </div>
+        <p className="activity-drawer__empty">{indexError}</p>
+      </section>
+    );
+  }
+
+  if (!indexEntry) {
+    return (
+      <section className="activity-asset-card" aria-label="재산 공개 정보">
+        <div className="activity-drawer__section-head">
+          <div>
+            <p className="section-label">재산 공개</p>
+            <h3>현직 22대 기준 재산 공개 이력이 없습니다</h3>
+          </div>
+          <p>현재 선택한 의원에 대해 공개된 재산 변동 문서를 아직 찾지 못했습니다.</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (loading) {
+    return (
+      <section className="activity-asset-card" aria-label="재산 공개 정보">
+        <div className="activity-drawer__section-head">
+          <div>
+            <p className="section-label">재산 공개</p>
+            <h3>재산 변동 이력을 불러오는 중입니다</h3>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="activity-asset-card" aria-label="재산 공개 정보">
+        <div className="activity-drawer__section-head">
+          <div>
+            <p className="section-label">재산 공개</p>
+            <h3>재산 변동 이력을 불러오지 못했습니다</h3>
+          </div>
+        </div>
+        <div className="activity-drawer__empty">
+          <p>{error}</p>
+          {onRetry ? (
+            <button type="button" onClick={onRetry}>
+              다시 시도
+            </button>
+          ) : null}
+        </div>
+      </section>
+    );
+  }
+
+  if (!history || history.series.length === 0) {
+    return (
+      <section className="activity-asset-card" aria-label="재산 공개 정보">
+        <div className="activity-drawer__section-head">
+          <div>
+            <p className="section-label">재산 공개</p>
+            <h3>재산 변동 이력이 아직 없습니다</h3>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const chartRows = buildAssetChartRows(activeHistory, visibleCategoryKeys);
+  const visibleSeries = orderedCategorySeries.filter((series) =>
+    visibleCategoryKeys.includes(series.categoryKey)
+  );
+  const extraSeries = orderedCategorySeries.slice(4);
+
+  return (
+    <section className="activity-asset-card" aria-label="재산 공개 정보">
+      <div className="activity-drawer__section-head">
+        <div>
+          <p className="section-label">재산 공개</p>
+          <h3>22대 국회 재산 변동 흐름</h3>
+        </div>
+        <p>
+          총재산을 기본선으로 두고, 주요 카테고리 소계를 겹쳐 볼 수 있습니다. 부동산 포커스는
+          건물과 토지만 따로 집계합니다. 단위는 천원입니다.
+        </p>
+      </div>
+
+      {history?.selfOnly ? (
+        <div className="activity-asset-scope" aria-label="공개 범위 비교">
+          <div className="activity-asset-scope__head">
+            <div>
+              <p className="section-label">공개 범위 비교</p>
+              <h4>본인만과 가족 포함 기준을 나눠 볼 수 있습니다</h4>
+            </div>
+            <div className="activity-asset-toggle-group" aria-label="재산 공개 범위">
+              <button
+                type="button"
+                className={
+                  assetScopeMode === "familyIncluded"
+                    ? "activity-asset-toggle is-active"
+                    : "activity-asset-toggle"
+                }
+                onClick={() => setAssetScopeMode("familyIncluded")}
+              >
+                가족 포함
+              </button>
+              <button
+                type="button"
+                className={
+                  assetScopeMode === "selfOnly"
+                    ? "activity-asset-toggle is-active"
+                    : "activity-asset-toggle"
+                }
+                onClick={() => setAssetScopeMode("selfOnly")}
+              >
+                본인만
+              </button>
+            </div>
+          </div>
+
+          <dl className="activity-asset-scope__summary">
+            <div>
+              <dt>현재 보기</dt>
+              <dd>{activeScopeLabel}</dd>
+            </div>
+            <div>
+              <dt>본인 외 가족분</dt>
+              <dd>{formatAssetDelta(familyGapLatest ?? 0)}</dd>
+            </div>
+            <div>
+              <dt>차이 읽는 법</dt>
+              <dd className="activity-asset-scope__text">{describeFamilyGap(familyGapLatest ?? 0)}</dd>
+            </div>
+          </dl>
+
+          <p className="activity-asset-scope__note">
+            본인만은 관계가 <code>본인</code>으로 파싱된 항목만 더한 값입니다. 차이의 절대값이
+            클수록 가족 포함 여부가 총액을 크게 바꾸므로, 가족 명의 자산·채무 구성을 더 살펴볼
+            필요가 있습니다.
+          </p>
+        </div>
+      ) : null}
+
+      {realEstateFocus && (realEstateFocus.hasExplicitCategory || realEstateFocus.hasMixedCategory) ? (
+        <div className="activity-asset-focus" aria-label="부동산 포커스">
+          <div className="activity-asset-focus__head">
+            <div>
+              <p className="section-label">부동산 포커스</p>
+              <h4>건물과 토지를 따로 읽을 수 있게 묶었습니다</h4>
+            </div>
+            <p>
+              {realEstateFocus.hasMixedCategory
+                ? "혼합 자산군은 자동차 등 다른 자산이 함께 묶일 수 있어 부동산 합계에서 제외했습니다."
+                : "건물과 토지는 최신 공개 시점 기준으로 따로 합산했습니다."}
+            </p>
+          </div>
+
+          <dl className="activity-asset-focus__summary">
+            <div>
+              <dt>부동산 합계</dt>
+              <dd>{formatAssetAmount(realEstateFocus.latestAmount)}</dd>
+            </div>
+            <div>
+              <dt>22대 부동산 증감</dt>
+              <dd>{formatAssetDelta(realEstateFocus.deltaAmount)}</dd>
+            </div>
+            <div>
+              <dt>건물</dt>
+              <dd>{formatAssetAmount(realEstateFocus.buildingAmount)}</dd>
+            </div>
+            <div>
+              <dt>토지</dt>
+              <dd>{formatAssetAmount(realEstateFocus.landAmount)}</dd>
+            </div>
+          </dl>
+        </div>
+      ) : null}
+
+      <dl className="activity-asset-summary">
+        <div>
+          <dt>최신 총재산</dt>
+          <dd>{formatAssetAmount(activeLatestTotal)}</dd>
+        </div>
+        <div>
+          <dt>22대 누적 증감</dt>
+          <dd>{formatAssetDelta(activeTotalDelta)}</dd>
+        </div>
+        <div>
+          <dt>첫 공개일</dt>
+          <dd>{formatDate(indexEntry.firstDisclosureDate)}</dd>
+        </div>
+        <div>
+          <dt>최신 공개일</dt>
+          <dd>{formatDate(indexEntry.latestDisclosureDate)}</dd>
+        </div>
+      </dl>
+
+      <div className="activity-asset-chart">
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={chartRows} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+            <CartesianGrid stroke="rgba(35, 49, 58, 0.08)" strokeDasharray="4 4" />
+            <XAxis
+              dataKey="label"
+              tickLine={false}
+              axisLine={false}
+              tick={{ fontSize: 12, fill: "var(--ink-muted)" }}
+            />
+            <YAxis
+              tickFormatter={(value) => `${Math.round(Number(value) / 1000)}M`}
+              tickLine={false}
+              axisLine={false}
+              width={52}
+              tick={{ fontSize: 12, fill: "var(--ink-muted)" }}
+            />
+            <Tooltip
+              formatter={(value: number, name: string) => [
+                formatAssetAmount(Number(value)),
+                name === "total"
+                  ? `총재산 (${activeScopeLabel})`
+                  : orderedCategorySeries.find((series) => series.categoryKey === name)?.categoryLabel ?? name
+              ]}
+              labelFormatter={(value) => `공개일 ${value}`}
+            />
+            <Legend
+              formatter={(value) =>
+                value === "total"
+                  ? `총재산 (${activeScopeLabel})`
+                  : orderedCategorySeries.find((series) => series.categoryKey === value)?.categoryLabel ?? value
+              }
+            />
+            <Line
+              type="monotone"
+              dataKey="total"
+              name="total"
+              stroke="#972d20"
+              strokeWidth={3}
+              dot={{ r: 3 }}
+              activeDot={{ r: 5 }}
+            />
+            {visibleSeries.map((series, index) => (
+              <Line
+                key={series.categoryKey}
+                type="monotone"
+                dataKey={series.categoryKey}
+                name={series.categoryKey}
+                stroke={assetCategoryPalette[index % assetCategoryPalette.length]}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4 }}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {orderedCategorySeries.length > 0 ? (
+        <div className="activity-asset-toggles">
+          <div className="activity-asset-toggle-group" aria-label="주요 재산 카테고리">
+            {orderedCategorySeries.slice(0, 4).map((series) => {
+              const isActive = visibleCategoryKeys.includes(series.categoryKey);
+              return (
+                <button
+                  key={series.categoryKey}
+                  type="button"
+                  className={isActive ? "activity-asset-toggle is-active" : "activity-asset-toggle"}
+                  onClick={() =>
+                    setVisibleCategoryKeys((current) =>
+                      current.includes(series.categoryKey)
+                        ? current.filter((value) => value !== series.categoryKey)
+                        : [...current, series.categoryKey]
+                    )
+                  }
+                >
+                  {series.categoryLabel}
+                </button>
+              );
+            })}
+          </div>
+
+          {extraSeries.length > 0 ? (
+            <div className="activity-asset-extra">
+              <button
+                type="button"
+                className="activity-asset-extra-toggle"
+                onClick={() => setShowAllCategories((current) => !current)}
+              >
+                {showAllCategories ? "나머지 카테고리 접기" : "나머지 카테고리 보기"}
+              </button>
+
+              {showAllCategories ? (
+                <div className="activity-asset-toggle-group" aria-label="추가 재산 카테고리">
+                  {extraSeries.map((series) => {
+                    const isActive = visibleCategoryKeys.includes(series.categoryKey);
+                    return (
+                      <button
+                        key={series.categoryKey}
+                        type="button"
+                        className={isActive ? "activity-asset-toggle is-active" : "activity-asset-toggle"}
+                        onClick={() =>
+                          setVisibleCategoryKeys((current) =>
+                            current.includes(series.categoryKey)
+                              ? current.filter((value) => value !== series.categoryKey)
+                              : [...current, series.categoryKey]
+                          )
+                        }
+                      >
+                        {series.categoryLabel}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -1099,8 +1696,15 @@ export function ActivityCalendarPage({
   memberDetails,
   memberDetailErrors,
   memberDetailLoading,
+  memberAssetsIndex,
+  memberAssetsIndexError,
+  memberAssetHistories,
+  memberAssetHistoryErrors,
+  memberAssetHistoryLoading,
   onEnsureMemberDetail,
   onRetryMemberDetail,
+  onEnsureMemberAssetHistory,
+  onRetryMemberAssetHistory,
   onBack,
   onRetry
 }: ActivityCalendarPageProps) {
@@ -1188,6 +1792,18 @@ export function ActivityCalendarPage({
     : null;
   const selectedMemberDetailLoading = selectedMember
     ? Boolean(memberDetailLoading[selectedMember.memberId])
+    : false;
+  const selectedMemberAssetIndex = selectedMember
+    ? memberAssetsIndex?.members.find((entry) => entry.memberId === selectedMember.memberId) ?? null
+    : null;
+  const selectedMemberAssetHistory = selectedMember
+    ? memberAssetHistories[selectedMember.memberId] ?? null
+    : null;
+  const selectedMemberAssetHistoryError = selectedMember
+    ? memberAssetHistoryErrors[selectedMember.memberId] ?? null
+    : null;
+  const selectedMemberAssetHistoryLoading = selectedMember
+    ? Boolean(memberAssetHistoryLoading[selectedMember.memberId])
     : false;
   const compareMember = getMemberById(selectedAssembly, compareMemberId);
   const comparisonSummary =
@@ -1306,6 +1922,30 @@ export function ActivityCalendarPage({
     selectedMemberDetailError,
     selectedMemberDetailLoading,
     onEnsureMemberDetail
+  ]);
+
+  useEffect(() => {
+    if (activeView !== "single" || !selectedMember || !selectedMemberAssetIndex) {
+      return;
+    }
+
+    if (
+      selectedMemberAssetHistory ||
+      selectedMemberAssetHistoryLoading ||
+      selectedMemberAssetHistoryError
+    ) {
+      return;
+    }
+
+    void onEnsureMemberAssetHistory(selectedMember);
+  }, [
+    activeView,
+    selectedMember,
+    selectedMemberAssetIndex,
+    selectedMemberAssetHistory,
+    selectedMemberAssetHistoryError,
+    selectedMemberAssetHistoryLoading,
+    onEnsureMemberAssetHistory
   ]);
 
   function buildShareUrl(): string | null {
@@ -1589,6 +2229,18 @@ export function ActivityCalendarPage({
                     <ContributionCalendar assembly={selectedAssembly} member={selectedMember} />
                   </section>
                   <ActivityRatioChart member={selectedMember} />
+                  <MemberAssetSection
+                    indexEntry={selectedMemberAssetIndex}
+                    indexError={memberAssetsIndexError}
+                    history={selectedMemberAssetHistory}
+                    loading={selectedMemberAssetHistoryLoading}
+                    error={selectedMemberAssetHistoryError}
+                    onRetry={
+                      selectedMember
+                        ? () => onRetryMemberAssetHistory(selectedMember)
+                        : null
+                    }
+                  />
                   <ActivityCommitteeSections member={selectedMember} />
                   <ActivityVoteRecordSections
                     records={selectedMemberDetail?.voteRecords ?? selectedMember.voteRecords ?? []}

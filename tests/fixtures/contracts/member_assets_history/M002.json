@@ -1,0 +1,163 @@
+{
+  "generatedAt": "2025-04-29T00:00:00.000Z",
+  "snapshotId": "fixture-snapshot-20260322-114500",
+  "assemblyNo": 22,
+  "assemblyLabel": "제22대 국회",
+  "memberId": "M002",
+  "series": [
+    {
+      "reportedAt": "2025-03-27",
+      "issueNo": "2025-4",
+      "previousAmount": 200000,
+      "increaseAmount": 0,
+      "decreaseAmount": 20000,
+      "currentAmount": 220000,
+      "deltaAmount": 20000,
+      "valueChangeAmount": 0
+    },
+    {
+      "reportedAt": "2025-04-29",
+      "issueNo": "2025-5",
+      "previousAmount": 250000,
+      "increaseAmount": 20000,
+      "decreaseAmount": 10000,
+      "currentAmount": 270000,
+      "deltaAmount": 20000,
+      "valueChangeAmount": 10000
+    }
+  ],
+  "categorySeries": [
+    {
+      "categoryKey": "예금",
+      "categoryLabel": "예금",
+      "points": [
+        {
+          "reportedAt": "2025-04-29",
+          "issueNo": "2025-5",
+          "previousAmount": 50000,
+          "increaseAmount": 0,
+          "decreaseAmount": 10000,
+          "currentAmount": 40000
+        }
+      ]
+    },
+    {
+      "categoryKey": "토지",
+      "categoryLabel": "토지",
+      "points": [
+        {
+          "reportedAt": "2025-03-27",
+          "issueNo": "2025-4",
+          "previousAmount": 300000,
+          "increaseAmount": 0,
+          "decreaseAmount": 0,
+          "currentAmount": 300000
+        },
+        {
+          "reportedAt": "2025-04-29",
+          "issueNo": "2025-5",
+          "previousAmount": 300000,
+          "increaseAmount": 20000,
+          "decreaseAmount": 0,
+          "currentAmount": 320000
+        }
+      ]
+    },
+    {
+      "categoryKey": "채무",
+      "categoryLabel": "채무",
+      "points": [
+        {
+          "reportedAt": "2025-03-27",
+          "issueNo": "2025-4",
+          "previousAmount": 100000,
+          "increaseAmount": 0,
+          "decreaseAmount": 20000,
+          "currentAmount": 80000
+        }
+      ]
+    }
+  ],
+  "latestSummary": {
+    "reportedAt": "2025-04-29",
+    "issueNo": "2025-5",
+    "previousAmount": 250000,
+    "increaseAmount": 20000,
+    "decreaseAmount": 10000,
+    "currentAmount": 270000,
+    "deltaAmount": 20000,
+    "valueChangeAmount": 10000
+  },
+  "selfOnly": {
+    "series": [
+      {
+        "reportedAt": "2025-03-27",
+        "issueNo": "2025-4",
+        "previousAmount": 300000,
+        "increaseAmount": 0,
+        "decreaseAmount": 0,
+        "currentAmount": 300000,
+        "deltaAmount": 0,
+        "valueChangeAmount": 0
+      },
+      {
+        "reportedAt": "2025-04-29",
+        "issueNo": "2025-5",
+        "previousAmount": 350000,
+        "increaseAmount": 20000,
+        "decreaseAmount": 10000,
+        "currentAmount": 360000,
+        "deltaAmount": 10000,
+        "valueChangeAmount": 0
+      }
+    ],
+    "categorySeries": [
+      {
+        "categoryKey": "예금",
+        "categoryLabel": "예금",
+        "points": [
+          {
+            "reportedAt": "2025-04-29",
+            "issueNo": "2025-5",
+            "previousAmount": 50000,
+            "increaseAmount": 0,
+            "decreaseAmount": 10000,
+            "currentAmount": 40000
+          }
+        ]
+      },
+      {
+        "categoryKey": "토지",
+        "categoryLabel": "토지",
+        "points": [
+          {
+            "reportedAt": "2025-03-27",
+            "issueNo": "2025-4",
+            "previousAmount": 300000,
+            "increaseAmount": 0,
+            "decreaseAmount": 0,
+            "currentAmount": 300000
+          },
+          {
+            "reportedAt": "2025-04-29",
+            "issueNo": "2025-5",
+            "previousAmount": 300000,
+            "increaseAmount": 20000,
+            "decreaseAmount": 0,
+            "currentAmount": 320000
+          }
+        ]
+      }
+    ],
+    "latestSummary": {
+      "reportedAt": "2025-04-29",
+      "issueNo": "2025-5",
+      "previousAmount": 350000,
+      "increaseAmount": 20000,
+      "decreaseAmount": 10000,
+      "currentAmount": 360000,
+      "deltaAmount": 10000,
+      "valueChangeAmount": 0
+    }
+  }
+}

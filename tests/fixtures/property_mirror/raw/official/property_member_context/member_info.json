@@ -1,0 +1,58 @@
+{
+  "nwvrqwxyaytdsfvhu": [
+    {
+      "head": [
+        {
+          "list_total_count": "3"
+        },
+        {
+          "RESULT": {
+            "CODE": "INFO-000",
+            "MESSAGE": "정상 처리되었습니다."
+          }
+        }
+      ]
+    },
+    {
+      "row": [
+        {
+          "HG_NM": "김아라",
+          "HJ_NM": "金아라",
+          "ENG_NM": "KIM ARA",
+          "POLY_NM": "미래개혁당",
+          "ORIG_NM": "서울 중구",
+          "ELECT_GBN_NM": "지역구",
+          "CMIT_NM": "과학기술정보방송통신위원회",
+          "CMITS": "과학기술정보방송통신위원회, 예산결산특별위원회",
+          "UNITS": "제22대",
+          "HOMEPAGE": "https://blog.example.kr/kim-ara",
+          "MONA_CD": "M001"
+        },
+        {
+          "HG_NM": "박민",
+          "HJ_NM": "朴敏",
+          "ENG_NM": "PARK MIN",
+          "POLY_NM": "미래개혁당",
+          "ORIG_NM": "부산 남구",
+          "ELECT_GBN_NM": "지역구",
+          "CMIT_NM": "법제사법위원회",
+          "CMITS": "법제사법위원회, 예산결산특별위원회",
+          "UNITS": "제22대",
+          "MONA_CD": "M002"
+        },
+        {
+          "HG_NM": "이수",
+          "HJ_NM": "李秀",
+          "ENG_NM": "LEE SU",
+          "POLY_NM": "시민녹색당",
+          "ORIG_NM": "비례대표",
+          "ELECT_GBN_NM": "비례대표",
+          "CMIT_NM": "환경노동위원회",
+          "CMITS": "환경노동위원회",
+          "UNITS": "제22대",
+          "MONA_CD": "M003"
+        }
+      ]
+    }
+  ]
+}

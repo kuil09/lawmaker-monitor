@@ -16,12 +16,14 @@
     "build:data": "node ./dist/scripts/build-data.js",
     "ingest:live": "node ./dist/scripts/ingest-live.js",
     "mirror:documents": "node ./dist/scripts/mirror-documents.js",
-    "monitor:sources": "node ./dist/scripts/monitor-sources.js"
+    "monitor:sources": "node ./dist/scripts/monitor-sources.js",
+    "sync:property-member-context": "node ./dist/scripts/sync-property-member-context.js"
   },
   "dependencies": {
     "@lawmaker-monitor/schemas": "0.1.0",
     "fast-xml-parser": "^5.2.5",
     "iconv-lite": "^0.7.0",
+    "pdfjs-dist": "^5.6.205",
     "playwright": "^1.54.2",
     "shapefile": "^0.6.6",
     "topojson-client": "^3.1.0",

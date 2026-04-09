@@ -1,0 +1,33 @@
+{
+  "documentId": "assembly-property-disclosures-file-10001707",
+  "sourceId": "assembly-property-disclosures",
+  "sourceUrl": "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700",
+  "downloadUrl": "https://open.assembly.go.kr/portal/data/file/downloadFileData.do?infId=O2853M000835T714700&infSeq=1&fileSeq=10001707",
+  "title": "재산신고내역(제2025-5호)",
+  "publishedDate": "2025-04-29",
+  "discoveredFromUrl": "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700",
+  "firstMirroredAt": "2025-04-29T00:00:00.000Z",
+  "lastMirroredAt": "2025-04-29T00:00:00.000Z",
+  "latestRelativePath": "raw/documents/assembly-property-disclosures/2025/04/29/assembly-property-disclosures-file-10001707/latest.pdf",
+  "metadataRelativePath": "raw/documents/assembly-property-disclosures/2025/04/29/assembly-property-disclosures-file-10001707/metadata.json",
+  "currentContentSha256": "5bb6d96a95afabdf09c1204d24a01fe43f3ec3a113ef56ceccf768dff0de86c3",
+  "currentContentType": "application/pdf",
+  "currentBytes": 14728,
+  "sourceMetadata": {
+    "fileSeq": 10001707,
+    "infId": "O2853M000835T714700",
+    "infSeq": 1,
+    "viewFileNm": "재산신고내역(제2025-5호)",
+    "ftCrDttm": "2025-04-29",
+    "fileExt": "pdf",
+    "cvtFileSize": "15 KB"
+  },
+  "versions": [
+    {
+      "retrievedAt": "2025-04-29T00:00:00.000Z",
+      "relativePath": "raw/documents/assembly-property-disclosures/2025/04/29/assembly-property-disclosures-file-10001707/versions/2025-04-29T00-00-00-000Z.pdf",
+      "contentSha256": "5bb6d96a95afabdf09c1204d24a01fe43f3ec3a113ef56ceccf768dff0de86c3",
+      "bytes": 14728
+    }
+  ]
+}

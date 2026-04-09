@@ -1,0 +1,27 @@
+{
+  "retrievedAt": "2025-04-29T00:00:00.000Z",
+  "assemblyNo": 22,
+  "assemblyLabel": "제22대 국회",
+  "memberInfoPath": "raw/official/property_member_context/member_info.json",
+  "memberHistoryPath": "raw/official/property_member_context/member_history.json",
+  "memberInfo": {
+    "sourceUrl": "https://open.assembly.go.kr/portal/openapi/nwvrqwxyaytdsfvhu?Type=json&pIndex=1&pSize=1000",
+    "requestParams": {
+      "Type": "json",
+      "pIndex": "1",
+      "pSize": "1000"
+    },
+    "checksumSha256": "fixture-property-member-info",
+    "retrievedAt": "2025-04-29T00:00:00.000Z"
+  },
+  "memberHistory": {
+    "sourceUrl": "https://open.assembly.go.kr/portal/openapi/nexgtxtmaamffofof?Type=json&pIndex=1&pSize=1000",
+    "requestParams": {
+      "Type": "json",
+      "pIndex": "1",
+      "pSize": "1000"
+    },
+    "checksumSha256": "fixture-property-member-history",
+    "retrievedAt": "2025-04-29T00:00:00.000Z"
+  }
+}

@@ -13,6 +13,7 @@ export type MirroredDocumentMetadata = {
   documentId: string;
   sourceId: string;
   sourceUrl: string;
+  downloadUrl?: string;
   title: string;
   publishedDate: string;
   discoveredFromUrl: string;
@@ -23,6 +24,7 @@ export type MirroredDocumentMetadata = {
   currentContentSha256: string;
   currentContentType: string;
   currentBytes: number;
+  sourceMetadata?: Record<string, string | number | null>;
   versions: MirroredDocumentVersion[];
 };
 
@@ -47,6 +49,12 @@ export type MirroredDocumentIndex = {
   items: MirroredDocumentIndexItem[];
 };
 
+export type MirroredDocumentMetadataLookups = {
+  byDocumentId: Map<string, MirroredDocumentMetadata>;
+  bySourceUrl: Map<string, MirroredDocumentMetadata>;
+  byDownloadUrl: Map<string, MirroredDocumentMetadata>;
+};
+
 export type DocumentMirrorState = {
   sourceId: string;
   updatedAt: string;
@@ -62,6 +70,9 @@ export type DocumentMirrorState = {
   recentWindowStartDate?: string;
   recentWindowEndDate?: string;
   nextBackfillCursorDate?: string | null;
+  sourceSnapshotSha256?: string;
+  sourceSnapshotCount?: number;
+  skippedBySourceSnapshot?: boolean;
 };
 
 export type DocumentPathSet = {
@@ -260,4 +271,31 @@ export function mergeDocumentIndex(
       return byDate !== 0 ? byDate : left.title.localeCompare(right.title);
     })
   };
+}
+
+export function selectExistingMirroredMetadata(
+  lookups: MirroredDocumentMetadataLookups,
+  candidate: {
+    documentId?: string;
+    sourceUrl: string;
+    downloadUrl?: string;
+  }
+): MirroredDocumentMetadata | undefined {
+  if (candidate.documentId) {
+    const byDocumentId = lookups.byDocumentId.get(candidate.documentId);
+    if (byDocumentId) {
+      return byDocumentId;
+    }
+  }
+
+  if (candidate.downloadUrl) {
+    const byDownloadUrl = lookups.byDownloadUrl.get(candidate.downloadUrl);
+    if (byDownloadUrl) {
+      return byDownloadUrl;
+    }
+
+    return undefined;
+  }
+
+  return lookups.bySourceUrl.get(candidate.sourceUrl);
 }

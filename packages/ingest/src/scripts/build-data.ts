@@ -16,6 +16,7 @@ import {
   buildMemberActivityCalendarMemberDetailPath,
   buildLatestVotesExport,
   buildManifest,
+  MEMBER_ACTIVITY_MEMBER_DETAILS_DIR,
   serializePublishedJson,
   toNdjson
 } from "../exports.js";
@@ -38,6 +39,14 @@ import {
   parseVoteDetailEntryPayload
 } from "../parsers.js";
 import { enrichMembersWithMemberProfileAll } from "../member-profile-enrichment.js";
+import {
+  buildPropertyDisclosureArtifacts,
+  DEFAULT_PROPERTY_DOCUMENT_INDEX_PATH
+} from "../property-disclosures.js";
+import {
+  DEFAULT_PROPERTY_MEMBER_CONTEXT_MANIFEST_PATH,
+  loadPropertyMemberContext
+} from "../property-member-context.js";
 import { resolveRawSnapshot } from "../raw-snapshot.js";
 import { assertCurrentMembersHaveTenure, buildMemberTenureIndex } from "../tenure.js";
 import { resolvePathFromRoot } from "../utils.js";
@@ -51,6 +60,8 @@ import {
   validateConstituencyBoundariesIndexExport,
   validateLatestVotesExport,
   validateManifest,
+  validateMemberAssetsHistoryExport,
+  validateMemberAssetsIndexExport,
   validateMemberActivityCalendarExport,
   validateMemberActivityCalendarMemberDetailExport,
   validateNormalizedBundle
@@ -119,27 +130,46 @@ async function writeBundle(outputDir: string, bundle: NormalizedBundle): Promise
   ]);
 }
 
-async function main(): Promise<void> {
-  const repositoryRoot = resolve(fileURLToPath(new URL("../../../../", import.meta.url)));
+function toOptionalNdjson<T extends Record<string, unknown>>(
+  items: T[],
+  seedRow: T & { __seed: true }
+): string {
+  if (items.length > 0) {
+    return toNdjson(items);
+  }
+
+  return `${JSON.stringify(seedRow)}\n`;
+}
+
+export async function buildData(args?: {
+  env?: NodeJS.ProcessEnv;
+  repositoryRoot?: string;
+}): Promise<void> {
+  const env = args?.env ?? process.env;
+  const repositoryRoot =
+    args?.repositoryRoot ?? resolve(fileURLToPath(new URL("../../../../", import.meta.url)));
   const constituencyBoundaryDir = resolvePathFromRoot(
     repositoryRoot,
-    process.env.CONSTITUENCY_BOUNDARIES_DIR ??
+    env.CONSTITUENCY_BOUNDARIES_DIR ??
       join(repositoryRoot, "artifacts/constituency-boundaries/current")
   );
   const rawRoot = resolvePathFromRoot(
     repositoryRoot,
-    process.env.RAW_DIR ?? join(repositoryRoot, "tests/fixtures")
+    env.RAW_DIR ?? join(repositoryRoot, "tests/fixtures")
+  );
+  const dataRepoDir = resolvePathFromRoot(
+    repositoryRoot,
+    env.DATA_REPO_DIR ?? join(repositoryRoot, "published-data")
   );
   const outputDir = resolvePathFromRoot(
     repositoryRoot,
-    process.env.OUTPUT_DIR ?? join(repositoryRoot, "artifacts/build")
+    env.OUTPUT_DIR ?? join(repositoryRoot, "artifacts/build")
   );
-  const retrievedAt = process.env.RETRIEVED_AT ?? new Date().toISOString();
   const baseUrl =
-    process.env.DATA_REPO_BASE_URL ?? "https://example.github.io/lawmaker-monitor-data/";
+    env.DATA_REPO_BASE_URL ?? "https://example.github.io/lawmaker-monitor-data/";
 
   const resolvedRaw = await resolveRawSnapshot(rawRoot);
-  const snapshotId = process.env.SNAPSHOT_ID ?? resolvedRaw.snapshotId;
+  const snapshotId = env.SNAPSHOT_ID ?? resolvedRaw.snapshotId;
   assertRawSnapshotManifestSourcePolicy(resolvedRaw.manifest);
 
   const scheduleEntry = findEntry(resolvedRaw.manifest.entries, "plenary_schedule");
@@ -470,6 +500,13 @@ async function main(): Promise<void> {
     assemblyNo: currentAssembly.assemblyNo,
     tenureIndex
   });
+  const propertyMemberContext = await loadPropertyMemberContext({
+    assemblyNo: currentAssembly.assemblyNo,
+    dataRepoDir,
+    manifestPath:
+      env.PROPERTY_MEMBER_CONTEXT_MANIFEST_PATH ??
+      DEFAULT_PROPERTY_MEMBER_CONTEXT_MANIFEST_PATH
+  });
 
   await writeBundle(outputDir, bundle);
 
@@ -488,6 +525,100 @@ async function main(): Promise<void> {
   const memberActivityCalendarMemberDetails = builtMemberDetails.map((detail) =>
     validateMemberActivityCalendarMemberDetailExport(detail)
   );
+  const propertyDisclosureArtifacts = await buildPropertyDisclosureArtifacts({
+    assemblyLabel: currentAssembly.label,
+    assemblyNo: currentAssembly.assemblyNo,
+    currentMembers: propertyMemberContext.currentMembers,
+    dataRepoDir,
+    generatedAt: latestVotes.generatedAt,
+    indexPath:
+      env.PROPERTY_DOCUMENT_INDEX_PATH ?? DEFAULT_PROPERTY_DOCUMENT_INDEX_PATH,
+    propertySourceId: env.PROPERTY_SOURCE_ID,
+    snapshotId,
+    tenureIndex: propertyMemberContext.tenureIndex
+  });
+  const memberAssetsIndex = validateMemberAssetsIndexExport(
+    propertyDisclosureArtifacts.memberAssetsIndex
+  );
+  const memberAssetsHistory = propertyDisclosureArtifacts.memberAssetsHistory.map((history) =>
+    validateMemberAssetsHistoryExport(history)
+  );
+  const propertyDatasetFiles = {
+    files: toOptionalNdjson(propertyDisclosureArtifacts.files, {
+      __seed: true,
+      disclosureFileId: "__seed__",
+      sourceDocumentId: "__seed__",
+      sourceId: "__seed__",
+      fileSeq: 0,
+      infId: "__seed__",
+      infSeq: 0,
+      issueNo: null,
+      viewFileNm: "__seed__",
+      reportedAt: "1970-01-01",
+      fileExt: "pdf",
+      cvtFileSize: null,
+      sourceUrl: "https://example.test/property",
+      downloadUrl: "https://example.test/property",
+      metadataRelativePath: "__seed__",
+      latestRelativePath: "__seed__",
+      contentSha256: "__seed__",
+      currentBytes: 0
+    }),
+    records: toOptionalNdjson(propertyDisclosureArtifacts.records, {
+      __seed: true,
+      disclosureRecordId: "__seed__",
+      disclosureFileId: "__seed__",
+      sourceDocumentId: "__seed__",
+      fileSeq: 0,
+      issueNo: null,
+      disclosureName: "__seed__",
+      normalizedName: "__seed__",
+      officeTitle: null,
+      sectionLabel: "국회의원",
+      reportedAt: "1970-01-01",
+      pageStart: 0,
+      pageEnd: 0,
+      memberId: null,
+      mappingStatus: "unmatched",
+      previousAmount: 0,
+      increaseAmount: 0,
+      decreaseAmount: 0,
+      currentAmount: 0,
+      deltaAmount: 0,
+      valueChangeAmount: 0,
+      rawSummaryText: "__seed__"
+    }),
+    categories: toOptionalNdjson(propertyDisclosureArtifacts.categories, {
+      __seed: true,
+      disclosureCategoryId: "__seed__",
+      disclosureRecordId: "__seed__",
+      categoryOrder: 0,
+      categoryKey: "__seed__",
+      categoryLabel: "__seed__",
+      previousAmount: 0,
+      increaseAmount: 0,
+      decreaseAmount: 0,
+      currentAmount: 0
+    }),
+    items: toOptionalNdjson(propertyDisclosureArtifacts.items, {
+      __seed: true,
+      disclosureItemId: "__seed__",
+      disclosureCategoryId: "__seed__",
+      disclosureRecordId: "__seed__",
+      categoryOrder: 0,
+      itemOrder: 0,
+      relation: null,
+      assetTypeLabel: null,
+      locationText: null,
+      measureText: null,
+      reasonText: null,
+      rawDetailText: "__seed__",
+      previousAmount: 0,
+      increaseAmount: 0,
+      decreaseAmount: 0,
+      currentAmount: 0
+    })
+  };
   // The boundary artifact is validated when it is built; build-data consumes and republishes it.
   const constituencyBoundaryExport = JSON.parse(
     await readFile(
@@ -507,11 +638,28 @@ async function main(): Promise<void> {
     buildManifest({
       bundle,
       dataRepoBaseUrl: baseUrl,
-      currentAssembly: currentAssembly as CurrentAssembly,
+      currentAssembly,
       latestVotes,
       accountabilitySummary,
       accountabilityTrends,
       memberActivityCalendar,
+      memberAssetsIndex,
+      assetDisclosuresDataset: {
+        content: propertyDatasetFiles.files,
+        rowCount: propertyDisclosureArtifacts.files.length
+      },
+      assetDisclosureRecordsDataset: {
+        content: propertyDatasetFiles.records,
+        rowCount: propertyDisclosureArtifacts.records.length
+      },
+      assetDisclosureCategoriesDataset: {
+        content: propertyDatasetFiles.categories,
+        rowCount: propertyDisclosureArtifacts.categories.length
+      },
+      assetDisclosureItemsDataset: {
+        content: propertyDatasetFiles.items,
+        rowCount: propertyDisclosureArtifacts.items.length
+      },
       constituencyBoundariesIndex
     })
   );
@@ -520,6 +668,7 @@ async function main(): Promise<void> {
   const accountabilitySummaryJson = serializePublishedJson(accountabilitySummary);
   const accountabilityTrendsJson = serializePublishedJson(accountabilityTrends);
   const memberActivityCalendarJson = serializePublishedJson(memberActivityCalendar);
+  const memberAssetsIndexJson = serializePublishedJson(memberAssetsIndex);
   const constituencyBoundariesIndexJson = constituencyBoundaryRuntimeArtifacts.indexJson;
   const manifestJson = JSON.stringify(manifest, null, 2);
   const memberActivityCalendarDetailWrites = memberActivityCalendarMemberDetails.map((detail) => {
@@ -531,10 +680,20 @@ async function main(): Promise<void> {
       content
     };
   });
+  const memberAssetHistoryWrites = memberAssetsHistory.map((history) => {
+    const relativePath = `exports/member_assets_history/${history.memberId}.json`;
+    const content = serializePublishedJson(history);
+    assertPublishedJsonFileSize(relativePath, content);
+    return {
+      path: join(outputDir, relativePath),
+      content
+    };
+  });
   assertPublishedJsonFileSize("exports/latest_votes.json", latestVotesJson);
   assertPublishedJsonFileSize("exports/accountability_summary.json", accountabilitySummaryJson);
   assertPublishedJsonFileSize("exports/accountability_trends.json", accountabilityTrendsJson);
   assertPublishedJsonFileSize("exports/member_activity_calendar.json", memberActivityCalendarJson);
+  assertPublishedJsonFileSize("exports/member_assets_index.json", memberAssetsIndexJson);
   assertPublishedJsonFileSize(
     CONSTITUENCY_BOUNDARIES_INDEX_PATH,
     constituencyBoundariesIndexJson
@@ -543,10 +702,12 @@ async function main(): Promise<void> {
     assertPublishedJsonFileSize(shard.path, shard.content);
   }
 
-  await mkdir(join(outputDir, "exports", "member_activity_calendar_members"), { recursive: true });
+  await mkdir(join(outputDir, MEMBER_ACTIVITY_MEMBER_DETAILS_DIR), { recursive: true });
+  await mkdir(join(outputDir, "exports", "member_assets_history"), { recursive: true });
   await mkdir(join(outputDir, "exports", "constituency_boundaries", "provinces"), {
     recursive: true
   });
+  await mkdir(join(outputDir, "normalized"), { recursive: true });
 
   await Promise.all([
     writeFile(join(outputDir, "exports", "latest_votes.json"), latestVotesJson),
@@ -562,16 +723,40 @@ async function main(): Promise<void> {
       join(outputDir, "exports", "member_activity_calendar.json"),
       memberActivityCalendarJson
     ),
+    writeFile(join(outputDir, "exports", "member_assets_index.json"), memberAssetsIndexJson),
     writeFile(
       join(outputDir, CONSTITUENCY_BOUNDARIES_INDEX_PATH),
       constituencyBoundariesIndexJson
     ),
     writeFile(join(outputDir, "manifests", "latest.json"), manifestJson),
+    writeFile(
+      join(outputDir, "normalized", "asset_disclosures.ndjson"),
+      propertyDatasetFiles.files
+    ),
+    writeFile(
+      join(outputDir, "normalized", "asset_disclosure_records.ndjson"),
+      propertyDatasetFiles.records
+    ),
+    writeFile(
+      join(outputDir, "normalized", "asset_disclosure_categories.ndjson"),
+      propertyDatasetFiles.categories
+    ),
+    writeFile(
+      join(outputDir, "normalized", "asset_disclosure_items.ndjson"),
+      propertyDatasetFiles.items
+    ),
     ...constituencyBoundaryRuntimeArtifacts.shards.map((shard) =>
       writeFile(join(outputDir, shard.path), shard.content)
     ),
-    ...memberActivityCalendarDetailWrites.map((item) => writeFile(item.path, item.content))
+    ...memberActivityCalendarDetailWrites.map((item) => writeFile(item.path, item.content)),
+    ...memberAssetHistoryWrites.map((item) => writeFile(item.path, item.content))
   ]);
 }
 
-void main();
+async function main(): Promise<void> {
+  await buildData();
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  void main();
+}

@@ -1,0 +1,33 @@
+{
+  "documentId": "assembly-property-disclosures-file-10001706",
+  "sourceId": "assembly-property-disclosures",
+  "sourceUrl": "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700",
+  "downloadUrl": "https://open.assembly.go.kr/portal/data/file/downloadFileData.do?infId=O2853M000835T714700&infSeq=1&fileSeq=10001706",
+  "title": "재산신고내역(제2025-4호, 정기재산공개)",
+  "publishedDate": "2025-03-27",
+  "discoveredFromUrl": "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700",
+  "firstMirroredAt": "2025-03-27T00:00:00.000Z",
+  "lastMirroredAt": "2025-03-27T00:00:00.000Z",
+  "latestRelativePath": "raw/documents/assembly-property-disclosures/2025/03/27/assembly-property-disclosures-file-10001706/latest.pdf",
+  "metadataRelativePath": "raw/documents/assembly-property-disclosures/2025/03/27/assembly-property-disclosures-file-10001706/metadata.json",
+  "currentContentSha256": "13bd1b25f4aa2d5965b2d99c1f5099f62917c9d88416cca44c7ad91852d06717",
+  "currentContentType": "application/pdf",
+  "currentBytes": 16176,
+  "sourceMetadata": {
+    "fileSeq": 10001706,
+    "infId": "O2853M000835T714700",
+    "infSeq": 1,
+    "viewFileNm": "재산신고내역(제2025-4호, 정기재산공개)",
+    "ftCrDttm": "2025-03-27",
+    "fileExt": "pdf",
+    "cvtFileSize": "16 KB"
+  },
+  "versions": [
+    {
+      "retrievedAt": "2025-03-27T00:00:00.000Z",
+      "relativePath": "raw/documents/assembly-property-disclosures/2025/03/27/assembly-property-disclosures-file-10001706/versions/2025-03-27T00-00-00-000Z.pdf",
+      "contentSha256": "13bd1b25f4aa2d5965b2d99c1f5099f62917c9d88416cca44c7ad91852d06717",
+      "bytes": 16176
+    }
+  ]
+}

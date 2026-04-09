@@ -17,7 +17,11 @@ export { createSourceRecord } from "./parsers/helpers.js";
 
 export {
   parseLegacyMemberInfoXml,
+  parseMemberHistoryRow,
+  parseMemberHistoryRows,
   parseMemberHistoryXml,
+  parseMemberInfoRow,
+  parseMemberInfoRows,
   parseMemberInfoXml,
   parseMemberProfileAllXml
 } from "./parsers/members.js";

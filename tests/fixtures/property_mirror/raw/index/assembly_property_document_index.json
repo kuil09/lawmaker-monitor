@@ -1,0 +1,34 @@
+{
+  "sourceId": "assembly-property-disclosures",
+  "updatedAt": "2025-04-29T00:00:00.000Z",
+  "items": [
+    {
+      "documentId": "assembly-property-disclosures-file-10001707",
+      "sourceId": "assembly-property-disclosures",
+      "sourceUrl": "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700",
+      "title": "재산신고내역(제2025-5호)",
+      "publishedDate": "2025-04-29",
+      "latestRelativePath": "raw/documents/assembly-property-disclosures/2025/04/29/assembly-property-disclosures-file-10001707/latest.pdf",
+      "metadataRelativePath": "raw/documents/assembly-property-disclosures/2025/04/29/assembly-property-disclosures-file-10001707/metadata.json",
+      "lastMirroredAt": "2025-04-29T00:00:00.000Z",
+      "currentContentSha256": "5bb6d96a95afabdf09c1204d24a01fe43f3ec3a113ef56ceccf768dff0de86c3",
+      "currentContentType": "application/pdf",
+      "currentBytes": 14728,
+      "versionCount": 1
+    },
+    {
+      "documentId": "assembly-property-disclosures-file-10001706",
+      "sourceId": "assembly-property-disclosures",
+      "sourceUrl": "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700",
+      "title": "재산신고내역(제2025-4호, 정기재산공개)",
+      "publishedDate": "2025-03-27",
+      "latestRelativePath": "raw/documents/assembly-property-disclosures/2025/03/27/assembly-property-disclosures-file-10001706/latest.pdf",
+      "metadataRelativePath": "raw/documents/assembly-property-disclosures/2025/03/27/assembly-property-disclosures-file-10001706/metadata.json",
+      "lastMirroredAt": "2025-03-27T00:00:00.000Z",
+      "currentContentSha256": "13bd1b25f4aa2d5965b2d99c1f5099f62917c9d88416cca44c7ad91852d06717",
+      "currentContentType": "application/pdf",
+      "currentBytes": 16176,
+      "versionCount": 1
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  memberProfileSchema,
   memberPublicProfileSchema,
   normalizedBundleSchema,
   officialTallySchema,
@@ -270,6 +271,102 @@ export const memberActivityCalendarMemberDetailExportSchema = z.object({
   voteRecords: z.array(memberActivityVoteRecordSchema).default([])
 });
 
+export const memberAssetLatestSummarySchema = z
+  .object({
+    reportedAt: nonEmptyString,
+    issueNo: nonEmptyString.nullable().optional(),
+    previousAmount: z.number().int(),
+    increaseAmount: z.number().int(),
+    decreaseAmount: z.number().int(),
+    currentAmount: z.number().int(),
+    deltaAmount: z.number().int(),
+    valueChangeAmount: z.number().int()
+  })
+  .strict();
+
+export const memberAssetSeriesPointSchema = z
+  .object({
+    reportedAt: nonEmptyString,
+    issueNo: nonEmptyString.nullable().optional(),
+    previousAmount: z.number().int(),
+    increaseAmount: z.number().int(),
+    decreaseAmount: z.number().int(),
+    currentAmount: z.number().int(),
+    deltaAmount: z.number().int(),
+    valueChangeAmount: z.number().int()
+  })
+  .strict();
+
+export const memberAssetCategoryPointSchema = z
+  .object({
+    reportedAt: nonEmptyString,
+    issueNo: nonEmptyString.nullable().optional(),
+    previousAmount: z.number().int(),
+    increaseAmount: z.number().int(),
+    decreaseAmount: z.number().int(),
+    currentAmount: z.number().int()
+  })
+  .strict();
+
+export const memberAssetCategorySeriesSchema = z
+  .object({
+    categoryKey: nonEmptyString,
+    categoryLabel: nonEmptyString,
+    points: z.array(memberAssetCategoryPointSchema)
+  })
+  .strict();
+
+export const memberAssetScopedHistorySchema = z
+  .object({
+    series: z.array(memberAssetSeriesPointSchema),
+    categorySeries: z.array(memberAssetCategorySeriesSchema),
+    latestSummary: memberAssetLatestSummarySchema
+  })
+  .strict();
+
+export const memberAssetsIndexItemSchema = z
+  .object({
+    memberId: nonEmptyString,
+    name: nonEmptyString,
+    party: nonEmptyString,
+    district: nonEmptyString.nullable().optional(),
+    photoUrl: nonEmptyString.url().nullable().optional(),
+    officialProfileUrl: nonEmptyString.url().nullable().optional(),
+    officialExternalUrl: nonEmptyString.url().nullable().optional(),
+    profile: memberProfileSchema.optional(),
+    firstDisclosureDate: nonEmptyString,
+    latestDisclosureDate: nonEmptyString,
+    latestTotal: z.number().int(),
+    totalDelta: z.number().int(),
+    historyPath: nonEmptyString,
+    latestSummary: memberAssetLatestSummarySchema
+  })
+  .strict();
+
+export const memberAssetsIndexExportSchema = z
+  .object({
+    generatedAt: nonEmptyString,
+    snapshotId: nonEmptyString,
+    assemblyNo: z.number().int().positive(),
+    assemblyLabel: nonEmptyString,
+    members: z.array(memberAssetsIndexItemSchema)
+  })
+  .strict();
+
+export const memberAssetsHistoryExportSchema = z
+  .object({
+    generatedAt: nonEmptyString,
+    snapshotId: nonEmptyString,
+    assemblyNo: z.number().int().positive(),
+    assemblyLabel: nonEmptyString,
+    memberId: nonEmptyString,
+    series: z.array(memberAssetSeriesPointSchema),
+    categorySeries: z.array(memberAssetCategorySeriesSchema),
+    latestSummary: memberAssetLatestSummarySchema,
+    selfOnly: memberAssetScopedHistorySchema.optional()
+  })
+  .strict();
+
 const geoJsonPositionSchema = z.tuple([z.number(), z.number()]);
 
 const geoJsonLinearRingSchema = z.array(geoJsonPositionSchema).min(4);
@@ -370,14 +467,19 @@ export const manifestSchema = z.object({
     rollCalls: datasetFileSchema,
     voteFacts: datasetFileSchema,
     meetings: datasetFileSchema,
-    sources: datasetFileSchema
+    sources: datasetFileSchema,
+    assetDisclosures: datasetFileSchema.optional(),
+    assetDisclosureRecords: datasetFileSchema.optional(),
+    assetDisclosureCategories: datasetFileSchema.optional(),
+    assetDisclosureItems: datasetFileSchema.optional()
   }),
   exports: z.object({
     latestVotes: datasetFileSchema,
     accountabilitySummary: datasetFileSchema.optional(),
     memberActivityCalendar: datasetFileSchema.optional(),
     accountabilityTrends: datasetFileSchema.optional(),
-    constituencyBoundariesIndex: datasetFileSchema.optional()
+    constituencyBoundariesIndex: datasetFileSchema.optional(),
+    memberAssetsIndex: datasetFileSchema.optional()
   })
 });
 
@@ -391,6 +493,8 @@ export const publishBundleSchema = z.object({
   memberActivityCalendarMemberDetails: z
     .array(memberActivityCalendarMemberDetailExportSchema)
     .optional(),
+  memberAssetsIndex: memberAssetsIndexExportSchema.optional(),
+  memberAssetsHistory: z.array(memberAssetsHistoryExportSchema).optional(),
   manifest: manifestSchema
 });
 
@@ -411,6 +515,14 @@ export type MemberActivityCalendarExport = z.infer<typeof memberActivityCalendar
 export type MemberActivityCalendarMemberDetailExport = z.infer<
   typeof memberActivityCalendarMemberDetailExportSchema
 >;
+export type MemberAssetLatestSummary = z.infer<typeof memberAssetLatestSummarySchema>;
+export type MemberAssetSeriesPoint = z.infer<typeof memberAssetSeriesPointSchema>;
+export type MemberAssetCategoryPoint = z.infer<typeof memberAssetCategoryPointSchema>;
+export type MemberAssetCategorySeries = z.infer<typeof memberAssetCategorySeriesSchema>;
+export type MemberAssetScopedHistory = z.infer<typeof memberAssetScopedHistorySchema>;
+export type MemberAssetsIndexItem = z.infer<typeof memberAssetsIndexItemSchema>;
+export type MemberAssetsIndexExport = z.infer<typeof memberAssetsIndexExportSchema>;
+export type MemberAssetsHistoryExport = z.infer<typeof memberAssetsHistoryExportSchema>;
 export type GeoJsonPolygon = z.infer<typeof geoJsonPolygonSchema>;
 export type GeoJsonMultiPolygon = z.infer<typeof geoJsonMultiPolygonSchema>;
 export type ConstituencyBoundarySource = z.infer<typeof constituencyBoundarySourceSchema>;

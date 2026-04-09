@@ -5,5 +5,7 @@ export * from "./document-mirror.js";
 export * from "./exports.js";
 export * from "./normalize.js";
 export * from "./parsers.js";
+export * from "./property-member-context.js";
+export * from "./property-disclosures.js";
 export * from "./raw-snapshot.js";
 export * from "./validation.js";

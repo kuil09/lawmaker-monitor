@@ -78,7 +78,7 @@ function buildMemberInfoProfile(values: {
   return hasScalarValue ? profile : undefined;
 }
 
-function parseLegacyMemberInfoRow(row: Record<string, unknown>): MemberRecord | null {
+export function parseMemberInfoRow(row: Record<string, unknown>): MemberRecord | null {
   const memberId = pickFirst(row, ["MONA_CD", "monaCd"]);
   const name = pickFirst(row, ["HG_NM", "hgNm"]);
   const party = pickFirst(row, ["POLY_NM", "polyNm"]);
@@ -117,14 +117,12 @@ function parseLegacyMemberInfoRow(row: Record<string, unknown>): MemberRecord | 
   };
 }
 
-export function parseLegacyMemberInfoXml(xml: string): MemberInfoParseResult {
-  const parsed = parseXmlDocument(xml);
-  const rows = findItems(parsed);
+export function parseMemberInfoRows(rows: Record<string, unknown>[]): MemberInfoParseResult {
   const members: MemberRecord[] = [];
   let currentAssemblyNo = 0;
 
   for (const row of rows) {
-    const member = parseLegacyMemberInfoRow(row);
+    const member = parseMemberInfoRow(row);
     if (!member) {
       continue;
     }
@@ -143,6 +141,11 @@ export function parseLegacyMemberInfoXml(xml: string): MemberInfoParseResult {
           }
         : null
   };
+}
+
+export function parseLegacyMemberInfoXml(xml: string): MemberInfoParseResult {
+  const parsed = parseXmlDocument(xml);
+  return parseMemberInfoRows(findItems(parsed));
 }
 
 function extractDateTokens(value: string | undefined): string[] {
@@ -286,32 +289,34 @@ export function parseMemberInfoXml(xml: string): MemberInfoParseResult {
   return parseLegacyMemberInfoXml(xml);
 }
 
-export function parseMemberHistoryXml(xml: string): MemberTenureRecord[] {
-  const parsed = parseXmlDocument(xml);
-  const rows = findItems(parsed);
+export function parseMemberHistoryRow(row: Record<string, unknown>): MemberTenureRecord | null {
+  const memberId = pickFirst(row, ["MONA_CD", "monaCd", "memberId", "MEMBER_ID"]);
+  const name = pickFirst(row, ["HG_NM", "hgNm", "name", "NAME"]);
+  const unitCd = pickFirst(row, ["UNIT_CD", "unitCd"]);
+  const assemblyNo = normalizeAssemblyNo(row);
+  const period = normalizeTenurePeriod(row);
 
-  const records: MemberTenureRecord[] = [];
-
-  for (const row of rows) {
-    const memberId = pickFirst(row, ["MONA_CD", "monaCd", "memberId", "MEMBER_ID"]);
-    const name = pickFirst(row, ["HG_NM", "hgNm", "name", "NAME"]);
-    const unitCd = pickFirst(row, ["UNIT_CD", "unitCd"]);
-    const assemblyNo = normalizeAssemblyNo(row);
-    const period = normalizeTenurePeriod(row);
-
-    if (!memberId || !name || assemblyNo <= 0 || !period) {
-      continue;
-    }
-
-    records.push({
-      memberId,
-      name,
-      assemblyNo,
-      ...(unitCd ? { unitCd } : {}),
-      startDate: period.startDate,
-      endDate: period.endDate
-    });
+  if (!memberId || !name || assemblyNo <= 0 || !period) {
+    return null;
   }
 
-  return records;
+  return {
+    memberId,
+    name,
+    assemblyNo,
+    ...(unitCd ? { unitCd } : {}),
+    startDate: period.startDate,
+    endDate: period.endDate
+  };
+}
+
+export function parseMemberHistoryRows(rows: Record<string, unknown>[]): MemberTenureRecord[] {
+  return rows
+    .map(parseMemberHistoryRow)
+    .filter((record): record is MemberTenureRecord => Boolean(record));
+}
+
+export function parseMemberHistoryXml(xml: string): MemberTenureRecord[] {
+  const parsed = parseXmlDocument(xml);
+  return parseMemberHistoryRows(findItems(parsed));
 }

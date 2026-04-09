@@ -1,0 +1,48 @@
+{
+  "nexgtxtmaamffofof": [
+    {
+      "head": [
+        {
+          "list_total_count": "3"
+        },
+        {
+          "RESULT": {
+            "CODE": "INFO-000",
+            "MESSAGE": "정상 처리되었습니다."
+          }
+        }
+      ]
+    },
+    {
+      "row": [
+        {
+          "HG_NM": "김아라",
+          "HJ_NM": "金아라",
+          "FRTO_DATE": "2024.05.30 ~ 2028.05.29",
+          "PROFILE_SJ": "제22대 국회의원",
+          "MONA_CD": "M001",
+          "UNIT_CD": "100022",
+          "UNIT_NM": "제22대"
+        },
+        {
+          "HG_NM": "박민",
+          "HJ_NM": "朴敏",
+          "FRTO_DATE": "2024.05.30 ~ 2028.05.29",
+          "PROFILE_SJ": "제22대 국회의원",
+          "MONA_CD": "M002",
+          "UNIT_CD": "100022",
+          "UNIT_NM": "제22대"
+        },
+        {
+          "HG_NM": "이수",
+          "HJ_NM": "李秀",
+          "FRTO_DATE": "2024.05.30 ~ 2028.05.29",
+          "PROFILE_SJ": "제22대 국회의원",
+          "MONA_CD": "M003",
+          "UNIT_CD": "100022",
+          "UNIT_NM": "제22대"
+        }
+      ]
+    }
+  ]
+}
