@@ -107,6 +107,9 @@ function computeCentroid(ring: number[][], step = 50): [number, number] {
 
 export type H3DataCell = {
   h3Index: string;
+  districtKey: string;
+  districtLabel: string;
+  provinceShortName: string;
   party: string;
   metric: number;
   memberCount: number;

@@ -22,7 +22,12 @@ import { VotesPage } from "./components/VotesPage.js";
 import { rankAccountabilityItems } from "./lib/accountability.js";
 import { buildCalendarHash, type ActivityViewMode } from "./lib/calendar-route.js";
 import { buildDistributionHash } from "./lib/distribution-route.js";
-import { buildMapHash, isMapMetric, type MapMetric } from "./lib/map-route.js";
+import {
+  buildMapHash,
+  parseMapRoute,
+  type MapMetric,
+  type MapRouteArgs
+} from "./lib/map-route.js";
 import {
   buildDistributionBehaviorSummaries,
   buildDistributionMembers,
@@ -49,6 +54,7 @@ type RouteState = {
   view: ActivityViewMode;
   behaviorFilter: DistributionBehaviorFilter | null;
   mapProvince: string | null;
+  mapDistrict: string | null;
   mapMetric: MapMetric;
 };
 
@@ -79,6 +85,7 @@ function getRouteStateFromHash(hash: string): RouteState {
       view: params.get("view") === "compare" ? "compare" : "single",
       behaviorFilter: null,
       mapProvince: null,
+      mapDistrict: null,
       mapMetric: "absence"
     };
   }
@@ -92,6 +99,7 @@ function getRouteStateFromHash(hash: string): RouteState {
       view: "single",
       behaviorFilter: isDistributionBehaviorFilter(rawBehaviorFilter) ? rawBehaviorFilter : null,
       mapProvince: null,
+      mapDistrict: null,
       mapMetric: "absence"
     };
   }
@@ -104,6 +112,7 @@ function getRouteStateFromHash(hash: string): RouteState {
       view: "single",
       behaviorFilter: null,
       mapProvince: null,
+      mapDistrict: null,
       mapMetric: "absence"
     };
   }
@@ -116,20 +125,22 @@ function getRouteStateFromHash(hash: string): RouteState {
       view: "single",
       behaviorFilter: null,
       mapProvince: null,
+      mapDistrict: null,
       mapMetric: "absence"
     };
   }
 
   if (path === "map") {
-    const rawMetric = params.get("metric");
+    const mapRoute = parseMapRoute(params);
     return {
       route: "map",
       memberId: null,
       compareMemberId: null,
       view: "single",
       behaviorFilter: null,
-      mapProvince: params.get("province"),
-      mapMetric: isMapMetric(rawMetric) ? rawMetric : "absence"
+      mapProvince: mapRoute.province,
+      mapDistrict: mapRoute.district,
+      mapMetric: mapRoute.metric
     };
   }
 
@@ -140,6 +151,7 @@ function getRouteStateFromHash(hash: string): RouteState {
     view: "single",
     behaviorFilter: null,
     mapProvince: null,
+    mapDistrict: null,
     mapMetric: "absence"
   };
 }
@@ -175,6 +187,7 @@ export default function App() {
           view: "single",
           behaviorFilter: null,
           mapProvince: null,
+          mapDistrict: null,
           mapMetric: "absence"
         }
       : getRouteStateFromHash(window.location.hash)
@@ -400,8 +413,8 @@ export default function App() {
     window.location.hash = "trends";
   }
 
-  function navigateToMap(province?: string | null, metric?: MapMetric | null): void {
-    window.location.hash = buildMapHash({ province, metric });
+  function navigateToMap(args: MapRouteArgs = {}): void {
+    window.location.hash = buildMapHash(args);
   }
 
   function handleNavNavigate(target: "votes" | "trends" | "map"): void {
@@ -568,6 +581,7 @@ export default function App() {
             accountabilitySummary={accountabilitySummary}
             assemblyLabel={currentAssemblyLabel}
             initialProvince={routeState.mapProvince}
+            initialDistrict={routeState.mapDistrict}
             initialMetric={routeState.mapMetric}
             onNavigateToMember={navigateToCalendar}
             onChangeRoute={navigateToMap}

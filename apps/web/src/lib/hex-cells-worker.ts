@@ -1,70 +1,88 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import type { ConstituencyBoundaryTopology } from "./constituency-map.js";
-import type { H3DataCell } from "./geo-utils.js";
-import type { MapMetric } from "./map-route.js";
+import type { StaticHexCellsResult } from "./hex-cells.js";
 import type { HexCellsWorkerOutput } from "../workers/hex-cells.worker.js";
 
-type SummaryItem = {
-  memberId: string;
-  name: string;
-  party: string;
-  district: string;
-  absentRate: number;
-  noRate: number;
-  abstainRate: number;
+type PendingRequest = {
+  resolve: (value: StaticHexCellsResult) => void;
+  reject: (reason?: unknown) => void;
 };
-
-export type HexCellsStatus = "idle" | "loading" | "done" | "error";
 
 export function useHexCellsWorker() {
   const workerRef = useRef<Worker | null>(null);
-  const [cells, setCells] = useState<H3DataCell[]>([]);
-  const [status, setStatus] = useState<HexCellsStatus>("idle");
-  const [error, setError] = useState<string | null>(null);
+  const nextRequestIdRef = useRef(1);
+  const pendingRequestsRef = useRef<Map<number, PendingRequest>>(new Map());
 
   useEffect(() => {
     const worker = new Worker(
       new URL("../workers/hex-cells.worker.ts", import.meta.url),
       { type: "module" }
     );
+
+    worker.onmessage = (event: MessageEvent<HexCellsWorkerOutput>) => {
+      const pending = pendingRequestsRef.current.get(event.data.requestId);
+      if (!pending) {
+        return;
+      }
+
+      pendingRequestsRef.current.delete(event.data.requestId);
+
+      if (event.data.type === "RESULT") {
+        pending.resolve({
+          cells: event.data.cells,
+          detailRes: event.data.detailRes,
+          timings: event.data.timings
+        });
+        return;
+      }
+
+      pending.reject(new Error(event.data.message));
+    };
+
+    worker.onerror = (event) => {
+      const error = new Error(event.message ?? "Worker error.");
+      for (const pending of pendingRequestsRef.current.values()) {
+        pending.reject(error);
+      }
+      pendingRequestsRef.current.clear();
+    };
+
     workerRef.current = worker;
+
     return () => {
       worker.terminate();
       workerRef.current = null;
-    };
-  }, []);
-
-  const compute = useCallback((
-    topology: ConstituencyBoundaryTopology,
-    items: SummaryItem[],
-    vizKey: MapMetric
-  ) => {
-    const worker = workerRef.current;
-    if (!worker) return;
-
-    setStatus("loading");
-    setCells([]);
-    setError(null);
-
-    // onmessage를 매 compute 호출마다 교체 → stale 결과 자동 폐기
-    worker.onmessage = (event: MessageEvent<HexCellsWorkerOutput>) => {
-      if (event.data.type === "RESULT") {
-        setCells(event.data.cells);
-        setStatus("done");
-      } else {
-        setError(event.data.message);
-        setStatus("error");
+      const error = new Error("Worker terminated.");
+      for (const pending of pendingRequestsRef.current.values()) {
+        pending.reject(error);
       }
+      pendingRequestsRef.current.clear();
     };
-
-    worker.onerror = (e) => {
-      setError(e.message ?? "워커 오류");
-      setStatus("error");
-    };
-
-    worker.postMessage({ type: "COMPUTE", topology, items, vizKey });
   }, []);
 
-  return { cells, status, error, compute };
+  const computeStatic = useCallback((
+    topology: ConstituencyBoundaryTopology,
+    provinceShortName: string
+  ): Promise<StaticHexCellsResult> => {
+    const worker = workerRef.current;
+
+    if (!worker) {
+      return Promise.reject(new Error("Worker not available."));
+    }
+
+    const requestId = nextRequestIdRef.current++;
+
+    return new Promise((resolve, reject) => {
+      pendingRequestsRef.current.set(requestId, { resolve, reject });
+      worker.postMessage({
+        type: "COMPUTE_STATIC",
+        requestId,
+        topology,
+        provinceShortName
+      });
+    });
+  }, []);
+
+  return { computeStatic };
 }

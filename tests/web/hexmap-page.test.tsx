@@ -10,12 +10,7 @@ const testState = vi.hoisted(() => ({
   layerInstances: [] as Array<{ id: string; props: Record<string, unknown> }>,
   loadIndexMock: vi.fn(),
   loadTopologyMock: vi.fn(),
-  computeMock: vi.fn(),
-  workerState: {
-    cells: [] as Array<Record<string, unknown>>,
-    status: "done",
-    error: null
-  }
+  computeStaticMock: vi.fn()
 }));
 
 vi.mock("@deck.gl/core", () => ({
@@ -71,10 +66,7 @@ vi.mock("../../apps/web/src/lib/data.js", () => ({
 
 vi.mock("../../apps/web/src/lib/hex-cells-worker.js", () => ({
   useHexCellsWorker: () => ({
-    cells: testState.workerState.cells,
-    status: testState.workerState.status,
-    error: testState.workerState.error,
-    compute: testState.computeMock
+    computeStatic: testState.computeStaticMock
   })
 }));
 
@@ -95,15 +87,42 @@ const constituencyProvinceFixtures = {
     readFileSync(resolve(fixturesDir, "constituency_province_seoul.topo.json"), "utf8")
   )
 };
-const expectedWorkerItems = accountabilitySummaryFixture.items.map((item: Record<string, unknown>) => ({
-  memberId: item.memberId,
-  name: item.name,
-  party: item.party,
-  district: item.district,
-  absentRate: item.absentRate,
-  noRate: item.noRate,
-  abstainRate: item.abstainRate
-}));
+const staticCellsByProvince = {
+  부산: {
+    cells: [
+      {
+        h3Index: "8730c16f0ffffff",
+        districtKey: "부산남구",
+        districtLabel: "부산 남구",
+        provinceShortName: "부산"
+      }
+    ],
+    detailRes: 7,
+    timings: {
+      reducedFeaturesMs: 1,
+      fullFeaturesMs: 1,
+      polygonToCellsMs: 1,
+      staticHexComputeMs: 3
+    }
+  },
+  서울: {
+    cells: [
+      {
+        h3Index: "8730e1d88ffffff",
+        districtKey: "서울중구",
+        districtLabel: "서울 중구",
+        provinceShortName: "서울"
+      }
+    ],
+    detailRes: 7,
+    timings: {
+      reducedFeaturesMs: 1,
+      fullFeaturesMs: 1,
+      polygonToCellsMs: 1,
+      staticHexComputeMs: 3
+    }
+  }
+};
 
 function getLastLayer(idPrefix: string) {
   const matches = testState.layerInstances.filter((layer) => layer.id.startsWith(idPrefix));
@@ -123,64 +142,80 @@ describe("HexmapPage", () => {
     testState.layerInstances.length = 0;
     testState.loadIndexMock.mockReset();
     testState.loadTopologyMock.mockReset();
-    testState.computeMock.mockReset();
-
-    testState.workerState.cells = [
-      {
-        h3Index: "85283083fffffff",
-        party: "미래개혁당",
-        metric: 0.5,
-        memberCount: 1,
-        memberNames: ["박민"],
-        memberParties: ["미래개혁당"],
-        memberIds: ["M002"]
-      }
-    ];
-    testState.workerState.status = "done";
-    testState.workerState.error = null;
+    testState.computeStaticMock.mockReset();
 
     testState.loadIndexMock.mockResolvedValue(constituencyBoundariesIndexFixture);
     testState.loadTopologyMock.mockImplementation(async (path: string) => {
       return constituencyProvinceFixtures[path as keyof typeof constituencyProvinceFixtures] ?? null;
     });
+    testState.computeStaticMock.mockImplementation(
+      async (_topology: unknown, provinceShortName: keyof typeof staticCellsByProvince) =>
+        staticCellsByProvince[provinceShortName]
+    );
   });
 
-  it("renders national and detail H3 layers as flat tiles without bloom or elevation", async () => {
+  it("renders a single national detailed H3 layer, keeps the lower panel empty until selection, and drills into a district on click", async () => {
+    const onChangeRoute = vi.fn();
+
     render(
       <HexmapPage
         manifest={null}
         accountabilitySummary={accountabilitySummaryFixture}
         assemblyLabel="제22대 국회"
-        initialProvince="부산"
+        initialProvince={null}
+        initialDistrict={null}
         initialMetric="absence"
         onNavigateToMember={vi.fn()}
-        onChangeRoute={vi.fn()}
+        onChangeRoute={onChangeRoute}
       />
     );
 
     await waitFor(() => {
-      expect(getLastLayer("h3-data-absence")).toBeDefined();
-      expect(getLastLayer("h3-detail-absence-부산")).toBeDefined();
+      expect(getLastLayer("h3-national-absence")).toBeDefined();
     });
 
-    const nationalLayer = getLastLayer("h3-data-absence");
-    const detailLayer = getLastLayer("h3-detail-absence-부산");
+    expect(screen.getByText("아직 선택된 지역구가 없습니다")).toBeInTheDocument();
+    expect(
+      screen.getByText("상단 전국 지도에서 지역구를 클릭하면 이 영역에 확대 지도가 나타납니다.")
+    ).toBeInTheDocument();
+
+    const nationalLayer = getLastLayer("h3-national-absence");
     const nationalDeck = getLastDeckProps("national");
-    const detailDeck = getLastDeckProps("detail");
 
     expect(nationalLayer?.props.extruded).toBe(false);
-    expect(detailLayer?.props.extruded).toBe(false);
     expect(nationalLayer?.props).not.toHaveProperty("getElevation");
-    expect(detailLayer?.props).not.toHaveProperty("getElevation");
     expect(testState.layerInstances.some((layer) => layer.id.startsWith("h3-bloom-"))).toBe(false);
-
     expect(nationalDeck?.layers).toHaveLength(1);
-    expect(detailDeck?.layers).toHaveLength(1);
     expect(nationalDeck?.initialViewState).toMatchObject({ pitch: 0, zoom: 6.2 });
-    expect(detailDeck?.viewState).toMatchObject({ pitch: 0 });
+
+    const onClick = nationalLayer?.props.onClick as
+      | ((info: { object?: Record<string, unknown> }) => void)
+      | undefined;
+    const firstCell = (nationalLayer?.props.data as Array<Record<string, unknown>>)[0];
+
+    expect(firstCell).toMatchObject({
+      districtKey: "부산남구",
+      districtLabel: "부산 남구",
+      memberIds: ["M002"]
+    });
+
+    onClick?.({ object: firstCell });
+
+    await waitFor(() => {
+      expect(getLastLayer("h3-panel-absence-부산남구")).toBeDefined();
+    });
+
+    expect(onChangeRoute).toHaveBeenCalledWith({
+      district: "부산남구",
+      province: null,
+      metric: "absence"
+    });
+    expect(
+      screen.getByText("부산 남구만 확대해 보여줍니다. 헥사곤을 클릭하면 해당 의원의 활동 캘린더로 이동합니다.")
+    ).toBeInTheDocument();
   });
 
-  it("updates the copy away from pillar language and preserves detail click navigation", async () => {
+  it("keeps copy on color intensity, supports legacy province fallback, and preserves lower-panel member navigation", async () => {
     const onNavigateToMember = vi.fn();
     const onChangeRoute = vi.fn();
 
@@ -190,40 +225,46 @@ describe("HexmapPage", () => {
         accountabilitySummary={accountabilitySummaryFixture}
         assemblyLabel="제22대 국회"
         initialProvince="부산"
-        initialMetric="absence"
+        initialDistrict={null}
+        initialMetric="negative"
         onNavigateToMember={onNavigateToMember}
         onChangeRoute={onChangeRoute}
       />
     );
 
     await screen.findByText(
-      "타일 색 진하기 = 결석률 평균(로그 정규화). 색상 hue는 셀 내 다수당을 따르며, 같은 정당 안에서는 값이 높을수록 더 진합니다."
-    );
-    expect(screen.queryByText(/셀 높이/)).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("tab", { name: "반대·기권 인덱스" }));
-
-    await screen.findByText(
       "타일 색 진하기 = 반대·기권율 평균(로그 정규화). 색상 hue는 셀 내 다수당을 따르며, 같은 정당 안에서는 값이 높을수록 더 진합니다."
     );
 
+    expect(screen.queryByText(/셀 높이/)).not.toBeInTheDocument();
+    expect(screen.getByText("부산 전체 지역구를 레거시 링크 호환 모드로 보여줍니다. 헥사곤을 클릭하면 해당 의원의 활동 캘린더로 이동합니다.")).toBeInTheDocument();
+
     await waitFor(() => {
-      expect(testState.computeMock).toHaveBeenLastCalledWith(
-        constituencyProvinceFixtures["exports/constituency_boundaries/provinces/부산.topo.json"],
-        expectedWorkerItems,
-        "negative"
-      );
+      expect(getLastLayer("h3-panel-negative-부산")).toBeDefined();
     });
 
-    const detailLayer = getLastLayer("h3-detail-negative-부산");
+    const detailLayer = getLastLayer("h3-panel-negative-부산");
+    const detailDeck = getLastDeckProps("detail");
     const onClick = detailLayer?.props.onClick as
-      | ((info: { object?: (typeof testState.workerState.cells)[number] }) => void)
+      | ((info: { object?: Record<string, unknown> }) => void)
       | undefined;
+    const firstCell = (detailLayer?.props.data as Array<Record<string, unknown>>)[0];
 
-    expect(onClick).toBeTypeOf("function");
-    onClick?.({ object: testState.workerState.cells[0] });
+    expect(detailLayer?.props.extruded).toBe(false);
+    expect(detailLayer?.props).not.toHaveProperty("getElevation");
+    expect(detailDeck?.viewState).toMatchObject({ pitch: 0 });
 
+    onClick?.({ object: firstCell });
     expect(onNavigateToMember).toHaveBeenCalledWith("M002");
-    expect(onChangeRoute).toHaveBeenCalledWith("부산", "negative");
+
+    fireEvent.click(screen.getByRole("tab", { name: "결석 핫스팟" }));
+
+    await waitFor(() => {
+      expect(onChangeRoute).toHaveBeenCalledWith({
+        district: null,
+        province: "부산",
+        metric: "absence"
+      });
+    });
   });
 });
