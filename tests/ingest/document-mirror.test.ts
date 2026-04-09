@@ -13,6 +13,8 @@ import {
 } from "../../packages/ingest/src/document-mirror.js";
 import {
   buildAssemblyFileServiceSourceSnapshot,
+  buildAssemblySearchWindows,
+  resolveNextBackfillCursorDate,
   shouldSkipAssemblyFileServiceRefresh
 } from "../../packages/ingest/src/scripts/mirror-documents.js";
 
@@ -313,5 +315,99 @@ describe("document mirror helpers", () => {
         sourceSnapshotCount: 19
       })
     ).toBe(false);
+  });
+
+  it("expands property file-service backfill windows across the full outstanding range", () => {
+    const windows = buildAssemblySearchWindows(
+      "2024-08-31",
+      {
+        recentDays: 7,
+        backfillStartDate: "2024-05-30",
+        backfillDays: 31
+      } as Parameters<typeof buildAssemblySearchWindows>[1],
+      {
+        sourceId: "assembly-property-disclosures",
+        updatedAt: "2026-04-10T00:00:00.000Z",
+        cutoffDate: "2024-08-31",
+        pagesVisited: 1,
+        discoveredCandidates: 0,
+        downloaded: 0,
+        updated: 0,
+        unchanged: 0,
+        skippedTodayOrFuture: 0,
+        skippedWithoutDate: 0,
+        lastStartUrl:
+          "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700",
+        nextBackfillCursorDate: "2024-05-30"
+      },
+      {
+        includeAllBackfillWindows: true
+      }
+    );
+
+    expect(windows).toEqual([
+      {
+        label: "recent",
+        startDate: "2024-08-24",
+        endDate: "2024-08-30"
+      },
+      {
+        label: "backfill",
+        startDate: "2024-05-30",
+        endDate: "2024-06-29"
+      },
+      {
+        label: "backfill",
+        startDate: "2024-06-30",
+        endDate: "2024-07-30"
+      },
+      {
+        label: "backfill",
+        startDate: "2024-07-31",
+        endDate: "2024-08-30"
+      }
+    ]);
+  });
+
+  it("advances the property backfill cursor to the end of the last expanded window", () => {
+    const windows = buildAssemblySearchWindows(
+      "2024-08-31",
+      {
+        recentDays: 7,
+        backfillStartDate: "2024-05-30",
+        backfillDays: 31
+      } as Parameters<typeof buildAssemblySearchWindows>[1],
+      {
+        sourceId: "assembly-property-disclosures",
+        updatedAt: "2026-04-10T00:00:00.000Z",
+        cutoffDate: "2024-08-31",
+        pagesVisited: 1,
+        discoveredCandidates: 0,
+        downloaded: 0,
+        updated: 0,
+        unchanged: 0,
+        skippedTodayOrFuture: 0,
+        skippedWithoutDate: 0,
+        lastStartUrl:
+          "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700",
+        nextBackfillCursorDate: "2024-05-30"
+      },
+      {
+        includeAllBackfillWindows: true
+      }
+    );
+
+    expect(
+      resolveNextBackfillCursorDate({
+        cutoffDate: "2024-08-31",
+        config: {
+          backfillStartDate: "2024-05-30"
+        } as Parameters<typeof resolveNextBackfillCursorDate>[0]["config"],
+        existingState: {
+          nextBackfillCursorDate: "2024-05-30"
+        },
+        windows
+      })
+    ).toBe("2024-08-31");
   });
 });

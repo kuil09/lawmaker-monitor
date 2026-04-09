@@ -416,10 +416,13 @@ async function extractAssemblyFormValues(page: Page): Promise<FormValueMap> {
   return formValues;
 }
 
-function buildAssemblySearchWindows(
+export function buildAssemblySearchWindows(
   cutoffDate: string,
   config: MirrorConfig,
-  existingState: DocumentMirrorState | null
+  existingState: DocumentMirrorState | null,
+  options?: {
+    includeAllBackfillWindows?: boolean;
+  }
 ): SearchWindow[] {
   const yesterday = shiftIsoDate(cutoffDate, -1);
   const windows: SearchWindow[] = [];
@@ -435,22 +438,32 @@ function buildAssemblySearchWindows(
   const backfillCursor =
     existingState?.nextBackfillCursorDate?.trim() || config.backfillStartDate;
   if (backfillCursor <= yesterday && config.backfillDays > 0) {
-    const backfillEndDate = minIsoDate(
-      shiftIsoDate(backfillCursor, config.backfillDays - 1),
-      yesterday
-    );
-    const overlapsRecent = windows.some(
-      (window) =>
-        backfillCursor >= window.startDate &&
-        backfillEndDate <= window.endDate
-    );
+    let cursor = backfillCursor;
 
-    if (!overlapsRecent) {
-      windows.push({
-        label: "backfill",
-        startDate: backfillCursor,
-        endDate: backfillEndDate
-      });
+    while (cursor <= yesterday) {
+      const backfillEndDate = minIsoDate(
+        shiftIsoDate(cursor, config.backfillDays - 1),
+        yesterday
+      );
+      const overlapsRecent = windows.some(
+        (window) =>
+          cursor >= window.startDate &&
+          backfillEndDate <= window.endDate
+      );
+
+      if (!overlapsRecent) {
+        windows.push({
+          label: "backfill",
+          startDate: cursor,
+          endDate: backfillEndDate
+        });
+      }
+
+      if (!options?.includeAllBackfillWindows) {
+        break;
+      }
+
+      cursor = shiftIsoDate(backfillEndDate, 1);
     }
   }
 
@@ -460,6 +473,23 @@ function buildAssemblySearchWindows(
   }
 
   return [...uniqueWindows.values()];
+}
+
+export function resolveNextBackfillCursorDate(args: {
+  cutoffDate: string;
+  config: Pick<MirrorConfig, "backfillStartDate">;
+  existingState: Pick<DocumentMirrorState, "nextBackfillCursorDate"> | null;
+  windows: SearchWindow[];
+}): string | null {
+  const yesterday = shiftIsoDate(args.cutoffDate, -1);
+  const latestBackfillWindow = args.windows.filter((window) => window.label === "backfill").at(-1);
+
+  if (latestBackfillWindow) {
+    return shiftIsoDate(latestBackfillWindow.endDate, 1);
+  }
+
+  return args.existingState?.nextBackfillCursorDate ??
+    (args.config.backfillStartDate <= yesterday ? args.config.backfillStartDate : null);
 }
 
 function toNumber(value: unknown): number {
@@ -861,18 +891,18 @@ async function collectAssemblyCandidates(
     }
   }
 
-  const yesterday = shiftIsoDate(cutoffDate, -1);
-  const latestBackfillWindow = windows.find((window) => window.label === "backfill");
-
   return {
     candidates,
     pagesVisited,
     discoveredCandidates,
     recentWindowStartDate: windows.find((window) => window.label === "recent")?.startDate,
     recentWindowEndDate: windows.find((window) => window.label === "recent")?.endDate,
-    nextBackfillCursorDate: latestBackfillWindow
-      ? shiftIsoDate(latestBackfillWindow.endDate, 1)
-      : existingState?.nextBackfillCursorDate ?? (config.backfillStartDate <= yesterday ? config.backfillStartDate : null)
+    nextBackfillCursorDate: resolveNextBackfillCursorDate({
+      cutoffDate,
+      config,
+      existingState,
+      windows
+    })
   };
 }
 
@@ -915,7 +945,9 @@ async function collectAssemblyFileServiceCandidates(
   existingState: DocumentMirrorState | null,
   cutoffDate: string
 ): Promise<CandidateCollectionResult> {
-  const windows = buildAssemblySearchWindows(cutoffDate, config, existingState);
+  const windows = buildAssemblySearchWindows(cutoffDate, config, existingState, {
+    includeAllBackfillWindows: true
+  });
   const response = await postAssemblyFileServiceSearch(api, config);
   const sourceSnapshot = buildAssemblyFileServiceSourceSnapshot(response.data ?? []);
   const hasBackfillWindow = windows.some((window) => window.label === "backfill");
@@ -925,8 +957,6 @@ async function collectAssemblyFileServiceCandidates(
     .filter((candidate) =>
       windows.some((window) => isDateWithinSearchWindow(candidate.publishedDate ?? "", window))
     );
-  const yesterday = shiftIsoDate(cutoffDate, -1);
-  const latestBackfillWindow = windows.find((window) => window.label === "backfill");
   const skipBySourceSnapshot = shouldSkipAssemblyFileServiceRefresh({
     existingState,
     hasBackfillWindow,
@@ -941,9 +971,12 @@ async function collectAssemblyFileServiceCandidates(
       discoveredCandidates: 0,
       recentWindowStartDate: windows.find((window) => window.label === "recent")?.startDate,
       recentWindowEndDate: windows.find((window) => window.label === "recent")?.endDate,
-      nextBackfillCursorDate:
-        existingState?.nextBackfillCursorDate ??
-        (config.backfillStartDate <= yesterday ? config.backfillStartDate : null),
+      nextBackfillCursorDate: resolveNextBackfillCursorDate({
+        cutoffDate,
+        config,
+        existingState,
+        windows
+      }),
       sourceSnapshotSha256: sourceSnapshot.sha256,
       sourceSnapshotCount: sourceSnapshot.count,
       sourceSnapshotUnchanged: true
@@ -956,9 +989,12 @@ async function collectAssemblyFileServiceCandidates(
     discoveredCandidates: candidates.length,
     recentWindowStartDate: windows.find((window) => window.label === "recent")?.startDate,
     recentWindowEndDate: windows.find((window) => window.label === "recent")?.endDate,
-    nextBackfillCursorDate: latestBackfillWindow
-      ? shiftIsoDate(latestBackfillWindow.endDate, 1)
-      : existingState?.nextBackfillCursorDate ?? (config.backfillStartDate <= yesterday ? config.backfillStartDate : null),
+    nextBackfillCursorDate: resolveNextBackfillCursorDate({
+      cutoffDate,
+      config,
+      existingState,
+      windows
+    }),
     sourceSnapshotSha256: sourceSnapshot.sha256,
     sourceSnapshotCount: sourceSnapshot.count,
     sourceSnapshotUnchanged: false
