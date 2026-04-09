@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useRef } from "react";
 
 import type { ConstituencyBoundaryTopology } from "./constituency-map.js";
 import type { StaticHexCellsResult } from "./hex-cells.js";
@@ -9,80 +9,89 @@ type PendingRequest = {
   reject: (reason?: unknown) => void;
 };
 
-export function useHexCellsWorker() {
-  const workerRef = useRef<Worker | null>(null);
-  const nextRequestIdRef = useRef(1);
-  const pendingRequestsRef = useRef<Map<number, PendingRequest>>(new Map());
-
-  useEffect(() => {
-    const worker = new Worker(
-      new URL("../workers/hex-cells.worker.ts", import.meta.url),
-      { type: "module" }
-    );
-
-    worker.onmessage = (event: MessageEvent<HexCellsWorkerOutput>) => {
-      const pending = pendingRequestsRef.current.get(event.data.requestId);
-      if (!pending) {
-        return;
-      }
-
-      pendingRequestsRef.current.delete(event.data.requestId);
-
-      if (event.data.type === "RESULT") {
-        pending.resolve({
-          cells: event.data.cells,
-          detailRes: event.data.detailRes,
-          timings: event.data.timings
-        });
-        return;
-      }
-
-      pending.reject(new Error(event.data.message));
-    };
-
-    worker.onerror = (event) => {
-      const error = new Error(event.message ?? "Worker error.");
-      for (const pending of pendingRequestsRef.current.values()) {
-        pending.reject(error);
-      }
-      pendingRequestsRef.current.clear();
-    };
-
-    workerRef.current = worker;
-
-    return () => {
-      worker.terminate();
-      workerRef.current = null;
-      const error = new Error("Worker terminated.");
-      for (const pending of pendingRequestsRef.current.values()) {
-        pending.reject(error);
-      }
-      pendingRequestsRef.current.clear();
-    };
-  }, []);
-
-  const computeStatic = useCallback((
+export type HexCellsWorkerClient = {
+  computeStatic: (
     topology: ConstituencyBoundaryTopology,
     provinceShortName: string
-  ): Promise<StaticHexCellsResult> => {
-    const worker = workerRef.current;
+  ) => Promise<StaticHexCellsResult>;
+};
 
-    if (!worker) {
-      return Promise.reject(new Error("Worker not available."));
+function createHexCellsWorkerClient(): HexCellsWorkerClient {
+  const worker = new Worker(
+    new URL("../workers/hex-cells.worker.ts", import.meta.url),
+    { type: "module" }
+  );
+  const pendingRequests = new Map<number, PendingRequest>();
+  let nextRequestId = 1;
+
+  worker.onmessage = (event: MessageEvent<HexCellsWorkerOutput>) => {
+    const pending = pendingRequests.get(event.data.requestId);
+    if (!pending) {
+      return;
     }
 
-    const requestId = nextRequestIdRef.current++;
+    pendingRequests.delete(event.data.requestId);
 
-    return new Promise((resolve, reject) => {
-      pendingRequestsRef.current.set(requestId, { resolve, reject });
-      worker.postMessage({
-        type: "COMPUTE_STATIC",
-        requestId,
-        topology,
-        provinceShortName
+    if (event.data.type === "RESULT") {
+      pending.resolve({
+        cells: event.data.cells,
+        detailRes: event.data.detailRes,
+        timings: event.data.timings
       });
-    });
-  }, []);
+      return;
+    }
 
-  return { computeStatic };
+    pending.reject(new Error(event.data.message));
+  };
+
+  worker.onerror = (event) => {
+    const error = new Error(event.message ?? "Worker error.");
+    for (const pending of pendingRequests.values()) {
+      pending.reject(error);
+    }
+    pendingRequests.clear();
+  };
+
+  return {
+    computeStatic(
+      topology: ConstituencyBoundaryTopology,
+      provinceShortName: string
+    ): Promise<StaticHexCellsResult> {
+      const requestId = nextRequestId++;
+
+      return new Promise((resolve, reject) => {
+        pendingRequests.set(requestId, { resolve, reject });
+        worker.postMessage({
+          type: "COMPUTE_STATIC",
+          requestId,
+          topology,
+          provinceShortName
+        });
+      });
+    }
+  };
+}
+
+let sharedHexCellsWorkerClient: HexCellsWorkerClient | null = null;
+
+export function getSharedHexCellsWorkerClient(): HexCellsWorkerClient {
+  if (!sharedHexCellsWorkerClient) {
+    sharedHexCellsWorkerClient = createHexCellsWorkerClient();
+  }
+
+  return sharedHexCellsWorkerClient;
+}
+
+export function setSharedHexCellsWorkerClientForTests(client: HexCellsWorkerClient | null): void {
+  sharedHexCellsWorkerClient = client;
+}
+
+export function useHexCellsWorker(): HexCellsWorkerClient {
+  const workerClientRef = useRef<HexCellsWorkerClient | null>(null);
+
+  if (!workerClientRef.current) {
+    workerClientRef.current = getSharedHexCellsWorkerClient();
+  }
+
+  return workerClientRef.current;
 }

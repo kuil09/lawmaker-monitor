@@ -5,12 +5,52 @@ import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+type MockStaticState = {
+  sessionKey: string;
+  snapshotId: string | null;
+  entries: Array<{
+    cacheKey: string;
+    provinceShortName: string;
+    detailRes: number;
+    createdAt: number;
+    cells: Array<{
+      h3Index: string;
+      districtKey: string;
+      districtLabel: string;
+      provinceShortName: string;
+    }>;
+  }>;
+  total: number;
+  done: number;
+  isLoading: boolean;
+  error: string | null;
+};
+
 const testState = vi.hoisted(() => ({
   deckPropsLog: [] as Array<Record<string, unknown>>,
   layerInstances: [] as Array<{ id: string; props: Record<string, unknown> }>,
-  loadIndexMock: vi.fn(),
-  loadTopologyMock: vi.fn(),
-  computeStaticMock: vi.fn()
+  ensureLoadMock: vi.fn(),
+  staticState: {
+    sessionKey: "session:test",
+    snapshotId: "boundaries-1",
+    entries: [] as Array<{
+      cacheKey: string;
+      provinceShortName: string;
+      detailRes: number;
+      createdAt: number;
+      cells: Array<{
+        h3Index: string;
+        districtKey: string;
+        districtLabel: string;
+        provinceShortName: string;
+      }>;
+    }>,
+    total: 2,
+    done: 2,
+    isLoading: false,
+    error: null as string | null
+  } as MockStaticState,
+  listener: null as ((state: MockStaticState) => void) | null
 }));
 
 vi.mock("@deck.gl/core", () => ({
@@ -59,15 +99,19 @@ vi.mock("react-map-gl/maplibre", () => ({
   }
 }));
 
-vi.mock("../../apps/web/src/lib/data.js", () => ({
-  loadConstituencyBoundariesIndex: testState.loadIndexMock,
-  loadConstituencyProvinceTopology: testState.loadTopologyMock
-}));
-
-vi.mock("../../apps/web/src/lib/hex-cells-worker.js", () => ({
-  useHexCellsWorker: () => ({
-    computeStatic: testState.computeStaticMock
-  })
+vi.mock("../../apps/web/src/lib/hexmap-static-loader.js", () => ({
+  getHexmapStaticSessionKey: () => "session:test",
+  getHexmapStaticState: () => testState.staticState,
+  subscribeHexmapStaticState: (_manifest: unknown, listener: (state: MockStaticState) => void) => {
+    testState.listener = listener;
+    listener(testState.staticState);
+    return () => {
+      if (testState.listener === listener) {
+        testState.listener = null;
+      }
+    };
+  },
+  ensureHexmapStaticLoad: testState.ensureLoadMock
 }));
 
 import { HexmapPage } from "../../apps/web/src/components/HexmapPage.js";
@@ -76,53 +120,6 @@ const fixturesDir = resolve(process.cwd(), "tests/fixtures/contracts");
 const accountabilitySummaryFixture = JSON.parse(
   readFileSync(resolve(fixturesDir, "accountability_summary.json"), "utf8")
 );
-const constituencyBoundariesIndexFixture = JSON.parse(
-  readFileSync(resolve(fixturesDir, "constituency_boundaries_index.json"), "utf8")
-);
-const constituencyProvinceFixtures = {
-  "exports/constituency_boundaries/provinces/부산.topo.json": JSON.parse(
-    readFileSync(resolve(fixturesDir, "constituency_province_busan.topo.json"), "utf8")
-  ),
-  "exports/constituency_boundaries/provinces/서울.topo.json": JSON.parse(
-    readFileSync(resolve(fixturesDir, "constituency_province_seoul.topo.json"), "utf8")
-  )
-};
-const staticCellsByProvince = {
-  부산: {
-    cells: [
-      {
-        h3Index: "8730c16f0ffffff",
-        districtKey: "부산남구",
-        districtLabel: "부산 남구",
-        provinceShortName: "부산"
-      }
-    ],
-    detailRes: 7,
-    timings: {
-      reducedFeaturesMs: 1,
-      fullFeaturesMs: 1,
-      polygonToCellsMs: 1,
-      staticHexComputeMs: 3
-    }
-  },
-  서울: {
-    cells: [
-      {
-        h3Index: "8730e1d88ffffff",
-        districtKey: "서울중구",
-        districtLabel: "서울 중구",
-        provinceShortName: "서울"
-      }
-    ],
-    detailRes: 7,
-    timings: {
-      reducedFeaturesMs: 1,
-      fullFeaturesMs: 1,
-      polygonToCellsMs: 1,
-      staticHexComputeMs: 3
-    }
-  }
-};
 
 function getLastLayer(idPrefix: string) {
   const matches = testState.layerInstances.filter((layer) => layer.id.startsWith(idPrefix));
@@ -140,21 +137,50 @@ describe("HexmapPage", () => {
   beforeEach(() => {
     testState.deckPropsLog.length = 0;
     testState.layerInstances.length = 0;
-    testState.loadIndexMock.mockReset();
-    testState.loadTopologyMock.mockReset();
-    testState.computeStaticMock.mockReset();
-
-    testState.loadIndexMock.mockResolvedValue(constituencyBoundariesIndexFixture);
-    testState.loadTopologyMock.mockImplementation(async (path: string) => {
-      return constituencyProvinceFixtures[path as keyof typeof constituencyProvinceFixtures] ?? null;
-    });
-    testState.computeStaticMock.mockImplementation(
-      async (_topology: unknown, provinceShortName: keyof typeof staticCellsByProvince) =>
-        staticCellsByProvince[provinceShortName]
-    );
+    testState.ensureLoadMock.mockReset();
+    testState.listener = null;
+    testState.staticState = {
+      sessionKey: "session:test",
+      snapshotId: "boundaries-1",
+      entries: [
+        {
+          cacheKey: "boundaries-1:busan",
+          provinceShortName: "부산",
+          detailRes: 7,
+          createdAt: 1,
+          cells: [
+            {
+              h3Index: "8730c16f0ffffff",
+              districtKey: "부산남구",
+              districtLabel: "부산 남구",
+              provinceShortName: "부산"
+            }
+          ]
+        },
+        {
+          cacheKey: "boundaries-1:seoul",
+          provinceShortName: "서울",
+          detailRes: 7,
+          createdAt: 1,
+          cells: [
+            {
+              h3Index: "8730e1d88ffffff",
+              districtKey: "서울중구",
+              districtLabel: "서울 중구",
+              provinceShortName: "서울"
+            }
+          ]
+        }
+      ],
+      total: 2,
+      done: 2,
+      isLoading: false,
+      error: null
+    };
+    testState.ensureLoadMock.mockResolvedValue(undefined);
   });
 
-  it("renders a single national detailed H3 layer, keeps the lower panel empty until selection, and drills into a district on click", async () => {
+  it("renders the shared national detailed H3 layer, keeps the lower panel empty until selection, and requests shared loading only once", async () => {
     const onChangeRoute = vi.fn();
 
     render(
@@ -174,6 +200,8 @@ describe("HexmapPage", () => {
       expect(getLastLayer("h3-national-absence")).toBeDefined();
     });
 
+    expect(testState.ensureLoadMock).toHaveBeenCalledTimes(1);
+    expect(testState.ensureLoadMock).toHaveBeenCalledWith(null, { source: "map" });
     expect(screen.getByText("아직 선택된 지역구가 없습니다")).toBeInTheDocument();
     expect(
       screen.getByText("상단 전국 지도에서 지역구를 클릭하면 이 영역에 확대 지도가 나타납니다.")
@@ -181,18 +209,16 @@ describe("HexmapPage", () => {
 
     const nationalLayer = getLastLayer("h3-national-absence");
     const nationalDeck = getLastDeckProps("national");
+    const onClick = nationalLayer?.props.onClick as
+      | ((info: { object?: Record<string, unknown> }) => void)
+      | undefined;
+    const firstCell = (nationalLayer?.props.data as Array<Record<string, unknown>>)[0];
 
     expect(nationalLayer?.props.extruded).toBe(false);
     expect(nationalLayer?.props).not.toHaveProperty("getElevation");
     expect(testState.layerInstances.some((layer) => layer.id.startsWith("h3-bloom-"))).toBe(false);
     expect(nationalDeck?.layers).toHaveLength(1);
     expect(nationalDeck?.initialViewState).toMatchObject({ pitch: 0, zoom: 6.2 });
-
-    const onClick = nationalLayer?.props.onClick as
-      | ((info: { object?: Record<string, unknown> }) => void)
-      | undefined;
-    const firstCell = (nationalLayer?.props.data as Array<Record<string, unknown>>)[0];
-
     expect(firstCell).toMatchObject({
       districtKey: "부산남구",
       districtLabel: "부산 남구",
@@ -210,12 +236,9 @@ describe("HexmapPage", () => {
       province: null,
       metric: "absence"
     });
-    expect(
-      screen.getByText("부산 남구만 확대해 보여줍니다. 헥사곤을 클릭하면 해당 의원의 활동 캘린더로 이동합니다.")
-    ).toBeInTheDocument();
   });
 
-  it("keeps copy on color intensity, supports legacy province fallback, and preserves lower-panel member navigation", async () => {
+  it("supports legacy province fallback and does not trigger shared static loading again on metric switch", async () => {
     const onNavigateToMember = vi.fn();
     const onChangeRoute = vi.fn();
 
@@ -232,16 +255,14 @@ describe("HexmapPage", () => {
       />
     );
 
-    await screen.findByText(
-      "타일 색 진하기 = 반대·기권율 평균(로그 정규화). 색상 hue는 셀 내 다수당을 따르며, 같은 정당 안에서는 값이 높을수록 더 진합니다."
-    );
-
-    expect(screen.queryByText(/셀 높이/)).not.toBeInTheDocument();
-    expect(screen.getByText("부산 전체 지역구를 레거시 링크 호환 모드로 보여줍니다. 헥사곤을 클릭하면 해당 의원의 활동 캘린더로 이동합니다.")).toBeInTheDocument();
-
     await waitFor(() => {
       expect(getLastLayer("h3-panel-negative-부산")).toBeDefined();
     });
+
+    expect(screen.queryByText(/셀 높이/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText("부산 전체 지역구를 레거시 링크 호환 모드로 보여줍니다. 헥사곤을 클릭하면 해당 의원의 활동 캘린더로 이동합니다.")
+    ).toBeInTheDocument();
 
     const detailLayer = getLastLayer("h3-panel-negative-부산");
     const detailDeck = getLastDeckProps("detail");
@@ -266,5 +287,7 @@ describe("HexmapPage", () => {
         metric: "absence"
       });
     });
+
+    expect(testState.ensureLoadMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -5,6 +5,49 @@ import React from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const hexmapLoaderMocks = vi.hoisted(() => ({
+  scheduleHexmapPrewarmMock: vi.fn(() => () => {}),
+  ensureHexmapStaticLoadMock: vi.fn(async () => undefined),
+  getHexmapStaticSessionKeyMock: vi.fn(() => "session:test"),
+  getHexmapStaticStateMock: vi.fn(() => ({
+    sessionKey: "session:test",
+    snapshotId: null,
+    entries: [],
+    total: 0,
+    done: 0,
+    isLoading: false,
+    error: null
+  })),
+  subscribeHexmapStaticStateMock: vi.fn((_manifest: unknown, listener: (state: {
+    sessionKey: string;
+    snapshotId: string | null;
+    entries: unknown[];
+    total: number;
+    done: number;
+    isLoading: boolean;
+    error: string | null;
+  }) => void) => {
+    listener({
+      sessionKey: "session:test",
+      snapshotId: null,
+      entries: [],
+      total: 0,
+      done: 0,
+      isLoading: false,
+      error: null
+    });
+    return () => {};
+  })
+}));
+
+vi.mock("../../apps/web/src/lib/hexmap-static-loader.js", () => ({
+  scheduleHexmapPrewarm: hexmapLoaderMocks.scheduleHexmapPrewarmMock,
+  ensureHexmapStaticLoad: hexmapLoaderMocks.ensureHexmapStaticLoadMock,
+  getHexmapStaticSessionKey: hexmapLoaderMocks.getHexmapStaticSessionKeyMock,
+  getHexmapStaticState: hexmapLoaderMocks.getHexmapStaticStateMock,
+  subscribeHexmapStaticState: hexmapLoaderMocks.subscribeHexmapStaticStateMock
+}));
+
 import App from "../../apps/web/src/App.js";
 
 const fixturesDir = resolve(process.cwd(), "tests/fixtures/contracts");
@@ -65,6 +108,11 @@ let clipboardWriteTextMock: ReturnType<typeof vi.fn>;
 describe("web app", () => {
   beforeEach(() => {
     window.location.hash = "";
+    hexmapLoaderMocks.scheduleHexmapPrewarmMock.mockClear();
+    hexmapLoaderMocks.ensureHexmapStaticLoadMock.mockClear();
+    hexmapLoaderMocks.getHexmapStaticSessionKeyMock.mockClear();
+    hexmapLoaderMocks.getHexmapStaticStateMock.mockClear();
+    hexmapLoaderMocks.subscribeHexmapStaticStateMock.mockClear();
     fetchMock = vi.fn((input: string | URL | Request) => {
       const url = String(input);
       const decodedUrl = decodeURIComponent(url);
@@ -178,6 +226,9 @@ describe("web app", () => {
     render(<App />);
 
     await screen.findByText("제22대 국회 의원 순위");
+    await waitFor(() => {
+      expect(hexmapLoaderMocks.scheduleHexmapPrewarmMock).toHaveBeenCalledTimes(1);
+    });
     expect(screen.queryByRole("button", { name: "활동 캘린더 보기" })).not.toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "의원 검색" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "활동 캘린더 열기" })).toBeInTheDocument();

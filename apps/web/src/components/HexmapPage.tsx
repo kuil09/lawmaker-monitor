@@ -6,15 +6,7 @@ import { Map as MapGL } from "react-map-gl/maplibre";
 
 import type { AccountabilitySummaryExport, Manifest } from "@lawmaker-monitor/schemas";
 
-import type { ConstituencyBoundaryTopology } from "../lib/constituency-map.js";
 import { normalizeConstituencyLookupKey } from "../lib/constituency-map.js";
-import {
-  buildHexCellStaticCacheKey,
-  createHexCellCache,
-  type HexCellCache,
-  type HexCellStaticCacheEntry
-} from "../lib/hex-cell-cache.js";
-import { loadConstituencyBoundariesIndex, loadConstituencyProvinceTopology } from "../lib/data.js";
 import {
   endPerformanceSpan,
   getHexCellsBounds,
@@ -28,7 +20,12 @@ import {
   getMetricModulatedColor,
   getPartyColor
 } from "../lib/geo-utils.js";
-import { useHexCellsWorker } from "../lib/hex-cells-worker.js";
+import {
+  ensureHexmapStaticLoad,
+  getHexmapStaticSessionKey,
+  getHexmapStaticState,
+  subscribeHexmapStaticState
+} from "../lib/hexmap-static-loader.js";
 import type { MapMetric, MapRouteArgs } from "../lib/map-route.js";
 
 const MAP_STYLE = {
@@ -122,21 +119,10 @@ export function HexmapPage({
   const [selectedProvinceFilter, setSelectedProvinceFilter] = useState<string | null>(
     initialDistrict ? null : initialProvince
   );
-  const [staticEntries, setStaticEntries] = useState<HexCellStaticCacheEntry[]>([]);
-  const [loadProgress, setLoadProgress] = useState<{ done: number; total: number } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [staticState, setStaticState] = useState(() => getHexmapStaticState(manifest));
   const [nationalTooltip, setNationalTooltip] = useState<TooltipInfo | null>(null);
   const [detailTooltip, setDetailTooltip] = useState<TooltipInfo | null>(null);
   const [detailViewState, setDetailViewState] = useState(INITIAL_DETAIL_VIEW_STATE);
-
-  const { computeStatic } = useHexCellsWorker();
-
-  const cacheRef = useRef<HexCellCache | null>(null);
-  if (!cacheRef.current) {
-    cacheRef.current = createHexCellCache();
-  }
-  const cache = cacheRef.current;
 
   const onChangeRouteRef = useRef(onChangeRoute);
   onChangeRouteRef.current = onChangeRoute;
@@ -146,9 +132,7 @@ export function HexmapPage({
   const layerReadySpanRef = useRef<ReturnType<typeof startPerformanceSpan> | null>(null);
   const districtPanelSpanRef = useRef<ReturnType<typeof startPerformanceSpan> | null>(null);
   const metricSwitchSpanRef = useRef<ReturnType<typeof startPerformanceSpan> | null>(null);
-  const latestMetricsRef = useRef<Map<string, Record<string, number | string>>>(
-    new Map()
-  );
+  const sessionKey = getHexmapStaticSessionKey(manifest);
 
   useEffect(() => {
     if (activeMetric === initialMetric) {
@@ -196,136 +180,43 @@ export function HexmapPage({
   }, [accountabilitySummary]);
 
   useEffect(() => {
-    let cancelled = false;
+    setStaticState(getHexmapStaticState(manifest));
+    return subscribeHexmapStaticState(manifest, setStaticState);
+  }, [manifest, sessionKey]);
 
-    async function load(): Promise<void> {
-      setStaticEntries([]);
-      setIsLoading(true);
-      setError(null);
-      setLoadProgress(null);
-      setNationalTooltip(null);
-      setDetailTooltip(null);
-      latestMetricsRef.current.clear();
-      firstVisibleSpanRef.current = startPerformanceSpan("hexmap:firstVisibleHexCells");
-      layerReadySpanRef.current = startPerformanceSpan("hexmap:layerReady");
+  useEffect(() => {
+    setNationalTooltip(null);
+    setDetailTooltip(null);
+    firstVisibleSpanRef.current = startPerformanceSpan("hexmap:firstVisibleHexCells");
+    layerReadySpanRef.current = startPerformanceSpan("hexmap:layerReady");
 
-      try {
-        const index = await loadConstituencyBoundariesIndex(manifest);
-        if (!index || index.provinces.length === 0) {
-          throw new Error("선거구 경계 데이터를 불러오지 못했습니다.");
-        }
-
-        if (cancelled) {
-          return;
-        }
-
-        setLoadProgress({ done: 0, total: index.provinces.length });
-
-        const entries: HexCellStaticCacheEntry[] = [];
-        let done = 0;
-
-        for (const province of index.provinces) {
-          if (cancelled) {
-            return;
-          }
-
-          const cacheKey = buildHexCellStaticCacheKey(index.snapshotId, province.checksumSha256);
-          const idbSpan = startPerformanceSpan(`hexmap:${province.provinceShortName}:idbRead`);
-          const cached = await cache.readStatic(cacheKey);
-          const idbReadMs = endPerformanceSpan(idbSpan);
-
-          let entry = cached.entry;
-          let topologyFetchMs = 0;
-          let staticHexComputeMs = 0;
-
-          if (!entry) {
-            const topologySpan = startPerformanceSpan(
-              `hexmap:${province.provinceShortName}:topologyFetch`
-            );
-            const topology = await loadConstituencyProvinceTopology<ConstituencyBoundaryTopology>(
-              province.path
-            );
-            topologyFetchMs = endPerformanceSpan(topologySpan);
-
-            if (!topology) {
-              done += 1;
-              setLoadProgress({ done, total: index.provinces.length });
-              continue;
-            }
-
-            const computed = await computeStatic(topology, province.provinceShortName);
-            staticHexComputeMs = computed.timings.staticHexComputeMs;
-            entry = {
-              cacheKey,
-              provinceShortName: province.provinceShortName,
-              detailRes: computed.detailRes,
-              createdAt: Date.now(),
-              cells: computed.cells
-            };
-            await cache.writeStatic(entry);
-          }
-
-          if (cancelled) {
-            return;
-          }
-
-          latestMetricsRef.current.set(province.provinceShortName, {
-            source: cached.source,
-            idbReadMs,
-            topologyFetchMs,
-            staticHexComputeMs
-          });
-
-          entries.push(entry);
-          done += 1;
-          setStaticEntries([...entries]);
-          setLoadProgress({ done, total: index.provinces.length });
-        }
-      } catch (loadError) {
-        if (!cancelled) {
-          setError(`데이터 로딩 중 오류: ${(loadError as Error).message}`);
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [manifest, computeStatic, cache]);
+    void ensureHexmapStaticLoad(manifest, { source: "map" });
+  }, [manifest, sessionKey]);
 
   const allCachedCells = useMemo(
-    () => staticEntries.flatMap((entry) => entry.cells),
-    [staticEntries]
+    () => staticState.entries.flatMap((entry) => entry.cells),
+    [staticState.entries]
   );
+  const loadProgress =
+    staticState.total > 0
+      ? { done: staticState.done, total: staticState.total }
+      : null;
+  const isLoading = staticState.isLoading;
+  const error = staticState.error;
 
   const nationalCells = useMemo(() => {
-    if (!accountabilitySummary || staticEntries.length === 0) {
+    if (!accountabilitySummary || staticState.entries.length === 0) {
       return [];
     }
 
     const hydrateSpan = startPerformanceSpan("hexmap:metricHydrate");
-    const cells = staticEntries.flatMap((entry) =>
-      cache.getOrCreateHydratedCells({
-        staticKey: entry.cacheKey,
-        summarySnapshotId: accountabilitySummary.snapshotId,
-        metric: activeMetric,
-        compute: () => hydrateHexCells(entry.cells, summaryItems, activeMetric)
-      })
+    const cells = staticState.entries.flatMap((entry) =>
+      hydrateHexCells(entry.cells, summaryItems, activeMetric)
     );
-
-    latestMetricsRef.current.set("metricHydrate", {
-      metric: activeMetric,
-      metricHydrateMs: endPerformanceSpan(hydrateSpan)
-    });
+    endPerformanceSpan(hydrateSpan);
 
     return cells;
-  }, [accountabilitySummary, activeMetric, cache, staticEntries, summaryItems]);
+  }, [accountabilitySummary, activeMetric, staticState.entries, summaryItems]);
 
   useEffect(() => {
     if (firstVisibleSpanRef.current && nationalCells.length > 0) {
@@ -333,16 +224,16 @@ export function HexmapPage({
       firstVisibleSpanRef.current = null;
     }
 
-    if (layerReadySpanRef.current && !isLoading && staticEntries.length > 0) {
+    if (layerReadySpanRef.current && !staticState.isLoading && staticState.entries.length > 0) {
       endPerformanceSpan(layerReadySpanRef.current);
       layerReadySpanRef.current = null;
     }
 
-    if (metricSwitchSpanRef.current && (nationalCells.length > 0 || !isLoading)) {
+    if (metricSwitchSpanRef.current && (nationalCells.length > 0 || !staticState.isLoading)) {
       endPerformanceSpan(metricSwitchSpanRef.current);
       metricSwitchSpanRef.current = null;
     }
-  }, [isLoading, nationalCells.length, staticEntries.length]);
+  }, [nationalCells.length, staticState.entries.length, staticState.isLoading]);
 
   useEffect(() => {
     if (!selectedDistrictKey && !selectedProvinceFilter) {

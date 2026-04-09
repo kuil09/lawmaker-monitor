@@ -19,6 +19,7 @@ import {
 
 const dataRepoBaseUrl =
   import.meta.env.VITE_DATA_REPO_BASE_URL ?? "https://example.github.io/lawmaker-monitor-data";
+const defaultConstituencyBoundariesIndexPath = "exports/constituency_boundaries/index.json";
 
 function buildUrl(path: string): string {
   return new URL(path, `${dataRepoBaseUrl.replace(/\/$/, "")}/`).toString();
@@ -96,9 +97,7 @@ export function loadMemberActivityCalendarMemberDetail(
 export function loadConstituencyBoundariesIndex(
   manifest?: Manifest | null
 ): Promise<ConstituencyBoundariesIndexExport | null> {
-  const indexPath =
-    manifest?.exports.constituencyBoundariesIndex?.path ??
-    "exports/constituency_boundaries/index.json";
+  const indexPath = getConstituencyBoundariesIndexPath(manifest);
 
   return fetchOptionalJson(buildUrl(indexPath), (payload) =>
     constituencyBoundariesIndexExportSchema.parse(payload)
@@ -111,4 +110,8 @@ export function loadConstituencyProvinceTopology<T>(path: string): Promise<T | n
 
 export function getDataRepoBaseUrl(): string {
   return dataRepoBaseUrl;
+}
+
+export function getConstituencyBoundariesIndexPath(manifest?: Manifest | null): string {
+  return manifest?.exports.constituencyBoundariesIndex?.path ?? defaultConstituencyBoundariesIndexPath;
 }

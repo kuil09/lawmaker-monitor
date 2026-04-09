@@ -43,6 +43,7 @@ import {
   loadMemberActivityCalendarMemberDetail
 } from "./lib/data.js";
 import { formatDateTime, formatNumber } from "./lib/format.js";
+import { scheduleHexmapPrewarm } from "./lib/hexmap-static-loader.js";
 import { getMemberAttendanceSummary } from "./lib/member-activity.js";
 
 type AppRoute = "home" | "calendar" | "distribution" | "votes" | "trends" | "map";
@@ -251,6 +252,18 @@ export default function App() {
       window.removeEventListener("hashchange", handleHashChange);
     };
   }, []);
+
+  useEffect(() => {
+    if (
+      routeState.route !== "home" ||
+      !manifest ||
+      !accountabilitySummary
+    ) {
+      return;
+    }
+
+    return scheduleHexmapPrewarm(manifest);
+  }, [routeState.route, manifest, accountabilitySummary]);
 
   const currentAssemblyLabel =
     accountabilitySummary?.assemblyLabel ??

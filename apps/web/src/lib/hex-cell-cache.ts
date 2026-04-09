@@ -157,3 +157,17 @@ export function createHexCellCache(store: HexCellStaticCacheStore = createIndexe
 }
 
 export type HexCellCache = ReturnType<typeof createHexCellCache>;
+
+let sharedHexCellCache: HexCellCache | null = null;
+
+export function getSharedHexCellCache(): HexCellCache {
+  if (!sharedHexCellCache) {
+    sharedHexCellCache = createHexCellCache();
+  }
+
+  return sharedHexCellCache;
+}
+
+export function setSharedHexCellCacheForTests(cache: HexCellCache | null): void {
+  sharedHexCellCache = cache;
+}
