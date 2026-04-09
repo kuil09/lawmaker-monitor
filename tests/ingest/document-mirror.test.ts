@@ -14,6 +14,7 @@ import {
 import {
   buildAssemblyFileServiceSourceSnapshot,
   buildAssemblySearchWindows,
+  resolveMirrorDataRepoDir,
   resolveNextBackfillCursorDate,
   shouldSkipAssemblyFileServiceRefresh
 } from "../../packages/ingest/src/scripts/mirror-documents.js";
@@ -409,5 +410,14 @@ describe("document mirror helpers", () => {
         windows
       })
     ).toBe("2024-08-31");
+  });
+
+  it("resolves the mirror data repository path from the repository root instead of the workspace cwd", () => {
+    expect(resolveMirrorDataRepoDir("/repo/root", "published-data")).toBe(
+      "/repo/root/published-data"
+    );
+    expect(resolveMirrorDataRepoDir("/repo/root", "/tmp/property-data")).toBe(
+      "/tmp/property-data"
+    );
   });
 });

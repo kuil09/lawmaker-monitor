@@ -21,7 +21,14 @@ import {
   selectExistingMirroredMetadata,
   toIndexItem
 } from "../document-mirror.js";
-import { readJsonFile, readString, sha256, sha256Buffer, writeJsonFile } from "../utils.js";
+import {
+  readJsonFile,
+  readString,
+  resolvePathFromRoot,
+  sha256,
+  sha256Buffer,
+  writeJsonFile
+} from "../utils.js";
 
 type MirrorMode = "generic" | "assembly_minutes_search" | "assembly_file_service";
 
@@ -193,7 +200,18 @@ function parseServiceInfId(startUrl: string): string | undefined {
   return matched?.[1];
 }
 
+export function resolveMirrorDataRepoDir(
+  repositoryRoot: string,
+  configuredPath: string | undefined
+): string {
+  return resolvePathFromRoot(
+    repositoryRoot,
+    configuredPath?.trim() || join(repositoryRoot, "published-data")
+  );
+}
+
 function loadConfig(): MirrorConfig {
+  const repositoryRoot = resolve(fileURLToPath(new URL("../../../../", import.meta.url)));
   const startUrl = readRequiredEnv("MIRROR_START_URL");
   const configuredMode = process.env.MIRROR_MODE?.trim() as MirrorMode | undefined;
   const serviceInfId = process.env.MIRROR_SERVICE_INF_ID?.trim() || parseServiceInfId(startUrl);
@@ -218,7 +236,7 @@ function loadConfig(): MirrorConfig {
     pageDelayMs: readPositiveInteger("MIRROR_PAGE_DELAY_MS", 1000),
     timeoutMs: readPositiveInteger("MIRROR_TIMEOUT_MS", 20_000),
     timeZone: process.env.MIRROR_TIME_ZONE?.trim() || "Asia/Seoul",
-    dataRepoDir: resolve(process.env.DATA_REPO_DIR?.trim() || "published-data"),
+    dataRepoDir: resolveMirrorDataRepoDir(repositoryRoot, process.env.DATA_REPO_DIR),
     indexPath: process.env.MIRROR_INDEX_PATH?.trim() || "raw/index/document_index.json",
     statePath:
       process.env.MIRROR_STATE_PATH?.trim() || "manifests/document_mirror_state.json",
