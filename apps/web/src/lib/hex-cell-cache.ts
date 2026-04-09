@@ -1,4 +1,4 @@
-import type { H3DataCell } from "./geo-utils.js";
+import type { ExtrudedFeature, H3DataCell } from "./geo-utils.js";
 import type { CachedHexCell } from "./hex-cells.js";
 import type { MapMetric } from "./map-route.js";
 
@@ -8,6 +8,7 @@ export type HexCellStaticCacheEntry = {
   detailRes: number;
   createdAt: number;
   cells: CachedHexCell[];
+  districts?: ExtrudedFeature[];
 };
 
 export type HexCellStaticCacheReadResult = {

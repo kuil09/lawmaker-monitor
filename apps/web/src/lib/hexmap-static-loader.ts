@@ -13,12 +13,14 @@ import {
 } from "./hex-cell-cache.js";
 import { endPerformanceSpan, startPerformanceSpan } from "./hex-cells.js";
 import { getSharedHexCellsWorkerClient } from "./hex-cells-worker.js";
+import { extractReprojectedFeatures } from "./geo-utils.js";
 
 type HexmapLoadSource = "home" | "map";
 type Listener = (state: HexmapStaticState) => void;
 type IdleHandle = number;
 type IdleCallback = (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void;
 const MAP_LOAD_CONCURRENCY = 4;
+const LOW_ZOOM_DISTRICT_STEP = 6;
 
 export type HexmapStaticState = {
   sessionKey: string;
@@ -156,7 +158,7 @@ async function loadProvinceEntry(
     const cached = await cache.readStatic(cacheKey);
     endPerformanceSpan(idbSpan);
 
-    if (cached.entry) {
+    if (cached.entry && (cached.entry.districts?.length ?? 0) > 0) {
       return cached.entry;
     }
 
@@ -170,13 +172,15 @@ async function loadProvinceEntry(
       return null;
     }
 
+    const districts = extractReprojectedFeatures(topology, LOW_ZOOM_DISTRICT_STEP);
     const computed = await workerClient.computeStatic(topology, province.provinceShortName);
     const entry: HexCellStaticCacheEntry = {
       cacheKey,
       provinceShortName: province.provinceShortName,
       detailRes: computed.detailRes,
       createdAt: Date.now(),
-      cells: computed.cells
+      cells: computed.cells,
+      districts
     };
 
     await cache.writeStatic(entry);

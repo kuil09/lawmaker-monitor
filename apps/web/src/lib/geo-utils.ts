@@ -1,6 +1,8 @@
 import proj4 from "proj4";
 import { feature } from "topojson-client";
 
+import type { GeoJsonMultiPolygon, GeoJsonPolygon } from "@lawmaker-monitor/schemas";
+
 import type { ConstituencyBoundaryTopology } from "./constituency-map.js";
 import { normalizeConstituencyLookupKey } from "./constituency-map.js";
 
@@ -47,7 +49,7 @@ function reprojectGeometry(geometry: { type: string; coordinates: unknown }, ste
 
 export type ExtrudedFeature = {
   type: "Feature";
-  geometry: { type: string; coordinates: unknown };
+  geometry: GeoJsonPolygon | GeoJsonMultiPolygon;
   properties: {
     districtKey: string;
     label: string;
@@ -71,7 +73,7 @@ export function extractReprojectedFeatures(topology: ConstituencyBoundaryTopolog
     const label = (f.properties.memberDistrictLabel as string | undefined) ?? "";
     return {
       type: "Feature" as const,
-      geometry: reprojectGeometry(f.geometry, step),
+      geometry: reprojectGeometry(f.geometry, step) as GeoJsonPolygon | GeoJsonMultiPolygon,
       properties: {
         districtKey: normalizeConstituencyLookupKey(label),
         label

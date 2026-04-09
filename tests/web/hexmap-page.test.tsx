@@ -13,6 +13,17 @@ type MockStaticState = {
     provinceShortName: string;
     detailRes: number;
     createdAt: number;
+    districts?: Array<{
+      type: "Feature";
+      geometry: {
+        type: "Polygon";
+        coordinates: number[][][];
+      };
+      properties: {
+        districtKey: string;
+        label: string;
+      };
+    }>;
     cells: Array<{
       h3Index: string;
       districtKey: string;
@@ -38,6 +49,17 @@ const testState = vi.hoisted(() => ({
       provinceShortName: string;
       detailRes: number;
       createdAt: number;
+      districts?: Array<{
+        type: "Feature";
+        geometry: {
+          type: "Polygon";
+          coordinates: number[][][];
+        };
+        properties: {
+          districtKey: string;
+          label: string;
+        };
+      }>;
       cells: Array<{
         h3Index: string;
         districtKey: string;
@@ -74,6 +96,19 @@ vi.mock("@deck.gl/geo-layers", () => ({
   }
 }));
 
+vi.mock("@deck.gl/layers", () => ({
+  GeoJsonLayer: class {
+    id: string;
+    props: Record<string, unknown>;
+
+    constructor(props: Record<string, unknown>) {
+      this.id = String(props.id);
+      this.props = props;
+      testState.layerInstances.push({ id: this.id, props });
+    }
+  }
+}));
+
 vi.mock("@deck.gl/react", () => ({
   default: function DeckGL(props: Record<string, unknown>) {
     const { children, initialViewState, layers, viewState } = props as {
@@ -86,7 +121,8 @@ vi.mock("@deck.gl/react", () => ({
     testState.deckPropsLog.push({
       initialViewState,
       layers,
-      viewState
+      viewState,
+      onViewStateChange: props.onViewStateChange
     });
 
     return React.createElement("div", null, children);
@@ -148,6 +184,25 @@ describe("HexmapPage", () => {
           provinceShortName: "부산",
           detailRes: 7,
           createdAt: 1,
+          districts: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "Polygon",
+                coordinates: [[
+                  [129.0, 35.08],
+                  [129.1, 35.08],
+                  [129.1, 35.18],
+                  [129.0, 35.18],
+                  [129.0, 35.08]
+                ]]
+              },
+              properties: {
+                districtKey: "부산남구",
+                label: "부산 남구"
+              }
+            }
+          ],
           cells: [
             {
               h3Index: "8730c16f0ffffff",
@@ -162,6 +217,25 @@ describe("HexmapPage", () => {
           provinceShortName: "서울",
           detailRes: 7,
           createdAt: 1,
+          districts: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "Polygon",
+                coordinates: [[
+                  [126.95, 37.52],
+                  [127.05, 37.52],
+                  [127.05, 37.62],
+                  [126.95, 37.62],
+                  [126.95, 37.52]
+                ]]
+              },
+              properties: {
+                districtKey: "서울중구",
+                label: "서울 중구"
+              }
+            }
+          ],
           cells: [
             {
               h3Index: "8730e1d88ffffff",
@@ -289,5 +363,60 @@ describe("HexmapPage", () => {
     });
 
     expect(testState.ensureLoadMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("switches the national layer to district polygons at low zoom-out levels", async () => {
+    render(
+      <HexmapPage
+        manifest={null}
+        accountabilitySummary={accountabilitySummaryFixture}
+        assemblyLabel="제22대 국회"
+        initialProvince={null}
+        initialDistrict={null}
+        initialMetric="absence"
+        onNavigateToMember={vi.fn()}
+        onChangeRoute={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(getLastLayer("h3-national-absence")).toBeDefined();
+    });
+
+    const nationalDeck = getLastDeckProps("national");
+    const onViewStateChange = nationalDeck?.onViewStateChange as
+      | ((args: { viewState: Record<string, unknown> }) => void)
+      | undefined;
+
+    onViewStateChange?.({
+      viewState: {
+        longitude: 127.8,
+        latitude: 36.5,
+        zoom: 5.2,
+        minZoom: 5,
+        maxZoom: 10,
+        pitch: 0,
+        bearing: 0
+      }
+    });
+
+    await waitFor(() => {
+      expect(getLastLayer("district-national-absence")).toBeDefined();
+    });
+
+    const districtLayer = getLastLayer("district-national-absence");
+    const firstFeature = (districtLayer?.props.data as Array<Record<string, unknown>>)[0];
+
+    expect(firstFeature).toMatchObject({
+      properties: {
+        districtKey: "부산남구",
+        label: "부산 남구",
+        summary: {
+          districtKey: "부산남구",
+          districtLabel: "부산 남구",
+          memberIds: ["M002"]
+        }
+      }
+    });
   });
 });

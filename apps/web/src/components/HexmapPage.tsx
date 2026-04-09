@@ -1,5 +1,6 @@
 import { WebMercatorViewport } from "@deck.gl/core";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
+import { GeoJsonLayer } from "@deck.gl/layers";
 import DeckGL from "@deck.gl/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Map as MapGL } from "react-map-gl/maplibre";
@@ -14,7 +15,7 @@ import {
   startPerformanceSpan,
   type SummaryItem
 } from "../lib/hex-cells.js";
-import type { H3DataCell } from "../lib/geo-utils.js";
+import type { ExtrudedFeature, H3DataCell } from "../lib/geo-utils.js";
 import {
   createLogNormalizer,
   getMetricModulatedColor,
@@ -62,18 +63,26 @@ const INITIAL_DETAIL_VIEW_STATE = {
 };
 
 const UNMATCHED_CELL_COLOR: [number, number, number, number] = [204, 210, 216, 190];
+const NATIONAL_POLYGON_MAX_ZOOM = 5.8;
+
+type TooltipDatum = Omit<H3DataCell, "h3Index">;
+type NationalDistrictFeature = ExtrudedFeature & {
+  properties: ExtrudedFeature["properties"] & {
+    summary: TooltipDatum;
+  };
+};
 
 type TooltipInfo = {
   x: number;
   y: number;
-  cell: H3DataCell;
+  datum: TooltipDatum;
 };
 
 type VizConfig = {
   key: MapMetric;
   label: string;
   description: string;
-  tooltipLabel: (cell: H3DataCell) => string;
+  tooltipLabel: (cell: TooltipDatum) => string;
 };
 
 const VIZ_CONFIGS: VizConfig[] = [
@@ -124,6 +133,7 @@ export function HexmapPage({
   const [staticState, setStaticState] = useState(() => getHexmapStaticState(manifest));
   const [nationalTooltip, setNationalTooltip] = useState<TooltipInfo | null>(null);
   const [detailTooltip, setDetailTooltip] = useState<TooltipInfo | null>(null);
+  const [nationalViewState, setNationalViewState] = useState(INITIAL_VIEW_STATE);
   const [detailViewState, setDetailViewState] = useState(INITIAL_DETAIL_VIEW_STATE);
 
   const onChangeRouteRef = useRef(onChangeRoute);
@@ -268,8 +278,45 @@ export function HexmapPage({
       .map(([party, color]) => ({ party, color }));
   }, [nationalCells]);
 
+  const districtSummaryByKey = useMemo(() => {
+    const summaryByKey = new Map<string, TooltipDatum>();
+
+    for (const cell of nationalCells) {
+      if (summaryByKey.has(cell.districtKey)) {
+        continue;
+      }
+
+      const { h3Index: _h3Index, ...summary } = cell;
+      summaryByKey.set(cell.districtKey, summary);
+    }
+
+    return summaryByKey;
+  }, [nationalCells]);
+
+  const nationalDistricts = useMemo<NationalDistrictFeature[]>(() => {
+    return staticState.entries.flatMap((entry) =>
+      (entry.districts ?? []).map((district) => ({
+        ...district,
+        properties: {
+          ...district.properties,
+          summary: districtSummaryByKey.get(district.properties.districtKey) ?? {
+            districtKey: district.properties.districtKey,
+            districtLabel: district.properties.label,
+            provinceShortName: entry.provinceShortName,
+            party: "",
+            metric: 0,
+            memberCount: 0,
+            memberNames: [],
+            memberParties: [],
+            memberIds: []
+          }
+        }
+      }))
+    );
+  }, [districtSummaryByKey, staticState.entries]);
+
   function getCellFillColor(
-    cell: H3DataCell,
+    cell: TooltipDatum,
     normalizeMetric: (value: number) => number
   ): [number, number, number, number] {
     if (cell.memberCount === 0) {
@@ -358,7 +405,49 @@ export function HexmapPage({
       return [];
     }
 
-    const normalizeMetric = createLogNormalizer(nationalCells.map((cell) => cell.metric));
+    const normalizeMetric = createLogNormalizer(
+      nationalCells.filter((cell) => cell.memberCount > 0).map((cell) => cell.metric)
+    );
+
+    if (nationalViewState.zoom <= NATIONAL_POLYGON_MAX_ZOOM && nationalDistricts.length > 0) {
+      return [
+        new GeoJsonLayer<NationalDistrictFeature>({
+          id: `district-national-${activeMetric}`,
+          data: nationalDistricts,
+          filled: true,
+          stroked: true,
+          getFillColor: (feature) =>
+            getCellFillColor(
+              (feature as unknown as NationalDistrictFeature).properties.summary,
+              normalizeMetric
+            ),
+          getLineColor: [255, 255, 255, 110],
+          lineWidthMinPixels: 1,
+          pickable: true,
+          onHover: (info) => {
+            const feature = info.object as unknown as NationalDistrictFeature | undefined;
+            if (feature && info.x !== undefined && info.y !== undefined) {
+              setNationalTooltip({ x: info.x, y: info.y, datum: feature.properties.summary });
+              return;
+            }
+
+            setNationalTooltip(null);
+          },
+          onClick: (info) => {
+            const feature = info.object as unknown as NationalDistrictFeature | undefined;
+            if (!feature) {
+              return;
+            }
+
+            districtPanelSpanRef.current = startPerformanceSpan("hexmap:districtPanelReady");
+            setSelectedDistrictKey(feature.properties.summary.districtKey);
+            setSelectedProvinceFilter(null);
+            setNationalTooltip(null);
+            setDetailTooltip(null);
+          }
+        })
+      ];
+    }
 
     return [
       new H3HexagonLayer<H3DataCell>({
@@ -372,7 +461,8 @@ export function HexmapPage({
         pickable: true,
         onHover: (info) => {
           if (info.object && info.x !== undefined && info.y !== undefined) {
-            setNationalTooltip({ x: info.x, y: info.y, cell: info.object });
+            const { h3Index: _h3Index, ...datum } = info.object;
+            setNationalTooltip({ x: info.x, y: info.y, datum });
             return;
           }
 
@@ -391,14 +481,16 @@ export function HexmapPage({
         }
       })
     ];
-  }, [activeMetric, nationalCells]);
+  }, [activeMetric, nationalCells, nationalDistricts, nationalViewState.zoom]);
 
   const detailLayers = useMemo(() => {
     if (detailCells.length === 0) {
       return [];
     }
 
-    const normalizeMetric = createLogNormalizer(detailCells.map((cell) => cell.metric));
+    const normalizeMetric = createLogNormalizer(
+      detailCells.filter((cell) => cell.memberCount > 0).map((cell) => cell.metric)
+    );
     const filterKey = selectedDistrictKey ?? selectedProvinceFilter ?? "none";
 
     return [
@@ -413,7 +505,8 @@ export function HexmapPage({
         pickable: true,
         onHover: (info) => {
           if (info.object && info.x !== undefined && info.y !== undefined) {
-            setDetailTooltip({ x: info.x, y: info.y, cell: info.object });
+            const { h3Index: _h3Index, ...datum } = info.object;
+            setDetailTooltip({ x: info.x, y: info.y, datum });
             return;
           }
 
@@ -436,7 +529,7 @@ export function HexmapPage({
     (isLoading || !accountabilitySummary);
 
   function renderTooltipContent(info: TooltipInfo, hint: string | null) {
-    const { cell } = info;
+    const { datum: cell } = info;
     const [red, green, blue] =
       cell.memberCount > 0 ? getPartyColor(cell.party) : UNMATCHED_CELL_COLOR;
     const dotStyle = { background: `rgb(${red},${green},${blue})` };
@@ -550,7 +643,14 @@ export function HexmapPage({
             </div>
           ) : (
             <>
-              <DeckGL initialViewState={INITIAL_VIEW_STATE} controller layers={nationalLayers}>
+              <DeckGL
+                initialViewState={INITIAL_VIEW_STATE}
+                onViewStateChange={({ viewState }) => {
+                  setNationalViewState(viewState as typeof INITIAL_VIEW_STATE);
+                }}
+                controller
+                layers={nationalLayers}
+              >
                 <MapGL mapStyle={MAP_STYLE} />
               </DeckGL>
               {isLoading && (
