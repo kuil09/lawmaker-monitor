@@ -134,11 +134,7 @@ function toOptionalNdjson<T extends Record<string, unknown>>(
   items: T[],
   seedRow: T & { __seed: true }
 ): string {
-  if (items.length > 0) {
-    return toNdjson(items);
-  }
-
-  return `${JSON.stringify(seedRow)}\n`;
+  return `${JSON.stringify(seedRow)}\n${items.length > 0 ? toNdjson(items) : ""}`;
 }
 
 export async function buildData(args?: {
