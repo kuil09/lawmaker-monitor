@@ -824,12 +824,18 @@ function MemberAssetSection({
               tick={{ fontSize: 12, fill: "var(--ink-muted)" }}
             />
             <Tooltip
-              formatter={(value: number, name: string) => [
-                formatAssetAmount(Number(value)),
-                name === "total"
-                  ? `총재산 (${activeScopeLabel})`
-                  : orderedCategorySeries.find((series) => series.categoryKey === name)?.categoryLabel ?? name
-              ]}
+              formatter={(value, name) => {
+                const amount = Array.isArray(value) ? Number(value[0] ?? 0) : Number(value ?? 0);
+                const seriesKey = String(name ?? "");
+
+                return [
+                  formatAssetAmount(amount),
+                  seriesKey === "total"
+                    ? `총재산 (${activeScopeLabel})`
+                    : orderedCategorySeries.find((series) => series.categoryKey === seriesKey)
+                        ?.categoryLabel ?? seriesKey
+                ] as [string, string];
+              }}
               labelFormatter={(value) => `공개일 ${value}`}
             />
             <Legend
