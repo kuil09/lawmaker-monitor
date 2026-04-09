@@ -200,6 +200,47 @@ describe("hexmap-static-loader", () => {
     expect(testState.computeStaticMock).not.toHaveBeenCalled();
   });
 
+  it("starts multiple province computations in parallel for direct map entry", async () => {
+    const pendingResolvers = new Map<
+      "부산" | "서울",
+      (value: ReturnType<typeof createStaticEntry>) => void
+    >();
+
+    testState.computeStaticMock.mockImplementation(
+      async (_topology: unknown, provinceShortName: "부산" | "서울") =>
+        await new Promise((resolve) => {
+          pendingResolvers.set(
+            provinceShortName,
+            resolve as (value: ReturnType<typeof createStaticEntry>) => void
+          );
+        })
+    );
+
+    const mapPromise = ensureHexmapStaticLoad(manifestFixture, { source: "map" });
+
+    await waitFor(() => {
+      expect(testState.loadIndexMock).toHaveBeenCalledTimes(1);
+      expect(testState.loadTopologyMock).toHaveBeenCalledTimes(2);
+      expect(testState.computeStaticMock).toHaveBeenCalledTimes(2);
+    });
+
+    pendingResolvers.get("부산")?.(
+      createStaticEntry(
+        `${constituencyBoundariesIndexFixture.snapshotId}:${constituencyBoundariesIndexFixture.provinces[0].checksumSha256}`,
+        "부산"
+      )
+    );
+    pendingResolvers.get("서울")?.(
+      createStaticEntry(
+        `${constituencyBoundariesIndexFixture.snapshotId}:${constituencyBoundariesIndexFixture.provinces[1].checksumSha256}`,
+        "서울"
+      )
+    );
+
+    await mapPromise;
+    expect(getHexmapStaticState(manifestFixture).done).toBe(2);
+  });
+
   it("misses the previous static cache when snapshot ids or province checksums change", async () => {
     await ensureHexmapStaticLoad(manifestFixture, { source: "home" });
     resetHexmapStaticLoaderForTests();

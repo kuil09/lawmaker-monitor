@@ -61,6 +61,8 @@ const INITIAL_DETAIL_VIEW_STATE = {
   maxZoom: 14
 };
 
+const UNMATCHED_CELL_COLOR: [number, number, number, number] = [204, 210, 216, 190];
+
 type TooltipInfo = {
   x: number;
   y: number;
@@ -252,6 +254,10 @@ export function HexmapPage({
     const seen = new Map<string, [number, number, number, number]>();
 
     for (const cell of nationalCells) {
+      if (cell.memberCount === 0 || !cell.party) {
+        continue;
+      }
+
       if (!seen.has(cell.party)) {
         seen.set(cell.party, getPartyColor(cell.party));
       }
@@ -261,6 +267,17 @@ export function HexmapPage({
       .sort((left, right) => left[0].localeCompare(right[0], "ko"))
       .map(([party, color]) => ({ party, color }));
   }, [nationalCells]);
+
+  function getCellFillColor(
+    cell: H3DataCell,
+    normalizeMetric: (value: number) => number
+  ): [number, number, number, number] {
+    if (cell.memberCount === 0) {
+      return UNMATCHED_CELL_COLOR;
+    }
+
+    return getMetricModulatedColor(cell.party, normalizeMetric(cell.metric));
+  }
 
   const selectedDistrictLabel = useMemo(() => {
     if (!selectedDistrictKey) {
@@ -348,7 +365,7 @@ export function HexmapPage({
         id: `h3-national-${activeMetric}`,
         data: nationalCells,
         getHexagon: (cell) => cell.h3Index,
-        getFillColor: (cell) => getMetricModulatedColor(cell.party, normalizeMetric(cell.metric)),
+        getFillColor: (cell) => getCellFillColor(cell, normalizeMetric),
         getLineColor: [255, 255, 255, 40],
         lineWidthMinPixels: 1,
         extruded: false,
@@ -389,7 +406,7 @@ export function HexmapPage({
         id: `h3-panel-${activeMetric}-${filterKey}`,
         data: detailCells,
         getHexagon: (cell) => cell.h3Index,
-        getFillColor: (cell) => getMetricModulatedColor(cell.party, normalizeMetric(cell.metric)),
+        getFillColor: (cell) => getCellFillColor(cell, normalizeMetric),
         getLineColor: [255, 255, 255, 40],
         lineWidthMinPixels: 1,
         extruded: false,
@@ -420,24 +437,33 @@ export function HexmapPage({
 
   function renderTooltipContent(info: TooltipInfo, hint: string | null) {
     const { cell } = info;
-    const [red, green, blue] = getPartyColor(cell.party);
+    const [red, green, blue] =
+      cell.memberCount > 0 ? getPartyColor(cell.party) : UNMATCHED_CELL_COLOR;
     const dotStyle = { background: `rgb(${red},${green},${blue})` };
 
     return (
       <div className="hexmap-tooltip" style={{ left: info.x + 12, top: info.y - 72 }}>
         <div className="hexmap-tooltip__party">{cell.districtLabel}</div>
-        <div className="hexmap-tooltip__member">
-          <span className="hexmap-tooltip__party-dot" style={dotStyle} aria-hidden="true" />
-          <span className="hexmap-tooltip__name">
-            {cell.memberCount === 1
-              ? cell.memberNames[0]
-              : `${cell.memberNames[0]} 외 ${cell.memberCount - 1}명`}
-          </span>
-        </div>
-        <div className="hexmap-tooltip__party">
-          {cell.memberCount === 1 ? cell.party : `다수당: ${cell.party}`}
-        </div>
-        <div className="hexmap-tooltip__value">{vizConfig.tooltipLabel(cell)}</div>
+        {cell.memberCount > 0 ? (
+          <>
+            <div className="hexmap-tooltip__member">
+              <span className="hexmap-tooltip__party-dot" style={dotStyle} aria-hidden="true" />
+              <span className="hexmap-tooltip__name">
+                {cell.memberCount === 1
+                  ? cell.memberNames[0]
+                  : `${cell.memberNames[0]} 외 ${cell.memberCount - 1}명`}
+              </span>
+            </div>
+            <div className="hexmap-tooltip__party">
+              {cell.memberCount === 1 ? cell.party : `다수당: ${cell.party}`}
+            </div>
+            <div className="hexmap-tooltip__value">{vizConfig.tooltipLabel(cell)}</div>
+          </>
+        ) : (
+          <div className="hexmap-tooltip__value">
+            현재 공개된 의원 활동 데이터가 없어 중립 타일로 표시됩니다.
+          </div>
+        )}
         {hint ? <div className="hexmap-tooltip__hint">{hint}</div> : null}
       </div>
     );
@@ -453,7 +479,7 @@ export function HexmapPage({
       </div>
 
       <div className="hexmap-disclaimer">
-        비례대표 의원은 지역구가 없어 표시되지 않습니다.
+        비례대표 의원은 지역구가 없어 표시되지 않으며, 공석 또는 매칭되지 않은 지역은 회색 타일로 유지합니다.
         {loadProgress &&
           ` · ${loadProgress.total}개 시·도 중 ${loadProgress.done}개 상세 격자 로드 완료`}
         {nationalCells.length > 0 && ` · ${nationalCells.length}개 상세 셀`}

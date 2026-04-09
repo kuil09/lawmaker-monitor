@@ -18,6 +18,7 @@ type HexmapLoadSource = "home" | "map";
 type Listener = (state: HexmapStaticState) => void;
 type IdleHandle = number;
 type IdleCallback = (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void;
+const MAP_LOAD_CONCURRENCY = 4;
 
 export type HexmapStaticState = {
   sessionKey: string;
@@ -214,31 +215,60 @@ async function runHexmapStaticLoad(
       throw new Error("선거구 경계 데이터를 불러오지 못했습니다.");
     }
 
-    for (const province of index.provinces) {
+    const concurrency = source === "map" ? Math.min(MAP_LOAD_CONCURRENCY, index.provinces.length) : 1;
+    let nextProvinceIndex = 0;
+    const inFlight = new Set<Promise<void>>();
+
+    const consumeProvince = async (
+      province: ConstituencyBoundariesIndexExport["provinces"][number]
+    ): Promise<void> => {
       const cacheKey = buildHexCellStaticCacheKey(index.snapshotId, province.checksumSha256);
 
-      if (!session.completedProvinceKeys.has(cacheKey)) {
-        const entry = await loadProvinceEntry(session, province, index.snapshotId);
-        if (entry && !session.entryByCacheKey.has(cacheKey)) {
-          session.entryByCacheKey.set(cacheKey, entry);
-          session.state = {
-            ...session.state,
-            entries: [...session.state.entries, entry]
-          };
+      if (session.completedProvinceKeys.has(cacheKey)) {
+        return;
+      }
 
-          if (source === "home" && !session.homeFirstProvinceMarked) {
-            session.homeFirstProvinceMarked = true;
-            markInstant("hexmap:homePrewarmFirstProvinceReady");
-          }
-        }
-
-        session.completedProvinceKeys.add(cacheKey);
+      const entry = await loadProvinceEntry(session, province, index.snapshotId);
+      if (entry && !session.entryByCacheKey.has(cacheKey)) {
+        session.entryByCacheKey.set(cacheKey, entry);
         session.state = {
           ...session.state,
-          done: session.completedProvinceKeys.size
+          entries: [...session.state.entries, entry]
         };
-        emit(session);
+
+        if (source === "home" && !session.homeFirstProvinceMarked) {
+          session.homeFirstProvinceMarked = true;
+          markInstant("hexmap:homePrewarmFirstProvinceReady");
+        }
       }
+
+      session.completedProvinceKeys.add(cacheKey);
+      session.state = {
+        ...session.state,
+        done: session.completedProvinceKeys.size
+      };
+      emit(session);
+    };
+
+    const startMoreWork = (): void => {
+      while (nextProvinceIndex < index.provinces.length && inFlight.size < concurrency) {
+        const province = index.provinces[nextProvinceIndex++];
+        if (!province) {
+          break;
+        }
+
+        const task = consumeProvince(province).finally(() => {
+          inFlight.delete(task);
+        });
+        inFlight.add(task);
+      }
+    };
+
+    startMoreWork();
+
+    while (inFlight.size > 0) {
+      await Promise.race(inFlight);
+      startMoreWork();
     }
 
     session.state = {

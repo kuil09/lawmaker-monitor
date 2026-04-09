@@ -73,4 +73,53 @@ describe("hex-cells", () => {
       [129.1, 35.15]
     ]);
   });
+
+  it("matches special-city district aliases and keeps unmatched districts visible as neutral cells", () => {
+    const hydrated = hydrateHexCells(
+      [
+        {
+          h3Index: "881f1d4895fffff",
+          districtKey: "세종세종시갑",
+          districtLabel: "세종 세종시갑",
+          provinceShortName: "세종"
+        },
+        {
+          h3Index: "881f1d4897fffff",
+          districtKey: "전북군산시김제시부안군갑",
+          districtLabel: "전북 군산시김제시부안군갑",
+          provinceShortName: "전북"
+        }
+      ],
+      [
+        {
+          memberId: "M100",
+          name: "김세종",
+          party: "더불어민주당",
+          district: "세종특별자치시갑",
+          absentRate: 0.1,
+          noRate: 0.2,
+          abstainRate: 0.05
+        }
+      ] satisfies SummaryItem[],
+      "negative"
+    );
+
+    expect(hydrated).toHaveLength(2);
+    expect(hydrated[0]).toMatchObject({
+      districtKey: "세종세종시갑",
+      memberIds: ["M100"],
+      memberNames: ["김세종"],
+      memberCount: 1,
+      party: "더불어민주당",
+      metric: 0.25
+    });
+    expect(hydrated[1]).toMatchObject({
+      districtKey: "전북군산시김제시부안군갑",
+      memberIds: [],
+      memberNames: [],
+      memberCount: 0,
+      party: "",
+      metric: 0
+    });
+  });
 });

@@ -23,6 +23,26 @@ export type CachedHexCell = {
   provinceShortName: string;
 };
 
+const PROVINCE_NAME_VARIANTS = [
+  { shortName: "서울", fullNames: ["서울특별시"] },
+  { shortName: "부산", fullNames: ["부산광역시"] },
+  { shortName: "대구", fullNames: ["대구광역시"] },
+  { shortName: "인천", fullNames: ["인천광역시"] },
+  { shortName: "광주", fullNames: ["광주광역시"] },
+  { shortName: "대전", fullNames: ["대전광역시"] },
+  { shortName: "울산", fullNames: ["울산광역시"] },
+  { shortName: "세종", fullNames: ["세종특별자치시"] },
+  { shortName: "경기", fullNames: ["경기도"] },
+  { shortName: "강원", fullNames: ["강원도", "강원특별자치도"] },
+  { shortName: "충북", fullNames: ["충청북도"] },
+  { shortName: "충남", fullNames: ["충청남도"] },
+  { shortName: "전북", fullNames: ["전라북도", "전북특별자치도"] },
+  { shortName: "전남", fullNames: ["전라남도"] },
+  { shortName: "경북", fullNames: ["경상북도"] },
+  { shortName: "경남", fullNames: ["경상남도"] },
+  { shortName: "제주", fullNames: ["제주특별자치도"] }
+] as const;
+
 export type PerformanceSpan = {
   label: string;
   startMark: string;
@@ -102,22 +122,86 @@ function getDominantParty(items: SummaryItem[]): string {
   );
 }
 
+function buildDistrictLookupKeys(value: string | null | undefined): string[] {
+  const baseKey = normalizeConstituencyLookupKey(value);
+  if (!baseKey) {
+    return [];
+  }
+
+  const candidates = new Set<string>([baseKey]);
+  const queue = [baseKey];
+
+  while (queue.length > 0) {
+    const current = queue.shift() ?? "";
+    if (!current) {
+      continue;
+    }
+
+    const suffixShortened = current
+      .replace(/특별자치시/g, "시")
+      .replace(/특별자치도/g, "도")
+      .replace(/특별시/g, "")
+      .replace(/광역시/g, "");
+
+    if (!candidates.has(suffixShortened)) {
+      candidates.add(suffixShortened);
+      queue.push(suffixShortened);
+    }
+
+    for (const province of PROVINCE_NAME_VARIANTS) {
+      for (const fullName of province.fullNames) {
+        const normalizedFullName = normalizeConstituencyLookupKey(fullName);
+        if (current.startsWith(normalizedFullName)) {
+          const shortened = `${province.shortName}${current.slice(normalizedFullName.length)}`;
+          if (!candidates.has(shortened)) {
+            candidates.add(shortened);
+            queue.push(shortened);
+          }
+        }
+      }
+
+      if (
+        current.startsWith(`${province.shortName}${province.shortName}시`) ||
+        current.startsWith(`${province.shortName}${province.shortName}도`)
+      ) {
+        const collapsedDuplicate = current.slice(province.shortName.length);
+        if (!candidates.has(collapsedDuplicate)) {
+          candidates.add(collapsedDuplicate);
+          queue.push(collapsedDuplicate);
+        }
+      }
+
+      if (current.startsWith(`${province.shortName}시`) || current.startsWith(`${province.shortName}도`)) {
+        const duplicatedPrefix = `${province.shortName}${current}`;
+        if (!candidates.has(duplicatedPrefix)) {
+          candidates.add(duplicatedPrefix);
+          queue.push(duplicatedPrefix);
+        }
+      }
+    }
+  }
+
+  return [...candidates];
+}
+
 function buildSummaryLookup(items: readonly SummaryItem[]): Map<string, SummaryItem[]> {
   const byDistrictKey = new Map<string, SummaryItem[]>();
 
   for (const item of items) {
-    const districtKey = normalizeConstituencyLookupKey(item.district);
-    if (!districtKey) {
+    const districtKeys = buildDistrictLookupKeys(item.district);
+    if (districtKeys.length === 0) {
       continue;
     }
 
-    const existing = byDistrictKey.get(districtKey);
-    if (existing) {
-      existing.push(item);
-      continue;
-    }
+    for (const districtKey of districtKeys) {
+      const existing = byDistrictKey.get(districtKey);
+      if (existing) {
+        existing.push(item);
+        continue;
+      }
 
-    byDistrictKey.set(districtKey, [item]);
+      byDistrictKey.set(districtKey, [item]);
+    }
   }
 
   return byDistrictKey;
@@ -185,16 +269,27 @@ export function hydrateHexCells(
 ): H3DataCell[] {
   const memberByDistrictKey = buildSummaryLookup(items);
 
-  return cachedCells.flatMap((cell) => {
+  return cachedCells.map((cell) => {
     const members = memberByDistrictKey.get(cell.districtKey);
     if (!members || members.length === 0) {
-      return [];
+      return {
+        h3Index: cell.h3Index,
+        districtKey: cell.districtKey,
+        districtLabel: cell.districtLabel,
+        provinceShortName: cell.provinceShortName,
+        party: "",
+        metric: 0,
+        memberCount: 0,
+        memberNames: [],
+        memberParties: [],
+        memberIds: []
+      };
     }
 
     const averageMetric =
       members.reduce((sum, member) => sum + getMetricValue(member, metric), 0) / members.length;
 
-    return [{
+    return {
       h3Index: cell.h3Index,
       districtKey: cell.districtKey,
       districtLabel: cell.districtLabel,
@@ -205,7 +300,7 @@ export function hydrateHexCells(
       memberNames: members.map((member) => member.name),
       memberParties: members.map((member) => member.party),
       memberIds: members.map((member) => member.memberId)
-    }];
+    };
   });
 }
 
