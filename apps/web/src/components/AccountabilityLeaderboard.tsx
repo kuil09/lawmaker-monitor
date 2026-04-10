@@ -18,13 +18,18 @@ import {
   formatPercent
 } from "../lib/format.js";
 import type { MemberAttendanceSummary } from "../lib/member-activity.js";
+import type { AssetAllocationSummary } from "../lib/member-assets.js";
 import { MemberIdentity } from "./MemberIdentity.js";
 
 type AccountabilityLeaderboardProps = {
   items: AccountabilitySummaryItem[];
   assemblyLabel: string;
   attendanceByMemberId?: Map<string, MemberAttendanceSummary>;
-  assetItems?: MemberAssetsIndexItem[];
+  assetItems?: Array<
+    MemberAssetsIndexItem & {
+      assetAllocation?: AssetAllocationSummary;
+    }
+  >;
 };
 
 type HomeLeaderboardMetric = LeaderboardMetric | "realEstate" | "assetTotal";
@@ -37,6 +42,7 @@ type LeaderboardMetricOption = {
 
 type RankedAssetLeaderboardItem = MemberAssetsIndexItem & {
   metricValue: number;
+  assetAllocation?: AssetAllocationSummary;
 };
 
 const defaultMetricOption: LeaderboardMetricOption = {
@@ -127,12 +133,11 @@ export function AccountabilityLeaderboard({
     : [];
   const leaderboardCopy = isAssetMetric(metric)
     ? metric === "realEstate"
-      ? "최신 재산 공개 기준 건물·토지 합계로 정렬하고, 총재산과 22대 누적 증감폭을 함께 비교합니다."
-      : "최신 재산 공개 기준 총재산 순위를 보여 주고, 부동산 규모와 22대 누적 증감폭을 함께 봅니다."
+      ? "최신 재산 공개 기준 건물·토지 합계로 정렬하고, 그래프에는 공개된 플러스 자산 중 부동산 비중을 함께 반영합니다."
+      : "최신 재산 공개 기준 총재산 순위를 보여 주고, 그래프에는 공개된 플러스 자산 중 부동산 비중을 함께 반영합니다."
     : metric === "absent"
       ? "불참 기준으로 먼저 정렬해 출석 문제를 바로 드러내고, 나머지 선택 구성은 작은 막대로 함께 봅니다."
       : `${metricOption.label} 기준으로 정렬하되, 불참 막대를 함께 남겨 출석 문제를 놓치지 않도록 했습니다.`;
-  const topAssetMetricValue = rankedAssetItems[0]?.metricValue ?? 0;
 
   return (
     <section className="leaderboard-panel">
@@ -166,15 +171,16 @@ export function AccountabilityLeaderboard({
       {isAssetMetric(metric) ? (
         <ol className="ranking-list">
           {rankedAssetItems.map((item, index) => {
-            const graphWidth =
-              topAssetMetricValue > 0 ? Math.max((item.metricValue / topAssetMetricValue) * 100, 6) : 0;
             const metricLabel = metric === "realEstate" ? "최신 부동산" : "최신 총재산";
+            const assetShareText = item.assetAllocation
+              ? `비중 ${formatPercent(item.assetAllocation.realEstateShare)}`
+              : "비중 계산 중";
             const secondaryText =
               metric === "realEstate"
-                ? `총재산 ${formatAssetEok(item.latestTotal)}`
+                ? `총재산 ${formatAssetEok(item.latestTotal)} · ${assetShareText}`
                 : item.latestRealEstateTotal != null
-                  ? `부동산 ${formatAssetEok(item.latestRealEstateTotal)}`
-                  : "부동산 데이터 준비 중";
+                  ? `부동산 ${formatAssetEok(item.latestRealEstateTotal)} · ${assetShareText}`
+                  : `부동산 데이터 준비 중 · ${assetShareText}`;
             const metaItems = [
               { key: "asset-total", label: "총재산", value: formatAssetEok(item.latestTotal) },
               {
@@ -184,6 +190,11 @@ export function AccountabilityLeaderboard({
                   item.latestRealEstateTotal != null
                     ? formatAssetEok(item.latestRealEstateTotal)
                     : "준비 중"
+              },
+              {
+                key: "asset-share",
+                label: "부동산 비중",
+                value: item.assetAllocation ? formatPercent(item.assetAllocation.realEstateShare) : "계산 중"
               },
               { key: "asset-delta", label: "증감", value: formatAssetEokDelta(item.totalDelta) },
               {
@@ -214,10 +225,23 @@ export function AccountabilityLeaderboard({
                     </div>
                   </div>
                   <div className="ranking-item__graph" aria-hidden="true">
-                    <span
-                      className={`ranking-item__segment ranking-item__segment--${metricOption.styleKey}`}
-                      style={{ width: `${graphWidth}%` }}
-                    />
+                    {item.assetAllocation ? (
+                      <>
+                        <span
+                          className="ranking-item__segment ranking-item__segment--real-estate-share"
+                          style={{ width: `${item.assetAllocation.realEstateShare * 100}%` }}
+                        />
+                        <span
+                          className="ranking-item__segment ranking-item__segment--other-assets-share"
+                          style={{ width: `${(1 - item.assetAllocation.realEstateShare) * 100}%` }}
+                        />
+                      </>
+                    ) : (
+                      <span
+                        className={`ranking-item__segment ranking-item__segment--${metricOption.styleKey}`}
+                        style={{ width: "100%" }}
+                      />
+                    )}
                   </div>
                   <div className="ranking-item__meta">
                     {metaItems.map((metaItem) => (

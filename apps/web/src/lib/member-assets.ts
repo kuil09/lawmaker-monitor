@@ -14,6 +14,13 @@ export type RealEstateFocusSummary = {
   deltaAmount: number;
 };
 
+export type AssetAllocationSummary = {
+  positiveAssetTotal: number;
+  realEstateAmount: number;
+  otherAssetAmount: number;
+  realEstateShare: number;
+};
+
 export type AssetScopeMode = "familyIncluded" | "selfOnly";
 
 export type AssetHistorySnapshot = Pick<
@@ -106,4 +113,38 @@ export function getLatestRealEstateTotalFromHistory(
   scopeMode: AssetScopeMode = "familyIncluded"
 ): number | null {
   return buildRealEstateFocusSummary(resolveAssetHistorySnapshot(history, scopeMode))?.latestAmount ?? null;
+}
+
+export function buildLatestAssetAllocationSummary(
+  history: MemberAssetsHistoryExport | null,
+  scopeMode: AssetScopeMode = "familyIncluded"
+): AssetAllocationSummary | null {
+  const snapshot = resolveAssetHistorySnapshot(history, scopeMode);
+  if (!snapshot || snapshot.series.length === 0) {
+    return null;
+  }
+
+  const latestReportedAt = snapshot.latestSummary.reportedAt;
+  const positiveAssetTotal = snapshot.categorySeries.reduce((sum, series) => {
+    const amount = series.points.find((point) => point.reportedAt === latestReportedAt)?.currentAmount ?? 0;
+    return amount > 0 ? sum + amount : sum;
+  }, 0);
+
+  if (positiveAssetTotal <= 0) {
+    return null;
+  }
+
+  const realEstateAmount = Math.max(
+    getLatestRealEstateTotalFromHistory(history, scopeMode) ?? 0,
+    0
+  );
+  const normalizedRealEstateAmount = Math.min(realEstateAmount, positiveAssetTotal);
+  const otherAssetAmount = Math.max(positiveAssetTotal - normalizedRealEstateAmount, 0);
+
+  return {
+    positiveAssetTotal,
+    realEstateAmount: normalizedRealEstateAmount,
+    otherAssetAmount,
+    realEstateShare: normalizedRealEstateAmount / positiveAssetTotal
+  };
 }

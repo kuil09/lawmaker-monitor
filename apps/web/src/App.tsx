@@ -48,7 +48,10 @@ import {
 } from "./lib/data.js";
 import { formatDateTime, formatNumber } from "./lib/format.js";
 import { scheduleHexmapPrewarm } from "./lib/hexmap-static-loader.js";
-import { getLatestRealEstateTotalFromHistory } from "./lib/member-assets.js";
+import {
+  buildLatestAssetAllocationSummary,
+  getLatestRealEstateTotalFromHistory
+} from "./lib/member-assets.js";
 import { getMemberAttendanceSummary } from "./lib/member-activity.js";
 
 type AppRoute = "home" | "calendar" | "distribution" | "votes" | "trends" | "map";
@@ -635,9 +638,28 @@ export default function App() {
       officialExternalUrl: item.officialExternalUrl ?? accountabilityItem?.officialExternalUrl ?? null,
       latestRealEstateTotal:
         item.latestRealEstateTotal ??
-        (getLatestRealEstateTotalFromHistory(memberAssetHistories[item.memberId] ?? null) ?? undefined)
+        (getLatestRealEstateTotalFromHistory(memberAssetHistories[item.memberId] ?? null) ?? undefined),
+      assetAllocation:
+        buildLatestAssetAllocationSummary(memberAssetHistories[item.memberId] ?? null) ?? undefined
     };
   });
+  const homeAssetRatioCandidateIds = [
+    ...new Set([
+      ...[...leaderboardAssetItems]
+        .sort((left, right) => right.latestTotal - left.latestTotal)
+        .slice(0, 10)
+        .map((item) => item.memberId),
+      ...[...leaderboardAssetItems]
+        .filter((item) => item.latestRealEstateTotal != null)
+        .sort(
+          (left, right) =>
+            (right.latestRealEstateTotal ?? Number.NEGATIVE_INFINITY) -
+            (left.latestRealEstateTotal ?? Number.NEGATIVE_INFINITY)
+        )
+        .slice(0, 10)
+        .map((item) => item.memberId)
+    ])
+  ];
   const homeBehaviorSummaries = buildDistributionBehaviorSummaries(distributionMembers);
   const homeSearchOptions = combinedRankingItems.map((item) => ({
     id: item.memberId,
@@ -650,6 +672,47 @@ export default function App() {
       : null
   ].filter(Boolean) as string[];
   const distributionErrors = [leaderboardError, activityError].filter(Boolean) as string[];
+  const homeAssetRatioCandidateSignature = homeAssetRatioCandidateIds.join("|");
+
+  useEffect(() => {
+    if (routeState.route !== "home" || !memberAssetsIndex || homeAssetRatioCandidateIds.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      for (const memberId of homeAssetRatioCandidateIds) {
+        if (cancelled) {
+          return;
+        }
+
+        const entry = memberAssetsIndex.members.find((member) => member.memberId === memberId);
+        if (!entry) {
+          continue;
+        }
+
+        if (
+          memberAssetHistoriesRef.current[memberId] ||
+          memberAssetHistoryLoadingRef.current[memberId]
+        ) {
+          continue;
+        }
+
+        await ensureMemberAssetHistoryLoadedByIndexEntry(entry);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    routeState.route,
+    memberAssetsIndex,
+    ensureMemberAssetHistoryLoadedByIndexEntry,
+    homeAssetRatioCandidateSignature,
+    homeAssetRatioCandidateIds
+  ]);
 
   const calendarMemberName =
     routeState.route === "calendar" && routeState.memberId && activityCalendar

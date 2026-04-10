@@ -357,6 +357,16 @@
   box-shadow: 2px 0 6px rgba(139, 106, 30, 0.22);
 }
 
+.ranking-item__segment--real-estate-share {
+  background: linear-gradient(90deg, #2f5d73 0%, #4f7f92 100%);
+  box-shadow: 2px 0 6px rgba(47, 93, 115, 0.22);
+}
+
+.ranking-item__segment--other-assets-share {
+  background: linear-gradient(90deg, #c8a35a 0%, #e4d2a5 100%);
+  box-shadow: 2px 0 6px rgba(200, 163, 90, 0.18);
+}
+
 /* 불참률 배지 */
 .ranking-item__absent-rate {
   display: inline-flex;

@@ -616,6 +616,14 @@ summary:focus-visible {
   background: linear-gradient(90deg, #8b6a1e 0%, #b4892b 100%);
 }
 
+.ranking-item__segment--real-estate-share {
+  background: linear-gradient(90deg, #2f5d73 0%, #4f7f92 100%);
+}
+
+.ranking-item__segment--other-assets-share {
+  background: linear-gradient(90deg, #c8a35a 0%, #e4d2a5 100%);
+}
+
 .ranking-item__meta {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -735,6 +743,10 @@ summary:focus-visible {
 
 .ranking-item__meta-item--asset-delta {
   color: var(--accent);
+}
+
+.ranking-item__meta-item--asset-share {
+  color: #2f5d73;
 }
 
 .ranking-item__meta-item--asset-date {

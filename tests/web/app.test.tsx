@@ -308,7 +308,7 @@ describe("web app", () => {
       fetchMock.mock.calls.some(([url]) =>
         String(url).includes("/exports/member_assets_history/")
       )
-    ).toBe(false);
+    ).toBe(true);
     const leaderboardHeading = screen.getByRole("heading", {
       name: "제22대 국회 의원 순위"
     });
@@ -327,24 +327,35 @@ describe("web app", () => {
     fireEvent.click(within(leaderboardPanel as HTMLElement).getByRole("tab", { name: "총재산" }));
     expect(
       within(leaderboardPanel as HTMLElement).getByText(
-        "최신 재산 공개 기준 총재산 순위를 보여 주고, 부동산 규모와 22대 누적 증감폭을 함께 봅니다."
+        "최신 재산 공개 기준 총재산 순위를 보여 주고, 그래프에는 공개된 플러스 자산 중 부동산 비중을 함께 반영합니다."
       )
     ).toBeInTheDocument();
     expect(
       within(leaderboardPanel as HTMLElement).getAllByText("8.2억원").length
     ).toBeGreaterThan(0);
-    expect(within(leaderboardPanel as HTMLElement).getByText("부동산 5.1억원")).toBeInTheDocument();
+    expect(
+      within(leaderboardPanel as HTMLElement).getByText(/부동산 5\.1억원 · 비중 67\.1%/)
+    ).toBeInTheDocument();
+    expect(within(leaderboardPanel as HTMLElement).getByText("67.1%")).toBeInTheDocument();
+    expect(
+      (leaderboardPanel as HTMLElement).querySelector(".ranking-item__segment--real-estate-share")
+    ).not.toBeNull();
+    expect(
+      (leaderboardPanel as HTMLElement).querySelector(".ranking-item__segment--other-assets-share")
+    ).not.toBeNull();
 
     fireEvent.click(within(leaderboardPanel as HTMLElement).getByRole("tab", { name: "부동산" }));
     expect(
       within(leaderboardPanel as HTMLElement).getByText(
-        "최신 재산 공개 기준 건물·토지 합계로 정렬하고, 총재산과 22대 누적 증감폭을 함께 비교합니다."
+        "최신 재산 공개 기준 건물·토지 합계로 정렬하고, 그래프에는 공개된 플러스 자산 중 부동산 비중을 함께 반영합니다."
       )
     ).toBeInTheDocument();
     expect(
       within(leaderboardPanel as HTMLElement).getAllByText("5.1억원").length
     ).toBeGreaterThan(0);
-    expect(within(leaderboardPanel as HTMLElement).getByText("총재산 8.2억원")).toBeInTheDocument();
+    expect(
+      within(leaderboardPanel as HTMLElement).getByText(/총재산 8\.2억원 · 비중 67\.1%/)
+    ).toBeInTheDocument();
   });
 
   it("fills home asset leaderboard real estate and photos from fallback sources when the asset index is legacy", async () => {
@@ -474,8 +485,11 @@ describe("web app", () => {
     });
 
     fireEvent.click(within(leaderboardPanel as HTMLElement).getByRole("tab", { name: "총재산" }));
-    expect(within(leaderboardPanel as HTMLElement).getByText("부동산 5.1억원")).toBeInTheDocument();
+    expect(
+      within(leaderboardPanel as HTMLElement).getByText(/부동산 5\.1억원 · 비중 67\.1%/)
+    ).toBeInTheDocument();
     expect(within(leaderboardPanel as HTMLElement).queryByText("준비 중")).not.toBeInTheDocument();
+    expect(within(leaderboardPanel as HTMLElement).getByText("67.1%")).toBeInTheDocument();
     expect(
       (leaderboardPanel as HTMLElement).querySelector(
         'img.member-identity__avatar[src="https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m001.jpg"]'
