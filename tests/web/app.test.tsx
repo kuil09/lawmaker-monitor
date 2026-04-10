@@ -597,10 +597,12 @@ describe("web app", () => {
     const assetCard = screen.getByLabelText("재산 공개 정보");
     expect((await within(assetCard).findAllByText("8.2억원")).length).toBeGreaterThan(0);
     expect(within(assetCard).getByText("22대 국회 재산 변동 흐름")).toBeInTheDocument();
-    const scopeBlock = within(assetCard).getByLabelText("공개 범위 비교");
-    expect(within(scopeBlock).getByText("가족 차이")).toBeInTheDocument();
-    expect(within(scopeBlock).getByText("0.6억원")).toBeInTheDocument();
-    expect(scopeBlock).toHaveTextContent("가족 명의 순재산이 총액에 더해졌습니다.");
+    const scopeSummary = within(assetCard).getByLabelText("공개 범위 비교");
+    expect(within(scopeSummary).getByText("가족 차이")).toBeInTheDocument();
+    expect(within(scopeSummary).getByText("0.6억원")).toBeInTheDocument();
+    expect(scopeSummary).toHaveTextContent("가족 명의 순재산이 총액에 더해졌습니다.");
+    const scopeControls = within(assetCard).getByLabelText("재산 표시 범위");
+    expect(within(scopeControls).getByText("아래 포커스와 그래프를 가족 포함 기준으로 봅니다")).toBeInTheDocument();
     const realEstateFocus = screen.getByText("부동산 포커스").closest(".activity-asset-focus");
     expect(realEstateFocus).not.toBeNull();
     expect(
@@ -612,7 +614,16 @@ describe("web app", () => {
     expect(within(realEstateFocus as HTMLElement).getByText("토지")).toBeInTheDocument();
     expect(within(realEstateFocus as HTMLElement).getAllByText("5.1억원").length).toBeGreaterThan(0);
     expect(within(realEstateFocus as HTMLElement).getAllByText("0억원").length).toBeGreaterThan(0);
-    fireEvent.click(within(scopeBlock).getByRole("button", { name: "본인만" }));
+    const chart = assetCard.querySelector(".activity-asset-chart");
+    expect(chart).not.toBeNull();
+    const assetCardChildren = Array.from(assetCard.children);
+    expect(assetCardChildren.indexOf(scopeSummary)).toBeLessThan(assetCardChildren.indexOf(scopeControls));
+    expect(assetCardChildren.indexOf(scopeControls)).toBeLessThan(
+      assetCardChildren.indexOf(realEstateFocus as HTMLElement)
+    );
+    expect(assetCardChildren.indexOf(scopeControls)).toBeLessThan(assetCardChildren.indexOf(chart as HTMLElement));
+    fireEvent.click(within(scopeControls).getByRole("button", { name: "본인만" }));
+    expect(within(scopeControls).getByText("아래 포커스와 그래프를 본인만 기준으로 봅니다")).toBeInTheDocument();
     expect((await within(assetCard).findAllByText("7.6억원")).length).toBeGreaterThan(0);
     expect(
       fetchMock.mock.calls.filter(([url]) =>

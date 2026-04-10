@@ -5,6 +5,8 @@ import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createLogNormalizer, getMetricModulatedColor } from "../../apps/web/src/lib/geo-utils.js";
+
 type MockStaticState = {
   sessionKey: string;
   snapshotId: string | null;
@@ -429,7 +431,7 @@ describe("HexmapPage", () => {
     });
   });
 
-  it("switches to the asset comparison metric and hides party legend for property view", async () => {
+  it("switches to the asset comparison metric and keeps party-separated colors and legend", async () => {
     const onChangeRoute = vi.fn();
 
     render(
@@ -459,6 +461,13 @@ describe("HexmapPage", () => {
 
     const nationalLayer = getLastLayer("h3-national-assetTotal");
     const firstCell = (nationalLayer?.props.data as Array<Record<string, unknown>>)[0];
+    const assetValues = (nationalLayer?.props.data as Array<{ metric: number; metricMemberCount: number }>).flatMap(
+      (cell) => (cell.metricMemberCount > 0 ? [cell.metric] : [])
+    );
+    const getFillColor = nationalLayer?.props.getFillColor as
+      | ((cell: Record<string, unknown>) => [number, number, number, number])
+      | undefined;
+    const normalizeAssetMetric = createLogNormalizer(assetValues);
 
     expect(firstCell).toMatchObject({
       districtKey: "부산남구",
@@ -466,9 +475,15 @@ describe("HexmapPage", () => {
       metricMemberCount: 1,
       memberIds: ["M002"]
     });
-    expect(screen.queryByLabelText("정당 범례")).not.toBeInTheDocument();
+    expect(getFillColor?.(firstCell)).toEqual(
+      getMetricModulatedColor("미래개혁당", normalizeAssetMetric(Number(firstCell?.metric ?? 0)))
+    );
+    expect(screen.getByLabelText("정당 범례")).toBeInTheDocument();
     expect(
-      screen.getByText(/재산 비교는 최신 공개 총재산 기준이며/)
+      screen.getByText("재산 비교에서도 색상은 정당별로 나뉘며, 같은 정당 안에서는 재산 규모가 클수록 더 진합니다.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/타일 색 hue는 셀 내 다수당을 따르며/)
     ).toBeInTheDocument();
     expect(onChangeRoute).toHaveBeenCalledWith({
       district: null,

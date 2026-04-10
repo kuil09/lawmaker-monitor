@@ -90,17 +90,6 @@ type VizConfig = {
   tooltipLabel: (cell: TooltipDatum) => string;
 };
 
-function getAssetMetricColor(normalizedValue: number): [number, number, number, number] {
-  const clamped = Math.max(0, Math.min(1, normalizedValue));
-
-  return [
-    Math.round(245 - clamped * 86),
-    Math.round(223 - clamped * 116),
-    Math.round(182 - clamped * 122),
-    224
-  ];
-}
-
 const VIZ_CONFIGS: VizConfig[] = [
   {
     key: "absence",
@@ -120,7 +109,7 @@ const VIZ_CONFIGS: VizConfig[] = [
     key: "assetTotal",
     label: "재산 비교",
     description:
-      "타일 색 진하기 = 최신 공개 총재산(로그 정규화). 재산 공개가 없는 지역구는 회색으로 두고, 공개된 총재산 규모를 전국 단위로 비교합니다.",
+      "타일 색 hue는 셀 내 다수당을 따르며, 같은 정당 안에서는 최신 공개 총재산이 클수록 더 진하게 보입니다. 재산 공개가 없는 지역구는 회색으로 둡니다.",
     tooltipLabel: (cell) => `최신 총재산 ${formatAssetEok(cell.metric)}`
   }
 ];
@@ -362,8 +351,6 @@ export function HexmapPage({
       if (cell.metricMemberCount === 0) {
         return UNMATCHED_CELL_COLOR;
       }
-
-      return getAssetMetricColor(normalizeMetric(cell.metric));
     }
 
     return getMetricModulatedColor(cell.party, normalizeMetric(cell.metric));
@@ -570,6 +557,10 @@ export function HexmapPage({
     Boolean(selectedDistrictKey || selectedProvinceFilter) &&
     detailCells.length === 0 &&
     (isLoading || !accountabilitySummary);
+  const partyLegendDescription =
+    activeMetric === "assetTotal"
+      ? "재산 비교에서도 색상은 정당별로 나뉘며, 같은 정당 안에서는 재산 규모가 클수록 더 진합니다."
+      : "색상은 정당별로 구분되며, 같은 정당 안에서는 값이 높을수록 더 진합니다.";
 
   function renderTooltipContent(info: TooltipInfo, hint: string | null) {
     const { datum: cell } = info;
@@ -584,9 +575,7 @@ export function HexmapPage({
         {cell.memberCount > 0 ? (
           <>
             <div className="hexmap-tooltip__member">
-              {!isAssetMetric ? (
-                <span className="hexmap-tooltip__party-dot" style={dotStyle} aria-hidden="true" />
-              ) : null}
+              <span className="hexmap-tooltip__party-dot" style={dotStyle} aria-hidden="true" />
               <span className="hexmap-tooltip__name">
                 {cell.memberCount === 1
                   ? cell.memberNames[0]
@@ -659,9 +648,12 @@ export function HexmapPage({
       ) : null}
 
       <section className="hexmap-section hexmap-section--national">
-        {activeMetric !== "assetTotal" && partiesPresent.length > 0 && (
+        {partiesPresent.length > 0 && (
           <div className="hexmap-party-legend" aria-label="정당 범례">
-            <span className="hexmap-party-legend__heading">정당</span>
+            <div className="hexmap-party-legend__copy">
+              <span className="hexmap-party-legend__heading">정당</span>
+              <span className="hexmap-party-legend__description">{partyLegendDescription}</span>
+            </div>
             {partiesPresent.map(({ party, color: [red, green, blue] }) => (
               <span key={party} className="hexmap-party-legend__item">
                 <span

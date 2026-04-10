@@ -1178,30 +1178,6 @@ function MemberAssetSection({
               <p className="section-label">공개 범위 비교</p>
               <h4>가족 포함과 본인만 기준을 함께 봅니다</h4>
             </div>
-            <div className="activity-asset-toggle-group" aria-label="재산 공개 범위">
-              <button
-                type="button"
-                className={
-                  assetScopeMode === "familyIncluded"
-                    ? "activity-asset-toggle is-active"
-                    : "activity-asset-toggle"
-                }
-                onClick={() => setAssetScopeMode("familyIncluded")}
-              >
-                가족 포함
-              </button>
-              <button
-                type="button"
-                className={
-                  assetScopeMode === "selfOnly"
-                    ? "activity-asset-toggle is-active"
-                    : "activity-asset-toggle"
-                }
-                onClick={() => setAssetScopeMode("selfOnly")}
-              >
-                본인만
-              </button>
-            </div>
           </div>
 
           <dl className="activity-asset-scope__summary">
@@ -1225,6 +1201,40 @@ function MemberAssetSection({
             {describeFamilyGap(familyGapLatest ?? 0)} 괴리가 클수록 가족 명의 자산·채무가 총액을 더 크게
             바꾸므로 추가 확인 포인트가 됩니다.
           </p>
+        </div>
+      ) : null}
+
+      {history?.selfOnly ? (
+        <div className="activity-asset-visual-scope" aria-label="재산 표시 범위">
+          <div className="activity-asset-visual-scope__copy">
+            <p className="section-label">표시 기준</p>
+            <h4>아래 포커스와 그래프를 {activeScopeLabel} 기준으로 봅니다</h4>
+            <p>선택이 최신 총재산, 부동산 포커스, 카테고리 추이에 함께 반영됩니다.</p>
+          </div>
+          <div className="activity-asset-toggle-group" aria-label="재산 공개 범위">
+            <button
+              type="button"
+              className={
+                assetScopeMode === "familyIncluded"
+                  ? "activity-asset-toggle is-active"
+                  : "activity-asset-toggle"
+              }
+              onClick={() => setAssetScopeMode("familyIncluded")}
+            >
+              가족 포함
+            </button>
+            <button
+              type="button"
+              className={
+                assetScopeMode === "selfOnly"
+                  ? "activity-asset-toggle is-active"
+                  : "activity-asset-toggle"
+              }
+              onClick={() => setAssetScopeMode("selfOnly")}
+            >
+              본인만
+            </button>
+          </div>
         </div>
       ) : null}
 
