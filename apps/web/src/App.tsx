@@ -49,6 +49,7 @@ import {
 import { formatDateTime, formatNumber } from "./lib/format.js";
 import { scheduleHexmapPrewarm } from "./lib/hexmap-static-loader.js";
 import {
+  applyMemberAssetsIndexRealEstateFallbacks,
   buildLatestAssetAllocationSummary,
   getLatestRealEstateTotalFromHistory
 } from "./lib/member-assets.js";
@@ -426,7 +427,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (routeState.route !== "home" || !memberAssetsIndex) {
+    const shouldBackfillMissingRealEstate =
+      routeState.route === "home" ||
+      (routeState.route === "map" && routeState.mapMetric === "realEstate");
+
+    if (!shouldBackfillMissingRealEstate || !memberAssetsIndex) {
       return;
     }
 
@@ -459,7 +464,12 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [routeState.route, memberAssetsIndex, ensureMemberAssetHistoryLoadedByIndexEntry]);
+  }, [
+    routeState.route,
+    routeState.mapMetric,
+    memberAssetsIndex,
+    ensureMemberAssetHistoryLoadedByIndexEntry
+  ]);
 
   const ensureActivityMemberDetailLoaded = useCallback(async (
     member: MemberActivityCalendarMember,
@@ -628,6 +638,10 @@ export default function App() {
     accountabilitySummary && activityCalendar
       ? buildDistributionMembers(accountabilitySummary, activityCalendar)
       : [];
+  const mapMemberAssetsIndex = applyMemberAssetsIndexRealEstateFallbacks(
+    memberAssetsIndex,
+    memberAssetHistories
+  );
   const leaderboardAssetItems = (memberAssetsIndex?.members ?? []).map((item) => {
     const accountabilityItem = accountabilityItemsByMemberId.get(item.memberId);
 
@@ -847,7 +861,7 @@ export default function App() {
           <HexmapPage
             manifest={manifest}
             accountabilitySummary={accountabilitySummary}
-            memberAssetsIndex={memberAssetsIndex}
+            memberAssetsIndex={mapMemberAssetsIndex}
             memberAssetsIndexError={memberAssetsIndexError}
             assemblyLabel={currentAssemblyLabel}
             initialProvince={routeState.mapProvince}

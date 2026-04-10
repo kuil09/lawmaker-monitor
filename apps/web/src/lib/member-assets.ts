@@ -1,4 +1,7 @@
-import type { MemberAssetsHistoryExport } from "@lawmaker-monitor/schemas";
+import type {
+  MemberAssetsHistoryExport,
+  MemberAssetsIndexExport
+} from "@lawmaker-monitor/schemas";
 
 export const explicitRealEstateCategoryLabels = ["건물", "토지"] as const;
 export const mixedAssetCategoryLabels = [
@@ -146,5 +149,43 @@ export function buildLatestAssetAllocationSummary(
     realEstateAmount: normalizedRealEstateAmount,
     otherAssetAmount,
     realEstateShare: normalizedRealEstateAmount / positiveAssetTotal
+  };
+}
+
+export function applyMemberAssetsIndexRealEstateFallbacks(
+  index: MemberAssetsIndexExport | null,
+  histories: Record<string, MemberAssetsHistoryExport | undefined>
+): MemberAssetsIndexExport | null {
+  if (!index) {
+    return null;
+  }
+
+  let hasChanges = false;
+  const members = index.members.map((entry) => {
+    if (entry.latestRealEstateTotal != null) {
+      return entry;
+    }
+
+    const fallbackRealEstateTotal = getLatestRealEstateTotalFromHistory(
+      histories[entry.memberId] ?? null
+    );
+    if (fallbackRealEstateTotal == null) {
+      return entry;
+    }
+
+    hasChanges = true;
+    return {
+      ...entry,
+      latestRealEstateTotal: fallbackRealEstateTotal
+    };
+  });
+
+  if (!hasChanges) {
+    return index;
+  }
+
+  return {
+    ...index,
+    members
   };
 }

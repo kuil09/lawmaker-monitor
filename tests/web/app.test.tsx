@@ -48,6 +48,50 @@ vi.mock("../../apps/web/src/lib/hexmap-static-loader.js", () => ({
   subscribeHexmapStaticState: hexmapLoaderMocks.subscribeHexmapStaticStateMock
 }));
 
+vi.mock("@deck.gl/core", () => ({
+  WebMercatorViewport: class {
+    fitBounds() {
+      return { longitude: 128.6, latitude: 35.15, zoom: 8.25 };
+    }
+  }
+}));
+
+vi.mock("@deck.gl/geo-layers", () => ({
+  H3HexagonLayer: class {
+    id: string;
+    props: Record<string, unknown>;
+
+    constructor(props: Record<string, unknown>) {
+      this.id = String(props.id);
+      this.props = props;
+    }
+  }
+}));
+
+vi.mock("@deck.gl/layers", () => ({
+  GeoJsonLayer: class {
+    id: string;
+    props: Record<string, unknown>;
+
+    constructor(props: Record<string, unknown>) {
+      this.id = String(props.id);
+      this.props = props;
+    }
+  }
+}));
+
+vi.mock("@deck.gl/react", () => ({
+  default: function DeckGL(props: { children?: React.ReactNode }) {
+    return React.createElement("div", null, props.children);
+  }
+}));
+
+vi.mock("react-map-gl/maplibre", () => ({
+  Map: function MockMap() {
+    return React.createElement("div", { "data-testid": "mock-map" });
+  }
+}));
+
 import App from "../../apps/web/src/App.js";
 
 const fixturesDir = resolve(process.cwd(), "tests/fixtures/contracts");
@@ -500,6 +544,104 @@ describe("web app", () => {
         String(url).includes("/exports/member_assets_history/")
       )
     ).toHaveLength(2);
+  });
+
+  it("loads member asset history on the real-estate map when the asset index is legacy", async () => {
+    const legacyAssetIndexFixture = structuredClone(memberAssetsIndexFixture);
+    for (const member of legacyAssetIndexFixture.members) {
+      delete member.latestRealEstateTotal;
+    }
+
+    window.location.hash = "#map?metric=realEstate";
+    fetchMock.mockImplementation((input: string | URL | Request) => {
+      const url = String(input);
+      const decodedUrl = decodeURIComponent(url);
+
+      if (decodedUrl.endsWith("/exports/latest_votes.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(latestVotesFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/accountability_summary.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(accountabilitySummaryFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/accountability_trends.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(accountabilityTrendsFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/member_activity_calendar.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(memberActivityCalendarFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/member_assets_index.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(legacyAssetIndexFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/member_assets_history/M001.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(memberAssetsHistoryFixtures.M001), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/member_assets_history/M002.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(memberAssetsHistoryFixtures.M002), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/manifests/latest.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(manifestFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      return Promise.resolve(new Response("not found", { status: 404 }));
+    });
+
+    render(<App />);
+
+    await screen.findByRole("tab", { name: "부동산" });
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.filter(([url]) =>
+          String(url).includes("/exports/member_assets_history/")
+        )
+      ).toHaveLength(2);
+    });
   });
 
   it("navigates from the home route to the distribution route", async () => {
