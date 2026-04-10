@@ -100,3 +100,10 @@ export function buildRealEstateFocusSummary(
     deltaAmount: latestAmount - firstAmount
   };
 }
+
+export function getLatestRealEstateTotalFromHistory(
+  history: MemberAssetsHistoryExport | null,
+  scopeMode: AssetScopeMode = "familyIncluded"
+): number | null {
+  return buildRealEstateFocusSummary(resolveAssetHistorySnapshot(history, scopeMode))?.latestAmount ?? null;
+}

@@ -347,6 +347,147 @@ describe("web app", () => {
     expect(within(leaderboardPanel as HTMLElement).getByText("총재산 8.2억원")).toBeInTheDocument();
   });
 
+  it("fills home asset leaderboard real estate and photos from fallback sources when the asset index is legacy", async () => {
+    const legacyAssetIndexFixture = structuredClone(memberAssetsIndexFixture);
+    for (const member of legacyAssetIndexFixture.members) {
+      delete member.latestRealEstateTotal;
+      delete member.photoUrl;
+      delete member.officialProfileUrl;
+      delete member.officialExternalUrl;
+    }
+
+    fetchMock.mockImplementation((input: string | URL | Request) => {
+      const url = String(input);
+      const decodedUrl = decodeURIComponent(url);
+
+      if (decodedUrl.endsWith("/exports/latest_votes.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(latestVotesFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/accountability_summary.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(accountabilitySummaryFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/accountability_trends.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(accountabilityTrendsFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/member_activity_calendar.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(memberActivityCalendarFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/member_assets_index.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(legacyAssetIndexFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/member_assets_history/M001.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(memberAssetsHistoryFixtures.M001), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/member_assets_history/M002.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(memberAssetsHistoryFixtures.M002), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/manifests/latest.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(manifestFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/constituency_boundaries/index.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(constituencyBoundariesIndexFixture), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/constituency_boundaries/provinces/부산.topo.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(constituencyProvinceFixtures["부산"]), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      if (decodedUrl.endsWith("/exports/constituency_boundaries/provinces/서울.topo.json")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(constituencyProvinceFixtures["서울"]), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        );
+      }
+
+      return Promise.resolve(new Response("not found", { status: 404 }));
+    });
+
+    render(<App />);
+
+    const leaderboardPanel = (await screen.findByRole("heading", {
+      name: "제22대 국회 의원 순위"
+    })).closest(".leaderboard-panel");
+    expect(leaderboardPanel).not.toBeNull();
+
+    await waitFor(() => {
+      expect(within(leaderboardPanel as HTMLElement).getByRole("tab", { name: "부동산" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(within(leaderboardPanel as HTMLElement).getByRole("tab", { name: "총재산" }));
+    expect(within(leaderboardPanel as HTMLElement).getByText("부동산 5.1억원")).toBeInTheDocument();
+    expect(within(leaderboardPanel as HTMLElement).queryByText("준비 중")).not.toBeInTheDocument();
+    expect(
+      (leaderboardPanel as HTMLElement).querySelector(
+        'img.member-identity__avatar[src="https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m001.jpg"]'
+      )
+    ).not.toBeNull();
+    expect(
+      fetchMock.mock.calls.filter(([url]) =>
+        String(url).includes("/exports/member_assets_history/")
+      )
+    ).toHaveLength(2);
+  });
+
   it("navigates from the home route to the distribution route", async () => {
     render(<App />);
 

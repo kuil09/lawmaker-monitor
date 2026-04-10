@@ -48,6 +48,7 @@ import {
 } from "./lib/data.js";
 import { formatDateTime, formatNumber } from "./lib/format.js";
 import { scheduleHexmapPrewarm } from "./lib/hexmap-static-loader.js";
+import { getLatestRealEstateTotalFromHistory } from "./lib/member-assets.js";
 import { getMemberAttendanceSummary } from "./lib/member-activity.js";
 
 type AppRoute = "home" | "calendar" | "distribution" | "votes" | "trends" | "map";
@@ -359,6 +360,104 @@ export default function App() {
       });
   }, [routeState.route, manifest, memberAssetsIndex, memberAssetsIndexError]);
 
+  const ensureMemberAssetHistoryLoadedByIndexEntry = useCallback(async (
+    indexEntry: NonNullable<MemberAssetsIndexExport>["members"][number],
+    force = false
+  ): Promise<void> => {
+    const pendingRequest = memberAssetHistoryRequestsRef.current[indexEntry.memberId];
+    if (pendingRequest) {
+      await pendingRequest;
+      return;
+    }
+
+    if (
+      !force &&
+      (
+        memberAssetHistoriesRef.current[indexEntry.memberId] ||
+        memberAssetHistoryLoadingRef.current[indexEntry.memberId]
+      )
+    ) {
+      return;
+    }
+
+    const request = (async () => {
+      setMemberAssetHistoryLoading((current) => ({
+        ...current,
+        [indexEntry.memberId]: true
+      }));
+      setMemberAssetHistoryErrors((current) => ({
+        ...current,
+        [indexEntry.memberId]: null
+      }));
+
+      try {
+        const payload = await loadMemberAssetsHistory(indexEntry.historyPath);
+        if (!payload) {
+          setMemberAssetHistoryErrors((current) => ({
+            ...current,
+            [indexEntry.memberId]: "재산 공개 이력이 아직 발행되지 않았습니다."
+          }));
+          return;
+        }
+
+        setMemberAssetHistories((current) => ({
+          ...current,
+          [indexEntry.memberId]: payload
+        }));
+      } catch (error) {
+        setMemberAssetHistoryErrors((current) => ({
+          ...current,
+          [indexEntry.memberId]: `재산 공개 이력을 불러오지 못했습니다. ${(error as Error).message}`
+        }));
+      } finally {
+        delete memberAssetHistoryRequestsRef.current[indexEntry.memberId];
+        setMemberAssetHistoryLoading((current) => ({
+          ...current,
+          [indexEntry.memberId]: false
+        }));
+      }
+    })();
+
+    memberAssetHistoryRequestsRef.current[indexEntry.memberId] = request;
+    await request;
+  }, []);
+
+  useEffect(() => {
+    if (routeState.route !== "home" || !memberAssetsIndex) {
+      return;
+    }
+
+    const missingRealEstateEntries = memberAssetsIndex.members.filter(
+      (entry) =>
+        entry.latestRealEstateTotal == null &&
+        !memberAssetHistoriesRef.current[entry.memberId] &&
+        !memberAssetHistoryLoadingRef.current[entry.memberId]
+    );
+
+    if (missingRealEstateEntries.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      const batchSize = 6;
+
+      for (let start = 0; start < missingRealEstateEntries.length; start += batchSize) {
+        if (cancelled) {
+          return;
+        }
+
+        const batch = missingRealEstateEntries.slice(start, start + batchSize);
+        await Promise.all(batch.map((entry) => ensureMemberAssetHistoryLoadedByIndexEntry(entry)));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [routeState.route, memberAssetsIndex, ensureMemberAssetHistoryLoadedByIndexEntry]);
+
   const ensureActivityMemberDetailLoaded = useCallback(async (
     member: MemberActivityCalendarMember,
     force = false
@@ -461,64 +560,8 @@ export default function App() {
     if (!indexEntry) {
       return;
     }
-
-    const pendingRequest = memberAssetHistoryRequestsRef.current[member.memberId];
-    if (pendingRequest) {
-      await pendingRequest;
-      return;
-    }
-
-    if (
-      !force &&
-      (
-        memberAssetHistoriesRef.current[member.memberId] ||
-        memberAssetHistoryLoadingRef.current[member.memberId]
-      )
-    ) {
-      return;
-    }
-
-    const request = (async () => {
-      setMemberAssetHistoryLoading((current) => ({
-        ...current,
-        [member.memberId]: true
-      }));
-      setMemberAssetHistoryErrors((current) => ({
-        ...current,
-        [member.memberId]: null
-      }));
-
-      try {
-        const payload = await loadMemberAssetsHistory(indexEntry.historyPath);
-        if (!payload) {
-          setMemberAssetHistoryErrors((current) => ({
-            ...current,
-            [member.memberId]: "재산 공개 이력이 아직 발행되지 않았습니다."
-          }));
-          return;
-        }
-
-        setMemberAssetHistories((current) => ({
-          ...current,
-          [member.memberId]: payload
-        }));
-      } catch (error) {
-        setMemberAssetHistoryErrors((current) => ({
-          ...current,
-          [member.memberId]: `재산 공개 이력을 불러오지 못했습니다. ${(error as Error).message}`
-        }));
-      } finally {
-        delete memberAssetHistoryRequestsRef.current[member.memberId];
-        setMemberAssetHistoryLoading((current) => ({
-          ...current,
-          [member.memberId]: false
-        }));
-      }
-    })();
-
-    memberAssetHistoryRequestsRef.current[member.memberId] = request;
-    await request;
-  }, []);
+    await ensureMemberAssetHistoryLoadedByIndexEntry(indexEntry, force);
+  }, [ensureMemberAssetHistoryLoadedByIndexEntry]);
 
   const retryMemberAssetHistory = useCallback((member: MemberActivityCalendarMember): void => {
     setMemberAssetHistories((current) => {
@@ -569,6 +612,9 @@ export default function App() {
   const combinedRankingItems = accountabilitySummary
     ? rankAccountabilityItems(accountabilitySummary.items, "combined")
     : [];
+  const accountabilityItemsByMemberId = new Map(
+    (accountabilitySummary?.items ?? []).map((item) => [item.memberId, item])
+  );
   const leaderboardAttendanceByMemberId = new Map(
     (activityCalendar?.assembly.members ?? []).map((member) => [
       member.memberId,
@@ -579,6 +625,19 @@ export default function App() {
     accountabilitySummary && activityCalendar
       ? buildDistributionMembers(accountabilitySummary, activityCalendar)
       : [];
+  const leaderboardAssetItems = (memberAssetsIndex?.members ?? []).map((item) => {
+    const accountabilityItem = accountabilityItemsByMemberId.get(item.memberId);
+
+    return {
+      ...item,
+      photoUrl: item.photoUrl ?? accountabilityItem?.photoUrl ?? null,
+      officialProfileUrl: item.officialProfileUrl ?? accountabilityItem?.officialProfileUrl ?? null,
+      officialExternalUrl: item.officialExternalUrl ?? accountabilityItem?.officialExternalUrl ?? null,
+      latestRealEstateTotal:
+        item.latestRealEstateTotal ??
+        (getLatestRealEstateTotalFromHistory(memberAssetHistories[item.memberId] ?? null) ?? undefined)
+    };
+  });
   const homeBehaviorSummaries = buildDistributionBehaviorSummaries(distributionMembers);
   const homeSearchOptions = combinedRankingItems.map((item) => ({
     id: item.memberId,
@@ -851,7 +910,7 @@ export default function App() {
             items={accountabilitySummary.items}
             assemblyLabel={currentAssemblyLabel}
             attendanceByMemberId={leaderboardAttendanceByMemberId}
-            assetItems={memberAssetsIndex?.members}
+            assetItems={leaderboardAssetItems}
           />
         ) : (
           <section className="leaderboard-panel">
