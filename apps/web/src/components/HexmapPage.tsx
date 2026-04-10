@@ -709,6 +709,12 @@ export function HexmapPage({
     }
   }, [detailCells, selectedDetailMemberId]);
 
+  useEffect(() => {
+    if (selectedDetailMemberOverlay) {
+      setDetailTooltip(null);
+    }
+  }, [selectedDetailMemberOverlay]);
+
   function renderTooltipContent(info: TooltipInfo, hint: string | null) {
     const { datum: cell } = info;
     const [red, green, blue] =
@@ -977,7 +983,7 @@ export function HexmapPage({
             </DeckGL>
           )}
 
-          {detailTooltip && detailCells.length > 0 && (
+          {!selectedDetailMemberOverlay && detailTooltip && detailCells.length > 0 && (
             renderTooltipContent(detailTooltip, "클릭 → 캘린더 바로가기")
           )}
 

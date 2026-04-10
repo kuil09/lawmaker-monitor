@@ -407,6 +407,8 @@ describe("HexmapPage", () => {
     });
     expect(screen.getByText("박민")).toBeInTheDocument();
     expect(screen.getByText("부산 남구")).toBeInTheDocument();
+    expect(screen.queryByText("클릭 → 캘린더 바로가기")).not.toBeInTheDocument();
+    expect(document.querySelectorAll(".hexmap-tooltip")).toHaveLength(1);
     expect(
       screen.getByRole("button", { name: "활동 캘린더 보기" }).closest(".hexmap-tooltip")
     ).not.toBeNull();
