@@ -383,6 +383,11 @@ describe("HexmapPage", () => {
     expect(
       screen.getByText("상세 지도에서 헥사곤을 클릭하면 의원 요약 카드가 나타납니다.")
     ).toBeInTheDocument();
+    expect(
+      screen
+        .getByText("상세 지도에서 헥사곤을 클릭하면 의원 요약 카드가 나타납니다.")
+        .closest(".hexmap-map-container")
+    ).not.toBeNull();
 
     const detailLayer = getLastLayer("h3-panel-negative-부산");
     const detailDeck = getLastDeckProps("detail");
@@ -402,6 +407,9 @@ describe("HexmapPage", () => {
     });
     expect(screen.getByText("박민")).toBeInTheDocument();
     expect(screen.getByText("부산 남구")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "활동 캘린더 보기" }).closest(".hexmap-map-container")
+    ).not.toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "활동 캘린더 보기" }));
     expect(onNavigateToMember).toHaveBeenCalledWith("M002");

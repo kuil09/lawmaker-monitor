@@ -317,12 +317,14 @@
 
 .hexmap-detail-member,
 .hexmap-detail-member-placeholder {
-  margin-bottom: 14px;
+  position: absolute;
+  z-index: 3;
   padding: 16px 18px;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: var(--surface-strong);
-  box-shadow: var(--shadow-soft);
+  background: color-mix(in srgb, var(--surface-strong) 94%, white);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(14px);
 }
 
 .hexmap-detail-member__header {
@@ -355,6 +357,14 @@
   color: var(--ink);
 }
 
+.hexmap-detail-member {
+  top: 16px;
+  left: 16px;
+  width: min(380px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  overflow: auto;
+}
+
 .hexmap-detail-member__note,
 .hexmap-detail-member-placeholder {
   font-size: 0.8125rem;
@@ -364,6 +374,14 @@
 
 .hexmap-detail-member__note {
   margin: 0 0 14px;
+}
+
+.hexmap-detail-member-placeholder {
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  max-width: 420px;
+  pointer-events: none;
 }
 
 .hexmap-detail-member__metrics {
@@ -413,6 +431,23 @@
   .hexmap-detail-reset,
   .hexmap-detail-member__action {
     width: 100%;
+  }
+
+  .hexmap-detail-member,
+  .hexmap-detail-member-placeholder {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+  }
+
+  .hexmap-detail-member {
+    top: 12px;
+    max-height: calc(100% - 24px);
+  }
+
+  .hexmap-detail-member-placeholder {
+    bottom: 12px;
   }
 
   .hexmap-detail-member__metrics {

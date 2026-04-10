@@ -924,50 +924,6 @@ export function HexmapPage({
           </div>
         )}
 
-        {detailCells.length > 0 && !isFilterPending ? (
-          selectedDetailMember ? (
-            <aside className="hexmap-detail-member" aria-label="선택 의원 요약">
-              <div className="hexmap-detail-member__header">
-                <div>
-                  <p className="section-label">선택 의원</p>
-                  <MemberIdentity
-                    name={selectedDetailMember.name}
-                    party={selectedDetailMember.party}
-                    photoUrl={selectedDetailMember.photoUrl}
-                    size="large"
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="hexmap-detail-member__action"
-                  onClick={() => onNavigateToMember(selectedDetailMember.memberId)}
-                >
-                  활동 캘린더 보기
-                </button>
-              </div>
-              <p className="hexmap-detail-member__district">
-                {selectedDetailMember.district ?? "지역 정보 없음"}
-              </p>
-              <p className="hexmap-detail-member__note">
-                {`${detailPanelLabel ?? "선택 지역"} 안에서 고른 지역구 기준으로 요약했습니다.`}
-              </p>
-              <div className="hexmap-detail-member__metrics">
-                {selectedDetailMemberMetricCards.map((metricCard) => (
-                  <article key={metricCard.key} className="hexmap-detail-member__metric">
-                    <span>{metricCard.label}</span>
-                    <strong>{metricCard.value}</strong>
-                    <small>{metricCard.note}</small>
-                  </article>
-                ))}
-              </div>
-            </aside>
-          ) : (
-            <div className="hexmap-detail-member-placeholder" role="status" aria-live="polite">
-              상세 지도에서 헥사곤을 클릭하면 의원 요약 카드가 나타납니다.
-            </div>
-          )
-        ) : null}
-
         <div className="hexmap-map-container">
           {!selectedDistrictKey && !selectedProvinceFilter ? (
             <div className="hexmap-state">
@@ -1002,6 +958,50 @@ export function HexmapPage({
           {detailTooltip && detailCells.length > 0 && (
             renderTooltipContent(detailTooltip, "클릭 → 의원 요약 카드")
           )}
+
+          {detailCells.length > 0 && !isFilterPending ? (
+            selectedDetailMember ? (
+              <aside className="hexmap-detail-member" aria-label="선택 의원 요약">
+                <div className="hexmap-detail-member__header">
+                  <div>
+                    <p className="section-label">선택 의원</p>
+                    <MemberIdentity
+                      name={selectedDetailMember.name}
+                      party={selectedDetailMember.party}
+                      photoUrl={selectedDetailMember.photoUrl}
+                      size="large"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="hexmap-detail-member__action"
+                    onClick={() => onNavigateToMember(selectedDetailMember.memberId)}
+                  >
+                    활동 캘린더 보기
+                  </button>
+                </div>
+                <p className="hexmap-detail-member__district">
+                  {selectedDetailMember.district ?? "지역 정보 없음"}
+                </p>
+                <p className="hexmap-detail-member__note">
+                  {`${detailPanelLabel ?? "선택 지역"} 안에서 고른 지역구 기준으로 요약했습니다.`}
+                </p>
+                <div className="hexmap-detail-member__metrics">
+                  {selectedDetailMemberMetricCards.map((metricCard) => (
+                    <article key={metricCard.key} className="hexmap-detail-member__metric">
+                      <span>{metricCard.label}</span>
+                      <strong>{metricCard.value}</strong>
+                      <small>{metricCard.note}</small>
+                    </article>
+                  ))}
+                </div>
+              </aside>
+            ) : (
+              <div className="hexmap-detail-member-placeholder" role="status" aria-live="polite">
+                상세 지도에서 헥사곤을 클릭하면 의원 요약 카드가 나타납니다.
+              </div>
+            )
+          ) : null}
         </div>
       </section>
     </div>
