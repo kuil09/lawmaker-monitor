@@ -318,7 +318,7 @@ describe("HexmapPage", () => {
       metric: "absence"
     });
     expect(
-      screen.getByText("부산 전체 지역구를 보여줍니다. 헥사곤을 클릭하면 해당 의원의 요약 카드가 열립니다.")
+      screen.getByText("부산 전체 지역구를 보여줍니다. 헥사곤을 클릭하면 작은 의원 오버레이와 활동 캘린더 바로가기가 열립니다.")
     ).toBeInTheDocument();
   });
 
@@ -378,21 +378,21 @@ describe("HexmapPage", () => {
 
     expect(screen.queryByText(/셀 높이/)).not.toBeInTheDocument();
     expect(
-      screen.getByText("부산 전체 지역구를 보여줍니다. 헥사곤을 클릭하면 해당 의원의 요약 카드가 열립니다.")
+      screen.getByText("부산 전체 지역구를 보여줍니다. 헥사곤을 클릭하면 작은 의원 오버레이와 활동 캘린더 바로가기가 열립니다.")
     ).toBeInTheDocument();
     expect(
-      screen.getByText("상세 지도에서 헥사곤을 클릭하면 의원 요약 카드가 나타납니다.")
+      screen.getByText("상세 지도에서 헥사곤을 클릭하면 작은 오버레이와 활동 캘린더 바로가기가 나타납니다.")
     ).toBeInTheDocument();
     expect(
       screen
-        .getByText("상세 지도에서 헥사곤을 클릭하면 의원 요약 카드가 나타납니다.")
+        .getByText("상세 지도에서 헥사곤을 클릭하면 작은 오버레이와 활동 캘린더 바로가기가 나타납니다.")
         .closest(".hexmap-map-container")
     ).not.toBeNull();
 
     const detailLayer = getLastLayer("h3-panel-negative-부산");
     const detailDeck = getLastDeckProps("detail");
     const onClick = detailLayer?.props.onClick as
-      | ((info: { object?: Record<string, unknown> }) => void)
+      | ((info: { object?: Record<string, unknown>; x?: number; y?: number }) => void)
       | undefined;
     const firstCell = (detailLayer?.props.data as Array<Record<string, unknown>>)[0];
 
@@ -400,7 +400,7 @@ describe("HexmapPage", () => {
     expect(detailLayer?.props).not.toHaveProperty("getElevation");
     expect(detailDeck?.viewState).toMatchObject({ pitch: 0 });
 
-    onClick?.({ object: firstCell });
+    onClick?.({ object: firstCell, x: 120, y: 140 });
     expect(onNavigateToMember).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "활동 캘린더 보기" })).toBeInTheDocument();
@@ -408,7 +408,7 @@ describe("HexmapPage", () => {
     expect(screen.getByText("박민")).toBeInTheDocument();
     expect(screen.getByText("부산 남구")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "활동 캘린더 보기" }).closest(".hexmap-map-container")
+      screen.getByRole("button", { name: "활동 캘린더 보기" }).closest(".hexmap-tooltip")
     ).not.toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "활동 캘린더 보기" }));

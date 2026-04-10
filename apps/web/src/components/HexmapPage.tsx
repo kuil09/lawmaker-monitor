@@ -11,7 +11,6 @@ import type {
   MemberAssetsIndexExport
 } from "@lawmaker-monitor/schemas";
 
-import { MemberIdentity } from "./MemberIdentity.js";
 import { normalizeConstituencyLookupKey } from "../lib/constituency-map.js";
 import { formatAssetEok, formatPercent } from "../lib/format.js";
 import {
@@ -84,20 +83,24 @@ type TooltipInfo = {
   datum: TooltipDatum;
 };
 
+type DetailMemberOverlay = {
+  memberId: string;
+  x: number;
+  y: number;
+};
+
 type DetailMemberSummary = {
   memberId: string;
   name: string;
   party: string;
   district: string | null;
-  photoUrl: string | null;
   absentRate: number;
   negativeRate: number;
   realEstateTotal: number | null;
   assetTotal: number | null;
 };
 
-type DetailMemberMetricCard = {
-  key: string;
+type DetailMemberMetricSummary = {
   label: string;
   value: string;
   note: string;
@@ -122,48 +125,39 @@ function formatOptionalAssetMetric(value: number | null): string {
   return value != null ? formatAssetEok(value) : "공개 데이터 없음";
 }
 
-function buildDetailMemberMetricCards(
+function buildDetailMemberPrimaryMetric(
   member: DetailMemberSummary,
   metric: MapMetric
-): DetailMemberMetricCard[] {
-  const absenceMetric = {
-    key: "absence",
-    label: "결석률",
-    value: formatPercent(member.absentRate),
-    note: "공개 기록표결 기준"
-  };
-  const negativeMetric = {
-    key: "negative",
-    label: "반대·기권율",
-    value: formatPercent(member.negativeRate),
-    note: "반대 + 기권 합계"
-  };
-  const realEstateMetric = {
-    key: "real-estate",
-    label: "최신 부동산",
-    value: formatOptionalAssetMetric(member.realEstateTotal),
-    note: "건물·토지 합계"
-  };
-  const assetTotalMetric = {
-    key: "asset-total",
+): DetailMemberMetricSummary {
+  if (metric === "absence") {
+    return {
+      label: "결석률",
+      value: formatPercent(member.absentRate),
+      note: "공개 기록표결 기준"
+    };
+  }
+
+  if (metric === "negative") {
+    return {
+      label: "반대·기권율",
+      value: formatPercent(member.negativeRate),
+      note: "반대 + 기권 합계"
+    };
+  }
+
+  if (metric === "realEstate") {
+    return {
+      label: "최신 부동산",
+      value: formatOptionalAssetMetric(member.realEstateTotal),
+      note: "건물·토지 합계"
+    };
+  }
+
+  return {
     label: "최신 총재산",
     value: formatOptionalAssetMetric(member.assetTotal),
     note: "최근 공개 기준"
   };
-
-  if (metric === "absence") {
-    return [absenceMetric, negativeMetric, assetTotalMetric];
-  }
-
-  if (metric === "negative") {
-    return [negativeMetric, absenceMetric, assetTotalMetric];
-  }
-
-  if (metric === "realEstate") {
-    return [realEstateMetric, assetTotalMetric, absenceMetric];
-  }
-
-  return [assetTotalMetric, realEstateMetric, absenceMetric];
 }
 
 const VIZ_CONFIGS: VizConfig[] = [
@@ -232,7 +226,9 @@ export function HexmapPage({
   const [staticState, setStaticState] = useState(() => getHexmapStaticState(manifest));
   const [nationalTooltip, setNationalTooltip] = useState<TooltipInfo | null>(null);
   const [detailTooltip, setDetailTooltip] = useState<TooltipInfo | null>(null);
-  const [selectedDetailMemberId, setSelectedDetailMemberId] = useState<string | null>(null);
+  const [selectedDetailMemberOverlay, setSelectedDetailMemberOverlay] = useState<DetailMemberOverlay | null>(
+    null
+  );
   const [nationalViewState, setNationalViewState] = useState(INITIAL_VIEW_STATE);
   const [detailViewState, setDetailViewState] = useState(INITIAL_DETAIL_VIEW_STATE);
 
@@ -269,7 +265,7 @@ export function HexmapPage({
     setSelectedProvinceFilter(nextProvince);
     setNationalTooltip(null);
     setDetailTooltip(null);
-    setSelectedDetailMemberId(null);
+    setSelectedDetailMemberOverlay(null);
   }, [initialDistrict, initialProvince]);
 
   const summaryItems = useMemo<SummaryItem[]>(() => {
@@ -573,7 +569,7 @@ export function HexmapPage({
             setSelectedProvinceFilter(feature.properties.summary.provinceShortName);
             setNationalTooltip(null);
             setDetailTooltip(null);
-            setSelectedDetailMemberId(null);
+            setSelectedDetailMemberOverlay(null);
           }
         })
       ];
@@ -608,7 +604,7 @@ export function HexmapPage({
           setSelectedProvinceFilter(info.object.provinceShortName);
           setNationalTooltip(null);
           setDetailTooltip(null);
-          setSelectedDetailMemberId(null);
+          setSelectedDetailMemberOverlay(null);
         }
       })
     ];
@@ -635,6 +631,11 @@ export function HexmapPage({
         extruded: false,
         pickable: true,
         onHover: (info) => {
+          if (selectedDetailMemberOverlay) {
+            setDetailTooltip(null);
+            return;
+          }
+
           if (info.object && info.x !== undefined && info.y !== undefined) {
             const { h3Index: _h3Index, ...datum } = info.object;
             setDetailTooltip({ x: info.x, y: info.y, datum });
@@ -645,35 +646,28 @@ export function HexmapPage({
         },
         onClick: (info) => {
           const memberId = info.object?.memberIds[0];
-          if (memberId) {
-            setSelectedDetailMemberId(memberId);
+          if (memberId && info.x !== undefined && info.y !== undefined) {
+            setSelectedDetailMemberOverlay({ memberId, x: info.x, y: info.y });
             setDetailTooltip(null);
             return;
           }
 
-          setSelectedDetailMemberId(null);
+          setSelectedDetailMemberOverlay(null);
         }
       })
     ];
-  }, [activeMetric, detailCells, selectedDistrictKey, selectedProvinceFilter]);
+  }, [activeMetric, detailCells, selectedDetailMemberOverlay, selectedDistrictKey, selectedProvinceFilter]);
 
   const detailPanelLabel = selectedProvinceFilter;
   const isFilterPending =
     Boolean(selectedDistrictKey || selectedProvinceFilter) &&
     detailCells.length === 0 &&
     (isLoading || !accountabilitySummary);
-  const accountabilityItemsByMemberId = useMemo(
-    () => new Map((accountabilitySummary?.items ?? []).map((item) => [item.memberId, item] as const)),
-    [accountabilitySummary]
-  );
-  const memberAssetsByMemberId = useMemo(
-    () => new Map((memberAssetsIndex?.members ?? []).map((item) => [item.memberId, item] as const)),
-    [memberAssetsIndex]
-  );
   const summaryItemsByMemberId = useMemo(
     () => new Map(summaryItems.map((item) => [item.memberId, item] as const)),
     [summaryItems]
   );
+  const selectedDetailMemberId = selectedDetailMemberOverlay?.memberId ?? null;
   const selectedDetailMember = useMemo<DetailMemberSummary | null>(() => {
     if (!selectedDetailMemberId) {
       return null;
@@ -684,29 +678,20 @@ export function HexmapPage({
       return null;
     }
 
-    const accountabilityItem = accountabilityItemsByMemberId.get(selectedDetailMemberId);
-    const assetItem = memberAssetsByMemberId.get(selectedDetailMemberId);
-
     return {
       memberId: selectedDetailMemberId,
       name: summaryItem.name,
       party: summaryItem.party,
       district: summaryItem.district ?? null,
-      photoUrl: accountabilityItem?.photoUrl ?? assetItem?.photoUrl ?? null,
       absentRate: summaryItem.absentRate,
       negativeRate: summaryItem.noRate + summaryItem.abstainRate,
       realEstateTotal: summaryItem.realEstateTotal ?? null,
       assetTotal: summaryItem.assetTotal ?? null
     };
-  }, [
-    accountabilityItemsByMemberId,
-    memberAssetsByMemberId,
-    selectedDetailMemberId,
-    summaryItemsByMemberId
-  ]);
-  const selectedDetailMemberMetricCards = selectedDetailMember
-    ? buildDetailMemberMetricCards(selectedDetailMember, activeMetric)
-    : [];
+  }, [selectedDetailMemberId, summaryItemsByMemberId]);
+  const selectedDetailMemberMetric = selectedDetailMember
+    ? buildDetailMemberPrimaryMetric(selectedDetailMember, activeMetric)
+    : null;
   const partyLegendDescription = isAssetMetric(activeMetric)
     ? `${getAssetMetricLabel(activeMetric)} 비교에서도 색상은 정당별로 나뉘며, 같은 정당 안에서는 ${
         activeMetric === "realEstate" ? "부동산 규모" : "재산 규모"
@@ -720,7 +705,7 @@ export function HexmapPage({
 
     const visibleMemberIds = new Set(detailCells.flatMap((cell) => cell.memberIds));
     if (!visibleMemberIds.has(selectedDetailMemberId)) {
-      setSelectedDetailMemberId(null);
+      setSelectedDetailMemberOverlay(null);
     }
   }, [detailCells, selectedDetailMemberId]);
 
@@ -761,6 +746,43 @@ export function HexmapPage({
           </div>
         )}
         {hint ? <div className="hexmap-tooltip__hint">{hint}</div> : null}
+      </div>
+    );
+  }
+
+  function renderDetailMemberOverlay(member: DetailMemberSummary) {
+    const [red, green, blue] = getPartyColor(member.party);
+    const dotStyle = { background: `rgb(${red},${green},${blue})` };
+    const metricSummary = selectedDetailMemberMetric;
+
+    return (
+      <div
+        className="hexmap-tooltip hexmap-tooltip--interactive"
+        style={{
+          left: (selectedDetailMemberOverlay?.x ?? 0) + 12,
+          top: (selectedDetailMemberOverlay?.y ?? 0) - 12,
+          transform: "translateY(-100%)"
+        }}
+      >
+        <div className="hexmap-tooltip__party">{member.district ?? "지역 정보 없음"}</div>
+        <div className="hexmap-tooltip__member">
+          <span className="hexmap-tooltip__party-dot" style={dotStyle} aria-hidden="true" />
+          <span className="hexmap-tooltip__name">{member.name}</span>
+        </div>
+        <div className="hexmap-tooltip__party">{member.party}</div>
+        {metricSummary ? (
+          <>
+            <div className="hexmap-tooltip__value">{`${metricSummary.label} ${metricSummary.value}`}</div>
+            <div className="hexmap-tooltip__meta">{metricSummary.note}</div>
+          </>
+        ) : null}
+        <button
+          type="button"
+          className="hexmap-tooltip__action"
+          onClick={() => onNavigateToMember(member.memberId)}
+        >
+          활동 캘린더 보기
+        </button>
       </div>
     );
   }
@@ -896,7 +918,7 @@ export function HexmapPage({
                   : selectedDistrictKey
                     ? "선택한 지역구의 상위 시·도 범위를 불러오는 중입니다."
                     : "상단 전국 지도에서 지역구를 클릭하면 아래에서 해당 시·도를 보여줍니다."}
-                {" "}헥사곤을 클릭하면 해당 의원의 요약 카드가 열립니다.
+                {" "}헥사곤을 클릭하면 작은 의원 오버레이와 활동 캘린더 바로가기가 열립니다.
               </p>
             </div>
             {(selectedDistrictKey || selectedProvinceFilter) && (
@@ -907,7 +929,7 @@ export function HexmapPage({
                   setSelectedDistrictKey(null);
                   setSelectedProvinceFilter(null);
                   setDetailTooltip(null);
-                  setSelectedDetailMemberId(null);
+                  setSelectedDetailMemberOverlay(null);
                 }}
               >
                 선택 해제
@@ -956,49 +978,15 @@ export function HexmapPage({
           )}
 
           {detailTooltip && detailCells.length > 0 && (
-            renderTooltipContent(detailTooltip, "클릭 → 의원 요약 카드")
+            renderTooltipContent(detailTooltip, "클릭 → 캘린더 바로가기")
           )}
 
           {detailCells.length > 0 && !isFilterPending ? (
             selectedDetailMember ? (
-              <aside className="hexmap-detail-member" aria-label="선택 의원 요약">
-                <div className="hexmap-detail-member__header">
-                  <div>
-                    <p className="section-label">선택 의원</p>
-                    <MemberIdentity
-                      name={selectedDetailMember.name}
-                      party={selectedDetailMember.party}
-                      photoUrl={selectedDetailMember.photoUrl}
-                      size="large"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    className="hexmap-detail-member__action"
-                    onClick={() => onNavigateToMember(selectedDetailMember.memberId)}
-                  >
-                    활동 캘린더 보기
-                  </button>
-                </div>
-                <p className="hexmap-detail-member__district">
-                  {selectedDetailMember.district ?? "지역 정보 없음"}
-                </p>
-                <p className="hexmap-detail-member__note">
-                  {`${detailPanelLabel ?? "선택 지역"} 안에서 고른 지역구 기준으로 요약했습니다.`}
-                </p>
-                <div className="hexmap-detail-member__metrics">
-                  {selectedDetailMemberMetricCards.map((metricCard) => (
-                    <article key={metricCard.key} className="hexmap-detail-member__metric">
-                      <span>{metricCard.label}</span>
-                      <strong>{metricCard.value}</strong>
-                      <small>{metricCard.note}</small>
-                    </article>
-                  ))}
-                </div>
-              </aside>
+              renderDetailMemberOverlay(selectedDetailMember)
             ) : (
               <div className="hexmap-detail-member-placeholder" role="status" aria-live="polite">
-                상세 지도에서 헥사곤을 클릭하면 의원 요약 카드가 나타납니다.
+                상세 지도에서 헥사곤을 클릭하면 작은 오버레이와 활동 캘린더 바로가기가 나타납니다.
               </div>
             )
           ) : null}
