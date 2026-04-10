@@ -278,6 +278,26 @@ export function HexmapPage({
   }, [accountabilitySummary, activeMetric, staticState.entries, summaryItems]);
 
   useEffect(() => {
+    if (!selectedDistrictKey || selectedProvinceFilter) {
+      return;
+    }
+
+    const resolvedProvince =
+      allCachedCells.find((cell) => cell.districtKey === selectedDistrictKey)?.provinceShortName ??
+      nationalCells.find((cell) => cell.districtKey === selectedDistrictKey)?.provinceShortName ??
+      null;
+
+    if (!resolvedProvince) {
+      return;
+    }
+
+    setSelectedProvinceFilter(resolvedProvince);
+    setSelectedDistrictKey(null);
+    setNationalTooltip(null);
+    setDetailTooltip(null);
+  }, [allCachedCells, nationalCells, selectedDistrictKey, selectedProvinceFilter]);
+
+  useEffect(() => {
     if (firstVisibleSpanRef.current && nationalCells.length > 0) {
       endPerformanceSpan(firstVisibleSpanRef.current);
       firstVisibleSpanRef.current = null;
@@ -380,28 +400,13 @@ export function HexmapPage({
     return getMetricModulatedColor(cell.party, normalizeMetric(cell.metric));
   }
 
-  const selectedDistrictLabel = useMemo(() => {
-    if (!selectedDistrictKey) {
-      return null;
-    }
-
-    return (
-      allCachedCells.find((cell) => cell.districtKey === selectedDistrictKey)?.districtLabel ??
-      initialDistrict
-    );
-  }, [allCachedCells, initialDistrict, selectedDistrictKey]);
-
   const detailCells = useMemo(() => {
-    if (selectedDistrictKey) {
-      return nationalCells.filter((cell) => cell.districtKey === selectedDistrictKey);
-    }
-
     if (selectedProvinceFilter) {
       return nationalCells.filter((cell) => cell.provinceShortName === selectedProvinceFilter);
     }
 
     return [];
-  }, [nationalCells, selectedDistrictKey, selectedProvinceFilter]);
+  }, [nationalCells, selectedProvinceFilter]);
 
   const detailBounds = useMemo(() => getHexCellsBounds(detailCells), [detailCells]);
 
@@ -448,11 +453,11 @@ export function HexmapPage({
     }
 
     onChangeRouteRef.current({
-      district: selectedDistrictKey,
-      province: selectedDistrictKey ? null : selectedProvinceFilter,
+      district: null,
+      province: selectedProvinceFilter,
       metric: activeMetric
     });
-  }, [activeMetric, selectedDistrictKey, selectedProvinceFilter]);
+  }, [activeMetric, selectedProvinceFilter]);
 
   const nationalLayers = useMemo(() => {
     if (nationalCells.length === 0) {
@@ -494,8 +499,8 @@ export function HexmapPage({
             }
 
             districtPanelSpanRef.current = startPerformanceSpan("hexmap:districtPanelReady");
-            setSelectedDistrictKey(feature.properties.summary.districtKey);
-            setSelectedProvinceFilter(null);
+            setSelectedDistrictKey(null);
+            setSelectedProvinceFilter(feature.properties.summary.provinceShortName);
             setNationalTooltip(null);
             setDetailTooltip(null);
           }
@@ -528,8 +533,8 @@ export function HexmapPage({
           }
 
           districtPanelSpanRef.current = startPerformanceSpan("hexmap:districtPanelReady");
-          setSelectedDistrictKey(info.object.districtKey);
-          setSelectedProvinceFilter(null);
+          setSelectedDistrictKey(null);
+          setSelectedProvinceFilter(info.object.provinceShortName);
           setNationalTooltip(null);
           setDetailTooltip(null);
         }
@@ -545,7 +550,7 @@ export function HexmapPage({
     const normalizeMetric = createLogNormalizer(
       detailCells.filter((cell) => cell.metricMemberCount > 0).map((cell) => cell.metric)
     );
-    const filterKey = selectedDistrictKey ?? selectedProvinceFilter ?? "none";
+    const filterKey = selectedProvinceFilter ?? selectedDistrictKey ?? "none";
 
     return [
       new H3HexagonLayer<H3DataCell>({
@@ -576,7 +581,7 @@ export function HexmapPage({
     ];
   }, [activeMetric, detailCells, onNavigateToMember, selectedDistrictKey, selectedProvinceFilter]);
 
-  const detailPanelLabel = selectedDistrictKey ? selectedDistrictLabel : selectedProvinceFilter;
+  const detailPanelLabel = selectedProvinceFilter;
   const isFilterPending =
     Boolean(selectedDistrictKey || selectedProvinceFilter) &&
     detailCells.length === 0 &&
@@ -752,13 +757,13 @@ export function HexmapPage({
         <div className="hexmap-section-divider">
           <div className="hexmap-detail-header">
             <div>
-              <h2 className="hexmap-section-title">선택 지역구 확대 보기</h2>
+              <h2 className="hexmap-section-title">선택 지역 확대 보기</h2>
               <p className="hexmap-section-desc">
-                {selectedDistrictKey
-                  ? `${selectedDistrictLabel ?? selectedDistrictKey}만 확대해 보여줍니다.`
-                  : selectedProvinceFilter
-                    ? `${selectedProvinceFilter} 전체 지역구를 레거시 링크 호환 모드로 보여줍니다.`
-                    : "상단 전국 지도에서 지역구를 클릭하면 아래에서 해당 지역구만 확대합니다."}
+                {selectedProvinceFilter
+                  ? `${selectedProvinceFilter} 전체 지역구를 보여줍니다.`
+                  : selectedDistrictKey
+                    ? "선택한 지역구의 상위 시·도 범위를 불러오는 중입니다."
+                    : "상단 전국 지도에서 지역구를 클릭하면 아래에서 해당 시·도를 보여줍니다."}
                 {" "}헥사곤을 클릭하면 해당 의원의 활동 캘린더로 이동합니다.
               </p>
             </div>
@@ -780,9 +785,7 @@ export function HexmapPage({
 
         {detailPanelLabel && detailCells.length > 0 && (
           <div className="hexmap-detail-summary">
-            <span className="hexmap-detail-badge">
-              {selectedDistrictKey ? "지역구" : "시·도"}
-            </span>
+            <span className="hexmap-detail-badge">시·도</span>
             <strong>{detailPanelLabel}</strong>
             <span>{detailCells.length}개 셀</span>
           </div>
@@ -792,7 +795,7 @@ export function HexmapPage({
           {!selectedDistrictKey && !selectedProvinceFilter ? (
             <div className="hexmap-state">
               <div className="hexmap-state__title">아직 선택된 지역구가 없습니다</div>
-              <p>상단 전국 지도에서 지역구를 클릭하면 이 영역에 확대 지도가 나타납니다.</p>
+              <p>상단 전국 지도에서 지역구를 클릭하면 이 영역에 해당 시·도가 나타납니다.</p>
             </div>
           ) : isFilterPending ? (
             <div className="hexmap-state">

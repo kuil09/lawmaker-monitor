@@ -285,7 +285,7 @@ describe("HexmapPage", () => {
     expect(testState.ensureLoadMock).toHaveBeenCalledWith(null, { source: "map" });
     expect(screen.getByText("아직 선택된 지역구가 없습니다")).toBeInTheDocument();
     expect(
-      screen.getByText("상단 전국 지도에서 지역구를 클릭하면 이 영역에 확대 지도가 나타납니다.")
+      screen.getByText("상단 전국 지도에서 지역구를 클릭하면 이 영역에 해당 시·도가 나타납니다.")
     ).toBeInTheDocument();
 
     const nationalLayer = getLastLayer("h3-national-absence");
@@ -309,13 +309,47 @@ describe("HexmapPage", () => {
     onClick?.({ object: firstCell });
 
     await waitFor(() => {
-      expect(getLastLayer("h3-panel-absence-부산남구")).toBeDefined();
+      expect(getLastLayer("h3-panel-absence-부산")).toBeDefined();
     });
 
     expect(onChangeRoute).toHaveBeenCalledWith({
-      district: "부산남구",
-      province: null,
+      district: null,
+      province: "부산",
       metric: "absence"
+    });
+    expect(
+      screen.getByText("부산 전체 지역구를 보여줍니다. 헥사곤을 클릭하면 해당 의원의 활동 캘린더로 이동합니다.")
+    ).toBeInTheDocument();
+  });
+
+  it("promotes legacy district routes to their parent province selection", async () => {
+    const onChangeRoute = vi.fn();
+
+    render(
+      <HexmapPage
+        manifest={null}
+        accountabilitySummary={accountabilitySummaryFixture}
+        memberAssetsIndex={memberAssetsIndexFixture}
+        memberAssetsIndexError={null}
+        assemblyLabel="제22대 국회"
+        initialProvince={null}
+        initialDistrict="부산남구"
+        initialMetric="absence"
+        onNavigateToMember={vi.fn()}
+        onChangeRoute={onChangeRoute}
+      />
+    );
+
+    await waitFor(() => {
+      expect(getLastLayer("h3-panel-absence-부산")).toBeDefined();
+    });
+
+    await waitFor(() => {
+      expect(onChangeRoute).toHaveBeenCalledWith({
+        district: null,
+        province: "부산",
+        metric: "absence"
+      });
     });
   });
 
@@ -344,7 +378,7 @@ describe("HexmapPage", () => {
 
     expect(screen.queryByText(/셀 높이/)).not.toBeInTheDocument();
     expect(
-      screen.getByText("부산 전체 지역구를 레거시 링크 호환 모드로 보여줍니다. 헥사곤을 클릭하면 해당 의원의 활동 캘린더로 이동합니다.")
+      screen.getByText("부산 전체 지역구를 보여줍니다. 헥사곤을 클릭하면 해당 의원의 활동 캘린더로 이동합니다.")
     ).toBeInTheDocument();
 
     const detailLayer = getLastLayer("h3-panel-negative-부산");
