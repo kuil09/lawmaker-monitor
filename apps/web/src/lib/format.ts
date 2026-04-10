@@ -21,6 +21,12 @@ const percentFormatter = new Intl.NumberFormat("ko-KR", {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1
 });
+const assetEokFormatter = new Intl.NumberFormat("ko-KR", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2
+});
+
+const ASSET_EOK_DIVISOR = 100_000;
 
 const voteCodeLabels: Record<VoteCode, string> = {
   yes: "찬성",
@@ -69,6 +75,28 @@ export function getKoreanDateKey(value: string): string {
 
 export function formatNumber(value: number): string {
   return numberFormatter.format(value);
+}
+
+export function convertThousandWonToEok(value: number): number {
+  return value / ASSET_EOK_DIVISOR;
+}
+
+export function formatAssetEok(value: number): string {
+  return `${assetEokFormatter.format(convertThousandWonToEok(value))}억원`;
+}
+
+export function formatAssetEokDelta(value: number): string {
+  const converted = convertThousandWonToEok(value);
+  const sign = converted > 0 ? "+" : "";
+  return `${sign}${assetEokFormatter.format(converted)}억원`;
+}
+
+export function formatAssetEokMagnitude(value: number): string {
+  return `${assetEokFormatter.format(Math.abs(convertThousandWonToEok(value)))}억원`;
+}
+
+export function formatAssetEokAxis(value: number): string {
+  return `${assetEokFormatter.format(convertThousandWonToEok(value))}억`;
 }
 
 export function formatPercent(value: number): string {

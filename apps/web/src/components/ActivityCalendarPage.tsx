@@ -43,7 +43,15 @@ import {
   type CalendarCell
 } from "../lib/member-activity.js";
 import { buildCalendarHref, type ActivityViewMode } from "../lib/calendar-route.js";
-import { formatDate, formatNumber, formatVoteCodeLabel } from "../lib/format.js";
+import {
+  formatAssetEok,
+  formatAssetEokAxis,
+  formatAssetEokDelta,
+  formatAssetEokMagnitude,
+  formatDate,
+  formatNumber,
+  formatVoteCodeLabel
+} from "../lib/format.js";
 import { MemberIdentity } from "./MemberIdentity.js";
 import { MemberSearchField } from "./MemberSearchField.js";
 
@@ -167,18 +175,9 @@ type AssetHistorySnapshot = Pick<
   "series" | "categorySeries" | "latestSummary"
 >;
 
-function formatAssetAmount(value: number): string {
-  return `${formatNumber(value)}천원`;
-}
-
-function formatAssetDelta(value: number): string {
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${formatNumber(value)}천원`;
-}
-
-function formatAssetMagnitude(value: number): string {
-  return `${formatNumber(Math.abs(value))}천원`;
-}
+const formatAssetAmount = formatAssetEok;
+const formatAssetDelta = formatAssetEokDelta;
+const formatAssetMagnitude = formatAssetEokMagnitude;
 
 function formatAssetAxisLabel(value: string): string {
   return value.slice(2).replaceAll("-", ".");
@@ -894,7 +893,7 @@ function MemberAssetCompareSection({
                 tick={{ fontSize: 12, fill: "var(--ink-muted)" }}
               />
               <YAxis
-                tickFormatter={(value) => `${Math.round(Number(value) / 1000)}M`}
+                tickFormatter={(value) => formatAssetEokAxis(Number(value))}
                 tickLine={false}
                 axisLine={false}
                 width={52}
@@ -1168,7 +1167,7 @@ function MemberAssetSection({
         </div>
         <p>
           총재산을 기본선으로 두고, 주요 카테고리 소계를 겹쳐 볼 수 있습니다. 부동산 포커스는
-          건물과 토지만 따로 집계합니다. 단위는 천원입니다.
+          건물과 토지만 따로 집계합니다. 화면 표시는 억원입니다.
         </p>
       </div>
 
@@ -1291,7 +1290,7 @@ function MemberAssetSection({
               tick={{ fontSize: 12, fill: "var(--ink-muted)" }}
             />
             <YAxis
-              tickFormatter={(value) => `${Math.round(Number(value) / 1000)}M`}
+              tickFormatter={(value) => formatAssetEokAxis(Number(value))}
               tickLine={false}
               axisLine={false}
               width={52}

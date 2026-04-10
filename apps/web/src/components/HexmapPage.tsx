@@ -12,7 +12,7 @@ import type {
 } from "@lawmaker-monitor/schemas";
 
 import { normalizeConstituencyLookupKey } from "../lib/constituency-map.js";
-import { formatNumber } from "../lib/format.js";
+import { formatAssetEok } from "../lib/format.js";
 import {
   endPerformanceSpan,
   getHexCellsBounds,
@@ -121,7 +121,7 @@ const VIZ_CONFIGS: VizConfig[] = [
     label: "재산 비교",
     description:
       "타일 색 진하기 = 최신 공개 총재산(로그 정규화). 재산 공개가 없는 지역구는 회색으로 두고, 공개된 총재산 규모를 전국 단위로 비교합니다.",
-    tooltipLabel: (cell) => `최신 총재산 ${formatNumber(Math.round(cell.metric))}천원`
+    tooltipLabel: (cell) => `최신 총재산 ${formatAssetEok(cell.metric)}`
   }
 ];
 

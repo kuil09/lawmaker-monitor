@@ -595,11 +595,11 @@ describe("web app", () => {
 
     expect(await screen.findByRole("heading", { name: "의원 표결 활동 그래프" })).toBeInTheDocument();
     const assetCard = screen.getByLabelText("재산 공개 정보");
-    expect((await within(assetCard).findAllByText("820,000천원")).length).toBeGreaterThan(0);
+    expect((await within(assetCard).findAllByText("8.2억원")).length).toBeGreaterThan(0);
     expect(within(assetCard).getByText("22대 국회 재산 변동 흐름")).toBeInTheDocument();
     const scopeBlock = within(assetCard).getByLabelText("공개 범위 비교");
     expect(within(scopeBlock).getByText("가족 차이")).toBeInTheDocument();
-    expect(within(scopeBlock).getByText("60,000천원")).toBeInTheDocument();
+    expect(within(scopeBlock).getByText("0.6억원")).toBeInTheDocument();
     expect(scopeBlock).toHaveTextContent("가족 명의 순재산이 총액에 더해졌습니다.");
     const realEstateFocus = screen.getByText("부동산 포커스").closest(".activity-asset-focus");
     expect(realEstateFocus).not.toBeNull();
@@ -610,10 +610,10 @@ describe("web app", () => {
     expect(within(realEstateFocus as HTMLElement).getByText("증감")).toBeInTheDocument();
     expect(within(realEstateFocus as HTMLElement).getByText("건물")).toBeInTheDocument();
     expect(within(realEstateFocus as HTMLElement).getByText("토지")).toBeInTheDocument();
-    expect(within(realEstateFocus as HTMLElement).getAllByText("510,000천원").length).toBeGreaterThan(0);
-    expect(within(realEstateFocus as HTMLElement).getAllByText("0천원").length).toBeGreaterThan(0);
+    expect(within(realEstateFocus as HTMLElement).getAllByText("5.1억원").length).toBeGreaterThan(0);
+    expect(within(realEstateFocus as HTMLElement).getAllByText("0억원").length).toBeGreaterThan(0);
     fireEvent.click(within(scopeBlock).getByRole("button", { name: "본인만" }));
-    expect((await within(assetCard).findAllByText("760,000천원")).length).toBeGreaterThan(0);
+    expect((await within(assetCard).findAllByText("7.6억원")).length).toBeGreaterThan(0);
     expect(
       fetchMock.mock.calls.filter(([url]) =>
         String(url).includes("/exports/member_assets_history/M001.json")
