@@ -149,6 +149,8 @@ async function openHomeFlow(viewportName: string): Promise<void> {
       expect(searchLayout?.layoutColumnCount).toBe(1);
       expect(leaderboardLayout?.metaColumnCount).toBe(2);
       expect(leaderboardLayout?.contentColumnCount).toBe(1);
+    } else if (viewportName === "tablet") {
+      expect(searchLayout?.layoutColumnCount).toBe(1);
     } else {
       expect(searchLayout?.layoutColumnCount).toBe(2);
     }
@@ -390,7 +392,7 @@ async function openCompareFlow(viewportName: string): Promise<void> {
     await compareSearchField.press("Tab");
     await expect.poll(() => compareSearchField.inputValue()).toContain("김아라");
 
-    await page.getByLabel("비교 요약").waitFor();
+    await page.getByRole("region", { name: "비교 요약", exact: true }).waitFor();
     expect(await page.getByText("김아라").count()).toBeGreaterThan(0);
     expect(await page.getByText("박민").count()).toBeGreaterThan(0);
 
@@ -464,7 +466,7 @@ async function openCompareFlow(viewportName: string): Promise<void> {
     await page.goto(`${appUrl}/#calendar?member=M002&compare=M001&view=compare`, {
       waitUntil: "networkidle"
     });
-    await page.getByLabel("비교 요약").waitFor();
+    await page.getByRole("region", { name: "비교 요약", exact: true }).waitFor();
     expect(await page.getByRole("tab", { name: "VS 비교" }).getAttribute("aria-selected")).toBe("true");
 
     expect(issues).toEqual([]);
@@ -492,20 +494,23 @@ async function openDistributionFlow(viewportName: string): Promise<void> {
 
     await page.getByRole("heading", { name: "제22대 국회 의원 분포" }).waitFor();
     await page.getByRole("combobox", { name: "분포에서 의원 찾기" }).waitFor();
-    await page.getByRole("heading", { name: "부산 지역구별 핵심 통계" }).waitFor();
+    await page.getByRole("heading", {
+      name: "위로 갈수록 반대·기권 비중이 낮고, 오른쪽으로 갈수록 출석률이 높습니다."
+    }).waitFor();
     await expect
       .poll(async () => page.locator(".distribution-focus__district").textContent())
       .toBe("부산 남구");
     await page.getByText("정당 평균을 눌러 차트를 해당 정당만 남기는 강조 모드로 전환합니다.").waitFor();
-    await page.locator(".distribution-map").scrollIntoViewIfNeeded();
+    await page.locator(".distribution-chart").scrollIntoViewIfNeeded();
 
     const layout = await page.locator(".distribution-page__layout").evaluate((element) => {
       const layoutElement = element as HTMLElement;
       const focus = layoutElement.querySelector(".distribution-focus") as HTMLElement | null;
       const chart = layoutElement.querySelector(".distribution-chart") as HTMLElement | null;
       const metricGrid = layoutElement.querySelector(".distribution-focus__metric-grid") as HTMLElement | null;
+      const signalGrid = document.querySelector(".distribution-signal-grid") as HTMLElement | null;
 
-      if (!focus || !chart || !metricGrid) {
+      if (!focus || !chart || !metricGrid || !signalGrid) {
         return null;
       }
 
@@ -514,7 +519,8 @@ async function openDistributionFlow(viewportName: string): Promise<void> {
         chartOverflow: chart.scrollWidth - chart.clientWidth,
         focusOverflow: focus.scrollWidth - focus.clientWidth,
         layoutColumns: window.getComputedStyle(layoutElement).gridTemplateColumns.split(" ").length,
-        metricColumns: window.getComputedStyle(metricGrid).gridTemplateColumns.split(" ").length
+        metricColumns: window.getComputedStyle(metricGrid).gridTemplateColumns.split(" ").length,
+        signalColumns: window.getComputedStyle(signalGrid).gridTemplateColumns.split(" ").length
       };
     });
 
@@ -523,70 +529,23 @@ async function openDistributionFlow(viewportName: string): Promise<void> {
     expect(layout?.chartOverflow ?? 99).toBeLessThanOrEqual(1);
     expect(layout?.focusOverflow ?? 99).toBeLessThanOrEqual(1);
 
-    const mapLayout = await page.locator(".distribution-map").evaluate((element) => {
-      const panel = element as HTMLElement;
-      const panelRect = panel.getBoundingClientRect();
-      const surface = panel.querySelector(".distribution-map__surface") as HTMLElement | null;
-      const fullDetail = panel.querySelector(
-        ".distribution-map__layout > .distribution-map__detail"
-      ) as HTMLElement | null;
-      const mobileDetailShell = panel.querySelector(
-        ".distribution-map__mobile-detail-shell"
-      ) as HTMLElement | null;
-      const compactDetail = mobileDetailShell?.querySelector(
-        ".distribution-map__detail--compact"
-      ) as HTMLElement | null;
-      const helpPanel = panel.querySelector(".distribution-map__help-panel") as HTMLElement | null;
-
-      if (!surface || !fullDetail) {
-        return null;
-      }
-
-      const surfaceRect = surface.getBoundingClientRect();
-      const compactRect = compactDetail?.getBoundingClientRect() ?? null;
-
-      return {
-        surfaceOverflow: surface.scrollWidth - surface.clientWidth,
-        surfaceTopWithinViewport: surfaceRect.top < window.innerHeight,
-        fullDetailDisplay: window.getComputedStyle(fullDetail).display,
-        mobileDetailDisplay: mobileDetailShell
-          ? window.getComputedStyle(mobileDetailShell).display
-          : "none",
-        helpPanelVisible: helpPanel !== null,
-        compactBelowSurface:
-          compactRect !== null &&
-          compactRect.top >= surfaceRect.bottom - 1 &&
-          compactRect.top >= panelRect.top
-      };
-    });
-
-    expect(mapLayout).not.toBeNull();
-    expect(mapLayout?.surfaceOverflow ?? 99).toBeLessThanOrEqual(1);
-
     if (viewportName === "mobile" || viewportName === "tablet") {
       expect(layout?.layoutColumns).toBe(1);
+      expect(layout?.signalColumns).toBe(1);
     }
 
     if (viewportName === "mobile") {
       expect(layout?.metricColumns).toBe(1);
-      expect(mapLayout?.mobileDetailDisplay).not.toBe("none");
-      expect(mapLayout?.fullDetailDisplay).toBe("none");
-      expect(mapLayout?.surfaceTopWithinViewport).toBe(true);
-      expect(mapLayout?.helpPanelVisible).toBe(false);
-      expect(mapLayout?.compactBelowSurface).toBe(true);
     }
 
     if (viewportName === "tablet") {
       expect(layout?.metricColumns).toBe(2);
-      expect(mapLayout?.mobileDetailDisplay).toBe("none");
-      expect(mapLayout?.fullDetailDisplay).not.toBe("none");
     }
 
     if (viewportName === "desktop") {
       expect(layout?.layoutColumns).toBe(2);
       expect(layout?.metricColumns).toBe(2);
-      expect(mapLayout?.mobileDetailDisplay).toBe("none");
-      expect(mapLayout?.fullDetailDisplay).not.toBe("none");
+      expect(layout?.signalColumns).toBe(2);
     }
 
     const streakSignal = page.getByRole("button", { name: /김아라 미래개혁당/ }).first();
@@ -602,14 +561,14 @@ async function openDistributionFlow(viewportName: string): Promise<void> {
       scenario: "distribution-overview",
       screenshot: distributionScreenshot
     });
-    const distributionMapScreenshot = await saveLocatorScreenshot(
-      page.locator(".distribution-map"),
-      `${viewportName}/distribution-map.png`
+    const distributionChartScreenshot = await saveLocatorScreenshot(
+      page.locator(".distribution-chart"),
+      `${viewportName}/distribution-chart.png`
     );
     scenarioManifest.push({
       viewport: viewportName,
-      scenario: "distribution-map",
-      screenshot: distributionMapScreenshot
+      scenario: "distribution-chart",
+      screenshot: distributionChartScreenshot
     });
 
     expect(await page.getByRole("link", { name: "활동 캘린더 열기" }).getAttribute("href")).toBe(

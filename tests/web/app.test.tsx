@@ -306,7 +306,7 @@ describe("web app", () => {
     await screen.findByText("제22대 국회 의원 순위");
     await screen.findByRole("tab", { name: "총재산" });
     await waitFor(() => {
-      expect(hexmapLoaderMocks.scheduleHexmapPrewarmMock).toHaveBeenCalledTimes(1);
+      expect(hexmapLoaderMocks.scheduleHexmapPrewarmMock).not.toHaveBeenCalled();
     });
     expect(screen.queryByRole("button", { name: "활동 캘린더 보기" })).not.toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "의원 검색" })).toBeInTheDocument();
@@ -691,42 +691,6 @@ describe("web app", () => {
     expect(screen.getByText("반대·기권 비중이 높은 의원")).toBeInTheDocument();
     expect(
       screen.getByText("정당 평균을 눌러 차트를 해당 정당만 남기는 강조 모드로 전환합니다.")
-    ).toBeInTheDocument();
-  });
-
-  it("renders the constituency map on the home page and navigates on region click", async () => {
-    render(<App />);
-
-    await screen.findByRole("heading", { name: "국회 책임성 모니터" });
-    expect(await screen.findByRole("combobox", { name: "지역 선택" })).toBeInTheDocument();
-  });
-
-  it("reveals the constituency map help only when requested", async () => {
-    render(<App />);
-
-    await screen.findByRole("heading", { name: "국회 책임성 모니터" });
-    const helpButton = await screen.findByRole("button", { name: "지역구 지도 설명 보기" });
-
-    expect(helpButton).toHaveAttribute("aria-expanded", "false");
-    expect(
-      screen.queryByText(
-        "지도에서 선거구를 누르면 대표 의원과 출석 흐름을 먼저 보고, 상세 패널에서 다른 표결 지표를 함께 확인할 수 있습니다."
-      )
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(helpButton);
-
-    expect(screen.getByRole("button", { name: "지역구 지도 설명 닫기" })).toHaveAttribute(
-      "aria-expanded",
-      "true"
-    );
-    expect(
-      screen.getByText(
-        "지도에서 선거구를 누르면 대표 의원과 출석 흐름을 먼저 보고, 상세 패널에서 다른 표결 지표를 함께 확인할 수 있습니다."
-      )
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("현재 선택한 지역에서 1개 지역구 통계를 연결했습니다.")
     ).toBeInTheDocument();
   });
 

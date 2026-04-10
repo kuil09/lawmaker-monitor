@@ -14,7 +14,6 @@ import type {
 
 import { AccountabilityLeaderboard } from "./components/AccountabilityLeaderboard.js";
 import { ActivityCalendarPage } from "./components/ActivityCalendarPage.js";
-import { DistributionConstituencyMap } from "./components/DistributionConstituencyMap.js";
 import { DistributionPage } from "./components/DistributionPage.js";
 import { GlobalNav } from "./components/GlobalNav.js";
 import { MemberSearchField } from "./components/MemberSearchField.js";
@@ -47,7 +46,6 @@ import {
   loadMemberAssetsIndex
 } from "./lib/data.js";
 import { formatDateTime, formatNumber } from "./lib/format.js";
-import { scheduleHexmapPrewarm } from "./lib/hexmap-static-loader.js";
 import {
   applyMemberAssetsIndexRealEstateFallbacks,
   buildLatestAssetAllocationSummary,
@@ -279,18 +277,6 @@ export default function App() {
       window.removeEventListener("hashchange", handleHashChange);
     };
   }, []);
-
-  useEffect(() => {
-    if (
-      routeState.route !== "home" ||
-      !manifest ||
-      !accountabilitySummary
-    ) {
-      return;
-    }
-
-    return scheduleHexmapPrewarm(manifest);
-  }, [routeState.route, manifest, accountabilitySummary]);
 
   const currentAssemblyLabel =
     accountabilitySummary?.assemblyLabel ??
@@ -1002,14 +988,6 @@ export default function App() {
             </p>
           </section>
         )}
-
-        <DistributionConstituencyMap
-          manifest={manifest}
-          members={distributionMembers}
-          highlightedMemberIds={new Set(distributionMembers.map((m) => m.memberId))}
-          selectedMemberId={combinedRankingItems[0]?.memberId ?? null}
-          onSelectMember={(memberId) => navigateToCalendar(memberId)}
-        />
 
         <footer className="info-panel">
           <p className="info-panel__body">
