@@ -431,7 +431,7 @@ describe("HexmapPage", () => {
     });
   });
 
-  it("switches to the asset comparison metric and keeps party-separated colors and legend", async () => {
+  it("switches to the real-estate metric and keeps party-separated colors and legend", async () => {
     const onChangeRoute = vi.fn();
 
     render(
@@ -453,7 +453,71 @@ describe("HexmapPage", () => {
       expect(getLastLayer("h3-national-absence")).toBeDefined();
     });
 
-    fireEvent.click(screen.getByRole("tab", { name: "재산 비교" }));
+    fireEvent.click(screen.getByRole("tab", { name: "부동산" }));
+
+    await waitFor(() => {
+      expect(getLastLayer("h3-national-realEstate")).toBeDefined();
+    });
+
+    const nationalLayer = getLastLayer("h3-national-realEstate");
+    const firstCell = (nationalLayer?.props.data as Array<Record<string, unknown>>)[0];
+    const assetValues = (nationalLayer?.props.data as Array<{ metric: number; metricMemberCount: number }>).flatMap(
+      (cell) => (cell.metricMemberCount > 0 ? [cell.metric] : [])
+    );
+    const getFillColor = nationalLayer?.props.getFillColor as
+      | ((cell: Record<string, unknown>) => [number, number, number, number])
+      | undefined;
+    const normalizeAssetMetric = createLogNormalizer(assetValues);
+
+    expect(firstCell).toMatchObject({
+      districtKey: "부산남구",
+      metric: 320000,
+      metricMemberCount: 1,
+      memberIds: ["M002"]
+    });
+    expect(getFillColor?.(firstCell)).toEqual(
+      getMetricModulatedColor("미래개혁당", normalizeAssetMetric(Number(firstCell?.metric ?? 0)))
+    );
+    expect(screen.getByLabelText("정당 범례")).toBeInTheDocument();
+    expect(
+      screen.getByText("부동산 비교에서도 색상은 정당별로 나뉘며, 같은 정당 안에서는 부동산 규모가 클수록 더 진합니다.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/최신 공개 부동산\(건물·토지 합계\)이 클수록 더 진하게 보입니다\./)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/부동산 비교는 최신 공개 건물·토지 합계 기준이며/)
+    ).toBeInTheDocument();
+    expect(onChangeRoute).toHaveBeenCalledWith({
+      district: null,
+      province: null,
+      metric: "realEstate"
+    });
+  });
+
+  it("switches to the total-asset metric and keeps party-separated colors and legend", async () => {
+    const onChangeRoute = vi.fn();
+
+    render(
+      <HexmapPage
+        manifest={null}
+        accountabilitySummary={accountabilitySummaryFixture}
+        memberAssetsIndex={memberAssetsIndexFixture}
+        memberAssetsIndexError={null}
+        assemblyLabel="제22대 국회"
+        initialProvince={null}
+        initialDistrict={null}
+        initialMetric="absence"
+        onNavigateToMember={vi.fn()}
+        onChangeRoute={onChangeRoute}
+      />
+    );
+
+    await waitFor(() => {
+      expect(getLastLayer("h3-national-absence")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "총재산" }));
 
     await waitFor(() => {
       expect(getLastLayer("h3-national-assetTotal")).toBeDefined();
@@ -478,12 +542,11 @@ describe("HexmapPage", () => {
     expect(getFillColor?.(firstCell)).toEqual(
       getMetricModulatedColor("미래개혁당", normalizeAssetMetric(Number(firstCell?.metric ?? 0)))
     );
-    expect(screen.getByLabelText("정당 범례")).toBeInTheDocument();
     expect(
-      screen.getByText("재산 비교에서도 색상은 정당별로 나뉘며, 같은 정당 안에서는 재산 규모가 클수록 더 진합니다.")
+      screen.getByText("총재산 비교에서도 색상은 정당별로 나뉘며, 같은 정당 안에서는 재산 규모가 클수록 더 진합니다.")
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/타일 색 hue는 셀 내 다수당을 따르며/)
+      screen.getByText(/최신 공개 총재산이 클수록 더 진하게 보입니다\./)
     ).toBeInTheDocument();
     expect(onChangeRoute).toHaveBeenCalledWith({
       district: null,

@@ -90,6 +90,14 @@ type VizConfig = {
   tooltipLabel: (cell: TooltipDatum) => string;
 };
 
+function isAssetMetric(metric: MapMetric): metric is "realEstate" | "assetTotal" {
+  return metric === "realEstate" || metric === "assetTotal";
+}
+
+function getAssetMetricLabel(metric: "realEstate" | "assetTotal"): string {
+  return metric === "realEstate" ? "부동산" : "총재산";
+}
+
 const VIZ_CONFIGS: VizConfig[] = [
   {
     key: "absence",
@@ -106,8 +114,15 @@ const VIZ_CONFIGS: VizConfig[] = [
     tooltipLabel: (cell) => `반대·기권율 ${(cell.metric * 100).toFixed(1)}%`
   },
   {
+    key: "realEstate",
+    label: "부동산",
+    description:
+      "타일 색 hue는 셀 내 다수당을 따르며, 같은 정당 안에서는 최신 공개 부동산(건물·토지 합계)이 클수록 더 진하게 보입니다. 재산 공개가 없는 지역구는 회색으로 둡니다.",
+    tooltipLabel: (cell) => `최신 부동산 ${formatAssetEok(cell.metric)}`
+  },
+  {
     key: "assetTotal",
-    label: "재산 비교",
+    label: "총재산",
     description:
       "타일 색 hue는 셀 내 다수당을 따르며, 같은 정당 안에서는 최신 공개 총재산이 클수록 더 진하게 보입니다. 재산 공개가 없는 지역구는 회색으로 둡니다.",
     tooltipLabel: (cell) => `최신 총재산 ${formatAssetEok(cell.metric)}`
@@ -193,13 +208,21 @@ export function HexmapPage({
     }
 
     const assetByMemberId = new Map(
-      (memberAssetsIndex?.members ?? []).map((entry) => [entry.memberId, entry.latestTotal] as const)
+      (memberAssetsIndex?.members ?? []).map((entry) => [
+        entry.memberId,
+        {
+          assetTotal: entry.latestTotal,
+          realEstateTotal: entry.latestRealEstateTotal ?? null
+        }
+      ] as const)
     );
 
     return accountabilitySummary.items.flatMap((item) => {
       if (!item.district) {
         return [];
       }
+
+      const assetSummary = assetByMemberId.get(item.memberId);
 
       return [{
         memberId: item.memberId,
@@ -209,7 +232,8 @@ export function HexmapPage({
         absentRate: item.absentRate,
         noRate: item.noRate,
         abstainRate: item.abstainRate,
-        assetTotal: assetByMemberId.get(item.memberId) ?? null
+        realEstateTotal: assetSummary?.realEstateTotal ?? null,
+        assetTotal: assetSummary?.assetTotal ?? null
       }];
     });
   }, [accountabilitySummary, memberAssetsIndex]);
@@ -347,7 +371,7 @@ export function HexmapPage({
       return UNMATCHED_CELL_COLOR;
     }
 
-    if (activeMetric === "assetTotal") {
+    if (isAssetMetric(activeMetric)) {
       if (cell.metricMemberCount === 0) {
         return UNMATCHED_CELL_COLOR;
       }
@@ -557,17 +581,18 @@ export function HexmapPage({
     Boolean(selectedDistrictKey || selectedProvinceFilter) &&
     detailCells.length === 0 &&
     (isLoading || !accountabilitySummary);
-  const partyLegendDescription =
-    activeMetric === "assetTotal"
-      ? "재산 비교에서도 색상은 정당별로 나뉘며, 같은 정당 안에서는 재산 규모가 클수록 더 진합니다."
-      : "색상은 정당별로 구분되며, 같은 정당 안에서는 값이 높을수록 더 진합니다.";
+  const partyLegendDescription = isAssetMetric(activeMetric)
+    ? `${getAssetMetricLabel(activeMetric)} 비교에서도 색상은 정당별로 나뉘며, 같은 정당 안에서는 ${
+        activeMetric === "realEstate" ? "부동산 규모" : "재산 규모"
+      }가 클수록 더 진합니다.`
+    : "색상은 정당별로 구분되며, 같은 정당 안에서는 값이 높을수록 더 진합니다.";
 
   function renderTooltipContent(info: TooltipInfo, hint: string | null) {
     const { datum: cell } = info;
     const [red, green, blue] =
       cell.memberCount > 0 ? getPartyColor(cell.party) : UNMATCHED_CELL_COLOR;
     const dotStyle = { background: `rgb(${red},${green},${blue})` };
-    const isAssetMetric = activeMetric === "assetTotal";
+    const assetMetricLabel = isAssetMetric(activeMetric) ? getAssetMetricLabel(activeMetric) : null;
 
     return (
       <div className="hexmap-tooltip" style={{ left: info.x + 12, top: info.y - 72 }}>
@@ -586,14 +611,14 @@ export function HexmapPage({
               {cell.memberCount === 1 ? cell.party : `다수당: ${cell.party}`}
             </div>
             <div className="hexmap-tooltip__value">
-              {isAssetMetric && cell.metricMemberCount === 0
-                ? "최신 재산 공개 데이터가 없어 중립 타일로 표시됩니다."
+              {assetMetricLabel && cell.metricMemberCount === 0
+                ? `최신 ${assetMetricLabel} 공개 데이터가 없어 중립 타일로 표시됩니다.`
                 : vizConfig.tooltipLabel(cell)}
             </div>
           </>
         ) : (
           <div className="hexmap-tooltip__value">
-            {isAssetMetric
+            {assetMetricLabel
               ? "현재 공개된 의원 재산 데이터가 없어 중립 타일로 표시됩니다."
               : "현재 공개된 의원 활동 데이터가 없어 중립 타일로 표시됩니다."}
           </div>
@@ -614,8 +639,10 @@ export function HexmapPage({
 
       <div className="hexmap-disclaimer">
         비례대표 의원은 지역구가 없어 표시되지 않으며, 공석 또는 매칭되지 않은 지역은 회색 타일로 유지합니다.
-        {activeMetric === "assetTotal" &&
-          " · 재산 비교는 최신 공개 총재산 기준이며, 재산 공개가 없는 지역구는 중립 타일로 남깁니다."}
+        {isAssetMetric(activeMetric) &&
+          ` · ${getAssetMetricLabel(activeMetric)} 비교는 ${
+            activeMetric === "realEstate" ? "최신 공개 건물·토지 합계" : "최신 공개 총재산"
+          } 기준이며, 공개 데이터가 없는 지역구는 중립 타일로 남깁니다.`}
         {loadProgress &&
           ` · ${loadProgress.total}개 시·도 중 ${loadProgress.done}개 상세 격자 로드 완료`}
         {nationalCells.length > 0 && ` · ${nationalCells.length}개 상세 셀`}
@@ -643,7 +670,7 @@ export function HexmapPage({
       </div>
 
       <p className="hexmap-viz-description">{vizConfig.description}</p>
-      {activeMetric === "assetTotal" && memberAssetsIndexError ? (
+      {isAssetMetric(activeMetric) && memberAssetsIndexError ? (
         <p className="hexmap-viz-warning">{memberAssetsIndexError}</p>
       ) : null}
 

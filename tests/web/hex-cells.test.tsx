@@ -124,8 +124,32 @@ describe("hex-cells", () => {
     });
   });
 
-  it("hydrates asset totals separately from member presence so missing asset disclosures stay neutral", () => {
-    const hydrated = hydrateHexCells(
+  it("hydrates asset metrics separately from member presence so missing asset disclosures stay neutral", () => {
+    const summaryItems = [
+      {
+        memberId: "M002",
+        name: "박민",
+        party: "미래개혁당",
+        district: "부산 남구",
+        absentRate: 0.5,
+        noRate: 0.1,
+        abstainRate: 0.1,
+        realEstateTotal: 320000,
+        assetTotal: 270000
+      },
+      {
+        memberId: "M001",
+        name: "김아라",
+        party: "미래개혁당",
+        district: "서울 중구",
+        absentRate: 0.0,
+        noRate: 0.0,
+        abstainRate: 0.0,
+        realEstateTotal: null,
+        assetTotal: null
+      }
+    ] satisfies SummaryItem[];
+    const hydratedAssetTotal = hydrateHexCells(
       [
         {
           h3Index: "8730c16f0ffffff",
@@ -140,38 +164,50 @@ describe("hex-cells", () => {
           provinceShortName: "서울"
         }
       ],
-      [
-        {
-          memberId: "M002",
-          name: "박민",
-          party: "미래개혁당",
-          district: "부산 남구",
-          absentRate: 0.5,
-          noRate: 0.1,
-          abstainRate: 0.1,
-          assetTotal: 270000
-        },
-        {
-          memberId: "M001",
-          name: "김아라",
-          party: "미래개혁당",
-          district: "서울 중구",
-          absentRate: 0.0,
-          noRate: 0.0,
-          abstainRate: 0.0,
-          assetTotal: null
-        }
-      ] satisfies SummaryItem[],
+      summaryItems,
       "assetTotal"
     );
 
-    expect(hydrated[0]).toMatchObject({
+    expect(hydratedAssetTotal[0]).toMatchObject({
       districtKey: "부산남구",
       memberCount: 1,
       metricMemberCount: 1,
       metric: 270000
     });
-    expect(hydrated[1]).toMatchObject({
+    expect(hydratedAssetTotal[1]).toMatchObject({
+      districtKey: "서울중구",
+      memberCount: 1,
+      metricMemberCount: 0,
+      metric: 0,
+      memberNames: ["김아라"]
+    });
+
+    const hydratedRealEstate = hydrateHexCells(
+      [
+        {
+          h3Index: "8730c16f0ffffff",
+          districtKey: "부산남구",
+          districtLabel: "부산 남구",
+          provinceShortName: "부산"
+        },
+        {
+          h3Index: "8730e1d88ffffff",
+          districtKey: "서울중구",
+          districtLabel: "서울 중구",
+          provinceShortName: "서울"
+        }
+      ],
+      summaryItems,
+      "realEstate"
+    );
+
+    expect(hydratedRealEstate[0]).toMatchObject({
+      districtKey: "부산남구",
+      memberCount: 1,
+      metricMemberCount: 1,
+      metric: 320000
+    });
+    expect(hydratedRealEstate[1]).toMatchObject({
       districtKey: "서울중구",
       memberCount: 1,
       metricMemberCount: 0,

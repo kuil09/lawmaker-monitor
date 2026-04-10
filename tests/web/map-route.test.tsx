@@ -20,6 +20,12 @@ describe("map-route", () => {
       metric: "assetTotal"
     });
 
+    expect(parseMapRoute("district=%EB%B6%80%EC%82%B0%EB%82%A8%EA%B5%AC&metric=realEstate")).toEqual({
+      province: null,
+      district: "부산남구",
+      metric: "realEstate"
+    });
+
     expect(parseMapRoute("province=%EB%B6%80%EC%82%B0")).toEqual({
       province: "부산",
       district: null,
@@ -39,6 +45,9 @@ describe("map-route", () => {
     );
     expect(buildMapHash({ district: "부산남구", metric: "assetTotal" })).toBe(
       "map?district=%EB%B6%80%EC%82%B0%EB%82%A8%EA%B5%AC&metric=assetTotal"
+    );
+    expect(buildMapHash({ district: "부산남구", metric: "realEstate" })).toBe(
+      "map?district=%EB%B6%80%EC%82%B0%EB%82%A8%EA%B5%AC&metric=realEstate"
     );
   });
 });
