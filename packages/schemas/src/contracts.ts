@@ -337,6 +337,7 @@ export const memberAssetsIndexItemSchema = z
     firstDisclosureDate: nonEmptyString,
     latestDisclosureDate: nonEmptyString,
     latestTotal: z.number().int(),
+    latestRealEstateTotal: z.number().int().optional(),
     totalDelta: z.number().int(),
     historyPath: nonEmptyString,
     latestSummary: memberAssetLatestSummarySchema

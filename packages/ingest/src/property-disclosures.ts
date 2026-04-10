@@ -151,6 +151,7 @@ type BuildPropertyDisclosureArtifactsInput = {
 const DEFAULT_PROPERTY_DOCUMENT_INDEX_PATH = "raw/index/assembly_property_document_index.json";
 const DEFAULT_PROPERTY_SOURCE_ID = "assembly-property-disclosures";
 const PROPERTY_DISCLOSURE_MEMBER_HISTORY_DIR = "exports/member_assets_history";
+const realEstateCategoryLabels = new Set(["건물", "토지"]);
 const PROPERTY_DISCLOSURE_SECTION_LABEL = "국회의원";
 const PROPERTY_DISCLOSURE_START_DATE = "2024-05-30";
 const require = createRequire(import.meta.url);
@@ -1090,6 +1091,22 @@ function buildLatestSummary(point: MemberAssetSeriesPointRecord): MemberAssetsHi
   };
 }
 
+function buildLatestRealEstateTotal(
+  categorySeries: MemberAssetsHistoryExport["categorySeries"],
+  reportedAt: string
+): number {
+  return categorySeries.reduce((sum, category) => {
+    if (!realEstateCategoryLabels.has(category.categoryLabel)) {
+      return sum;
+    }
+
+    return (
+      sum +
+      (category.points.find((point) => point.reportedAt === reportedAt)?.currentAmount ?? 0)
+    );
+  }, 0);
+}
+
 function buildSelfOnlyScopedHistory(args: {
   categoriesByDisclosureCategoryId: Map<string, PropertyDisclosureCategoryRecord>;
   itemsByRecordId: Map<string, PropertyDisclosureItemRecord[]>;
@@ -1323,6 +1340,7 @@ function buildMemberAssetExports(args: {
         firstDisclosureDate: firstRecord.reportedAt,
         latestDisclosureDate: latestRecord.reportedAt,
         latestTotal: latestRecord.currentAmount,
+        latestRealEstateTotal: buildLatestRealEstateTotal(categorySeries, latestRecord.reportedAt),
         totalDelta: latestRecord.currentAmount - firstRecord.currentAmount,
         historyPath: buildMemberAssetsHistoryPath(memberId),
         latestSummary

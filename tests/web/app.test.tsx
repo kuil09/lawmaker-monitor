@@ -260,6 +260,7 @@ describe("web app", () => {
     render(<App />);
 
     await screen.findByText("제22대 국회 의원 순위");
+    await screen.findByRole("tab", { name: "총재산" });
     await waitFor(() => {
       expect(hexmapLoaderMocks.scheduleHexmapPrewarmMock).toHaveBeenCalledTimes(1);
     });
@@ -280,6 +281,8 @@ describe("web app", () => {
     expect(screen.getByRole("tab", { name: "불참" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "반대" })).toHaveAttribute("aria-selected", "false");
     expect(screen.getByRole("tab", { name: "기권" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "부동산" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "총재산" })).toBeInTheDocument();
     expect(screen.getByText("불참 기준으로 먼저 정렬해 출석 문제를 바로 드러내고, 나머지 선택 구성은 작은 막대로 함께 봅니다.")).toBeInTheDocument();
     expect(screen.queryByText("반대·기권·불참 기준 최근 4주 급상승 의원")).not.toBeInTheDocument();
     expect(screen.queryByText("제22대 국회 현재 반대·기권·불참 상위 10")).not.toBeInTheDocument();
@@ -295,9 +298,15 @@ describe("web app", () => {
     expect(screen.getByText("출석률 66.7%")).toBeInTheDocument();
     expect(screen.getByText("출석 3일 / 대상 3일")).toBeInTheDocument();
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/exports/member_activity_calendar.json"))).toBe(true);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/exports/member_assets_index.json"))).toBe(true);
     expect(
       fetchMock.mock.calls.some(([url]) =>
         String(url).includes("/exports/member_activity_calendar_members/")
+      )
+    ).toBe(false);
+    expect(
+      fetchMock.mock.calls.some(([url]) =>
+        String(url).includes("/exports/member_assets_history/")
       )
     ).toBe(false);
     const leaderboardHeading = screen.getByRole("heading", {
@@ -314,6 +323,28 @@ describe("web app", () => {
         'img.member-identity__avatar[src="https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m002.jpg"]'
       )
     ).not.toBeNull();
+
+    fireEvent.click(within(leaderboardPanel as HTMLElement).getByRole("tab", { name: "총재산" }));
+    expect(
+      within(leaderboardPanel as HTMLElement).getByText(
+        "최신 재산 공개 기준 총재산 순위를 보여 주고, 부동산 규모와 22대 누적 증감폭을 함께 봅니다."
+      )
+    ).toBeInTheDocument();
+    expect(
+      within(leaderboardPanel as HTMLElement).getAllByText("8.2억원").length
+    ).toBeGreaterThan(0);
+    expect(within(leaderboardPanel as HTMLElement).getByText("부동산 5.1억원")).toBeInTheDocument();
+
+    fireEvent.click(within(leaderboardPanel as HTMLElement).getByRole("tab", { name: "부동산" }));
+    expect(
+      within(leaderboardPanel as HTMLElement).getByText(
+        "최신 재산 공개 기준 건물·토지 합계로 정렬하고, 총재산과 22대 누적 증감폭을 함께 비교합니다."
+      )
+    ).toBeInTheDocument();
+    expect(
+      within(leaderboardPanel as HTMLElement).getAllByText("5.1억원").length
+    ).toBeGreaterThan(0);
+    expect(within(leaderboardPanel as HTMLElement).getByText("총재산 8.2억원")).toBeInTheDocument();
   });
 
   it("navigates from the home route to the distribution route", async () => {
@@ -614,12 +645,32 @@ describe("web app", () => {
     expect(within(realEstateFocus as HTMLElement).getByText("토지")).toBeInTheDocument();
     expect(within(realEstateFocus as HTMLElement).getAllByText("5.1억원").length).toBeGreaterThan(0);
     expect(within(realEstateFocus as HTMLElement).getAllByText("0억원").length).toBeGreaterThan(0);
+    const assetComposition = screen.getByText("재산 구성 비중").closest(".activity-asset-composition");
+    expect(assetComposition).not.toBeNull();
+    expect(
+      within(assetComposition as HTMLElement).getByText("가족 포함 기준 최신 공개 금액")
+    ).toBeInTheDocument();
+    expect(
+      within(assetComposition as HTMLElement).getByText(
+        "0원이 아니고 최신 공개 문서에서 금액이 확인된 카테고리만 비중에 포함합니다."
+      )
+    ).toBeInTheDocument();
+    expect(within(assetComposition as HTMLElement).getByText("건물")).toBeInTheDocument();
+    expect(within(assetComposition as HTMLElement).getByText("예금")).toBeInTheDocument();
+    expect(within(assetComposition as HTMLElement).getByText("67.1%")).toBeInTheDocument();
+    expect(within(assetComposition as HTMLElement).getByText("32.9%")).toBeInTheDocument();
     const chart = assetCard.querySelector(".activity-asset-chart");
     expect(chart).not.toBeNull();
     const assetCardChildren = Array.from(assetCard.children);
     expect(assetCardChildren.indexOf(scopeSummary)).toBeLessThan(assetCardChildren.indexOf(scopeControls));
     expect(assetCardChildren.indexOf(scopeControls)).toBeLessThan(
       assetCardChildren.indexOf(realEstateFocus as HTMLElement)
+    );
+    expect(assetCardChildren.indexOf(assetComposition as HTMLElement)).toBeGreaterThan(
+      assetCardChildren.indexOf(realEstateFocus as HTMLElement)
+    );
+    expect(assetCardChildren.indexOf(assetComposition as HTMLElement)).toBeLessThan(
+      assetCardChildren.indexOf(chart as HTMLElement)
     );
     expect(assetCardChildren.indexOf(scopeControls)).toBeLessThan(assetCardChildren.indexOf(chart as HTMLElement));
     fireEvent.click(within(scopeControls).getByRole("button", { name: "본인만" }));

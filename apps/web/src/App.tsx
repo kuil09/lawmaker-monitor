@@ -337,7 +337,11 @@ export default function App() {
   }, [routeState.route, manifest, accountabilitySummary]);
 
   useEffect(() => {
-    if (routeState.route !== "calendar" && routeState.route !== "map") {
+    if (
+      routeState.route !== "home" &&
+      routeState.route !== "calendar" &&
+      routeState.route !== "map"
+    ) {
       return;
     }
 
@@ -847,6 +851,7 @@ export default function App() {
             items={accountabilitySummary.items}
             assemblyLabel={currentAssemblyLabel}
             attendanceByMemberId={leaderboardAttendanceByMemberId}
+            assetItems={memberAssetsIndex?.members}
           />
         ) : (
           <section className="leaderboard-panel">

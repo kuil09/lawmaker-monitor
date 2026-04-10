@@ -146,6 +146,7 @@ describe("property disclosure pipeline", () => {
     expect(artifacts.memberAssetsIndex.members[0]).toMatchObject({
       memberId: "M001",
       latestTotal: 820000,
+      latestRealEstateTotal: 510000,
       totalDelta: 30000,
       historyPath: "exports/member_assets_history/M001.json"
     });

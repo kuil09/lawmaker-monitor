@@ -50,8 +50,17 @@ import {
   formatAssetEokMagnitude,
   formatDate,
   formatNumber,
+  formatPercent,
   formatVoteCodeLabel
 } from "../lib/format.js";
+import {
+  buildRealEstateFocusSummary,
+  getFamilyGapLatest,
+  resolveAssetHistorySnapshot,
+  type AssetHistorySnapshot,
+  type AssetScopeMode,
+  type RealEstateFocusSummary
+} from "../lib/member-assets.js";
 import { MemberIdentity } from "./MemberIdentity.js";
 import { MemberSearchField } from "./MemberSearchField.js";
 
@@ -140,16 +149,19 @@ const assetCategoryPriority = [
   "채권"
 ] as const;
 
-const explicitRealEstateCategoryLabels = ["건물", "토지"] as const;
-const mixedAssetCategoryLabels = [
-  "부동산에 관한 규정이 준용되는 권리와 자동차·건설기계·선박 및 항공기"
-] as const;
-
 type AssetChartRow = {
   reportedAt: string;
   label: string;
   total: number;
   [categoryKey: string]: string | number;
+};
+
+type AssetCompositionItem = {
+  categoryKey: string;
+  categoryLabel: string;
+  amount: number;
+  share: number;
+  color: string;
 };
 
 type AssetCompareChartRow = {
@@ -158,22 +170,6 @@ type AssetCompareChartRow = {
   leftTotal?: number;
   rightTotal?: number;
 };
-
-type RealEstateFocusSummary = {
-  buildingAmount: number;
-  hasExplicitCategory: boolean;
-  hasMixedCategory: boolean;
-  landAmount: number;
-  latestAmount: number;
-  deltaAmount: number;
-};
-
-type AssetScopeMode = "familyIncluded" | "selfOnly";
-
-type AssetHistorySnapshot = Pick<
-  MemberAssetsHistoryExport,
-  "series" | "categorySeries" | "latestSummary"
->;
 
 const formatAssetAmount = formatAssetEok;
 const formatAssetDelta = formatAssetEokDelta;
@@ -193,33 +189,6 @@ function describeFamilyGap(value: number): string {
   }
 
   return "본인만과 가족 포함 총액이 같습니다.";
-}
-
-function getFamilyGapLatest(history: MemberAssetsHistoryExport | null): number | null {
-  if (!history?.selfOnly) {
-    return null;
-  }
-
-  return history.latestSummary.currentAmount - history.selfOnly.latestSummary.currentAmount;
-}
-
-function resolveAssetHistorySnapshot(
-  history: MemberAssetsHistoryExport | null,
-  scopeMode: AssetScopeMode
-): AssetHistorySnapshot | null {
-  if (!history) {
-    return null;
-  }
-
-  if (scopeMode === "selfOnly" && history.selfOnly) {
-    return history.selfOnly;
-  }
-
-  return {
-    series: history.series,
-    categorySeries: history.categorySeries,
-    latestSummary: history.latestSummary
-  };
 }
 
 function sortAssetCategorySeries(
@@ -272,57 +241,42 @@ function buildAssetChartRows(
   });
 }
 
-function getCategoryAmountAtDate(
+function buildAssetCompositionItems(
   history: AssetHistorySnapshot | null,
-  categoryLabel: string,
-  reportedAt: string
-): number {
+  orderedCategorySeries: AssetHistorySnapshot["categorySeries"]
+): AssetCompositionItem[] {
   if (!history) {
-    return 0;
+    return [];
   }
 
-  const series = history.categorySeries.find((entry) => entry.categoryLabel === categoryLabel);
-  return series?.points.find((point) => point.reportedAt === reportedAt)?.currentAmount ?? 0;
-}
-
-function buildRealEstateFocusSummary(
-  history: AssetHistorySnapshot | null
-): RealEstateFocusSummary | null {
-  if (!history || history.series.length === 0) {
-    return null;
-  }
-
-  const firstReportedAt = history.series[0]?.reportedAt;
   const latestReportedAt = history.latestSummary.reportedAt;
+  const compositionItems = orderedCategorySeries
+    .map((series, index) => ({
+      categoryKey: series.categoryKey,
+      categoryLabel: series.categoryLabel,
+      amount: series.points.find((point) => point.reportedAt === latestReportedAt)?.currentAmount ?? 0,
+      color: assetCategoryPalette[index % assetCategoryPalette.length] ?? assetCategoryPalette[0]
+    }))
+    .filter((item) => item.amount > 0);
 
-  if (!firstReportedAt || !latestReportedAt) {
-    return null;
+  const totalAmount = compositionItems.reduce((sum, item) => sum + item.amount, 0);
+
+  if (totalAmount <= 0) {
+    return [];
   }
 
-  const buildingAmount = getCategoryAmountAtDate(history, "건물", latestReportedAt);
-  const landAmount = getCategoryAmountAtDate(history, "토지", latestReportedAt);
-  const latestAmount = buildingAmount + landAmount;
-  const firstAmount = explicitRealEstateCategoryLabels.reduce(
-    (sum, categoryLabel) => sum + getCategoryAmountAtDate(history, categoryLabel, firstReportedAt),
-    0
-  );
+  return compositionItems
+    .map((item) => ({
+      ...item,
+      share: item.amount / totalAmount
+    }))
+    .sort((left, right) => {
+      if (right.amount !== left.amount) {
+        return right.amount - left.amount;
+      }
 
-  return {
-    buildingAmount,
-    hasExplicitCategory: history.categorySeries.some((series) =>
-      explicitRealEstateCategoryLabels.includes(
-        series.categoryLabel as (typeof explicitRealEstateCategoryLabels)[number]
-      )
-    ),
-    hasMixedCategory: history.categorySeries.some((series) =>
-      mixedAssetCategoryLabels.includes(
-        series.categoryLabel as (typeof mixedAssetCategoryLabels)[number]
-      )
-    ),
-    landAmount,
-    latestAmount,
-    deltaAmount: latestAmount - firstAmount
-  };
+      return left.categoryLabel.localeCompare(right.categoryLabel, "ko-KR");
+    });
 }
 
 function buildAssetCompareChartRows(
@@ -1054,6 +1008,7 @@ function MemberAssetSection({
       ? activeHistory.latestSummary.currentAmount - activeFirstPoint.currentAmount
       : indexEntry?.totalDelta ?? 0;
   const activeScopeLabel = assetScopeMode === "selfOnly" ? "본인만" : "가족 포함";
+  const assetCompositionItems = buildAssetCompositionItems(activeHistory, orderedCategorySeries);
   const defaultCategoryKeys = orderedCategorySeries.slice(0, 4).map((series) => series.categoryKey);
   const orderedCategorySignature = orderedCategorySeries
     .map((series) => `${series.categoryKey}:${series.points.length}`)
@@ -1288,6 +1243,50 @@ function MemberAssetSection({
           </dd>
         </div>
       </dl>
+
+      {assetCompositionItems.length > 0 ? (
+        <div className="activity-asset-composition">
+          <div className="activity-asset-composition__head">
+            <div>
+              <p className="section-label">재산 구성 비중</p>
+              <h4>{activeScopeLabel} 기준 최신 공개 금액</h4>
+            </div>
+            <p>0원이 아니고 최신 공개 문서에서 금액이 확인된 카테고리만 비중에 포함합니다.</p>
+          </div>
+
+          <ol className="activity-asset-composition__list">
+            {assetCompositionItems.map((item) => (
+              <li key={item.categoryKey} className="activity-asset-composition__item">
+                <div className="activity-asset-composition__item-head">
+                  <div className="activity-asset-composition__item-label">
+                    <span
+                      className="activity-asset-composition__swatch"
+                      style={{ backgroundColor: item.color }}
+                      aria-hidden="true"
+                    />
+                    <strong>{item.categoryLabel}</strong>
+                  </div>
+                  <span className="activity-asset-composition__item-share">
+                    {formatPercent(item.share)}
+                  </span>
+                </div>
+                <div className="activity-asset-composition__bar" aria-hidden="true">
+                  <span
+                    className="activity-asset-composition__fill"
+                    style={{
+                      width: `${Math.max(item.share * 100, 6)}%`,
+                      backgroundColor: item.color
+                    }}
+                  />
+                </div>
+                <p className="activity-asset-composition__item-amount">
+                  {formatAssetAmount(item.amount)}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
 
       <div className="activity-asset-chart">
         <ResponsiveContainer width="100%" height={280}>

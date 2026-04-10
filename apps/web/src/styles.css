@@ -336,6 +336,18 @@ summary:focus-visible {
   background: var(--accent-soft);
 }
 
+.metric-toggle__button--real-estate.is-active {
+  border-color: rgba(47, 93, 115, 0.22);
+  color: #2f5d73;
+  background: rgba(47, 93, 115, 0.12);
+}
+
+.metric-toggle__button--asset-total.is-active {
+  border-color: rgba(139, 106, 30, 0.22);
+  color: #8b6a1e;
+  background: rgba(139, 106, 30, 0.12);
+}
+
 .chart-card {
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -596,6 +608,14 @@ summary:focus-visible {
   background: var(--vote-yes);
 }
 
+.ranking-item__segment--real-estate {
+  background: linear-gradient(90deg, #2f5d73 0%, #4f7f92 100%);
+}
+
+.ranking-item__segment--asset-total {
+  background: linear-gradient(90deg, #8b6a1e 0%, #b4892b 100%);
+}
+
 .ranking-item__meta {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -651,6 +671,16 @@ summary:focus-visible {
   color: var(--vote-absent);
 }
 
+.ranking-item__stats--real-estate strong,
+.ranking-item__stats--real-estate span {
+  color: #2f5d73;
+}
+
+.ranking-item__stats--asset-total strong,
+.ranking-item__stats--asset-total span {
+  color: #8b6a1e;
+}
+
 .ranking-item__stats-rate {
   color: var(--ink-muted);
   font-size: 0.76rem;
@@ -693,6 +723,22 @@ summary:focus-visible {
 
 .ranking-item__meta-item--absent {
   color: var(--vote-absent);
+}
+
+.ranking-item__meta-item--real-estate {
+  color: #2f5d73;
+}
+
+.ranking-item__meta-item--asset-total {
+  color: #8b6a1e;
+}
+
+.ranking-item__meta-item--asset-delta {
+  color: var(--accent);
+}
+
+.ranking-item__meta-item--asset-date {
+  color: var(--ink-muted);
 }
 
 .member-identity {
