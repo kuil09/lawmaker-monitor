@@ -174,13 +174,15 @@ export function HexmapPage({
   const sessionKey = getHexmapStaticSessionKey(manifest);
 
   useEffect(() => {
-    if (activeMetric === initialMetric) {
-      return;
-    }
+    setActiveMetric((current) => {
+      if (current === initialMetric) {
+        return current;
+      }
 
-    metricSwitchSpanRef.current = startPerformanceSpan("hexmap:metricSwitchReady");
-    setActiveMetric(initialMetric);
-  }, [initialMetric, activeMetric]);
+      metricSwitchSpanRef.current = startPerformanceSpan("hexmap:metricSwitchReady");
+      return initialMetric;
+    });
+  }, [initialMetric]);
 
   useEffect(() => {
     const nextDistrictKey = normalizeConstituencyLookupKey(initialDistrict) || null;
