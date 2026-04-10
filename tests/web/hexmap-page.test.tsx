@@ -318,7 +318,7 @@ describe("HexmapPage", () => {
       metric: "absence"
     });
     expect(
-      screen.getByText("부산 전체 지역구를 보여줍니다. 헥사곤을 클릭하면 해당 의원의 활동 캘린더로 이동합니다.")
+      screen.getByText("부산 전체 지역구를 보여줍니다. 헥사곤을 클릭하면 해당 의원의 요약 카드가 열립니다.")
     ).toBeInTheDocument();
   });
 
@@ -378,7 +378,10 @@ describe("HexmapPage", () => {
 
     expect(screen.queryByText(/셀 높이/)).not.toBeInTheDocument();
     expect(
-      screen.getByText("부산 전체 지역구를 보여줍니다. 헥사곤을 클릭하면 해당 의원의 활동 캘린더로 이동합니다.")
+      screen.getByText("부산 전체 지역구를 보여줍니다. 헥사곤을 클릭하면 해당 의원의 요약 카드가 열립니다.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("상세 지도에서 헥사곤을 클릭하면 의원 요약 카드가 나타납니다.")
     ).toBeInTheDocument();
 
     const detailLayer = getLastLayer("h3-panel-negative-부산");
@@ -393,6 +396,14 @@ describe("HexmapPage", () => {
     expect(detailDeck?.viewState).toMatchObject({ pitch: 0 });
 
     onClick?.({ object: firstCell });
+    expect(onNavigateToMember).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "활동 캘린더 보기" })).toBeInTheDocument();
+    });
+    expect(screen.getByText("박민")).toBeInTheDocument();
+    expect(screen.getByText("부산 남구")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "활동 캘린더 보기" }));
     expect(onNavigateToMember).toHaveBeenCalledWith("M002");
 
     fireEvent.click(screen.getByRole("tab", { name: "결석 핫스팟" }));
