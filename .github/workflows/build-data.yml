@@ -37,7 +37,7 @@ jobs:
       DATA_REPO_PAT: ${{ secrets.DATA_REPO_PAT }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node, install dependencies, and build shared workspaces
         uses: ./.github/actions/setup-node-workspaces
@@ -46,7 +46,7 @@ jobs:
 
       - name: Cache constituency boundary artifact
         id: boundary-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: artifacts/constituency-boundaries/current
           key: constituency-boundaries-v1
@@ -120,7 +120,7 @@ jobs:
 
       - name: Cache DuckDB CLI
         id: duckdb-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.local/duckdb
           key: duckdb-cli-v1.1.3-linux-amd64
@@ -170,7 +170,7 @@ jobs:
           fi
 
       - name: Upload built data artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: built-data
           path: artifacts/build

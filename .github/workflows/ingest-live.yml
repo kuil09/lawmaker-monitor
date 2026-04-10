@@ -16,7 +16,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node, install dependencies, and build shared workspaces
         uses: ./.github/actions/setup-node-workspaces
@@ -36,7 +36,7 @@ jobs:
           OUTPUT_DIR: artifacts/ingest
 
       - name: Upload raw snapshot artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: raw-snapshot
           path: artifacts/ingest/raw

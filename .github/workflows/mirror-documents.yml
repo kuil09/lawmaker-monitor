@@ -39,7 +39,7 @@ jobs:
       MIRROR_INCLUDE_APPENDICES: ${{ vars.MIRROR_INCLUDE_APPENDICES }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node, install dependencies, and build shared workspaces
         uses: ./.github/actions/setup-node-workspaces
@@ -47,7 +47,7 @@ jobs:
           build-target: schemas-and-ingest
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ hashFiles('package-lock.json') }}
@@ -100,7 +100,7 @@ jobs:
 
       - name: Upload mirror state artifact
         if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: mirrored-document-state
           path: |

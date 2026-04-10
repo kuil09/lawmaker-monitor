@@ -35,7 +35,7 @@ jobs:
       ASSEMBLY_FETCH_RETRIES: ${{ vars.ASSEMBLY_FETCH_RETRIES }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node, install dependencies, and build shared workspaces
         uses: ./.github/actions/setup-node-workspaces
@@ -94,7 +94,7 @@ jobs:
 
       - name: Upload property mirror state artifact
         if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: mirrored-property-document-state
           path: |
