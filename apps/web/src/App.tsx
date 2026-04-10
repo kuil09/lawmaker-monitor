@@ -337,7 +337,7 @@ export default function App() {
   }, [routeState.route, manifest, accountabilitySummary]);
 
   useEffect(() => {
-    if (routeState.route !== "calendar") {
+    if (routeState.route !== "calendar" && routeState.route !== "map") {
       return;
     }
 
@@ -721,6 +721,8 @@ export default function App() {
           <HexmapPage
             manifest={manifest}
             accountabilitySummary={accountabilitySummary}
+            memberAssetsIndex={memberAssetsIndex}
+            memberAssetsIndexError={memberAssetsIndexError}
             assemblyLabel={currentAssemblyLabel}
             initialProvince={routeState.mapProvince}
             initialDistrict={routeState.mapDistrict}

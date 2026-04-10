@@ -72,6 +72,17 @@
   line-height: 1.6;
 }
 
+.hexmap-viz-warning {
+  margin: -4px 0 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--amber) 28%, transparent);
+  background: var(--amber-soft);
+  color: var(--warning);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
 .hexmap-section {
   margin-bottom: 0;
 }

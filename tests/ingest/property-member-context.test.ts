@@ -6,7 +6,12 @@ import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ConstituencyBoundaryExport } from "../../packages/schemas/src/index.js";
-import { memberAssetsIndexExportSchema } from "../../packages/schemas/src/index.js";
+import {
+  hexmapStaticIndexExportSchema,
+  hexmapStaticProvinceArtifactSchema,
+  manifestSchema,
+  memberAssetsIndexExportSchema
+} from "../../packages/schemas/src/index.js";
 
 import {
   DEFAULT_PROPERTY_MEMBER_CONTEXT_MANIFEST_PATH,
@@ -400,9 +405,27 @@ describe("property member context", () => {
     const memberAssetsIndex = memberAssetsIndexExportSchema.parse(
       JSON.parse(await readFile(join(workspace.outputDir, "exports/member_assets_index.json"), "utf8"))
     );
+    const hexmapStaticIndex = hexmapStaticIndexExportSchema.parse(
+      JSON.parse(await readFile(join(workspace.outputDir, "exports/hexmap_static/index.json"), "utf8"))
+    );
+    const seoulHexmapStaticProvince = hexmapStaticProvinceArtifactSchema.parse(
+      JSON.parse(
+        await readFile(
+          join(workspace.outputDir, "exports/hexmap_static/provinces/서울.json"),
+          "utf8"
+        )
+      )
+    );
+    const manifest = manifestSchema.parse(
+      JSON.parse(await readFile(join(workspace.outputDir, "manifests/latest.json"), "utf8"))
+    );
     const kimAra = memberAssetsIndex.members.find((member) => member.memberId === "M001");
 
     expect(kimAra?.officialExternalUrl).toBe("https://blog.example.kr/kim-ara");
+    expect(hexmapStaticIndex.provinces).toHaveLength(2);
+    expect(seoulHexmapStaticProvince.districts).toHaveLength(1);
+    expect(seoulHexmapStaticProvince.cells.length).toBeGreaterThan(0);
+    expect(manifest.exports.hexmapStaticIndex?.path).toBe("exports/hexmap_static/index.json");
   });
 
   it("build-data fails explicitly when the property member context manifest is missing", async () => {

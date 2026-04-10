@@ -1,4 +1,4 @@
-export type MapMetric = "absence" | "negative";
+export type MapMetric = "absence" | "negative" | "assetTotal";
 
 export type MapRouteArgs = {
   province?: string | null;
@@ -13,7 +13,7 @@ export type ParsedMapRoute = {
 };
 
 export function isMapMetric(value: string | null | undefined): value is MapMetric {
-  return value === "absence" || value === "negative";
+  return value === "absence" || value === "negative" || value === "assetTotal";
 }
 
 export function parseMapRoute(input: URLSearchParams | string): ParsedMapRoute {

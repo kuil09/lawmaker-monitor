@@ -595,27 +595,25 @@ describe("web app", () => {
 
     expect(await screen.findByRole("heading", { name: "의원 표결 활동 그래프" })).toBeInTheDocument();
     const assetCard = screen.getByLabelText("재산 공개 정보");
-    expect(await within(assetCard).findByText("820,000천원")).toBeInTheDocument();
+    expect((await within(assetCard).findAllByText("820,000천원")).length).toBeGreaterThan(0);
     expect(within(assetCard).getByText("22대 국회 재산 변동 흐름")).toBeInTheDocument();
     const scopeBlock = within(assetCard).getByLabelText("공개 범위 비교");
-    expect(within(scopeBlock).getByText("본인 외 가족분")).toBeInTheDocument();
-    expect(within(scopeBlock).getByText("+60,000천원")).toBeInTheDocument();
-    expect(
-      within(scopeBlock).getByText("가족 명의 순재산이 총액에 더해졌습니다.")
-    ).toBeInTheDocument();
+    expect(within(scopeBlock).getByText("가족 차이")).toBeInTheDocument();
+    expect(within(scopeBlock).getByText("60,000천원")).toBeInTheDocument();
+    expect(scopeBlock).toHaveTextContent("가족 명의 순재산이 총액에 더해졌습니다.");
     const realEstateFocus = screen.getByText("부동산 포커스").closest(".activity-asset-focus");
     expect(realEstateFocus).not.toBeNull();
     expect(
-      within(realEstateFocus as HTMLElement).getByText("건물과 토지를 따로 읽을 수 있게 묶었습니다")
+      within(realEstateFocus as HTMLElement).getByText("건물과 토지를 중심으로 봅니다")
     ).toBeInTheDocument();
     expect(within(realEstateFocus as HTMLElement).getByText("부동산 합계")).toBeInTheDocument();
-    expect(within(realEstateFocus as HTMLElement).getByText("22대 부동산 증감")).toBeInTheDocument();
+    expect(within(realEstateFocus as HTMLElement).getByText("증감")).toBeInTheDocument();
     expect(within(realEstateFocus as HTMLElement).getByText("건물")).toBeInTheDocument();
     expect(within(realEstateFocus as HTMLElement).getByText("토지")).toBeInTheDocument();
     expect(within(realEstateFocus as HTMLElement).getAllByText("510,000천원").length).toBeGreaterThan(0);
     expect(within(realEstateFocus as HTMLElement).getAllByText("0천원").length).toBeGreaterThan(0);
     fireEvent.click(within(scopeBlock).getByRole("button", { name: "본인만" }));
-    expect(await within(assetCard).findByText("760,000천원")).toBeInTheDocument();
+    expect((await within(assetCard).findAllByText("760,000천원")).length).toBeGreaterThan(0);
     expect(
       fetchMock.mock.calls.filter(([url]) =>
         String(url).includes("/exports/member_assets_history/M001.json")
@@ -991,10 +989,19 @@ describe("web app", () => {
     expect(compareSummaryBadges.some((badge) => /^차이 \d+일$/.test(badge))).toBe(true);
     expect(compareSummaryBadges.some((badge) => badge.includes("우세"))).toBe(false);
     expect(screen.getByText("비율 비교")).toBeInTheDocument();
+    expect(await screen.findByText("재산 VS")).toBeInTheDocument();
+    expect(screen.getByText("재산 공개 기준 비교")).toBeInTheDocument();
     expect(screen.getAllByText("박민").length).toBeGreaterThan(0);
     expect(screen.getAllByText("김아라").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "공유하기" })).not.toBeInTheDocument();
     expect(document.querySelector(".activity-compare__column .member-identity--large")).toBeNull();
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.filter(([url]) =>
+          String(url).includes("/exports/member_assets_history/")
+        )
+      ).toHaveLength(2);
+    });
   });
 
   it("does not request member detail files when the page opens directly in compare mode", async () => {

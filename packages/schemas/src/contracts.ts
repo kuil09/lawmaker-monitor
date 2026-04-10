@@ -456,6 +456,56 @@ export const constituencyBoundariesIndexExportSchema = z
   })
   .strict();
 
+export const hexmapStaticDistrictSchema = z
+  .object({
+    type: z.literal("Feature"),
+    geometry: z.union([geoJsonPolygonSchema, geoJsonMultiPolygonSchema]),
+    properties: z
+      .object({
+        districtKey: nonEmptyString,
+        label: nonEmptyString
+      })
+      .strict()
+  })
+  .strict();
+
+export const hexmapStaticCellSchema = z
+  .object({
+    h3Index: nonEmptyString,
+    districtKey: nonEmptyString,
+    districtLabel: nonEmptyString,
+    provinceShortName: nonEmptyString
+  })
+  .strict();
+
+export const hexmapStaticIndexProvinceSchema = z
+  .object({
+    provinceShortName: nonEmptyString,
+    path: nonEmptyString,
+    checksumSha256: nonEmptyString,
+    detailRes: z.number().int().positive(),
+    cellCount: z.number().int().nonnegative(),
+    districtCount: z.number().int().positive()
+  })
+  .strict();
+
+export const hexmapStaticIndexExportSchema = z
+  .object({
+    generatedAt: nonEmptyString,
+    snapshotId: nonEmptyString,
+    provinces: z.array(hexmapStaticIndexProvinceSchema).min(1)
+  })
+  .strict();
+
+export const hexmapStaticProvinceArtifactSchema = z
+  .object({
+    provinceShortName: nonEmptyString,
+    detailRes: z.number().int().positive(),
+    districts: z.array(hexmapStaticDistrictSchema).min(1),
+    cells: z.array(hexmapStaticCellSchema)
+  })
+  .strict();
+
 export const manifestSchema = z.object({
   schemaVersion: nonEmptyString,
   snapshotId: nonEmptyString,
@@ -479,6 +529,7 @@ export const manifestSchema = z.object({
     memberActivityCalendar: datasetFileSchema.optional(),
     accountabilityTrends: datasetFileSchema.optional(),
     constituencyBoundariesIndex: datasetFileSchema.optional(),
+    hexmapStaticIndex: datasetFileSchema.optional(),
     memberAssetsIndex: datasetFileSchema.optional()
   })
 });
@@ -489,6 +540,7 @@ export const publishBundleSchema = z.object({
   accountabilitySummary: accountabilitySummaryExportSchema,
   accountabilityTrends: accountabilityTrendsExportSchema.optional(),
   constituencyBoundariesIndex: constituencyBoundariesIndexExportSchema.optional(),
+  hexmapStaticIndex: hexmapStaticIndexExportSchema.optional(),
   memberActivityCalendar: memberActivityCalendarExportSchema,
   memberActivityCalendarMemberDetails: z
     .array(memberActivityCalendarMemberDetailExportSchema)
@@ -535,5 +587,10 @@ export type ConstituencyBoundariesIndexProvince = z.infer<
 export type ConstituencyBoundariesIndexExport = z.infer<
   typeof constituencyBoundariesIndexExportSchema
 >;
+export type HexmapStaticDistrict = z.infer<typeof hexmapStaticDistrictSchema>;
+export type HexmapStaticCell = z.infer<typeof hexmapStaticCellSchema>;
+export type HexmapStaticIndexProvince = z.infer<typeof hexmapStaticIndexProvinceSchema>;
+export type HexmapStaticIndexExport = z.infer<typeof hexmapStaticIndexExportSchema>;
+export type HexmapStaticProvinceArtifact = z.infer<typeof hexmapStaticProvinceArtifactSchema>;
 export type Manifest = z.infer<typeof manifestSchema>;
 export type PublishBundle = z.infer<typeof publishBundleSchema>;

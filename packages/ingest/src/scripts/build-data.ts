@@ -24,6 +24,10 @@ import {
   buildConstituencyBoundaryRuntimeArtifacts,
   CONSTITUENCY_BOUNDARIES_INDEX_PATH
 } from "../constituency-boundary-runtime.js";
+import {
+  buildHexmapStaticRuntimeArtifacts,
+  HEXMAP_STATIC_INDEX_PATH
+} from "../hexmap-static-runtime.js";
 import { createNormalizedBundle } from "../normalize.js";
 import {
   createSourceRecord,
@@ -58,6 +62,8 @@ import {
   validateAccountabilityTrendsExport,
   assertSinglePublicAssembly,
   validateConstituencyBoundariesIndexExport,
+  validateHexmapStaticIndexExport,
+  validateHexmapStaticProvinceArtifact,
   validateLatestVotesExport,
   validateManifest,
   validateMemberAssetsHistoryExport,
@@ -627,9 +633,20 @@ export async function buildData(args?: {
     generatedAt: latestVotes.generatedAt,
     snapshotId
   });
+  const hexmapStaticRuntimeArtifacts = buildHexmapStaticRuntimeArtifacts({
+    generatedAt: latestVotes.generatedAt,
+    snapshotId,
+    provinceShards: constituencyBoundaryRuntimeArtifacts.shards
+  });
   const constituencyBoundariesIndex = validateConstituencyBoundariesIndexExport(
     constituencyBoundaryRuntimeArtifacts.index
   );
+  const hexmapStaticIndex = validateHexmapStaticIndexExport(
+    hexmapStaticRuntimeArtifacts.index
+  );
+  for (const provinceArtifact of hexmapStaticRuntimeArtifacts.provinces) {
+    validateHexmapStaticProvinceArtifact(provinceArtifact.artifact);
+  }
   const manifest = validateManifest(
     buildManifest({
       bundle,
@@ -656,7 +673,8 @@ export async function buildData(args?: {
         content: propertyDatasetFiles.items,
         rowCount: propertyDisclosureArtifacts.items.length
       },
-      constituencyBoundariesIndex
+      constituencyBoundariesIndex,
+      hexmapStaticIndex
     })
   );
 
@@ -666,6 +684,7 @@ export async function buildData(args?: {
   const memberActivityCalendarJson = serializePublishedJson(memberActivityCalendar);
   const memberAssetsIndexJson = serializePublishedJson(memberAssetsIndex);
   const constituencyBoundariesIndexJson = constituencyBoundaryRuntimeArtifacts.indexJson;
+  const hexmapStaticIndexJson = hexmapStaticRuntimeArtifacts.indexJson;
   const manifestJson = JSON.stringify(manifest, null, 2);
   const memberActivityCalendarDetailWrites = memberActivityCalendarMemberDetails.map((detail) => {
     const relativePath = buildMemberActivityCalendarMemberDetailPath(detail.memberId);
@@ -694,13 +713,20 @@ export async function buildData(args?: {
     CONSTITUENCY_BOUNDARIES_INDEX_PATH,
     constituencyBoundariesIndexJson
   );
+  assertPublishedJsonFileSize(HEXMAP_STATIC_INDEX_PATH, hexmapStaticIndexJson);
   for (const shard of constituencyBoundaryRuntimeArtifacts.shards) {
     assertPublishedJsonFileSize(shard.path, shard.content);
+  }
+  for (const provinceArtifact of hexmapStaticRuntimeArtifacts.provinces) {
+    assertPublishedJsonFileSize(provinceArtifact.path, provinceArtifact.content);
   }
 
   await mkdir(join(outputDir, MEMBER_ACTIVITY_MEMBER_DETAILS_DIR), { recursive: true });
   await mkdir(join(outputDir, "exports", "member_assets_history"), { recursive: true });
   await mkdir(join(outputDir, "exports", "constituency_boundaries", "provinces"), {
+    recursive: true
+  });
+  await mkdir(join(outputDir, "exports", "hexmap_static", "provinces"), {
     recursive: true
   });
   await mkdir(join(outputDir, "normalized"), { recursive: true });
@@ -724,6 +750,7 @@ export async function buildData(args?: {
       join(outputDir, CONSTITUENCY_BOUNDARIES_INDEX_PATH),
       constituencyBoundariesIndexJson
     ),
+    writeFile(join(outputDir, HEXMAP_STATIC_INDEX_PATH), hexmapStaticIndexJson),
     writeFile(join(outputDir, "manifests", "latest.json"), manifestJson),
     writeFile(
       join(outputDir, "normalized", "asset_disclosures.ndjson"),
@@ -743,6 +770,9 @@ export async function buildData(args?: {
     ),
     ...constituencyBoundaryRuntimeArtifacts.shards.map((shard) =>
       writeFile(join(outputDir, shard.path), shard.content)
+    ),
+    ...hexmapStaticRuntimeArtifacts.provinces.map((provinceArtifact) =>
+      writeFile(join(outputDir, provinceArtifact.path), provinceArtifact.content)
     ),
     ...memberActivityCalendarDetailWrites.map((item) => writeFile(item.path, item.content)),
     ...memberAssetHistoryWrites.map((item) => writeFile(item.path, item.content))

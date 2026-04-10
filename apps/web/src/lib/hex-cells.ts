@@ -14,6 +14,7 @@ export type SummaryItem = {
   absentRate: number;
   noRate: number;
   abstainRate: number;
+  assetTotal?: number | null;
 };
 
 export type CachedHexCell = {
@@ -101,9 +102,13 @@ export function endPerformanceSpan(span: PerformanceSpan): number {
   return durationMs;
 }
 
-function getMetricValue(item: SummaryItem, metric: MapMetric): number {
+function getMetricValue(item: SummaryItem, metric: MapMetric): number | null {
   if (metric === "absence") {
     return item.absentRate;
+  }
+
+  if (metric === "assetTotal") {
+    return item.assetTotal ?? null;
   }
 
   return item.noRate + item.abstainRate;
@@ -280,14 +285,22 @@ export function hydrateHexCells(
         party: "",
         metric: 0,
         memberCount: 0,
+        metricMemberCount: 0,
         memberNames: [],
         memberParties: [],
         memberIds: []
       };
     }
 
+    const membersWithMetric = members.flatMap((member) => {
+      const metricValue = getMetricValue(member, metric);
+      return metricValue == null ? [] : [{ member, metricValue }] as const;
+    });
+
     const averageMetric =
-      members.reduce((sum, member) => sum + getMetricValue(member, metric), 0) / members.length;
+      membersWithMetric.length > 0
+        ? membersWithMetric.reduce((sum, entry) => sum + entry.metricValue, 0) / membersWithMetric.length
+        : 0;
 
     return {
       h3Index: cell.h3Index,
@@ -297,6 +310,7 @@ export function hydrateHexCells(
       party: getDominantParty(members),
       metric: averageMetric,
       memberCount: members.length,
+      metricMemberCount: membersWithMetric.length,
       memberNames: members.map((member) => member.name),
       memberParties: members.map((member) => member.party),
       memberIds: members.map((member) => member.memberId)

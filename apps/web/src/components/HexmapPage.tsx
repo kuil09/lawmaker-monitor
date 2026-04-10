@@ -5,9 +5,14 @@ import DeckGL from "@deck.gl/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Map as MapGL } from "react-map-gl/maplibre";
 
-import type { AccountabilitySummaryExport, Manifest } from "@lawmaker-monitor/schemas";
+import type {
+  AccountabilitySummaryExport,
+  Manifest,
+  MemberAssetsIndexExport
+} from "@lawmaker-monitor/schemas";
 
 import { normalizeConstituencyLookupKey } from "../lib/constituency-map.js";
+import { formatNumber } from "../lib/format.js";
 import {
   endPerformanceSpan,
   getHexCellsBounds,
@@ -85,6 +90,17 @@ type VizConfig = {
   tooltipLabel: (cell: TooltipDatum) => string;
 };
 
+function getAssetMetricColor(normalizedValue: number): [number, number, number, number] {
+  const clamped = Math.max(0, Math.min(1, normalizedValue));
+
+  return [
+    Math.round(245 - clamped * 86),
+    Math.round(223 - clamped * 116),
+    Math.round(182 - clamped * 122),
+    224
+  ];
+}
+
 const VIZ_CONFIGS: VizConfig[] = [
   {
     key: "absence",
@@ -99,12 +115,21 @@ const VIZ_CONFIGS: VizConfig[] = [
     description:
       "타일 색 진하기 = 반대·기권율 평균(로그 정규화). 색상 hue는 셀 내 다수당을 따르며, 같은 정당 안에서는 값이 높을수록 더 진합니다.",
     tooltipLabel: (cell) => `반대·기권율 ${(cell.metric * 100).toFixed(1)}%`
+  },
+  {
+    key: "assetTotal",
+    label: "재산 비교",
+    description:
+      "타일 색 진하기 = 최신 공개 총재산(로그 정규화). 재산 공개가 없는 지역구는 회색으로 두고, 공개된 총재산 규모를 전국 단위로 비교합니다.",
+    tooltipLabel: (cell) => `최신 총재산 ${formatNumber(Math.round(cell.metric))}천원`
   }
 ];
 
 type HexmapPageProps = {
   manifest: Manifest | null;
   accountabilitySummary: AccountabilitySummaryExport | null;
+  memberAssetsIndex: MemberAssetsIndexExport | null;
+  memberAssetsIndexError?: string | null;
   assemblyLabel: string;
   initialProvince: string | null;
   initialDistrict: string | null;
@@ -116,6 +141,8 @@ type HexmapPageProps = {
 export function HexmapPage({
   manifest,
   accountabilitySummary,
+  memberAssetsIndex,
+  memberAssetsIndexError,
   assemblyLabel,
   initialProvince,
   initialDistrict,
@@ -174,6 +201,10 @@ export function HexmapPage({
       return [];
     }
 
+    const assetByMemberId = new Map(
+      (memberAssetsIndex?.members ?? []).map((entry) => [entry.memberId, entry.latestTotal] as const)
+    );
+
     return accountabilitySummary.items.flatMap((item) => {
       if (!item.district) {
         return [];
@@ -186,10 +217,11 @@ export function HexmapPage({
         district: item.district,
         absentRate: item.absentRate,
         noRate: item.noRate,
-        abstainRate: item.abstainRate
+        abstainRate: item.abstainRate,
+        assetTotal: assetByMemberId.get(item.memberId) ?? null
       }];
     });
-  }, [accountabilitySummary]);
+  }, [accountabilitySummary, memberAssetsIndex]);
 
   useEffect(() => {
     setStaticState(getHexmapStaticState(manifest));
@@ -306,6 +338,7 @@ export function HexmapPage({
             party: "",
             metric: 0,
             memberCount: 0,
+            metricMemberCount: 0,
             memberNames: [],
             memberParties: [],
             memberIds: []
@@ -321,6 +354,14 @@ export function HexmapPage({
   ): [number, number, number, number] {
     if (cell.memberCount === 0) {
       return UNMATCHED_CELL_COLOR;
+    }
+
+    if (activeMetric === "assetTotal") {
+      if (cell.metricMemberCount === 0) {
+        return UNMATCHED_CELL_COLOR;
+      }
+
+      return getAssetMetricColor(normalizeMetric(cell.metric));
     }
 
     return getMetricModulatedColor(cell.party, normalizeMetric(cell.metric));
@@ -406,7 +447,7 @@ export function HexmapPage({
     }
 
     const normalizeMetric = createLogNormalizer(
-      nationalCells.filter((cell) => cell.memberCount > 0).map((cell) => cell.metric)
+      nationalCells.filter((cell) => cell.metricMemberCount > 0).map((cell) => cell.metric)
     );
 
     if (nationalViewState.zoom <= NATIONAL_POLYGON_MAX_ZOOM && nationalDistricts.length > 0) {
@@ -489,7 +530,7 @@ export function HexmapPage({
     }
 
     const normalizeMetric = createLogNormalizer(
-      detailCells.filter((cell) => cell.memberCount > 0).map((cell) => cell.metric)
+      detailCells.filter((cell) => cell.metricMemberCount > 0).map((cell) => cell.metric)
     );
     const filterKey = selectedDistrictKey ?? selectedProvinceFilter ?? "none";
 
@@ -533,6 +574,7 @@ export function HexmapPage({
     const [red, green, blue] =
       cell.memberCount > 0 ? getPartyColor(cell.party) : UNMATCHED_CELL_COLOR;
     const dotStyle = { background: `rgb(${red},${green},${blue})` };
+    const isAssetMetric = activeMetric === "assetTotal";
 
     return (
       <div className="hexmap-tooltip" style={{ left: info.x + 12, top: info.y - 72 }}>
@@ -540,7 +582,9 @@ export function HexmapPage({
         {cell.memberCount > 0 ? (
           <>
             <div className="hexmap-tooltip__member">
-              <span className="hexmap-tooltip__party-dot" style={dotStyle} aria-hidden="true" />
+              {!isAssetMetric ? (
+                <span className="hexmap-tooltip__party-dot" style={dotStyle} aria-hidden="true" />
+              ) : null}
               <span className="hexmap-tooltip__name">
                 {cell.memberCount === 1
                   ? cell.memberNames[0]
@@ -550,11 +594,17 @@ export function HexmapPage({
             <div className="hexmap-tooltip__party">
               {cell.memberCount === 1 ? cell.party : `다수당: ${cell.party}`}
             </div>
-            <div className="hexmap-tooltip__value">{vizConfig.tooltipLabel(cell)}</div>
+            <div className="hexmap-tooltip__value">
+              {isAssetMetric && cell.metricMemberCount === 0
+                ? "최신 재산 공개 데이터가 없어 중립 타일로 표시됩니다."
+                : vizConfig.tooltipLabel(cell)}
+            </div>
           </>
         ) : (
           <div className="hexmap-tooltip__value">
-            현재 공개된 의원 활동 데이터가 없어 중립 타일로 표시됩니다.
+            {isAssetMetric
+              ? "현재 공개된 의원 재산 데이터가 없어 중립 타일로 표시됩니다."
+              : "현재 공개된 의원 활동 데이터가 없어 중립 타일로 표시됩니다."}
           </div>
         )}
         {hint ? <div className="hexmap-tooltip__hint">{hint}</div> : null}
@@ -565,14 +615,16 @@ export function HexmapPage({
   return (
     <div className="hexmap-page">
       <div className="hexmap-page__header">
-        <h1 className="hexmap-page__title">의원 지역구 지도</h1>
+        <h1 className="hexmap-page__title">의원 활동·재산 지도</h1>
         <p className="hexmap-page__subtitle">
-          {assemblyLabel} 의원 활동 데이터를 전국 상세 H3 격자로 탐색합니다.
+          {assemblyLabel} 의원 활동과 재산 공개 데이터를 전국 상세 H3 격자로 탐색합니다.
         </p>
       </div>
 
       <div className="hexmap-disclaimer">
         비례대표 의원은 지역구가 없어 표시되지 않으며, 공석 또는 매칭되지 않은 지역은 회색 타일로 유지합니다.
+        {activeMetric === "assetTotal" &&
+          " · 재산 비교는 최신 공개 총재산 기준이며, 재산 공개가 없는 지역구는 중립 타일로 남깁니다."}
         {loadProgress &&
           ` · ${loadProgress.total}개 시·도 중 ${loadProgress.done}개 상세 격자 로드 완료`}
         {nationalCells.length > 0 && ` · ${nationalCells.length}개 상세 셀`}
@@ -600,9 +652,12 @@ export function HexmapPage({
       </div>
 
       <p className="hexmap-viz-description">{vizConfig.description}</p>
+      {activeMetric === "assetTotal" && memberAssetsIndexError ? (
+        <p className="hexmap-viz-warning">{memberAssetsIndexError}</p>
+      ) : null}
 
       <section className="hexmap-section hexmap-section--national">
-        {partiesPresent.length > 0 && (
+        {activeMetric !== "assetTotal" && partiesPresent.length > 0 && (
           <div className="hexmap-party-legend" aria-label="정당 범례">
             <span className="hexmap-party-legend__heading">정당</span>
             {partiesPresent.map(({ party, color: [red, green, blue] }) => (
@@ -635,7 +690,7 @@ export function HexmapPage({
               </div>
               <p>
                 {!accountabilitySummary
-                  ? "책임성 데이터를 불러오고 있습니다."
+                  ? "활동 데이터를 불러오고 있습니다."
                   : loadProgress
                     ? `${loadProgress.total}개 시·도 중 ${loadProgress.done}개 완료`
                     : "선거구 경계 데이터를 불러오는 중입니다."}
@@ -669,7 +724,7 @@ export function HexmapPage({
       </section>
 
       <p className="hexmap-footer-note">
-        데이터: 공개 기록표결 기준 · 지도: © OpenStreetMap contributors © CARTO · 시각화: deck.gl · 격자: Uber H3
+        데이터: 공개 기록표결·재산공개 기준 · 지도: © OpenStreetMap contributors © CARTO · 시각화: deck.gl · 격자: Uber H3
       </p>
 
       <section className="hexmap-section hexmap-section--detail">
@@ -728,7 +783,7 @@ export function HexmapPage({
           ) : detailCells.length === 0 ? (
             <div className="hexmap-state">
               <div className="hexmap-state__title">표시할 지역구 데이터를 찾지 못했습니다</div>
-              <p>선택한 필터와 현재 공개된 책임성 데이터를 다시 확인해 주세요.</p>
+              <p>선택한 필터와 현재 공개된 비교 데이터를 다시 확인해 주세요.</p>
             </div>
           ) : (
             <DeckGL

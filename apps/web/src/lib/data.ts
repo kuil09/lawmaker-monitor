@@ -2,6 +2,8 @@ import type {
   AccountabilitySummaryExport,
   AccountabilityTrendsExport,
   ConstituencyBoundariesIndexExport,
+  HexmapStaticIndexExport,
+  HexmapStaticProvinceArtifact,
   LatestVotesExport,
   MemberActivityCalendarExport,
   MemberActivityCalendarMemberDetailExport,
@@ -13,6 +15,8 @@ import {
   accountabilitySummaryExportSchema,
   accountabilityTrendsExportSchema,
   constituencyBoundariesIndexExportSchema,
+  hexmapStaticIndexExportSchema,
+  hexmapStaticProvinceArtifactSchema,
   latestVotesExportSchema,
   memberAssetsHistoryExportSchema,
   memberAssetsIndexExportSchema,
@@ -24,6 +28,7 @@ import {
 const dataRepoBaseUrl =
   import.meta.env.VITE_DATA_REPO_BASE_URL ?? "https://example.github.io/lawmaker-monitor-data";
 const defaultConstituencyBoundariesIndexPath = "exports/constituency_boundaries/index.json";
+const defaultHexmapStaticIndexPath = "exports/hexmap_static/index.json";
 
 function buildUrl(path: string): string {
   return new URL(path, `${dataRepoBaseUrl.replace(/\/$/, "")}/`).toString();
@@ -131,10 +136,36 @@ export function loadConstituencyProvinceTopology<T>(path: string): Promise<T | n
   return fetchOptionalJson(buildUrl(path), (payload) => payload as T);
 }
 
+export function loadHexmapStaticIndex(
+  manifest?: Manifest | null
+): Promise<HexmapStaticIndexExport | null> {
+  const indexPath = getHexmapStaticIndexPath(manifest);
+
+  return fetchOptionalJson(buildUrl(indexPath), (payload) =>
+    hexmapStaticIndexExportSchema.parse(payload)
+  );
+}
+
+export function loadHexmapStaticProvinceArtifact(
+  path: string
+): Promise<HexmapStaticProvinceArtifact | null> {
+  return fetchOptionalJson(buildUrl(path), (payload) =>
+    hexmapStaticProvinceArtifactSchema.parse(payload)
+  );
+}
+
 export function getDataRepoBaseUrl(): string {
   return dataRepoBaseUrl;
 }
 
+export function buildDataUrl(path: string): string {
+  return buildUrl(path);
+}
+
 export function getConstituencyBoundariesIndexPath(manifest?: Manifest | null): string {
   return manifest?.exports.constituencyBoundariesIndex?.path ?? defaultConstituencyBoundariesIndexPath;
+}
+
+export function getHexmapStaticIndexPath(manifest?: Manifest | null): string {
+  return manifest?.exports.hexmapStaticIndex?.path ?? defaultHexmapStaticIndexPath;
 }

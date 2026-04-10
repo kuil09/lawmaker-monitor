@@ -3,6 +3,7 @@ import type {
   AccountabilityTrendsExport,
   ConstituencyBoundariesIndexExport,
   CurrentAssembly,
+  HexmapStaticIndexExport,
   LatestVotesExport,
   Manifest,
   MemberAssetsIndexExport,
@@ -46,6 +47,7 @@ type BuildArtifactsInput = {
     rowCount: number;
   };
   constituencyBoundariesIndex?: ConstituencyBoundariesIndexExport;
+  hexmapStaticIndex?: HexmapStaticIndexExport;
 };
 
 type ExportBuildOptions = {
@@ -1380,6 +1382,7 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
     input.memberActivityCalendar ?? buildMemberActivityCalendarExport(bundle);
   const memberAssetsIndex = input.memberAssetsIndex;
   const constituencyBoundariesIndex = input.constituencyBoundariesIndex;
+  const hexmapStaticIndex = input.hexmapStaticIndex;
   const normalizedPayloads = {
     members: toNdjson(bundle.members),
     rollCalls: toNdjson(bundle.rollCalls),
@@ -1482,6 +1485,15 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
               "exports/constituency_boundaries/index.json",
               constituencyBoundariesIndex,
               constituencyBoundariesIndex.provinces.length
+            )
+          }
+        : {}),
+      ...(hexmapStaticIndex
+        ? {
+            hexmapStaticIndex: createPublishedExportFile(
+              "exports/hexmap_static/index.json",
+              hexmapStaticIndex,
+              hexmapStaticIndex.provinces.length
             )
           }
         : {})

@@ -1,10 +1,18 @@
-import type { ConstituencyBoundariesIndexExport, Manifest } from "@lawmaker-monitor/schemas";
+import type {
+  ConstituencyBoundariesIndexExport,
+  HexmapStaticIndexExport,
+  Manifest
+} from "@lawmaker-monitor/schemas";
+import { hexmapStaticProvinceArtifactSchema } from "@lawmaker-monitor/schemas";
 
 import type { ConstituencyBoundaryTopology } from "./constituency-map.js";
 import {
+  buildDataUrl,
   getConstituencyBoundariesIndexPath,
+  getHexmapStaticIndexPath,
   loadConstituencyBoundariesIndex,
-  loadConstituencyProvinceTopology
+  loadConstituencyProvinceTopology,
+  loadHexmapStaticIndex
 } from "./data.js";
 import {
   buildHexCellStaticCacheKey,
@@ -19,6 +27,17 @@ type HexmapLoadSource = "home" | "map";
 type Listener = (state: HexmapStaticState) => void;
 type IdleHandle = number;
 type IdleCallback = (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void;
+type PrimaryHexmapIndex =
+  | { kind: "precomputed"; index: HexmapStaticIndexExport }
+  | { kind: "boundary"; index: ConstituencyBoundariesIndexExport };
+type BoundaryProvince = ConstituencyBoundariesIndexExport["provinces"][number];
+type ProvinceWorkItem = {
+  cacheKey: string;
+  provinceShortName: string;
+  precomputedPath: string | null;
+  boundaryProvince: BoundaryProvince | null;
+};
+
 const MAP_LOAD_CONCURRENCY = 4;
 const LOW_ZOOM_DISTRICT_STEP = 6;
 
@@ -39,6 +58,7 @@ type Session = {
   completedProvinceKeys: Set<string>;
   entryByCacheKey: Map<string, HexCellStaticCacheEntry>;
   provincePromises: Map<string, Promise<HexCellStaticCacheEntry | null>>;
+  boundaryIndexPromise: Promise<ConstituencyBoundariesIndexExport | null> | null;
   runPromise: Promise<void> | null;
   scheduledPrewarm: { cancel: () => void } | null;
   activeSource: HexmapLoadSource | null;
@@ -72,6 +92,7 @@ function createSession(sessionKey: string): Session {
     completedProvinceKeys: new Set(),
     entryByCacheKey: new Map(),
     provincePromises: new Map(),
+    boundaryIndexPromise: null,
     runPromise: null,
     scheduledPrewarm: null,
     activeSource: null,
@@ -106,6 +127,7 @@ function resetSessionForSnapshot(session: Session, snapshotId: string): void {
   session.completedProvinceKeys.clear();
   session.entryByCacheKey.clear();
   session.provincePromises.clear();
+  session.boundaryIndexPromise = null;
   session.homeFirstProvinceMarked = false;
   session.state = {
     ...createInitialState(session.key),
@@ -114,86 +136,242 @@ function resetSessionForSnapshot(session: Session, snapshotId: string): void {
   emit(session);
 }
 
-async function ensureIndex(
-  session: Session,
-  manifest?: Manifest | null
-): Promise<ConstituencyBoundariesIndexExport | null> {
-  const index = await loadConstituencyBoundariesIndex(manifest);
-  if (!index) {
-    return null;
+function syncSessionSnapshot(session: Session, snapshotId: string, total: number): void {
+  if (session.state.snapshotId !== snapshotId) {
+    resetSessionForSnapshot(session, snapshotId);
   }
 
-  if (session.state.snapshotId !== index.snapshotId) {
-    resetSessionForSnapshot(session, index.snapshotId);
-  }
-
-  if (session.state.total !== index.provinces.length) {
+  if (session.state.total !== total) {
     session.state = {
       ...session.state,
-      total: index.provinces.length,
+      total,
       done: session.completedProvinceKeys.size
     };
     emit(session);
   }
+}
 
-  return index;
+async function ensurePrimaryIndex(
+  session: Session,
+  manifest?: Manifest | null
+): Promise<PrimaryHexmapIndex | null> {
+  const precomputedIndex = await loadHexmapStaticIndex(manifest);
+  if (precomputedIndex) {
+    syncSessionSnapshot(session, precomputedIndex.snapshotId, precomputedIndex.provinces.length);
+    return { kind: "precomputed", index: precomputedIndex };
+  }
+
+  const boundaryIndex = await ensureBoundaryIndex(session, manifest);
+  if (!boundaryIndex) {
+    return null;
+  }
+
+  syncSessionSnapshot(session, boundaryIndex.snapshotId, boundaryIndex.provinces.length);
+  return { kind: "boundary", index: boundaryIndex };
+}
+
+async function ensureBoundaryIndex(
+  session: Session,
+  manifest?: Manifest | null
+): Promise<ConstituencyBoundariesIndexExport | null> {
+  if (!session.boundaryIndexPromise) {
+    session.boundaryIndexPromise = loadConstituencyBoundariesIndex(manifest).catch((error) => {
+      session.boundaryIndexPromise = null;
+      throw error;
+    });
+  }
+
+  const boundaryIndex = await session.boundaryIndexPromise;
+  if (boundaryIndex) {
+    syncSessionSnapshot(session, boundaryIndex.snapshotId, boundaryIndex.provinces.length);
+  }
+
+  return boundaryIndex;
+}
+
+async function resolveBoundaryProvince(
+  session: Session,
+  manifest: Manifest | null | undefined,
+  provinceShortName: string
+): Promise<BoundaryProvince | null> {
+  const boundaryIndex = await ensureBoundaryIndex(session, manifest);
+  if (!boundaryIndex) {
+    return null;
+  }
+
+  return (
+    boundaryIndex.provinces.find(
+      (province) => province.provinceShortName === provinceShortName
+    ) ?? null
+  );
+}
+
+async function loadPrecomputedProvinceEntry(args: {
+  cacheKey: string;
+  path: string;
+  provinceShortName: string;
+}): Promise<HexCellStaticCacheEntry | null> {
+  const fetchSpan = startPerformanceSpan(`hexmap:${args.provinceShortName}:precomputedFetch`);
+  const response = await fetch(buildDataUrl(args.path));
+  endPerformanceSpan(fetchSpan);
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`데이터 요청에 실패했습니다 (${response.status}).`);
+  }
+
+  const parseSpan = startPerformanceSpan(`hexmap:${args.provinceShortName}:precomputedParse`);
+  const artifact = hexmapStaticProvinceArtifactSchema.parse(await response.json());
+  endPerformanceSpan(parseSpan);
+
+  if (artifact.provinceShortName !== args.provinceShortName) {
+    throw new Error(
+      `Province artifact mismatch for ${args.provinceShortName}: received ${artifact.provinceShortName}.`
+    );
+  }
+
+  return {
+    cacheKey: args.cacheKey,
+    provinceShortName: artifact.provinceShortName,
+    detailRes: artifact.detailRes,
+    createdAt: Date.now(),
+    cells: artifact.cells,
+    districts: artifact.districts
+  };
+}
+
+async function loadFallbackProvinceEntry(
+  session: Session,
+  manifest: Manifest | null | undefined,
+  workItem: ProvinceWorkItem
+): Promise<HexCellStaticCacheEntry | null> {
+  const boundaryProvince =
+    workItem.boundaryProvince ??
+    (await resolveBoundaryProvince(session, manifest, workItem.provinceShortName));
+  if (!boundaryProvince) {
+    return null;
+  }
+
+  const topologySpan = startPerformanceSpan(`hexmap:${workItem.provinceShortName}:topologyFetch`);
+  const topology = await loadConstituencyProvinceTopology<ConstituencyBoundaryTopology>(
+    boundaryProvince.path
+  );
+  endPerformanceSpan(topologySpan);
+
+  if (!topology) {
+    return null;
+  }
+
+  const districts = extractReprojectedFeatures(topology, LOW_ZOOM_DISTRICT_STEP);
+  const fallbackSpan = startPerformanceSpan(`hexmap:${workItem.provinceShortName}:fallbackCompute`);
+  const computed = await getSharedHexCellsWorkerClient().computeStatic(
+    topology,
+    workItem.provinceShortName
+  );
+  endPerformanceSpan(fallbackSpan);
+
+  return {
+    cacheKey: workItem.cacheKey,
+    provinceShortName: workItem.provinceShortName,
+    detailRes: computed.detailRes,
+    createdAt: Date.now(),
+    cells: computed.cells,
+    districts
+  };
 }
 
 async function loadProvinceEntry(
   session: Session,
-  province: ConstituencyBoundariesIndexExport["provinces"][number],
-  snapshotId: string
+  manifest: Manifest | null | undefined,
+  workItem: ProvinceWorkItem
 ): Promise<HexCellStaticCacheEntry | null> {
-  const cacheKey = buildHexCellStaticCacheKey(snapshotId, province.checksumSha256);
-  const existingPromise = session.provincePromises.get(cacheKey);
+  const existingPromise = session.provincePromises.get(workItem.cacheKey);
   if (existingPromise) {
     return existingPromise;
   }
 
   const cache = getSharedHexCellCache();
-  const workerClient = getSharedHexCellsWorkerClient();
 
   const provincePromise = (async () => {
-    const idbSpan = startPerformanceSpan(`hexmap:${province.provinceShortName}:idbRead`);
-    const cached = await cache.readStatic(cacheKey);
+    const idbSpan = startPerformanceSpan(`hexmap:${workItem.provinceShortName}:idbRead`);
+    const cached = await cache.readStatic(workItem.cacheKey);
     endPerformanceSpan(idbSpan);
 
     if (cached.entry && (cached.entry.districts?.length ?? 0) > 0) {
       return cached.entry;
     }
 
-    const topologySpan = startPerformanceSpan(`hexmap:${province.provinceShortName}:topologyFetch`);
-    const topology = await loadConstituencyProvinceTopology<ConstituencyBoundaryTopology>(
-      province.path
-    );
-    endPerformanceSpan(topologySpan);
+    let entry: HexCellStaticCacheEntry | null = null;
 
-    if (!topology) {
-      return null;
+    if (workItem.precomputedPath) {
+      try {
+        entry = await loadPrecomputedProvinceEntry({
+          cacheKey: workItem.cacheKey,
+          path: workItem.precomputedPath,
+          provinceShortName: workItem.provinceShortName
+        });
+      } catch {
+        entry = null;
+      }
     }
 
-    const districts = extractReprojectedFeatures(topology, LOW_ZOOM_DISTRICT_STEP);
-    const computed = await workerClient.computeStatic(topology, province.provinceShortName);
-    const entry: HexCellStaticCacheEntry = {
-      cacheKey,
-      provinceShortName: province.provinceShortName,
-      detailRes: computed.detailRes,
-      createdAt: Date.now(),
-      cells: computed.cells,
-      districts
-    };
+    if (!entry) {
+      entry = await loadFallbackProvinceEntry(session, manifest, workItem);
+    }
+
+    if (!entry) {
+      return null;
+    }
 
     await cache.writeStatic(entry);
     return entry;
   })();
 
-  session.provincePromises.set(cacheKey, provincePromise);
+  session.provincePromises.set(workItem.cacheKey, provincePromise);
 
   try {
     return await provincePromise;
   } finally {
-    session.provincePromises.delete(cacheKey);
+    session.provincePromises.delete(workItem.cacheKey);
   }
+}
+
+function buildProvinceWorkItem(primaryIndex: PrimaryHexmapIndex, provinceIndex: number): ProvinceWorkItem {
+  if (primaryIndex.kind === "precomputed") {
+    const province = primaryIndex.index.provinces[provinceIndex];
+    if (!province) {
+      throw new Error(`Missing province at index ${provinceIndex}.`);
+    }
+
+    return {
+      cacheKey: buildHexCellStaticCacheKey(
+        primaryIndex.index.snapshotId,
+        province.checksumSha256
+      ),
+      provinceShortName: province.provinceShortName,
+      precomputedPath: province.path,
+      boundaryProvince: null
+    };
+  }
+
+  const province = primaryIndex.index.provinces[provinceIndex];
+  if (!province) {
+    throw new Error(`Missing province at index ${provinceIndex}.`);
+  }
+
+  return {
+    cacheKey: buildHexCellStaticCacheKey(primaryIndex.index.snapshotId, province.checksumSha256),
+    provinceShortName: province.provinceShortName,
+    precomputedPath: null,
+    boundaryProvince: province
+  };
+}
+
+function getPrimaryProvinceCount(primaryIndex: PrimaryHexmapIndex): number {
+  return primaryIndex.index.provinces.length;
 }
 
 async function runHexmapStaticLoad(
@@ -214,27 +392,27 @@ async function runHexmapStaticLoad(
   emit(session);
 
   try {
-    const index = await ensureIndex(session, manifest);
-    if (!index || index.provinces.length === 0) {
+    const primaryIndex = await ensurePrimaryIndex(session, manifest);
+    if (!primaryIndex || getPrimaryProvinceCount(primaryIndex) === 0) {
       throw new Error("선거구 경계 데이터를 불러오지 못했습니다.");
     }
 
-    const concurrency = source === "map" ? Math.min(MAP_LOAD_CONCURRENCY, index.provinces.length) : 1;
+    const totalProvinces = getPrimaryProvinceCount(primaryIndex);
+    const concurrency =
+      source === "map" ? Math.min(MAP_LOAD_CONCURRENCY, totalProvinces) : 1;
     let nextProvinceIndex = 0;
     const inFlight = new Set<Promise<void>>();
 
-    const consumeProvince = async (
-      province: ConstituencyBoundariesIndexExport["provinces"][number]
-    ): Promise<void> => {
-      const cacheKey = buildHexCellStaticCacheKey(index.snapshotId, province.checksumSha256);
+    const consumeProvince = async (provinceIndex: number): Promise<void> => {
+      const workItem = buildProvinceWorkItem(primaryIndex, provinceIndex);
 
-      if (session.completedProvinceKeys.has(cacheKey)) {
+      if (session.completedProvinceKeys.has(workItem.cacheKey)) {
         return;
       }
 
-      const entry = await loadProvinceEntry(session, province, index.snapshotId);
-      if (entry && !session.entryByCacheKey.has(cacheKey)) {
-        session.entryByCacheKey.set(cacheKey, entry);
+      const entry = await loadProvinceEntry(session, manifest, workItem);
+      if (entry && !session.entryByCacheKey.has(workItem.cacheKey)) {
+        session.entryByCacheKey.set(workItem.cacheKey, entry);
         session.state = {
           ...session.state,
           entries: [...session.state.entries, entry]
@@ -246,7 +424,7 @@ async function runHexmapStaticLoad(
         }
       }
 
-      session.completedProvinceKeys.add(cacheKey);
+      session.completedProvinceKeys.add(workItem.cacheKey);
       session.state = {
         ...session.state,
         done: session.completedProvinceKeys.size
@@ -255,13 +433,9 @@ async function runHexmapStaticLoad(
     };
 
     const startMoreWork = (): void => {
-      while (nextProvinceIndex < index.provinces.length && inFlight.size < concurrency) {
-        const province = index.provinces[nextProvinceIndex++];
-        if (!province) {
-          break;
-        }
-
-        const task = consumeProvince(province).finally(() => {
+      while (nextProvinceIndex < totalProvinces && inFlight.size < concurrency) {
+        const currentProvinceIndex = nextProvinceIndex++;
+        const task = consumeProvince(currentProvinceIndex).finally(() => {
           inFlight.delete(task);
         });
         inFlight.add(task);
@@ -277,8 +451,8 @@ async function runHexmapStaticLoad(
 
     session.state = {
       ...session.state,
-      done: index.provinces.length,
-      total: index.provinces.length,
+      done: totalProvinces,
+      total: totalProvinces,
       isLoading: false,
       error: null
     };
@@ -301,7 +475,14 @@ async function runHexmapStaticLoad(
 }
 
 export function getHexmapStaticSessionKey(manifest?: Manifest | null): string {
-  return getConstituencyBoundariesIndexPath(manifest);
+  const hexmapStaticToken = manifest?.exports.hexmapStaticIndex
+    ? `${manifest.exports.hexmapStaticIndex.path}:${manifest.exports.hexmapStaticIndex.checksumSha256}`
+    : getHexmapStaticIndexPath(manifest);
+  const boundaryToken = manifest?.exports.constituencyBoundariesIndex
+    ? `${manifest.exports.constituencyBoundariesIndex.path}:${manifest.exports.constituencyBoundariesIndex.checksumSha256}`
+    : getConstituencyBoundariesIndexPath(manifest);
+
+  return `${hexmapStaticToken}::${boundaryToken}`;
 }
 
 export function getHexmapStaticState(manifest?: Manifest | null): HexmapStaticState {

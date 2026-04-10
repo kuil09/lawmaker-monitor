@@ -156,6 +156,9 @@ const fixturesDir = resolve(process.cwd(), "tests/fixtures/contracts");
 const accountabilitySummaryFixture = JSON.parse(
   readFileSync(resolve(fixturesDir, "accountability_summary.json"), "utf8")
 );
+const memberAssetsIndexFixture = JSON.parse(
+  readFileSync(resolve(fixturesDir, "member_assets_index.json"), "utf8")
+);
 
 function getLastLayer(idPrefix: string) {
   const matches = testState.layerInstances.filter((layer) => layer.id.startsWith(idPrefix));
@@ -261,6 +264,8 @@ describe("HexmapPage", () => {
       <HexmapPage
         manifest={null}
         accountabilitySummary={accountabilitySummaryFixture}
+        memberAssetsIndex={memberAssetsIndexFixture}
+        memberAssetsIndexError={null}
         assemblyLabel="제22대 국회"
         initialProvince={null}
         initialDistrict={null}
@@ -320,6 +325,8 @@ describe("HexmapPage", () => {
       <HexmapPage
         manifest={null}
         accountabilitySummary={accountabilitySummaryFixture}
+        memberAssetsIndex={memberAssetsIndexFixture}
+        memberAssetsIndexError={null}
         assemblyLabel="제22대 국회"
         initialProvince="부산"
         initialDistrict={null}
@@ -370,6 +377,8 @@ describe("HexmapPage", () => {
       <HexmapPage
         manifest={null}
         accountabilitySummary={accountabilitySummaryFixture}
+        memberAssetsIndex={memberAssetsIndexFixture}
+        memberAssetsIndexError={null}
         assemblyLabel="제22대 국회"
         initialProvince={null}
         initialDistrict={null}
@@ -417,6 +426,54 @@ describe("HexmapPage", () => {
           memberIds: ["M002"]
         }
       }
+    });
+  });
+
+  it("switches to the asset comparison metric and hides party legend for property view", async () => {
+    const onChangeRoute = vi.fn();
+
+    render(
+      <HexmapPage
+        manifest={null}
+        accountabilitySummary={accountabilitySummaryFixture}
+        memberAssetsIndex={memberAssetsIndexFixture}
+        memberAssetsIndexError={null}
+        assemblyLabel="제22대 국회"
+        initialProvince={null}
+        initialDistrict={null}
+        initialMetric="absence"
+        onNavigateToMember={vi.fn()}
+        onChangeRoute={onChangeRoute}
+      />
+    );
+
+    await waitFor(() => {
+      expect(getLastLayer("h3-national-absence")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "재산 비교" }));
+
+    await waitFor(() => {
+      expect(getLastLayer("h3-national-assetTotal")).toBeDefined();
+    });
+
+    const nationalLayer = getLastLayer("h3-national-assetTotal");
+    const firstCell = (nationalLayer?.props.data as Array<Record<string, unknown>>)[0];
+
+    expect(firstCell).toMatchObject({
+      districtKey: "부산남구",
+      metric: 270000,
+      metricMemberCount: 1,
+      memberIds: ["M002"]
+    });
+    expect(screen.queryByLabelText("정당 범례")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/재산 비교는 최신 공개 총재산 기준이며/)
+    ).toBeInTheDocument();
+    expect(onChangeRoute).toHaveBeenCalledWith({
+      district: null,
+      province: null,
+      metric: "assetTotal"
     });
   });
 });

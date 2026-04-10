@@ -3,6 +3,8 @@ import {
   accountabilityTrendsExportSchema,
   constituencyBoundaryExportSchema,
   constituencyBoundariesIndexExportSchema,
+  hexmapStaticIndexExportSchema,
+  hexmapStaticProvinceArtifactSchema,
   latestVotesExportSchema,
   manifestSchema,
   memberAssetsHistoryExportSchema,
@@ -17,6 +19,8 @@ import type {
   AccountabilityTrendsExport,
   ConstituencyBoundaryExport,
   ConstituencyBoundariesIndexExport,
+  HexmapStaticIndexExport,
+  HexmapStaticProvinceArtifact,
   LatestVotesExport,
   Manifest,
   MemberAssetsHistoryExport,
@@ -82,6 +86,18 @@ export function validateConstituencyBoundariesIndexExport(
   payload: ConstituencyBoundariesIndexExport
 ): ConstituencyBoundariesIndexExport {
   return constituencyBoundariesIndexExportSchema.parse(payload);
+}
+
+export function validateHexmapStaticIndexExport(
+  payload: HexmapStaticIndexExport
+): HexmapStaticIndexExport {
+  return hexmapStaticIndexExportSchema.parse(payload);
+}
+
+export function validateHexmapStaticProvinceArtifact(
+  payload: HexmapStaticProvinceArtifact
+): HexmapStaticProvinceArtifact {
+  return hexmapStaticProvinceArtifactSchema.parse(payload);
 }
 
 export function validateManifest(payload: Manifest): Manifest {

@@ -144,6 +144,13 @@ type AssetChartRow = {
   [categoryKey: string]: string | number;
 };
 
+type AssetCompareChartRow = {
+  reportedAt: string;
+  label: string;
+  leftTotal?: number;
+  rightTotal?: number;
+};
+
 type RealEstateFocusSummary = {
   buildingAmount: number;
   hasExplicitCategory: boolean;
@@ -169,6 +176,10 @@ function formatAssetDelta(value: number): string {
   return `${sign}${formatNumber(value)}천원`;
 }
 
+function formatAssetMagnitude(value: number): string {
+  return `${formatNumber(Math.abs(value))}천원`;
+}
+
 function formatAssetAxisLabel(value: string): string {
   return value.slice(2).replaceAll("-", ".");
 }
@@ -183,6 +194,14 @@ function describeFamilyGap(value: number): string {
   }
 
   return "본인만과 가족 포함 총액이 같습니다.";
+}
+
+function getFamilyGapLatest(history: MemberAssetsHistoryExport | null): number | null {
+  if (!history?.selfOnly) {
+    return null;
+  }
+
+  return history.latestSummary.currentAmount - history.selfOnly.latestSummary.currentAmount;
 }
 
 function resolveAssetHistorySnapshot(
@@ -305,6 +324,116 @@ function buildRealEstateFocusSummary(
     latestAmount,
     deltaAmount: latestAmount - firstAmount
   };
+}
+
+function buildAssetCompareChartRows(
+  leftHistory: MemberAssetsHistoryExport | null,
+  rightHistory: MemberAssetsHistoryExport | null
+): AssetCompareChartRow[] {
+  const rowsByDate = new Map<string, AssetCompareChartRow>();
+
+  for (const point of leftHistory?.series ?? []) {
+    rowsByDate.set(point.reportedAt, {
+      ...(rowsByDate.get(point.reportedAt) ?? {
+        reportedAt: point.reportedAt,
+        label: formatAssetAxisLabel(point.reportedAt)
+      }),
+      leftTotal: point.currentAmount
+    });
+  }
+
+  for (const point of rightHistory?.series ?? []) {
+    rowsByDate.set(point.reportedAt, {
+      ...(rowsByDate.get(point.reportedAt) ?? {
+        reportedAt: point.reportedAt,
+        label: formatAssetAxisLabel(point.reportedAt)
+      }),
+      rightTotal: point.currentAmount
+    });
+  }
+
+  return [...rowsByDate.values()].sort((left, right) =>
+    left.reportedAt.localeCompare(right.reportedAt)
+  );
+}
+
+type AssetTrendDirection = "up" | "down" | "flat";
+
+function getAssetTrendDirection(value: number): AssetTrendDirection {
+  if (value > 0) {
+    return "up";
+  }
+
+  if (value < 0) {
+    return "down";
+  }
+
+  return "flat";
+}
+
+function AssetTrendValue({ value }: { value: number }) {
+  const direction = getAssetTrendDirection(value);
+  const arrow = direction === "up" ? "↑" : direction === "down" ? "↓" : "→";
+
+  return (
+    <span className={`activity-asset-trend activity-asset-trend--${direction}`}>
+      <span className="activity-asset-trend__arrow" aria-hidden="true">{arrow}</span>
+      <span>{formatAssetMagnitude(value)}</span>
+    </span>
+  );
+}
+
+type AssetGlyphKind = "building" | "land";
+
+function AssetGlyph({ kind }: { kind: AssetGlyphKind }) {
+  if (kind === "building") {
+    return (
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <path
+          d="M4.5 16.2V5.2a1 1 0 0 1 1-1h6.6a1 1 0 0 1 1 1v11M8.3 16.2v-3.5h1.5v3.5M6.4 7.1h1.1M10.1 7.1h1.1M6.4 9.8h1.1M10.1 9.8h1.1M13.1 8.5h2.3a1 1 0 0 1 1 1v6.7H13.1"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.4"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path
+        d="M3.8 13.9c2.4-1.7 4.8-2.5 7.4-2.5 2.1 0 3.8.4 5 1.1M4.7 15.6h10.8M6.1 12.6 7.6 8.4a1.6 1.6 0 0 1 3 0l1.6 4.2M9.1 8.5V5.2"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.4"
+      />
+    </svg>
+  );
+}
+
+function AssetMetricLabel({
+  label,
+  icons
+}: {
+  label: string;
+  icons: AssetGlyphKind[];
+}) {
+  return (
+    <span className="activity-asset-label">
+      <span className="activity-asset-label__icons" aria-hidden="true">
+        {icons.map((icon, index) => (
+          <span key={`${icon}:${index}`} className="activity-asset-label__icon">
+            <AssetGlyph kind={icon} />
+          </span>
+        ))}
+      </span>
+      <span>{label}</span>
+    </span>
+  );
 }
 
 function buildRatioData(member: MemberActivityCalendarMember): RatioDatum[] {
@@ -461,6 +590,354 @@ function buildCompareMetricCard(
   };
 }
 
+type NumericComparisonMode = "higher" | "absolute";
+
+function resolveNumericComparison(
+  leftMember: MemberActivityCalendarMember,
+  rightMember: MemberActivityCalendarMember,
+  leftValue: number,
+  rightValue: number,
+  mode: NumericComparisonMode = "higher"
+): {
+  winner: CompareMetricWinner;
+  winnerMember: MemberActivityCalendarMember | null;
+  difference: number;
+} {
+  const comparableLeft = mode === "absolute" ? Math.abs(leftValue) : leftValue;
+  const comparableRight = mode === "absolute" ? Math.abs(rightValue) : rightValue;
+
+  if (comparableLeft === comparableRight) {
+    return {
+      winner: "tie",
+      winnerMember: null,
+      difference: 0
+    };
+  }
+
+  const winnerMember = comparableLeft > comparableRight ? leftMember : rightMember;
+
+  return {
+    winner: winnerMember.memberId === leftMember.memberId ? "left" : "right",
+    winnerMember,
+    difference: Math.abs(comparableLeft - comparableRight)
+  };
+}
+
+type MemberAssetCompareSectionProps = {
+  leftMember: MemberActivityCalendarMember;
+  rightMember: MemberActivityCalendarMember;
+  leftIndexEntry: MemberAssetsIndexItem | null;
+  rightIndexEntry: MemberAssetsIndexItem | null;
+  leftHistory: MemberAssetsHistoryExport | null;
+  rightHistory: MemberAssetsHistoryExport | null;
+  leftLoading: boolean;
+  rightLoading: boolean;
+  leftError?: string | null;
+  rightError?: string | null;
+  onRetryLeft?: (() => void) | null;
+  onRetryRight?: (() => void) | null;
+};
+
+function MemberAssetCompareSection({
+  leftMember,
+  rightMember,
+  leftIndexEntry,
+  rightIndexEntry,
+  leftHistory,
+  rightHistory,
+  leftLoading,
+  rightLoading,
+  leftError,
+  rightError,
+  onRetryLeft,
+  onRetryRight
+}: MemberAssetCompareSectionProps) {
+  const leftReady = Boolean(leftIndexEntry && leftHistory && leftHistory.series.length > 0);
+  const rightReady = Boolean(rightIndexEntry && rightHistory && rightHistory.series.length > 0);
+
+  if (
+    !leftIndexEntry &&
+    !rightIndexEntry &&
+    !leftLoading &&
+    !rightLoading &&
+    !leftError &&
+    !rightError
+  ) {
+    return null;
+  }
+
+  const leftFamilyGap = getFamilyGapLatest(leftHistory) ?? 0;
+  const rightFamilyGap = getFamilyGapLatest(rightHistory) ?? 0;
+  const leftRealEstate = buildRealEstateFocusSummary(
+    resolveAssetHistorySnapshot(leftHistory, "familyIncluded")
+  );
+  const rightRealEstate = buildRealEstateFocusSummary(
+    resolveAssetHistorySnapshot(rightHistory, "familyIncluded")
+  );
+  const leftLatestTotal = leftHistory?.latestSummary.currentAmount ?? leftIndexEntry?.latestTotal ?? 0;
+  const rightLatestTotal = rightHistory?.latestSummary.currentAmount ?? rightIndexEntry?.latestTotal ?? 0;
+  const leftFirstPoint = leftHistory?.series[0] ?? null;
+  const rightFirstPoint = rightHistory?.series[0] ?? null;
+  const leftTotalDelta =
+    leftHistory && leftFirstPoint
+      ? leftHistory.latestSummary.currentAmount - leftFirstPoint.currentAmount
+      : leftIndexEntry?.totalDelta ?? 0;
+  const rightTotalDelta =
+    rightHistory && rightFirstPoint
+      ? rightHistory.latestSummary.currentAmount - rightFirstPoint.currentAmount
+      : rightIndexEntry?.totalDelta ?? 0;
+  const chartRows = leftReady && rightReady ? buildAssetCompareChartRows(leftHistory, rightHistory) : [];
+  const supportsFamilyGap = Boolean(leftHistory?.selfOnly && rightHistory?.selfOnly);
+
+  const latestTotalResolution = resolveNumericComparison(
+    leftMember,
+    rightMember,
+    leftLatestTotal,
+    rightLatestTotal
+  );
+  const realEstateResolution = resolveNumericComparison(
+    leftMember,
+    rightMember,
+    leftRealEstate?.latestAmount ?? 0,
+    rightRealEstate?.latestAmount ?? 0
+  );
+  const deltaResolution = resolveNumericComparison(
+    leftMember,
+    rightMember,
+    leftTotalDelta,
+    rightTotalDelta
+  );
+  const familyGapResolution = supportsFamilyGap
+    ? resolveNumericComparison(leftMember, rightMember, leftFamilyGap, rightFamilyGap, "absolute")
+    : null;
+
+  const comparisonCards = leftReady && rightReady
+    ? [
+        {
+          winner: latestTotalResolution.winner,
+          badgeText:
+            latestTotalResolution.winner === "tie"
+              ? "동률"
+              : `차이 ${formatAssetMagnitude(latestTotalResolution.difference)}`,
+          summaryText:
+            latestTotalResolution.winner === "tie"
+              ? "최신 총재산이 같습니다."
+              : `${withSubjectParticle(latestTotalResolution.winnerMember?.name ?? "")} 최신 총재산이 ${formatAssetMagnitude(latestTotalResolution.difference)} 더 많습니다.`,
+          detailText: `${leftMember.name} ${formatAssetAmount(leftLatestTotal)} · ${rightMember.name} ${formatAssetAmount(rightLatestTotal)}`
+        },
+        {
+          winner: realEstateResolution.winner,
+          badgeText:
+            realEstateResolution.winner === "tie"
+              ? "동률"
+              : `차이 ${formatAssetMagnitude(realEstateResolution.difference)}`,
+          summaryText:
+            realEstateResolution.winner === "tie"
+              ? "부동산 규모가 같습니다."
+              : `${withSubjectParticle(realEstateResolution.winnerMember?.name ?? "")} 부동산 규모가 ${formatAssetMagnitude(realEstateResolution.difference)} 더 큽니다.`,
+          detailText: `${leftMember.name} ${formatAssetAmount(leftRealEstate?.latestAmount ?? 0)} · ${rightMember.name} ${formatAssetAmount(rightRealEstate?.latestAmount ?? 0)}`
+        },
+        {
+          winner: deltaResolution.winner,
+          badgeText:
+            deltaResolution.winner === "tie"
+              ? "동률"
+              : `차이 ${formatAssetMagnitude(deltaResolution.difference)}`,
+          summaryText:
+            deltaResolution.winner === "tie"
+              ? "22대 누적 증감이 같습니다."
+              : `${withSubjectParticle(deltaResolution.winnerMember?.name ?? "")} 22대 누적 증감폭이 ${formatAssetMagnitude(deltaResolution.difference)} 더 큽니다.`,
+          detailText: `${leftMember.name} ${formatAssetDelta(leftTotalDelta)} · ${rightMember.name} ${formatAssetDelta(rightTotalDelta)}`
+        },
+        ...(familyGapResolution
+          ? [{
+              winner: familyGapResolution.winner,
+              badgeText:
+                familyGapResolution.winner === "tie"
+                  ? "동률"
+                  : `차이 ${formatAssetMagnitude(familyGapResolution.difference)}`,
+              summaryText:
+                familyGapResolution.winner === "tie"
+                  ? "가족 차이가 같습니다."
+                  : `${withSubjectParticle(familyGapResolution.winnerMember?.name ?? "")} 공개 범위 괴리가 ${formatAssetMagnitude(familyGapResolution.difference)} 더 큽니다.`,
+              detailText: `${leftMember.name} ${formatAssetDelta(leftFamilyGap)} · ${rightMember.name} ${formatAssetDelta(rightFamilyGap)}`
+            }]
+          : [])
+      ]
+    : [];
+
+  return (
+    <section className="activity-asset-compare" aria-label="재산 비교">
+      <div className="activity-drawer__section-head">
+        <div>
+          <p className="section-label">재산 VS</p>
+          <h3>재산 공개 기준 비교</h3>
+        </div>
+        <p>
+          최신 총재산과 부동산, 22대 누적 증감, 가족 포함 여부에 따른 괴리를 함께 봅니다.
+        </p>
+      </div>
+
+      {comparisonCards.length > 0 ? (
+        <section className="activity-compare__summary" aria-label="재산 비교 요약">
+          {comparisonCards.map((metric, index) => (
+            <article
+              key={`${index}:${metric.summaryText}:${metric.detailText}`}
+              className={`activity-compare__summary-card activity-compare__summary-card--${metric.winner}`}
+            >
+              <p className="activity-compare__summary-kicker">{metric.badgeText}</p>
+              <p className="activity-compare__summary-copy">{metric.summaryText}</p>
+              <p className="activity-compare__summary-note">{metric.detailText}</p>
+            </article>
+          ))}
+        </section>
+      ) : (
+        <p className="activity-drawer__empty">
+          {leftLoading || rightLoading
+            ? "비교용 재산 공개 이력을 불러오는 중입니다."
+            : "두 의원의 재산 공개 이력을 모두 확인한 뒤 비교를 보여줍니다."}
+        </p>
+      )}
+
+      <div className="activity-asset-compare__grid">
+        {[
+          {
+            member: leftMember,
+            indexEntry: leftIndexEntry,
+            history: leftHistory,
+            loading: leftLoading,
+            error: leftError,
+            onRetry: onRetryLeft,
+            realEstate: leftRealEstate,
+            latestTotal: leftLatestTotal,
+            totalDelta: leftTotalDelta,
+            familyGap: leftFamilyGap
+          },
+          {
+            member: rightMember,
+            indexEntry: rightIndexEntry,
+            history: rightHistory,
+            loading: rightLoading,
+            error: rightError,
+            onRetry: onRetryRight,
+            realEstate: rightRealEstate,
+            latestTotal: rightLatestTotal,
+            totalDelta: rightTotalDelta,
+            familyGap: rightFamilyGap
+          }
+        ].map((entry) => (
+          <article
+            key={entry.member.memberId}
+            className="activity-asset-compare__panel"
+          >
+            <div className="activity-asset-compare__panel-head">
+              <div>
+                <h4>{entry.member.name}</h4>
+                <p>{`${entry.member.party}${entry.indexEntry?.district ? ` · ${entry.indexEntry.district}` : ""}`}</p>
+              </div>
+            </div>
+
+            {!entry.indexEntry ? (
+              <p className="activity-drawer__empty">현직 22대 기준 재산 공개 이력이 없습니다.</p>
+            ) : entry.loading && !entry.history ? (
+              <p className="activity-drawer__empty">재산 공개 이력을 불러오는 중입니다.</p>
+            ) : entry.error ? (
+              <div className="activity-drawer__empty">
+                <p>{entry.error}</p>
+                {entry.onRetry ? (
+                  <button type="button" onClick={entry.onRetry}>
+                    다시 시도
+                  </button>
+                ) : null}
+              </div>
+            ) : !entry.history ? (
+              <p className="activity-drawer__empty">비교할 재산 공개 이력이 아직 없습니다.</p>
+            ) : (
+              <dl className="activity-asset-compare__facts">
+                <div>
+                  <dt>최신 총재산</dt>
+                  <dd>{formatAssetAmount(entry.latestTotal)}</dd>
+                </div>
+                <div>
+                  <dt>22대 누적 증감</dt>
+                  <dd>
+                    <AssetTrendValue value={entry.totalDelta} />
+                  </dd>
+                </div>
+                <div>
+                  <dt>
+                    <AssetMetricLabel label="부동산" icons={["building", "land"]} />
+                  </dt>
+                  <dd>{formatAssetAmount(entry.realEstate?.latestAmount ?? 0)}</dd>
+                </div>
+                <div>
+                  <dt>가족 차이</dt>
+                  <dd>
+                    <AssetTrendValue value={entry.familyGap} />
+                  </dd>
+                </div>
+              </dl>
+            )}
+          </article>
+        ))}
+      </div>
+
+      {chartRows.length > 0 ? (
+        <div className="activity-asset-chart">
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={chartRows} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+              <CartesianGrid stroke="rgba(35, 49, 58, 0.08)" strokeDasharray="4 4" />
+              <XAxis
+                dataKey="label"
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 12, fill: "var(--ink-muted)" }}
+              />
+              <YAxis
+                tickFormatter={(value) => `${Math.round(Number(value) / 1000)}M`}
+                tickLine={false}
+                axisLine={false}
+                width={52}
+                tick={{ fontSize: 12, fill: "var(--ink-muted)" }}
+              />
+              <Tooltip
+                formatter={(value, name) => [
+                  formatAssetAmount(Number(value ?? 0)),
+                  name === "leftTotal" ? leftMember.name : rightMember.name
+                ]}
+                labelFormatter={(value) => `공개일 ${value}`}
+              />
+              <Legend
+                formatter={(value) => (value === "leftTotal" ? leftMember.name : rightMember.name)}
+              />
+              <Line
+                type="monotone"
+                dataKey="leftTotal"
+                name="leftTotal"
+                stroke={compareRatioColors.leftStroke}
+                strokeWidth={3}
+                dot={{ r: 3 }}
+                activeDot={{ r: 5 }}
+                connectNulls
+              />
+              <Line
+                type="monotone"
+                dataKey="rightTotal"
+                name="rightTotal"
+                stroke={compareRatioColors.rightStroke}
+                strokeWidth={3}
+                dot={{ r: 3 }}
+                activeDot={{ r: 5 }}
+                connectNulls
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function getMemberById(
   assembly: MemberActivityCalendarAssembly | null,
   memberId: string | null
@@ -568,10 +1045,9 @@ function MemberAssetSection({
   const activeHistory = resolveAssetHistorySnapshot(history, assetScopeMode);
   const orderedCategorySeries = sortAssetCategorySeries(activeHistory);
   const realEstateFocus = buildRealEstateFocusSummary(activeHistory);
-  const familyGapLatest =
-    history?.selfOnly != null
-      ? history.latestSummary.currentAmount - history.selfOnly.latestSummary.currentAmount
-      : null;
+  const familyGapLatest = getFamilyGapLatest(history);
+  const familyIncludedTotal = history?.latestSummary.currentAmount ?? indexEntry?.latestTotal ?? 0;
+  const selfOnlyTotal = history?.selfOnly?.latestSummary.currentAmount ?? null;
   const activeFirstPoint = activeHistory?.series[0] ?? null;
   const activeLatestTotal = activeHistory?.latestSummary.currentAmount ?? indexEntry?.latestTotal ?? 0;
   const activeTotalDelta =
@@ -701,7 +1177,7 @@ function MemberAssetSection({
           <div className="activity-asset-scope__head">
             <div>
               <p className="section-label">공개 범위 비교</p>
-              <h4>본인만과 가족 포함 기준을 나눠 볼 수 있습니다</h4>
+              <h4>가족 포함과 본인만 기준을 함께 봅니다</h4>
             </div>
             <div className="activity-asset-toggle-group" aria-label="재산 공개 범위">
               <button
@@ -731,23 +1207,24 @@ function MemberAssetSection({
 
           <dl className="activity-asset-scope__summary">
             <div>
-              <dt>현재 보기</dt>
-              <dd>{activeScopeLabel}</dd>
+              <dt>가족 포함</dt>
+              <dd>{formatAssetAmount(familyIncludedTotal)}</dd>
             </div>
             <div>
-              <dt>본인 외 가족분</dt>
-              <dd>{formatAssetDelta(familyGapLatest ?? 0)}</dd>
+              <dt>본인만</dt>
+              <dd>{selfOnlyTotal == null ? "미공개" : formatAssetAmount(selfOnlyTotal)}</dd>
             </div>
             <div>
-              <dt>차이 읽는 법</dt>
-              <dd className="activity-asset-scope__text">{describeFamilyGap(familyGapLatest ?? 0)}</dd>
+              <dt>가족 차이</dt>
+              <dd>
+                <AssetTrendValue value={familyGapLatest ?? 0} />
+              </dd>
             </div>
           </dl>
 
           <p className="activity-asset-scope__note">
-            본인만은 관계가 <code>본인</code>으로 파싱된 항목만 더한 값입니다. 차이의 절대값이
-            클수록 가족 포함 여부가 총액을 크게 바꾸므로, 가족 명의 자산·채무 구성을 더 살펴볼
-            필요가 있습니다.
+            {describeFamilyGap(familyGapLatest ?? 0)} 괴리가 클수록 가족 명의 자산·채무가 총액을 더 크게
+            바꾸므로 추가 확인 포인트가 됩니다.
           </p>
         </div>
       ) : null}
@@ -757,30 +1234,33 @@ function MemberAssetSection({
           <div className="activity-asset-focus__head">
             <div>
               <p className="section-label">부동산 포커스</p>
-              <h4>건물과 토지를 따로 읽을 수 있게 묶었습니다</h4>
+              <h4>건물과 토지를 중심으로 봅니다</h4>
             </div>
-            <p>
-              {realEstateFocus.hasMixedCategory
-                ? "혼합 자산군은 자동차 등 다른 자산이 함께 묶일 수 있어 부동산 합계에서 제외했습니다."
-                : "건물과 토지는 최신 공개 시점 기준으로 따로 합산했습니다."}
-            </p>
           </div>
 
           <dl className="activity-asset-focus__summary">
             <div>
-              <dt>부동산 합계</dt>
+              <dt>
+                <AssetMetricLabel label="부동산 합계" icons={["building", "land"]} />
+              </dt>
               <dd>{formatAssetAmount(realEstateFocus.latestAmount)}</dd>
             </div>
             <div>
-              <dt>22대 부동산 증감</dt>
-              <dd>{formatAssetDelta(realEstateFocus.deltaAmount)}</dd>
+              <dt>증감</dt>
+              <dd>
+                <AssetTrendValue value={realEstateFocus.deltaAmount} />
+              </dd>
             </div>
             <div>
-              <dt>건물</dt>
+              <dt>
+                <AssetMetricLabel label="건물" icons={["building"]} />
+              </dt>
               <dd>{formatAssetAmount(realEstateFocus.buildingAmount)}</dd>
             </div>
             <div>
-              <dt>토지</dt>
+              <dt>
+                <AssetMetricLabel label="토지" icons={["land"]} />
+              </dt>
               <dd>{formatAssetAmount(realEstateFocus.landAmount)}</dd>
             </div>
           </dl>
@@ -794,15 +1274,9 @@ function MemberAssetSection({
         </div>
         <div>
           <dt>22대 누적 증감</dt>
-          <dd>{formatAssetDelta(activeTotalDelta)}</dd>
-        </div>
-        <div>
-          <dt>첫 공개일</dt>
-          <dd>{formatDate(indexEntry.firstDisclosureDate)}</dd>
-        </div>
-        <div>
-          <dt>최신 공개일</dt>
-          <dd>{formatDate(indexEntry.latestDisclosureDate)}</dd>
+          <dd>
+            <AssetTrendValue value={activeTotalDelta} />
+          </dd>
         </div>
       </dl>
 
@@ -1812,6 +2286,18 @@ export function ActivityCalendarPage({
     ? Boolean(memberAssetHistoryLoading[selectedMember.memberId])
     : false;
   const compareMember = getMemberById(selectedAssembly, compareMemberId);
+  const compareMemberAssetIndex = compareMember
+    ? memberAssetsIndex?.members.find((entry) => entry.memberId === compareMember.memberId) ?? null
+    : null;
+  const compareMemberAssetHistory = compareMember
+    ? memberAssetHistories[compareMember.memberId] ?? null
+    : null;
+  const compareMemberAssetHistoryError = compareMember
+    ? memberAssetHistoryErrors[compareMember.memberId] ?? null
+    : null;
+  const compareMemberAssetHistoryLoading = compareMember
+    ? Boolean(memberAssetHistoryLoading[compareMember.memberId])
+    : false;
   const comparisonSummary =
     selectedAssembly && selectedMember && compareMember
       ? buildHeadToHeadSummary(selectedAssembly, selectedMember, compareMember, true)
@@ -1931,19 +2417,37 @@ export function ActivityCalendarPage({
   ]);
 
   useEffect(() => {
-    if (activeView !== "single" || !selectedMember || !selectedMemberAssetIndex) {
-      return;
-    }
+    const targets = [
+      selectedMember && selectedMemberAssetIndex
+        ? {
+            member: selectedMember,
+            history: selectedMemberAssetHistory,
+            loading: selectedMemberAssetHistoryLoading,
+            error: selectedMemberAssetHistoryError
+          }
+        : null,
+      activeView === "compare" && compareMember && compareMemberAssetIndex
+        ? {
+            member: compareMember,
+            history: compareMemberAssetHistory,
+            loading: compareMemberAssetHistoryLoading,
+            error: compareMemberAssetHistoryError
+          }
+        : null
+    ].filter(Boolean) as Array<{
+      member: MemberActivityCalendarMember;
+      history: MemberAssetsHistoryExport | null;
+      loading: boolean;
+      error: string | null;
+    }>;
 
-    if (
-      selectedMemberAssetHistory ||
-      selectedMemberAssetHistoryLoading ||
-      selectedMemberAssetHistoryError
-    ) {
-      return;
-    }
+    for (const target of targets) {
+      if (target.history || target.loading || target.error) {
+        continue;
+      }
 
-    void onEnsureMemberAssetHistory(selectedMember);
+      void onEnsureMemberAssetHistory(target.member);
+    }
   }, [
     activeView,
     selectedMember,
@@ -1951,6 +2455,11 @@ export function ActivityCalendarPage({
     selectedMemberAssetHistory,
     selectedMemberAssetHistoryError,
     selectedMemberAssetHistoryLoading,
+    compareMember,
+    compareMemberAssetIndex,
+    compareMemberAssetHistory,
+    compareMemberAssetHistoryError,
+    compareMemberAssetHistoryLoading,
     onEnsureMemberAssetHistory
   ]);
 
@@ -2332,6 +2841,20 @@ export function ActivityCalendarPage({
                       <ActivityCompareRatioChart
                         leftMember={selectedMember}
                         rightMember={compareMember}
+                      />
+                      <MemberAssetCompareSection
+                        leftMember={selectedMember}
+                        rightMember={compareMember}
+                        leftIndexEntry={selectedMemberAssetIndex}
+                        rightIndexEntry={compareMemberAssetIndex}
+                        leftHistory={selectedMemberAssetHistory}
+                        rightHistory={compareMemberAssetHistory}
+                        leftLoading={selectedMemberAssetHistoryLoading}
+                        rightLoading={compareMemberAssetHistoryLoading}
+                        leftError={selectedMemberAssetHistoryError}
+                        rightError={compareMemberAssetHistoryError}
+                        onRetryLeft={() => onRetryMemberAssetHistory(selectedMember)}
+                        onRetryRight={() => onRetryMemberAssetHistory(compareMember)}
                       />
                     </>
                   ) : (

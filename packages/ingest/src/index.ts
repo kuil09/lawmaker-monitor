@@ -3,6 +3,7 @@ export * from "./constituency-boundary-runtime.js";
 export * from "./constituency-boundaries.js";
 export * from "./document-mirror.js";
 export * from "./exports.js";
+export * from "./hexmap-static-runtime.js";
 export * from "./normalize.js";
 export * from "./parsers.js";
 export * from "./property-member-context.js";

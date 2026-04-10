@@ -17,6 +17,30 @@ function toWgs84(x: number, y: number): [number, number] {
   return [x, y];
 }
 
+function normalizeRing(points: number[][]): number[][] {
+  if (points.length === 0) {
+    return points;
+  }
+
+  const normalized = [...points];
+  const firstPoint = normalized[0];
+  const lastPoint = normalized[normalized.length - 1];
+
+  if (
+    firstPoint &&
+    lastPoint &&
+    (firstPoint[0] !== lastPoint[0] || firstPoint[1] !== lastPoint[1])
+  ) {
+    normalized.push([...firstPoint]);
+  }
+
+  while (normalized.length < 4 && firstPoint) {
+    normalized.push([...firstPoint]);
+  }
+
+  return normalized;
+}
+
 // At zoom 6-7, one sampled vertex out of 20 still preserves constituency outlines.
 function reprojectRing(ring: number[][], step = 20): number[][] {
   const result: number[][] = [];
@@ -28,7 +52,15 @@ function reprojectRing(ring: number[][], step = 20): number[][] {
       result.push(toWgs84(x, y));
     }
   }
-  return result;
+  if (result.length >= 4) {
+    return normalizeRing(result);
+  }
+
+  return normalizeRing(ring.flatMap((point) => {
+    const [x, y] = point ?? [];
+    if (x === undefined || y === undefined) return [];
+    return [toWgs84(x, y)];
+  }));
 }
 
 function reprojectGeometry(geometry: { type: string; coordinates: unknown }, step = 20): { type: string; coordinates: unknown } {
@@ -115,6 +147,7 @@ export type H3DataCell = {
   party: string;
   metric: number;
   memberCount: number;
+  metricMemberCount: number;
   memberNames: string[];
   memberParties: string[];
   memberIds: string[];
