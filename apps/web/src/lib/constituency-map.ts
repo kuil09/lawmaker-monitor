@@ -1,12 +1,12 @@
+import { feature } from "topojson-client";
+
+import type { DistributionMemberPoint } from "./distribution.js";
 import type {
   ConstituencyBoundariesIndexProvince,
   ConstituencyBoundaryProperties,
   GeoJsonMultiPolygon,
   GeoJsonPolygon
 } from "@lawmaker-monitor/schemas";
-import { feature } from "topojson-client";
-
-import type { DistributionMemberPoint } from "./distribution.js";
 
 export type ConstituencyMetricMode = "attendance" | "absent" | "negative";
 
@@ -67,7 +67,9 @@ const DEFAULT_MAP_WIDTH = 920;
 const DEFAULT_MAP_HEIGHT = 760;
 const DEFAULT_MAP_PADDING = 28;
 
-export function normalizeConstituencyLookupKey(value: string | null | undefined): string {
+export function normalizeConstituencyLookupKey(
+  value: string | null | undefined
+): string {
   if (!value) {
     return "";
   }
@@ -86,9 +88,14 @@ export function resolveProvinceForDistrict(
 
   return (
     provinces.find((province) => {
-      const shortName = normalizeConstituencyLookupKey(province.provinceShortName);
+      const shortName = normalizeConstituencyLookupKey(
+        province.provinceShortName
+      );
       const fullName = normalizeConstituencyLookupKey(province.provinceName);
-      return normalizedDistrict.startsWith(shortName) || normalizedDistrict.startsWith(fullName);
+      return (
+        normalizedDistrict.startsWith(shortName) ||
+        normalizedDistrict.startsWith(fullName)
+      );
     }) ?? null
   );
 }
@@ -121,7 +128,9 @@ function collectConstituencyMetricValues(
   metricMode: ConstituencyMetricMode
 ): number[] {
   return regions.flatMap((region) =>
-    region.member ? [getConstituencyMetricRenderValue(region.member, metricMode)] : []
+    region.member
+      ? [getConstituencyMetricRenderValue(region.member, metricMode)]
+      : []
   );
 }
 
@@ -166,7 +175,9 @@ export function getConstituencyMetricColorIntensity(
   return Math.min(1, Math.max(0, (value - domain.min) / span));
 }
 
-function buildFeatureLookupKeys(properties: ConstituencyBoundaryProperties): string[] {
+function buildFeatureLookupKeys(
+  properties: ConstituencyBoundaryProperties
+): string[] {
   return [
     properties.memberDistrictLabel,
     properties.memberDistrictKey,
@@ -175,10 +186,15 @@ function buildFeatureLookupKeys(properties: ConstituencyBoundaryProperties): str
     ...properties.aliases
   ]
     .map((candidate) => normalizeConstituencyLookupKey(candidate))
-    .filter((candidate, index, array) => candidate.length > 0 && array.indexOf(candidate) === index);
+    .filter(
+      (candidate, index, array) =>
+        candidate.length > 0 && array.indexOf(candidate) === index
+    );
 }
 
-function buildMemberLookupMap(members: DistributionMemberPoint[]): Map<string, DistributionMemberPoint | null> {
+function buildMemberLookupMap(
+  members: DistributionMemberPoint[]
+): Map<string, DistributionMemberPoint | null> {
   const memberByKey = new Map<string, DistributionMemberPoint | null>();
 
   for (const member of members) {
@@ -188,13 +204,18 @@ function buildMemberLookupMap(members: DistributionMemberPoint[]): Map<string, D
     }
 
     const existing = memberByKey.get(lookupKey);
-    memberByKey.set(lookupKey, existing && existing.memberId !== member.memberId ? null : member);
+    memberByKey.set(
+      lookupKey,
+      existing && existing.memberId !== member.memberId ? null : member
+    );
   }
 
   return memberByKey;
 }
 
-function topologyToFeatures(topology: ConstituencyBoundaryTopology): ConstituencyFeature[] {
+function topologyToFeatures(
+  topology: ConstituencyBoundaryTopology
+): ConstituencyFeature[] {
   const collection = feature(
     topology,
     topology.objects.constituencies
@@ -227,7 +248,12 @@ function readBounds(features: ConstituencyFeature[]): Bounds {
     }
   }
 
-  if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minY) || !Number.isFinite(maxY)) {
+  if (
+    !Number.isFinite(minX) ||
+    !Number.isFinite(maxX) ||
+    !Number.isFinite(minY) ||
+    !Number.isFinite(maxY)
+  ) {
     return {
       minX: 0,
       maxX: 1,
@@ -244,7 +270,12 @@ function readBounds(features: ConstituencyFeature[]): Bounds {
   };
 }
 
-function buildProjector(bounds: Bounds, width: number, height: number, padding: number) {
+function buildProjector(
+  bounds: Bounds,
+  width: number,
+  height: number,
+  padding: number
+) {
   const spanX = Math.max(bounds.maxX - bounds.minX, 1);
   const spanY = Math.max(bounds.maxY - bounds.minY, 1);
   const usableWidth = Math.max(width - padding * 2, 1);
@@ -252,13 +283,18 @@ function buildProjector(bounds: Bounds, width: number, height: number, padding: 
   const scale = Math.min(usableWidth / spanX, usableHeight / spanY);
   const contentWidth = spanX * scale;
   const contentHeight = spanY * scale;
-  const offsetX = padding + (usableWidth - contentWidth) / 2 - bounds.minX * scale;
-  const offsetY = padding + (usableHeight - contentHeight) / 2 + bounds.maxY * scale;
+  const offsetX =
+    padding + (usableWidth - contentWidth) / 2 - bounds.minX * scale;
+  const offsetY =
+    padding + (usableHeight - contentHeight) / 2 + bounds.maxY * scale;
 
   return ([x, y]: Point): Point => [x * scale + offsetX, offsetY - y * scale];
 }
 
-function buildRingPath(ring: Point[], project: (point: Point) => Point): string {
+function buildRingPath(
+  ring: Point[],
+  project: (point: Point) => Point
+): string {
   return ring
     .map((point, index) => {
       const [x, y] = project(point);
@@ -274,11 +310,15 @@ function buildFeaturePath(
   project: (point: Point) => Point
 ): string {
   if (geometry.type === "Polygon") {
-    return geometry.coordinates.map((ring) => buildRingPath(ring, project)).join(" ");
+    return geometry.coordinates
+      .map((ring) => buildRingPath(ring, project))
+      .join(" ");
   }
 
   return geometry.coordinates
-    .map((polygon) => polygon.map((ring) => buildRingPath(ring, project)).join(" "))
+    .map((polygon) =>
+      polygon.map((ring) => buildRingPath(ring, project)).join(" ")
+    )
     .join(" ");
 }
 
@@ -305,7 +345,9 @@ export function buildConstituencyMapRegions(args: {
       const matchingMember =
         buildFeatureLookupKeys(currentFeature.properties)
           .map((lookupKey) => memberByKey.get(lookupKey) ?? null)
-          .find((member): member is DistributionMemberPoint => Boolean(member)) ?? null;
+          .find((member): member is DistributionMemberPoint =>
+            Boolean(member)
+          ) ?? null;
 
       return {
         districtKey: currentFeature.properties.memberDistrictKey,
@@ -313,12 +355,15 @@ export function buildConstituencyMapRegions(args: {
         path: buildFeaturePath(currentFeature.geometry, project),
         member: matchingMember,
         highlighted: matchingMember
-          ? args.highlightedMemberIds?.has(matchingMember.memberId) ?? true
+          ? (args.highlightedMemberIds?.has(matchingMember.memberId) ?? true)
           : false
       };
     })
     .sort((left, right) =>
-      left.properties.memberDistrictLabel.localeCompare(right.properties.memberDistrictLabel, "ko")
+      left.properties.memberDistrictLabel.localeCompare(
+        right.properties.memberDistrictLabel,
+        "ko"
+      )
     );
 }
 
@@ -332,7 +377,11 @@ export function findLowestAttendanceRegion(
       continue;
     }
 
-    if (!lowest || !lowest.member || region.member.attendanceRate < lowest.member.attendanceRate) {
+    if (
+      !lowest ||
+      !lowest.member ||
+      region.member.attendanceRate < lowest.member.attendanceRate
+    ) {
       lowest = region;
     }
   }

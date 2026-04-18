@@ -52,7 +52,13 @@ describe("member history backfill helpers", () => {
       memberFixture({ memberId: "M002", name: "박민" }),
       memberFixture({ memberId: "M003", name: "이수", isCurrentMember: false })
     ];
-    const tenures = [tenureFixture({ memberId: "M001", name: "김아라", startDate: "2024-05-30" })];
+    const tenures = [
+      tenureFixture({
+        memberId: "M001",
+        name: "김아라",
+        startDate: "2024-05-30"
+      })
+    ];
 
     expect(
       findMissingCurrentMemberTenures({
@@ -75,8 +81,16 @@ describe("member history backfill helpers", () => {
       memberFixture({ memberId: "M4O5221T", name: "박민규" })
     ];
     const tenures = [
-      tenureFixture({ memberId: "TJW93720", name: "전용기", startDate: "2024-05-30" }),
-      tenureFixture({ memberId: "M4O5221T", name: "박민규", startDate: "2024-05-30" })
+      tenureFixture({
+        memberId: "TJW93720",
+        name: "전용기",
+        startDate: "2024-05-30"
+      }),
+      tenureFixture({
+        memberId: "M4O5221T",
+        name: "박민규",
+        startDate: "2024-05-30"
+      })
     ];
 
     expect(

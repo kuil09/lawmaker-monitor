@@ -71,7 +71,8 @@ function createIndexedDbStore(): HexCellStaticCacheStore {
       };
 
       request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error ?? new Error("Failed to open IndexedDB."));
+      request.onerror = () =>
+        reject(request.error ?? new Error("Failed to open IndexedDB."));
     });
 
     return dbPromise;
@@ -80,7 +81,8 @@ function createIndexedDbStore(): HexCellStaticCacheStore {
   function runRequest<T>(request: IDBRequest<T>): Promise<T> {
     return new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error ?? new Error("IndexedDB request failed."));
+      request.onerror = () =>
+        reject(request.error ?? new Error("IndexedDB request failed."));
     });
   }
 
@@ -90,7 +92,9 @@ function createIndexedDbStore(): HexCellStaticCacheStore {
         const database = await openDatabase();
         const transaction = database.transaction(STORE_NAME, "readonly");
         const store = transaction.objectStore(STORE_NAME);
-        const entry = await runRequest(store.get(cacheKey) as IDBRequest<HexCellStaticCacheEntry | undefined>);
+        const entry = await runRequest(
+          store.get(cacheKey) as IDBRequest<HexCellStaticCacheEntry | undefined>
+        );
         return entry ?? null;
       } catch {
         return null;
@@ -116,7 +120,9 @@ export function buildHexCellStaticCacheKey(
   return `${boundarySnapshotId}:${provinceChecksumSha256}`;
 }
 
-export function createHexCellCache(store: HexCellStaticCacheStore = createIndexedDbStore()) {
+export function createHexCellCache(
+  store: HexCellStaticCacheStore = createIndexedDbStore()
+) {
   const staticMemory = new Map<string, HexCellStaticCacheEntry>();
   const hydratedMemory = new Map<string, H3DataCell[]>();
 
@@ -169,6 +175,8 @@ export function getSharedHexCellCache(): HexCellCache {
   return sharedHexCellCache;
 }
 
-export function setSharedHexCellCacheForTests(cache: HexCellCache | null): void {
+export function setSharedHexCellCacheForTests(
+  cache: HexCellCache | null
+): void {
   sharedHexCellCache = cache;
 }

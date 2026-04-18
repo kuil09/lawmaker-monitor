@@ -5,7 +5,10 @@ import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createLogNormalizer, getMetricModulatedColor } from "../../apps/web/src/lib/geo-utils.js";
+import {
+  createLogNormalizer,
+  getMetricModulatedColor
+} from "../../apps/web/src/lib/geo-utils.js";
 
 type MockStaticState = {
   sessionKey: string;
@@ -140,7 +143,10 @@ vi.mock("react-map-gl/maplibre", () => ({
 vi.mock("../../apps/web/src/lib/hexmap-static-loader.js", () => ({
   getHexmapStaticSessionKey: () => "session:test",
   getHexmapStaticState: () => testState.staticState,
-  subscribeHexmapStaticState: (_manifest: unknown, listener: (state: MockStaticState) => void) => {
+  subscribeHexmapStaticState: (
+    _manifest: unknown,
+    listener: (state: MockStaticState) => void
+  ) => {
     testState.listener = listener;
     listener(testState.staticState);
     return () => {
@@ -163,13 +169,17 @@ const memberAssetsIndexFixture = JSON.parse(
 );
 
 function getLastLayer(idPrefix: string) {
-  const matches = testState.layerInstances.filter((layer) => layer.id.startsWith(idPrefix));
+  const matches = testState.layerInstances.filter((layer) =>
+    layer.id.startsWith(idPrefix)
+  );
   return matches.at(-1);
 }
 
 function getLastDeckProps(kind: "national" | "detail") {
   const matches = testState.deckPropsLog.filter((entry) =>
-    kind === "national" ? Boolean(entry.initialViewState) : Boolean(entry.viewState)
+    kind === "national"
+      ? Boolean(entry.initialViewState)
+      : Boolean(entry.viewState)
   );
   return matches.at(-1);
 }
@@ -194,13 +204,15 @@ describe("HexmapPage", () => {
               type: "Feature",
               geometry: {
                 type: "Polygon",
-                coordinates: [[
-                  [129.0, 35.08],
-                  [129.1, 35.08],
-                  [129.1, 35.18],
-                  [129.0, 35.18],
-                  [129.0, 35.08]
-                ]]
+                coordinates: [
+                  [
+                    [129.0, 35.08],
+                    [129.1, 35.08],
+                    [129.1, 35.18],
+                    [129.0, 35.18],
+                    [129.0, 35.08]
+                  ]
+                ]
               },
               properties: {
                 districtKey: "부산남구",
@@ -227,13 +239,15 @@ describe("HexmapPage", () => {
               type: "Feature",
               geometry: {
                 type: "Polygon",
-                coordinates: [[
-                  [126.95, 37.52],
-                  [127.05, 37.52],
-                  [127.05, 37.62],
-                  [126.95, 37.62],
-                  [126.95, 37.52]
-                ]]
+                coordinates: [
+                  [
+                    [126.95, 37.52],
+                    [127.05, 37.52],
+                    [127.05, 37.62],
+                    [126.95, 37.62],
+                    [126.95, 37.52]
+                  ]
+                ]
               },
               properties: {
                 districtKey: "서울중구",
@@ -282,10 +296,16 @@ describe("HexmapPage", () => {
     });
 
     expect(testState.ensureLoadMock).toHaveBeenCalledTimes(1);
-    expect(testState.ensureLoadMock).toHaveBeenCalledWith(null, { source: "map" });
-    expect(screen.getByText("아직 선택된 지역구가 없습니다")).toBeInTheDocument();
+    expect(testState.ensureLoadMock).toHaveBeenCalledWith(null, {
+      source: "map"
+    });
     expect(
-      screen.getByText("상단 전국 지도에서 지역구를 클릭하면 이 영역에 해당 시·도가 나타납니다.")
+      screen.getByText("아직 선택된 지역구가 없습니다")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "상단 전국 지도에서 지역구를 클릭하면 이 영역에 해당 시·도가 나타납니다."
+      )
     ).toBeInTheDocument();
 
     const nationalLayer = getLastLayer("h3-national-absence");
@@ -293,13 +313,20 @@ describe("HexmapPage", () => {
     const onClick = nationalLayer?.props.onClick as
       | ((info: { object?: Record<string, unknown> }) => void)
       | undefined;
-    const firstCell = (nationalLayer?.props.data as Array<Record<string, unknown>>)[0];
+    const firstCell = (
+      nationalLayer?.props.data as Array<Record<string, unknown>>
+    )[0];
 
     expect(nationalLayer?.props.extruded).toBe(false);
     expect(nationalLayer?.props).not.toHaveProperty("getElevation");
-    expect(testState.layerInstances.some((layer) => layer.id.startsWith("h3-bloom-"))).toBe(false);
+    expect(
+      testState.layerInstances.some((layer) => layer.id.startsWith("h3-bloom-"))
+    ).toBe(false);
     expect(nationalDeck?.layers).toHaveLength(1);
-    expect(nationalDeck?.initialViewState).toMatchObject({ pitch: 0, zoom: 6.2 });
+    expect(nationalDeck?.initialViewState).toMatchObject({
+      pitch: 0,
+      zoom: 6.2
+    });
     expect(firstCell).toMatchObject({
       districtKey: "부산남구",
       districtLabel: "부산 남구",
@@ -318,7 +345,9 @@ describe("HexmapPage", () => {
       metric: "absence"
     });
     expect(
-      screen.getByText("부산 전체 지역구를 보여줍니다. 헥사곤을 클릭하면 작은 의원 오버레이와 활동 캘린더 바로가기가 열립니다.")
+      screen.getByText(
+        "부산 전체 지역구를 보여줍니다. 헥사곤을 클릭하면 작은 의원 오버레이와 활동 캘린더 바로가기가 열립니다."
+      )
     ).toBeInTheDocument();
   });
 
@@ -378,23 +407,35 @@ describe("HexmapPage", () => {
 
     expect(screen.queryByText(/셀 높이/)).not.toBeInTheDocument();
     expect(
-      screen.getByText("부산 전체 지역구를 보여줍니다. 헥사곤을 클릭하면 작은 의원 오버레이와 활동 캘린더 바로가기가 열립니다.")
+      screen.getByText(
+        "부산 전체 지역구를 보여줍니다. 헥사곤을 클릭하면 작은 의원 오버레이와 활동 캘린더 바로가기가 열립니다."
+      )
     ).toBeInTheDocument();
     expect(
-      screen.getByText("상세 지도에서 헥사곤을 클릭하면 작은 오버레이와 활동 캘린더 바로가기가 나타납니다.")
+      screen.getByText(
+        "상세 지도에서 헥사곤을 클릭하면 작은 오버레이와 활동 캘린더 바로가기가 나타납니다."
+      )
     ).toBeInTheDocument();
     expect(
       screen
-        .getByText("상세 지도에서 헥사곤을 클릭하면 작은 오버레이와 활동 캘린더 바로가기가 나타납니다.")
+        .getByText(
+          "상세 지도에서 헥사곤을 클릭하면 작은 오버레이와 활동 캘린더 바로가기가 나타납니다."
+        )
         .closest(".hexmap-map-container")
     ).not.toBeNull();
 
     const detailLayer = getLastLayer("h3-panel-negative-부산");
     const detailDeck = getLastDeckProps("detail");
     const onClick = detailLayer?.props.onClick as
-      | ((info: { object?: Record<string, unknown>; x?: number; y?: number }) => void)
+      | ((info: {
+          object?: Record<string, unknown>;
+          x?: number;
+          y?: number;
+        }) => void)
       | undefined;
-    const firstCell = (detailLayer?.props.data as Array<Record<string, unknown>>)[0];
+    const firstCell = (
+      detailLayer?.props.data as Array<Record<string, unknown>>
+    )[0];
 
     expect(detailLayer?.props.extruded).toBe(false);
     expect(detailLayer?.props).not.toHaveProperty("getElevation");
@@ -403,14 +444,20 @@ describe("HexmapPage", () => {
     onClick?.({ object: firstCell, x: 120, y: 140 });
     expect(onNavigateToMember).not.toHaveBeenCalled();
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "활동 캘린더 보기" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "활동 캘린더 보기" })
+      ).toBeInTheDocument();
     });
     expect(screen.getByText("박민")).toBeInTheDocument();
     expect(screen.getByText("부산 남구")).toBeInTheDocument();
-    expect(screen.queryByText("클릭 → 캘린더 바로가기")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("클릭 → 캘린더 바로가기")
+    ).not.toBeInTheDocument();
     expect(document.querySelectorAll(".hexmap-tooltip")).toHaveLength(1);
     expect(
-      screen.getByRole("button", { name: "활동 캘린더 보기" }).closest(".hexmap-tooltip")
+      screen
+        .getByRole("button", { name: "활동 캘린더 보기" })
+        .closest(".hexmap-tooltip")
     ).not.toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "활동 캘린더 보기" }));
@@ -471,7 +518,9 @@ describe("HexmapPage", () => {
     });
 
     const districtLayer = getLastLayer("district-national-absence");
-    const firstFeature = (districtLayer?.props.data as Array<Record<string, unknown>>)[0];
+    const firstFeature = (
+      districtLayer?.props.data as Array<Record<string, unknown>>
+    )[0];
 
     expect(firstFeature).toMatchObject({
       properties: {
@@ -515,10 +564,15 @@ describe("HexmapPage", () => {
     });
 
     const nationalLayer = getLastLayer("h3-national-realEstate");
-    const firstCell = (nationalLayer?.props.data as Array<Record<string, unknown>>)[0];
-    const assetValues = (nationalLayer?.props.data as Array<{ metric: number; metricMemberCount: number }>).flatMap(
-      (cell) => (cell.metricMemberCount > 0 ? [cell.metric] : [])
-    );
+    const firstCell = (
+      nationalLayer?.props.data as Array<Record<string, unknown>>
+    )[0];
+    const assetValues = (
+      nationalLayer?.props.data as Array<{
+        metric: number;
+        metricMemberCount: number;
+      }>
+    ).flatMap((cell) => (cell.metricMemberCount > 0 ? [cell.metric] : []));
     const getFillColor = nationalLayer?.props.getFillColor as
       | ((cell: Record<string, unknown>) => [number, number, number, number])
       | undefined;
@@ -531,14 +585,21 @@ describe("HexmapPage", () => {
       memberIds: ["M002"]
     });
     expect(getFillColor?.(firstCell)).toEqual(
-      getMetricModulatedColor("미래개혁당", normalizeAssetMetric(Number(firstCell?.metric ?? 0)))
+      getMetricModulatedColor(
+        "미래개혁당",
+        normalizeAssetMetric(Number(firstCell?.metric ?? 0))
+      )
     );
     expect(screen.getByLabelText("정당 범례")).toBeInTheDocument();
     expect(
-      screen.getByText("부동산 비교에서도 색상은 정당별로 나뉘며, 같은 정당 안에서는 부동산 규모가 클수록 더 진합니다.")
+      screen.getByText(
+        "부동산 비교에서도 색상은 정당별로 나뉘며, 같은 정당 안에서는 부동산 규모가 클수록 더 진합니다."
+      )
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/최신 공개 부동산\(건물·토지 합계\)이 클수록 더 진하게 보입니다\./)
+      screen.getByText(
+        /최신 공개 부동산\(건물·토지 합계\)이 클수록 더 진하게 보입니다\./
+      )
     ).toBeInTheDocument();
     expect(
       screen.getByText(/부동산 비교는 최신 공개 건물·토지 합계 기준이며/)
@@ -579,10 +640,15 @@ describe("HexmapPage", () => {
     });
 
     const nationalLayer = getLastLayer("h3-national-assetTotal");
-    const firstCell = (nationalLayer?.props.data as Array<Record<string, unknown>>)[0];
-    const assetValues = (nationalLayer?.props.data as Array<{ metric: number; metricMemberCount: number }>).flatMap(
-      (cell) => (cell.metricMemberCount > 0 ? [cell.metric] : [])
-    );
+    const firstCell = (
+      nationalLayer?.props.data as Array<Record<string, unknown>>
+    )[0];
+    const assetValues = (
+      nationalLayer?.props.data as Array<{
+        metric: number;
+        metricMemberCount: number;
+      }>
+    ).flatMap((cell) => (cell.metricMemberCount > 0 ? [cell.metric] : []));
     const getFillColor = nationalLayer?.props.getFillColor as
       | ((cell: Record<string, unknown>) => [number, number, number, number])
       | undefined;
@@ -595,10 +661,15 @@ describe("HexmapPage", () => {
       memberIds: ["M002"]
     });
     expect(getFillColor?.(firstCell)).toEqual(
-      getMetricModulatedColor("미래개혁당", normalizeAssetMetric(Number(firstCell?.metric ?? 0)))
+      getMetricModulatedColor(
+        "미래개혁당",
+        normalizeAssetMetric(Number(firstCell?.metric ?? 0))
+      )
     );
     expect(
-      screen.getByText("총재산 비교에서도 색상은 정당별로 나뉘며, 같은 정당 안에서는 재산 규모가 클수록 더 진합니다.")
+      screen.getByText(
+        "총재산 비교에서도 색상은 정당별로 나뉘며, 같은 정당 안에서는 재산 규모가 클수록 더 진합니다."
+      )
     ).toBeInTheDocument();
     expect(
       screen.getByText(/최신 공개 총재산이 클수록 더 진하게 보입니다\./)

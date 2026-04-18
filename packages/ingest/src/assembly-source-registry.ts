@@ -88,11 +88,14 @@ export const configuredAssemblyEndpoints: RegistryEndpointBase[] = [
 ];
 
 const endpointByKey = new Map(
-  configuredAssemblyEndpoints.map((endpoint) => [endpoint.key, endpoint] as const)
+  configuredAssemblyEndpoints.map(
+    (endpoint) => [endpoint.key, endpoint] as const
+  )
 );
-const forbiddenRuntimePaths = assemblySourceRegistry.policy.forbiddenRuntimeSources.map((entry) =>
-  new URL(entry.url).pathname
-);
+const forbiddenRuntimePaths =
+  assemblySourceRegistry.policy.forbiddenRuntimeSources.map(
+    (entry) => new URL(entry.url).pathname
+  );
 
 const RAW_KIND_TO_ENDPOINT_KEY: Partial<
   Record<RawSnapshotEntry["kind"], ConfiguredAssemblyEndpointKey>
@@ -178,7 +181,9 @@ export function getOfficialAssemblyEndpointPaths(): Record<
 }
 
 export function getForbiddenRuntimeSourceUrls(): string[] {
-  return assemblySourceRegistry.policy.forbiddenRuntimeSources.map((entry) => entry.url);
+  return assemblySourceRegistry.policy.forbiddenRuntimeSources.map(
+    (entry) => entry.url
+  );
 }
 
 export function assertRawSnapshotManifestSourcePolicy(

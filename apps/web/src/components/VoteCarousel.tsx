@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 
-import type { LatestVoteItem } from "@lawmaker-monitor/schemas";
-
-import { formatDate, getKoreanDateKey } from "../lib/format.js";
 import { VoteCard } from "./VoteCard.js";
+import { formatDate, getKoreanDateKey } from "../lib/format.js";
+
+import type { LatestVoteItem } from "@lawmaker-monitor/schemas";
 
 type VoteCarouselProps = {
   items: LatestVoteItem[] | null;
@@ -50,7 +50,10 @@ export function VoteCarousel({
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
       return undefined;
     }
 
@@ -88,11 +91,17 @@ export function VoteCarousel({
   }
 
   if (unavailable) {
-    return <p className="vote-carousel__empty">최신 표결 데이터가 아직 준비되지 않았습니다.</p>;
+    return (
+      <p className="vote-carousel__empty">
+        최신 표결 데이터가 아직 준비되지 않았습니다.
+      </p>
+    );
   }
 
   if (!items) {
-    return <p className="vote-carousel__empty">최신 표결 데이터를 준비 중입니다.</p>;
+    return (
+      <p className="vote-carousel__empty">최신 표결 데이터를 준비 중입니다.</p>
+    );
   }
 
   if (items.length === 0) {
@@ -102,8 +111,14 @@ export function VoteCarousel({
   return (
     <div className="vote-carousel">
       {groups.map((group) => {
-        const pageCount = Math.max(1, Math.ceil(group.items.length / cardsPerPage));
-        const currentPage = Math.min(pagesByDate[group.dateKey] ?? 0, pageCount - 1);
+        const pageCount = Math.max(
+          1,
+          Math.ceil(group.items.length / cardsPerPage)
+        );
+        const currentPage = Math.min(
+          pagesByDate[group.dateKey] ?? 0,
+          pageCount - 1
+        );
         const visibleItems = group.items.slice(
           currentPage * cardsPerPage,
           currentPage * cardsPerPage + cardsPerPage
@@ -143,7 +158,10 @@ export function VoteCarousel({
                       onClick={() =>
                         setPagesByDate((previous) => ({
                           ...previous,
-                          [group.dateKey]: Math.min(pageCount - 1, currentPage + 1)
+                          [group.dateKey]: Math.min(
+                            pageCount - 1,
+                            currentPage + 1
+                          )
                         }))
                       }
                       disabled={currentPage === pageCount - 1}

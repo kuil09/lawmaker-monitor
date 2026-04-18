@@ -8,7 +8,10 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@lawmaker-monitor/schemas": resolve(__dirname, "../../packages/schemas/src/index.ts")
+      "@lawmaker-monitor/schemas": resolve(
+        __dirname,
+        "../../packages/schemas/src/index.ts"
+      )
     }
   },
   esbuild: {

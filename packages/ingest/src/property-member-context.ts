@@ -1,23 +1,17 @@
 import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import { basename, join, resolve } from "node:path";
-
-import type { MemberRecord } from "@lawmaker-monitor/schemas";
+import { fileURLToPath } from "node:url";
 
 import {
   buildAssemblyRequest,
   resolveAssemblyApiConfig,
   type AssemblyApiConfig
 } from "./assembly-api.js";
-import {
-  findItems,
-  normalizeAssemblyLabel
-} from "./parsers/helpers.js";
+import { findItems, normalizeAssemblyLabel } from "./parsers/helpers.js";
 import {
   parseMemberHistoryRows,
   parseMemberInfoRows
 } from "./parsers/members.js";
-import type { MemberTenureRecord } from "./parsers/types.js";
 import {
   assertCurrentMembersHaveTenure,
   buildMemberTenureIndex,
@@ -31,6 +25,9 @@ import {
   sha256,
   writeJsonFile
 } from "./utils.js";
+
+import type { MemberTenureRecord } from "./parsers/types.js";
+import type { MemberRecord } from "@lawmaker-monitor/schemas";
 
 export type PropertyMemberContextManifestSource = {
   sourceUrl: string;
@@ -101,7 +98,10 @@ function sanitizeAssemblyRequestParams(
   );
 }
 
-function sanitizeAssemblyRequestUrl(config: AssemblyApiConfig, requestUrl: string): string {
+function sanitizeAssemblyRequestUrl(
+  config: AssemblyApiConfig,
+  requestUrl: string
+): string {
   const url = new URL(requestUrl);
   url.searchParams.delete(config.apiKeyParamName);
   return url.toString();
@@ -115,9 +115,14 @@ function getEndpointCodeFromSourceUrl(value: string): string {
   }
 }
 
-function extractOfficialJsonEnvelope(payload: unknown, endpointCode: string): unknown {
+function extractOfficialJsonEnvelope(
+  payload: unknown,
+  endpointCode: string
+): unknown {
   if (!isRecord(payload)) {
-    throw new Error(`Property member context payload for ${endpointCode} must be a JSON object.`);
+    throw new Error(
+      `Property member context payload for ${endpointCode} must be a JSON object.`
+    );
   }
 
   const envelope = payload[endpointCode];
@@ -204,7 +209,10 @@ function replaceRowCollection(
   );
 }
 
-function replaceListTotalCount(container: unknown, totalCount: number): unknown {
+function replaceListTotalCount(
+  container: unknown,
+  totalCount: number
+): unknown {
   if (Array.isArray(container)) {
     return container.map((item) => replaceListTotalCount(item, totalCount));
   }
@@ -231,10 +239,15 @@ function buildCombinedOfficialPayload(args: {
   totalCount: number;
 }): unknown {
   if (!isRecord(args.firstPayload)) {
-    throw new Error(`Property member context payload for ${args.endpointCode} must be a JSON object.`);
+    throw new Error(
+      `Property member context payload for ${args.endpointCode} must be a JSON object.`
+    );
   }
 
-  const cloned = JSON.parse(JSON.stringify(args.firstPayload)) as Record<string, unknown>;
+  const cloned = JSON.parse(JSON.stringify(args.firstPayload)) as Record<
+    string,
+    unknown
+  >;
   const envelope = cloned[args.endpointCode];
   if (envelope === undefined) {
     throw new Error(
@@ -255,7 +268,9 @@ export function extractOfficialOpenApiJsonRows(
 ): Record<string, unknown>[] {
   const rows = findItems(extractOfficialJsonEnvelope(payload, endpointCode));
   if (rows.length === 0) {
-    throw new Error(`Property member context payload for ${endpointCode} has no row items.`);
+    throw new Error(
+      `Property member context payload for ${endpointCode} has no row items.`
+    );
   }
 
   return rows;
@@ -268,7 +283,9 @@ export function extractOfficialOpenApiJsonListTotalCount(
   return findListTotalCount(extractOfficialJsonEnvelope(payload, endpointCode));
 }
 
-function parsePropertyMemberContextManifest(payload: unknown): PropertyMemberContextManifest {
+function parsePropertyMemberContextManifest(
+  payload: unknown
+): PropertyMemberContextManifest {
   if (!isRecord(payload)) {
     throw new Error("Property member context manifest must be a JSON object.");
   }
@@ -279,13 +296,26 @@ function parsePropertyMemberContextManifest(payload: unknown): PropertyMemberCon
   const memberInfoPath = readString(payload.memberInfoPath);
   const memberHistoryPath = readString(payload.memberHistoryPath);
 
-  if (!retrievedAt || !assemblyNo || !assemblyLabel || !memberInfoPath || !memberHistoryPath) {
-    throw new Error("Property member context manifest is missing required fields.");
+  if (
+    !retrievedAt ||
+    !assemblyNo ||
+    !assemblyLabel ||
+    !memberInfoPath ||
+    !memberHistoryPath
+  ) {
+    throw new Error(
+      "Property member context manifest is missing required fields."
+    );
   }
 
-  const parseSource = (source: unknown, label: string): PropertyMemberContextManifestSource => {
+  const parseSource = (
+    source: unknown,
+    label: string
+  ): PropertyMemberContextManifestSource => {
     if (!isRecord(source)) {
-      throw new Error(`Property member context manifest ${label} source must be an object.`);
+      throw new Error(
+        `Property member context manifest ${label} source must be an object.`
+      );
     }
 
     const sourceUrl = readString(source.sourceUrl);
@@ -293,8 +323,15 @@ function parsePropertyMemberContextManifest(payload: unknown): PropertyMemberCon
     const sourceRetrievedAt = readString(source.retrievedAt);
     const requestParamsRaw = source.requestParams;
 
-    if (!sourceUrl || !checksumSha256 || !sourceRetrievedAt || !isRecord(requestParamsRaw)) {
-      throw new Error(`Property member context manifest ${label} source is missing required fields.`);
+    if (
+      !sourceUrl ||
+      !checksumSha256 ||
+      !sourceRetrievedAt ||
+      !isRecord(requestParamsRaw)
+    ) {
+      throw new Error(
+        `Property member context manifest ${label} source is missing required fields.`
+      );
     }
 
     const requestParams = Object.fromEntries(
@@ -401,7 +438,10 @@ async function fetchOfficialJsonCacheFile(args: {
         pSize: args.config.pageSize
       }
     });
-    const pageRows = extractOfficialOpenApiJsonRows(result.payload, args.endpointCode);
+    const pageRows = extractOfficialOpenApiJsonRows(
+      result.payload,
+      args.endpointCode
+    );
 
     if (!firstPayload) {
       firstPayload = result.payload;
@@ -409,8 +449,10 @@ async function fetchOfficialJsonCacheFile(args: {
       requestParams = result.requestParams;
       retrievedAt = result.retrievedAt;
       expectedTotalCount =
-        extractOfficialOpenApiJsonListTotalCount(result.payload, args.endpointCode) ??
-        pageRows.length;
+        extractOfficialOpenApiJsonListTotalCount(
+          result.payload,
+          args.endpointCode
+        ) ?? pageRows.length;
     }
 
     rows.push(...pageRows);
@@ -425,7 +467,9 @@ async function fetchOfficialJsonCacheFile(args: {
   }
 
   if (!firstPayload) {
-    throw new Error(`Failed to fetch any JSON payloads for ${args.endpointCode}.`);
+    throw new Error(
+      `Failed to fetch any JSON payloads for ${args.endpointCode}.`
+    );
   }
 
   const totalCount = expectedTotalCount ?? rows.length;
@@ -476,8 +520,14 @@ export async function loadPropertyMemberContext(args: {
     );
   }
 
-  const memberInfoAbsolutePath = resolve(args.dataRepoDir, manifest.memberInfoPath);
-  const memberHistoryAbsolutePath = resolve(args.dataRepoDir, manifest.memberHistoryPath);
+  const memberInfoAbsolutePath = resolve(
+    args.dataRepoDir,
+    manifest.memberInfoPath
+  );
+  const memberHistoryAbsolutePath = resolve(
+    args.dataRepoDir,
+    manifest.memberHistoryPath
+  );
   const [memberInfoPayload, memberHistoryPayload] = await Promise.all([
     readJsonFileStrict(memberInfoAbsolutePath).catch((error) => {
       throw new Error(
@@ -491,16 +541,24 @@ export async function loadPropertyMemberContext(args: {
     })
   ]);
 
-  const memberInfoEndpointCode = getEndpointCodeFromSourceUrl(manifest.memberInfo.sourceUrl);
-  const memberHistoryEndpointCode = getEndpointCodeFromSourceUrl(manifest.memberHistory.sourceUrl);
-  const memberInfoRows = extractOfficialOpenApiJsonRows(memberInfoPayload, memberInfoEndpointCode);
+  const memberInfoEndpointCode = getEndpointCodeFromSourceUrl(
+    manifest.memberInfo.sourceUrl
+  );
+  const memberHistoryEndpointCode = getEndpointCodeFromSourceUrl(
+    manifest.memberHistory.sourceUrl
+  );
+  const memberInfoRows = extractOfficialOpenApiJsonRows(
+    memberInfoPayload,
+    memberInfoEndpointCode
+  );
   const memberHistoryRows = extractOfficialOpenApiJsonRows(
     memberHistoryPayload,
     memberHistoryEndpointCode
   );
 
   const parsedMemberInfo = parseMemberInfoRows(memberInfoRows);
-  const payloadAssemblyNo = parsedMemberInfo.currentAssembly?.assemblyNo ?? null;
+  const payloadAssemblyNo =
+    parsedMemberInfo.currentAssembly?.assemblyNo ?? null;
   if (payloadAssemblyNo !== null && payloadAssemblyNo !== manifest.assemblyNo) {
     throw new Error(
       `Property member context roster assembly mismatch: expected ${manifest.assemblyNo}, got ${payloadAssemblyNo}.`
@@ -511,7 +569,9 @@ export async function loadPropertyMemberContext(args: {
     (member) => member.assemblyNo === args.assemblyNo && member.isCurrentMember
   );
   if (currentMembers.length === 0) {
-    throw new Error("Property member context did not produce any current members.");
+    throw new Error(
+      "Property member context did not produce any current members."
+    );
   }
 
   const tenures = parseMemberHistoryRows(memberHistoryRows).filter(
@@ -570,7 +630,9 @@ export async function syncPropertyMemberContextCache(
   const memberHistoryFile = await fetchOfficialJsonCacheFile({
     config,
     path: config.endpoints.memberHistoryPath,
-    endpointCode: getEndpointCodeFromSourceUrl(config.endpoints.memberHistoryPath),
+    endpointCode: getEndpointCodeFromSourceUrl(
+      config.endpoints.memberHistoryPath
+    ),
     relativePath: memberHistoryPath,
     dataRepoDir
   });
@@ -583,7 +645,9 @@ export async function syncPropertyMemberContextCache(
       )
     ).currentAssembly?.assemblyNo ?? 0;
   if (assemblyNo <= 0) {
-    throw new Error("Property member context sync could not resolve the current assembly.");
+    throw new Error(
+      "Property member context sync could not resolve the current assembly."
+    );
   }
 
   const manifest: PropertyMemberContextManifest = {

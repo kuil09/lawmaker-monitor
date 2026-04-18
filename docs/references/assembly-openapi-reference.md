@@ -13,16 +13,16 @@ This repository now treats the original National Assembly Secretariat PDF guide,
 
 These endpoints were visually re-verified against the original PDF and are used directly by the current runtime.
 
-| PDF page | Role | Korean service name | Service code | Official URL |
-| --- | --- | --- | --- | --- |
-| 4 | Current member roster metadata | 국회의원 인적사항 | `nwvrqwxyaytdsfvhu` | `https://open.assembly.go.kr/portal/openapi/nwvrqwxyaytdsfvhu` |
-| 4 | Member tenure history | 국회의원 의원이력 | `nexgtxtmaamffofof` | `https://open.assembly.go.kr/portal/openapi/nexgtxtmaamffofof` |
-| 4 | Member committee affiliation history | 국회의원 위원회 경력 | `nyzrglyvagmrvpezq` | `https://open.assembly.go.kr/portal/openapi/nyzrglyvagmrvpezq` |
-| 4 | Member-level plenary vote detail | 국회의원 본회의 표결정보 | `nojepdqqaweusdfbi` | `https://open.assembly.go.kr/portal/openapi/nojepdqqaweusdfbi` |
-| 4 | Standing-committee activity | 국회의원 상임위 활동 | `nuvypcdgahexhvrjt` | `https://open.assembly.go.kr/portal/openapi/nuvypcdgahexhvrjt` |
-| 6 | Committee metadata | 위원회 현황 정보 | `nxrvzonlafugpqjuh` | `https://open.assembly.go.kr/portal/openapi/nxrvzonlafugpqjuh` |
-| 6 | Committee membership roster | 위원회 위원 명단 | `nktulghcadyhmiqxi` | `https://open.assembly.go.kr/portal/openapi/nktulghcadyhmiqxi` |
-| 7 | Official roll-call tally counts | 의안별 표결현황 | `ncocpgfiaoituanbr` | `https://open.assembly.go.kr/portal/openapi/ncocpgfiaoituanbr` |
+| PDF page | Role                                 | Korean service name      | Service code        | Official URL                                                   |
+| -------- | ------------------------------------ | ------------------------ | ------------------- | -------------------------------------------------------------- |
+| 4        | Current member roster metadata       | 국회의원 인적사항        | `nwvrqwxyaytdsfvhu` | `https://open.assembly.go.kr/portal/openapi/nwvrqwxyaytdsfvhu` |
+| 4        | Member tenure history                | 국회의원 의원이력        | `nexgtxtmaamffofof` | `https://open.assembly.go.kr/portal/openapi/nexgtxtmaamffofof` |
+| 4        | Member committee affiliation history | 국회의원 위원회 경력     | `nyzrglyvagmrvpezq` | `https://open.assembly.go.kr/portal/openapi/nyzrglyvagmrvpezq` |
+| 4        | Member-level plenary vote detail     | 국회의원 본회의 표결정보 | `nojepdqqaweusdfbi` | `https://open.assembly.go.kr/portal/openapi/nojepdqqaweusdfbi` |
+| 4        | Standing-committee activity          | 국회의원 상임위 활동     | `nuvypcdgahexhvrjt` | `https://open.assembly.go.kr/portal/openapi/nuvypcdgahexhvrjt` |
+| 6        | Committee metadata                   | 위원회 현황 정보         | `nxrvzonlafugpqjuh` | `https://open.assembly.go.kr/portal/openapi/nxrvzonlafugpqjuh` |
+| 6        | Committee membership roster          | 위원회 위원 명단         | `nktulghcadyhmiqxi` | `https://open.assembly.go.kr/portal/openapi/nktulghcadyhmiqxi` |
+| 7        | Official roll-call tally counts      | 의안별 표결현황          | `ncocpgfiaoituanbr` | `https://open.assembly.go.kr/portal/openapi/ncocpgfiaoituanbr` |
 
 ## Official Endpoints Still Pending Direct PDF Re-Verification
 

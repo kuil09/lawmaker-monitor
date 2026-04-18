@@ -11,7 +11,10 @@ import {
   parseVoteDetailPayload
 } from "../../packages/ingest/src/parsers.js";
 
-const snapshotDir = resolve(process.cwd(), "tests/fixtures/raw/fixture-snapshot-20260322-114500");
+const snapshotDir = resolve(
+  process.cwd(),
+  "tests/fixtures/raw/fixture-snapshot-20260322-114500"
+);
 const officialDir = resolve(snapshotDir, "official");
 
 describe("plenary and vote parsers", () => {
@@ -76,7 +79,9 @@ describe("plenary and vote parsers", () => {
       "http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_V2X6E0Z3G1E7L2P0N0A0B4W9O2W3V3"
     );
     expect(parsed.rollCalls[0]?.voteVisibility).toBe("recorded");
-    expect(parsed.rollCalls[0]?.billId).toBe("PRC_V2X6E0Z3G1E7L2P0N0A0B4W9O2W3V3");
+    expect(parsed.rollCalls[0]?.billId).toBe(
+      "PRC_V2X6E0Z3G1E7L2P0N0A0B4W9O2W3V3"
+    );
   });
 
   it("parses official vote xml rows and matches current member ids", () => {
@@ -106,7 +111,8 @@ describe("plenary and vote parsers", () => {
     const parsed = parseVoteDetailPayload(
       payload,
       {
-        sourceUrl: "https://open.assembly.go.kr/portal/openapi/nojepdqqaweusdfbi",
+        sourceUrl:
+          "https://open.assembly.go.kr/portal/openapi/nojepdqqaweusdfbi",
         retrievedAt: "2026-03-22T11:45:00+09:00",
         snapshotId: "snapshot-20260322-114500"
       },
@@ -187,7 +193,10 @@ describe("plenary and vote parsers", () => {
   });
 
   it("parses plenary schedule rows into meetings", () => {
-    const xml = readFileSync(resolve(officialDir, "plenary_schedule.xml"), "utf8");
+    const xml = readFileSync(
+      resolve(officialDir, "plenary_schedule.xml"),
+      "utf8"
+    );
     const parsed = parseMeetingXml(xml, {
       sourceUrl: "https://example.test/portal/openapi/nekcaiymatialqlxr",
       retrievedAt: "2026-03-22T11:45:00+09:00",

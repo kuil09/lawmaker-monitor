@@ -10,21 +10,29 @@ const testState = vi.hoisted(() => ({
   loadTopologyMock: vi.fn(),
   computeStaticMock: vi.fn(),
   fetchMock: vi.fn(),
-  idleCallback: null as ((deadline: { didTimeout: boolean; timeRemaining: () => number }) => void) | null,
+  idleCallback: null as
+    | ((deadline: { didTimeout: boolean; timeRemaining: () => number }) => void)
+    | null,
   cacheStoreData: new Map<string, unknown>()
 }));
 
 vi.mock("../../apps/web/src/lib/data.js", () => ({
-  buildDataUrl: (path: string) => `https://data.example.test/lawmaker-monitor/${path}`,
-  getConstituencyBoundariesIndexPath: (manifest?: {
-    exports?: { constituencyBoundariesIndex?: { path?: string } };
-  } | null) =>
+  buildDataUrl: (path: string) =>
+    `https://data.example.test/lawmaker-monitor/${path}`,
+  getConstituencyBoundariesIndexPath: (
+    manifest?: {
+      exports?: { constituencyBoundariesIndex?: { path?: string } };
+    } | null
+  ) =>
     manifest?.exports?.constituencyBoundariesIndex?.path ??
     "exports/constituency_boundaries/index.json",
-  getHexmapStaticIndexPath: (manifest?: {
-    exports?: { hexmapStaticIndex?: { path?: string } };
-  } | null) =>
-    manifest?.exports?.hexmapStaticIndex?.path ?? "exports/hexmap_static/index.json",
+  getHexmapStaticIndexPath: (
+    manifest?: {
+      exports?: { hexmapStaticIndex?: { path?: string } };
+    } | null
+  ) =>
+    manifest?.exports?.hexmapStaticIndex?.path ??
+    "exports/hexmap_static/index.json",
   loadConstituencyBoundariesIndex: testState.loadBoundaryIndexMock,
   loadConstituencyProvinceTopology: testState.loadTopologyMock,
   loadHexmapStaticIndex: testState.loadHexmapStaticIndexMock
@@ -44,16 +52,27 @@ import {
 } from "../../apps/web/src/lib/hexmap-static-loader.js";
 
 const fixturesDir = resolve(process.cwd(), "tests/fixtures/contracts");
-const baseManifestFixture = JSON.parse(readFileSync(resolve(fixturesDir, "manifest.json"), "utf8"));
+const baseManifestFixture = JSON.parse(
+  readFileSync(resolve(fixturesDir, "manifest.json"), "utf8")
+);
 const constituencyBoundariesIndexFixture = JSON.parse(
-  readFileSync(resolve(fixturesDir, "constituency_boundaries_index.json"), "utf8")
+  readFileSync(
+    resolve(fixturesDir, "constituency_boundaries_index.json"),
+    "utf8"
+  )
 );
 const constituencyProvinceFixtures = {
   "exports/constituency_boundaries/provinces/부산.topo.json": JSON.parse(
-    readFileSync(resolve(fixturesDir, "constituency_province_busan.topo.json"), "utf8")
+    readFileSync(
+      resolve(fixturesDir, "constituency_province_busan.topo.json"),
+      "utf8"
+    )
   ),
   "exports/constituency_boundaries/provinces/서울.topo.json": JSON.parse(
-    readFileSync(resolve(fixturesDir, "constituency_province_seoul.topo.json"), "utf8")
+    readFileSync(
+      resolve(fixturesDir, "constituency_province_seoul.topo.json"),
+      "utf8"
+    )
   )
 };
 
@@ -116,13 +135,15 @@ function createPrecomputedArtifact(provinceShortName: "부산" | "서울") {
         type: "Feature" as const,
         geometry: {
           type: "Polygon" as const,
-          coordinates: [[
-            provinceShortName === "부산" ? [129.08, 35.09] : [126.98, 37.55],
-            provinceShortName === "부산" ? [129.15, 35.09] : [127.04, 37.55],
-            provinceShortName === "부산" ? [129.15, 35.14] : [127.04, 37.61],
-            provinceShortName === "부산" ? [129.08, 35.14] : [126.98, 37.61],
-            provinceShortName === "부산" ? [129.08, 35.09] : [126.98, 37.55]
-          ]]
+          coordinates: [
+            [
+              provinceShortName === "부산" ? [129.08, 35.09] : [126.98, 37.55],
+              provinceShortName === "부산" ? [129.15, 35.09] : [127.04, 37.55],
+              provinceShortName === "부산" ? [129.15, 35.14] : [127.04, 37.61],
+              provinceShortName === "부산" ? [129.08, 35.14] : [126.98, 37.61],
+              provinceShortName === "부산" ? [129.08, 35.09] : [126.98, 37.55]
+            ]
+          ]
         },
         properties: {
           districtKey: provinceShortName === "부산" ? "부산남구" : "서울중구",
@@ -132,7 +153,8 @@ function createPrecomputedArtifact(provinceShortName: "부산" | "서울") {
     ],
     cells: [
       {
-        h3Index: provinceShortName === "부산" ? "8730c16f0ffffff" : "8730e1d88ffffff",
+        h3Index:
+          provinceShortName === "부산" ? "8730c16f0ffffff" : "8730e1d88ffffff",
         districtKey: provinceShortName === "부산" ? "부산남구" : "서울중구",
         districtLabel: provinceShortName === "부산" ? "부산 남구" : "서울 중구",
         provinceShortName
@@ -142,11 +164,15 @@ function createPrecomputedArtifact(provinceShortName: "부산" | "서울") {
 }
 
 const precomputedProvinceFixtures = {
-  "exports/hexmap_static/provinces/부산.json": createPrecomputedArtifact("부산"),
+  "exports/hexmap_static/provinces/부산.json":
+    createPrecomputedArtifact("부산"),
   "exports/hexmap_static/provinces/서울.json": createPrecomputedArtifact("서울")
 };
 
-function createStaticEntry(cacheKey: string, provinceShortName: "부산" | "서울"): HexCellStaticCacheEntry {
+function createStaticEntry(
+  cacheKey: string,
+  provinceShortName: "부산" | "서울"
+): HexCellStaticCacheEntry {
   const artifact = createPrecomputedArtifact(provinceShortName);
   return {
     cacheKey,
@@ -194,8 +220,11 @@ describe("hexmap-static-loader", () => {
 
     setSharedHexCellCacheForTests(
       createHexCellCache({
-        get: vi.fn(async (cacheKey: string) =>
-          (testState.cacheStoreData.get(cacheKey) as HexCellStaticCacheEntry | undefined) ?? null
+        get: vi.fn(
+          async (cacheKey: string) =>
+            (testState.cacheStoreData.get(cacheKey) as
+              | HexCellStaticCacheEntry
+              | undefined) ?? null
         ),
         set: vi.fn(async (entry: HexCellStaticCacheEntry) => {
           testState.cacheStoreData.set(entry.cacheKey, entry);
@@ -206,10 +235,18 @@ describe("hexmap-static-loader", () => {
       computeStatic: testState.computeStaticMock
     });
 
-    testState.loadHexmapStaticIndexMock.mockResolvedValue(hexmapStaticIndexFixture);
-    testState.loadBoundaryIndexMock.mockResolvedValue(constituencyBoundariesIndexFixture);
+    testState.loadHexmapStaticIndexMock.mockResolvedValue(
+      hexmapStaticIndexFixture
+    );
+    testState.loadBoundaryIndexMock.mockResolvedValue(
+      constituencyBoundariesIndexFixture
+    );
     testState.loadTopologyMock.mockImplementation(async (path: string) => {
-      return constituencyProvinceFixtures[path as keyof typeof constituencyProvinceFixtures] ?? null;
+      return (
+        constituencyProvinceFixtures[
+          path as keyof typeof constituencyProvinceFixtures
+        ] ?? null
+      );
     });
     testState.computeStaticMock.mockImplementation(
       async (_topology: unknown, provinceShortName: "부산" | "서울") =>
@@ -217,10 +254,17 @@ describe("hexmap-static-loader", () => {
     );
     testState.fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = input.toString();
-      const path = url.replace("https://data.example.test/lawmaker-monitor/", "");
+      const path = url.replace(
+        "https://data.example.test/lawmaker-monitor/",
+        ""
+      );
       const payload =
-        precomputedProvinceFixtures[path as keyof typeof precomputedProvinceFixtures];
-      return payload ? createJsonResponse(payload) : createJsonResponse({ error: "Not found" }, 404);
+        precomputedProvinceFixtures[
+          path as keyof typeof precomputedProvinceFixtures
+        ];
+      return payload
+        ? createJsonResponse(payload)
+        : createJsonResponse({ error: "Not found" }, 404);
     });
 
     vi.stubGlobal("fetch", testState.fetchMock);
@@ -269,20 +313,28 @@ describe("hexmap-static-loader", () => {
         })
     );
 
-    const homePromise = ensureHexmapStaticLoad(manifestFixture, { source: "home" });
+    const homePromise = ensureHexmapStaticLoad(manifestFixture, {
+      source: "home"
+    });
     await waitFor(() => {
       expect(testState.loadHexmapStaticIndexMock).toHaveBeenCalledTimes(1);
       expect(testState.fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    const mapPromise = ensureHexmapStaticLoad(manifestFixture, { source: "map" });
+    const mapPromise = ensureHexmapStaticLoad(manifestFixture, {
+      source: "map"
+    });
 
     expect(testState.loadHexmapStaticIndexMock).toHaveBeenCalledTimes(1);
     expect(testState.fetchMock).toHaveBeenCalledTimes(1);
     expect(testState.loadTopologyMock).not.toHaveBeenCalled();
     expect(testState.computeStaticMock).not.toHaveBeenCalled();
 
-    resolveBusan?.(createJsonResponse(precomputedProvinceFixtures["exports/hexmap_static/provinces/부산.json"]));
+    resolveBusan?.(
+      createJsonResponse(
+        precomputedProvinceFixtures["exports/hexmap_static/provinces/부산.json"]
+      )
+    );
 
     await Promise.all([homePromise, mapPromise]);
 
@@ -305,35 +357,46 @@ describe("hexmap-static-loader", () => {
   });
 
   it("starts multiple precomputed province fetches in parallel for direct map entry", async () => {
-    const pendingResolvers = new Map<"부산" | "서울", (value: Response) => void>();
+    const pendingResolvers = new Map<
+      "부산" | "서울",
+      (value: Response) => void
+    >();
 
     testState.fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = input.toString();
-      const path = url.replace("https://data.example.test/lawmaker-monitor/", "");
+      const path = url.replace(
+        "https://data.example.test/lawmaker-monitor/",
+        ""
+      );
       const provinceShortName = path.includes("부산") ? "부산" : "서울";
 
       return await new Promise((resolve) => {
-        pendingResolvers.set(provinceShortName, resolve as (value: Response) => void);
+        pendingResolvers.set(
+          provinceShortName,
+          resolve as (value: Response) => void
+        );
       });
     });
 
-    const mapPromise = ensureHexmapStaticLoad(manifestFixture, { source: "map" });
+    const mapPromise = ensureHexmapStaticLoad(manifestFixture, {
+      source: "map"
+    });
 
     await waitFor(() => {
       expect(testState.loadHexmapStaticIndexMock).toHaveBeenCalledTimes(1);
       expect(testState.fetchMock).toHaveBeenCalledTimes(2);
     });
 
-    pendingResolvers
-      .get("부산")
-      ?.(
-        createJsonResponse(precomputedProvinceFixtures["exports/hexmap_static/provinces/부산.json"])
-      );
-    pendingResolvers
-      .get("서울")
-      ?.(
-        createJsonResponse(precomputedProvinceFixtures["exports/hexmap_static/provinces/서울.json"])
-      );
+    pendingResolvers.get("부산")?.(
+      createJsonResponse(
+        precomputedProvinceFixtures["exports/hexmap_static/provinces/부산.json"]
+      )
+    );
+    pendingResolvers.get("서울")?.(
+      createJsonResponse(
+        precomputedProvinceFixtures["exports/hexmap_static/provinces/서울.json"]
+      )
+    );
 
     await mapPromise;
 
@@ -345,7 +408,9 @@ describe("hexmap-static-loader", () => {
   it("falls back to topology and worker compute when the precomputed export is unavailable", async () => {
     testState.loadHexmapStaticIndexMock.mockResolvedValueOnce(null);
 
-    await ensureHexmapStaticLoad(manifestWithoutPrecomputedFixture, { source: "map" });
+    await ensureHexmapStaticLoad(manifestWithoutPrecomputedFixture, {
+      source: "map"
+    });
 
     expect(testState.loadBoundaryIndexMock).toHaveBeenCalledTimes(1);
     expect(testState.loadTopologyMock).toHaveBeenCalledTimes(2);
@@ -355,14 +420,21 @@ describe("hexmap-static-loader", () => {
   it("falls back to topology and worker compute when a province artifact returns 404", async () => {
     testState.fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = input.toString();
-      const path = url.replace("https://data.example.test/lawmaker-monitor/", "");
+      const path = url.replace(
+        "https://data.example.test/lawmaker-monitor/",
+        ""
+      );
       if (path === "exports/hexmap_static/provinces/부산.json") {
         return createJsonResponse({ error: "Not found" }, 404);
       }
 
       const payload =
-        precomputedProvinceFixtures[path as keyof typeof precomputedProvinceFixtures];
-      return payload ? createJsonResponse(payload) : createJsonResponse({ error: "Not found" }, 404);
+        precomputedProvinceFixtures[
+          path as keyof typeof precomputedProvinceFixtures
+        ];
+      return payload
+        ? createJsonResponse(payload)
+        : createJsonResponse({ error: "Not found" }, 404);
     });
 
     await ensureHexmapStaticLoad(manifestFixture, { source: "map" });

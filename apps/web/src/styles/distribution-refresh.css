@@ -1,16 +1,21 @@
-.distribution-page__masthead,
-.distribution-map,
-.distribution-chart,
-.distribution-focus,
-.distribution-signal-card,
-.distribution-page__empty {
-  position: relative;
-  padding: 1.2rem;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(238, 240, 244, 0.92));
-  box-shadow: var(--shadow-soft);
+@layer feature {
+  .distribution-page__masthead,
+  .distribution-map,
+  .distribution-chart,
+  .distribution-focus,
+  .distribution-signal-card,
+  .distribution-page__empty {
+    position: relative;
+    padding: 1.2rem;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 24px;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.9),
+      rgba(238, 240, 244, 0.92)
+    );
+    box-shadow: var(--shadow-soft);
+  }
 }
 
 .distribution-page__masthead,
@@ -55,7 +60,12 @@
   inset: 0 auto auto 0;
   width: 100%;
   height: 0.2rem;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 70%, transparent), rgba(67, 101, 123, 0.35), transparent 78%);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 70%, transparent),
+    rgba(67, 101, 123, 0.35),
+    transparent 78%
+  );
   pointer-events: none;
 }
 
@@ -224,7 +234,11 @@
 
 .distribution-map__province-button.is-active,
 .distribution-map__metric-button.is-active {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, transparent), rgba(255, 255, 255, 0.94));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 14%, transparent),
+    rgba(255, 255, 255, 0.94)
+  );
 }
 
 .distribution-map__province-button strong {
@@ -295,8 +309,11 @@
 .distribution-map__state {
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 22px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(238, 240, 244, 0.94));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.86),
+    rgba(238, 240, 244, 0.94)
+  );
 }
 
 .distribution-map__surface {
@@ -344,8 +361,11 @@
   gap: 0.65rem;
   padding: 0.9rem;
   border-color: color-mix(in srgb, var(--accent) 16%, transparent);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(238, 240, 244, 0.98));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.97),
+    rgba(238, 240, 244, 0.98)
+  );
   box-shadow: 0 18px 34px rgba(0, 0, 0, 0.16);
 }
 
@@ -531,8 +551,11 @@
   padding: 0.85rem;
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 22px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(238, 240, 244, 0.94));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.86),
+    rgba(238, 240, 244, 0.94)
+  );
 }
 
 .distribution-chart__legend {
@@ -600,7 +623,11 @@
 .distribution-chart__legend-button.is-active,
 .distribution-party-filter.is-active {
   border-color: color-mix(in srgb, var(--accent) 28%, transparent);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), rgba(255, 255, 255, 0.92));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 12%, transparent),
+    rgba(255, 255, 255, 0.92)
+  );
   box-shadow: 0 16px 28px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
@@ -790,7 +817,11 @@
 
 .distribution-signal-list__button.is-active {
   border-color: color-mix(in srgb, var(--accent) 28%, transparent);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), rgba(255, 255, 255, 0.92));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 12%, transparent),
+    rgba(255, 255, 255, 0.92)
+  );
 }
 
 .distribution-signal-list__identity {

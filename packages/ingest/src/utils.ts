@@ -65,7 +65,10 @@ export function readBoolean(value: unknown): boolean | undefined {
   return undefined;
 }
 
-export function pickFirst(record: Record<string, unknown>, keys: string[]): string | undefined {
+export function pickFirst(
+  record: Record<string, unknown>,
+  keys: string[]
+): string | undefined {
   for (const key of keys) {
     const value = readString(record[key]);
     if (value) {
@@ -102,7 +105,10 @@ export async function readJsonFile<T>(path: string, fallback: T): Promise<T> {
   }
 }
 
-export async function writeJsonFile(path: string, value: unknown): Promise<void> {
+export async function writeJsonFile(
+  path: string,
+  value: unknown
+): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, JSON.stringify(value, null, 2));
 }
@@ -133,7 +139,10 @@ export async function mapWithConcurrency<T, R>(
         return;
       }
 
-      results[currentIndex] = await worker(items[currentIndex] as T, currentIndex);
+      results[currentIndex] = await worker(
+        items[currentIndex] as T,
+        currentIndex
+      );
     }
   }
 
@@ -180,9 +189,16 @@ export async function fetchTextWithTimeout(
   timeoutMs: number
 ): Promise<string> {
   const controller = new AbortController();
-  const timeoutHandle = setTimeout(() => controller.abort(), Math.max(1, timeoutMs));
+  const timeoutHandle = setTimeout(
+    () => controller.abort(),
+    Math.max(1, timeoutMs)
+  );
   const requestInit =
-    init && ("headers" in init || "body" in init || "method" in init || "signal" in init)
+    init &&
+    ("headers" in init ||
+      "body" in init ||
+      "method" in init ||
+      "signal" in init)
       ? (init as RequestInit)
       : ({ headers: init as HeadersInit } satisfies RequestInit);
 
@@ -193,7 +209,9 @@ export async function fetchTextWithTimeout(
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Failed to fetch ${url}: ${response.status} ${response.statusText}`
+      );
     }
 
     return response.text();

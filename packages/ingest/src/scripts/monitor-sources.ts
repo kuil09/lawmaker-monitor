@@ -2,6 +2,8 @@ import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { assertRawSnapshotManifestSourcePolicy } from "../assembly-source-registry.js";
+import { enrichMembersWithMemberProfileAll } from "../member-profile-enrichment.js";
 import {
   parseMemberProfileAllXml,
   parseAgendaXml,
@@ -14,9 +16,7 @@ import {
   parseMemberHistoryXml,
   parseVoteDetailEntryPayload
 } from "../parsers.js";
-import { enrichMembersWithMemberProfileAll } from "../member-profile-enrichment.js";
 import { resolveRawSnapshot } from "../raw-snapshot.js";
-import { assertRawSnapshotManifestSourcePolicy } from "../assembly-source-registry.js";
 import { resolvePathFromRoot } from "../utils.js";
 
 const REQUIRED_KINDS = [
@@ -34,12 +34,17 @@ const REQUIRED_KINDS = [
   "live"
 ] as const;
 
-async function readEntryPayload(rawDir: string, relativePath: string): Promise<string> {
+async function readEntryPayload(
+  rawDir: string,
+  relativePath: string
+): Promise<string> {
   return readFile(join(rawDir, relativePath), "utf8");
 }
 
 async function main(): Promise<void> {
-  const repositoryRoot = resolve(fileURLToPath(new URL("../../../../", import.meta.url)));
+  const repositoryRoot = resolve(
+    fileURLToPath(new URL("../../../../", import.meta.url))
+  );
   const fixturesDir = resolvePathFromRoot(
     repositoryRoot,
     process.env.FIXTURES_DIR ?? join(repositoryRoot, "tests/fixtures")
@@ -52,10 +57,14 @@ async function main(): Promise<void> {
   );
 
   if (missingKinds.length > 0) {
-    throw new Error(`Fixture snapshot is missing required payloads: ${missingKinds.join(", ")}`);
+    throw new Error(
+      `Fixture snapshot is missing required payloads: ${missingKinds.join(", ")}`
+    );
   }
 
-  const memberInfoEntries = snapshot.manifest.entries.filter((entry) => entry.kind === "member_info");
+  const memberInfoEntries = snapshot.manifest.entries.filter(
+    (entry) => entry.kind === "member_info"
+  );
   const memberProfileAllEntries = snapshot.manifest.entries.filter(
     (entry) => entry.kind === "member_profile_all"
   );
@@ -68,9 +77,15 @@ async function main(): Promise<void> {
   const billVoteSummaryEntries = snapshot.manifest.entries.filter(
     (entry) => entry.kind === "bill_vote_summary"
   );
-  const scheduleEntry = snapshot.manifest.entries.find((entry) => entry.kind === "plenary_schedule");
-  const memberHistoryEntries = snapshot.manifest.entries.filter((entry) => entry.kind === "member_history");
-  const liveEntry = snapshot.manifest.entries.find((entry) => entry.kind === "live");
+  const scheduleEntry = snapshot.manifest.entries.find(
+    (entry) => entry.kind === "plenary_schedule"
+  );
+  const memberHistoryEntries = snapshot.manifest.entries.filter(
+    (entry) => entry.kind === "member_history"
+  );
+  const liveEntry = snapshot.manifest.entries.find(
+    (entry) => entry.kind === "live"
+  );
   const agendaEntries = snapshot.manifest.entries.filter((entry) =>
     [
       "plenary_bills_law",
@@ -79,7 +94,9 @@ async function main(): Promise<void> {
       "plenary_bills_other"
     ].includes(entry.kind)
   );
-  const voteEntries = snapshot.manifest.entries.filter((entry) => entry.kind === "vote_detail");
+  const voteEntries = snapshot.manifest.entries.filter(
+    (entry) => entry.kind === "vote_detail"
+  );
 
   if (
     !scheduleEntry ||
@@ -91,24 +108,69 @@ async function main(): Promise<void> {
     committeeRosterEntries.length === 0 ||
     billVoteSummaryEntries.length === 0
   ) {
-    throw new Error("Fixture snapshot does not include the required official assembly payloads.");
+    throw new Error(
+      "Fixture snapshot does not include the required official assembly payloads."
+    );
   }
 
-  const [memberInfoXmls, memberProfileAllXmls, memberHistoryXmls, committeeOverviewXmls, committeeRosterXmls, billVoteSummaryXmls, scheduleXml, liveXml, agendaXmls, voteXmls] = await Promise.all([
-    Promise.all(memberInfoEntries.map((entry) => readEntryPayload(snapshot.rawDir, entry.relativePath))),
+  const [
+    memberInfoXmls,
+    memberProfileAllXmls,
+    memberHistoryXmls,
+    committeeOverviewXmls,
+    committeeRosterXmls,
+    billVoteSummaryXmls,
+    scheduleXml,
+    liveXml,
+    agendaXmls,
+    voteXmls
+  ] = await Promise.all([
     Promise.all(
-      memberProfileAllEntries.map((entry) => readEntryPayload(snapshot.rawDir, entry.relativePath))
+      memberInfoEntries.map((entry) =>
+        readEntryPayload(snapshot.rawDir, entry.relativePath)
+      )
     ),
-    Promise.all(memberHistoryEntries.map((entry) => readEntryPayload(snapshot.rawDir, entry.relativePath))),
-    Promise.all(committeeOverviewEntries.map((entry) => readEntryPayload(snapshot.rawDir, entry.relativePath))),
-    Promise.all(committeeRosterEntries.map((entry) => readEntryPayload(snapshot.rawDir, entry.relativePath))),
-    Promise.all(billVoteSummaryEntries.map((entry) => readEntryPayload(snapshot.rawDir, entry.relativePath))),
+    Promise.all(
+      memberProfileAllEntries.map((entry) =>
+        readEntryPayload(snapshot.rawDir, entry.relativePath)
+      )
+    ),
+    Promise.all(
+      memberHistoryEntries.map((entry) =>
+        readEntryPayload(snapshot.rawDir, entry.relativePath)
+      )
+    ),
+    Promise.all(
+      committeeOverviewEntries.map((entry) =>
+        readEntryPayload(snapshot.rawDir, entry.relativePath)
+      )
+    ),
+    Promise.all(
+      committeeRosterEntries.map((entry) =>
+        readEntryPayload(snapshot.rawDir, entry.relativePath)
+      )
+    ),
+    Promise.all(
+      billVoteSummaryEntries.map((entry) =>
+        readEntryPayload(snapshot.rawDir, entry.relativePath)
+      )
+    ),
     readEntryPayload(snapshot.rawDir, scheduleEntry.relativePath),
     readEntryPayload(snapshot.rawDir, liveEntry.relativePath),
-    Promise.all(agendaEntries.map((entry) => readEntryPayload(snapshot.rawDir, entry.relativePath))),
-    Promise.all(voteEntries.map((entry) => readEntryPayload(snapshot.rawDir, entry.relativePath)))
+    Promise.all(
+      agendaEntries.map((entry) =>
+        readEntryPayload(snapshot.rawDir, entry.relativePath)
+      )
+    ),
+    Promise.all(
+      voteEntries.map((entry) =>
+        readEntryPayload(snapshot.rawDir, entry.relativePath)
+      )
+    )
   ]);
-  const tenureRows = memberHistoryXmls.flatMap((xml) => parseMemberHistoryXml(xml));
+  const tenureRows = memberHistoryXmls.flatMap((xml) =>
+    parseMemberHistoryXml(xml)
+  );
 
   const meetings = parseMeetingXml(scheduleXml, {
     sourceUrl: scheduleEntry.sourceUrl,
@@ -126,19 +188,17 @@ async function main(): Promise<void> {
   );
   const votes = voteXmls.flatMap((xml, index) =>
     voteEntries[index]
-      ? parseVoteDetailEntryPayload(
-          voteEntries[index],
-          xml,
-          {
-            sourceUrl: voteEntries[index].sourceUrl,
-            retrievedAt: voteEntries[index].retrievedAt,
-            snapshotId: snapshot.snapshotId
-          }
-        ).rollCalls
+      ? parseVoteDetailEntryPayload(voteEntries[index], xml, {
+          sourceUrl: voteEntries[index].sourceUrl,
+          retrievedAt: voteEntries[index].retrievedAt,
+          snapshotId: snapshot.snapshotId
+        }).rollCalls
       : []
   );
   const liveSignal = parseLiveSignalXml(liveXml);
-  const memberInfoRows = memberInfoXmls.flatMap((xml) => parseMemberInfoXml(xml).members);
+  const memberInfoRows = memberInfoXmls.flatMap(
+    (xml) => parseMemberInfoXml(xml).members
+  );
   const memberProfileAllRows = memberProfileAllXmls.flatMap(
     (xml) => parseMemberProfileAllXml(xml).profiles
   );
@@ -149,7 +209,9 @@ async function main(): Promise<void> {
   const committeeOverviewRows = committeeOverviewXmls.flatMap((xml) =>
     parseCommitteeOverviewXml(xml)
   );
-  const committeeRosterRows = committeeRosterXmls.flatMap((xml) => parseCommitteeRosterXml(xml));
+  const committeeRosterRows = committeeRosterXmls.flatMap((xml) =>
+    parseCommitteeRosterXml(xml)
+  );
   const billVoteSummaryRows = billVoteSummaryXmls.flatMap((xml) =>
     parseBillVoteSummaryXml(xml)
   );
@@ -164,7 +226,9 @@ async function main(): Promise<void> {
     committeeRosterRows.length === 0 ||
     billVoteSummaryRows.length === 0
   ) {
-    throw new Error("Fixture parsing failed. Source assumptions may have drifted.");
+    throw new Error(
+      "Fixture parsing failed. Source assumptions may have drifted."
+    );
   }
 
   if (!liveSignal) {

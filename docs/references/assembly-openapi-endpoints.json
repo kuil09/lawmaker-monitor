@@ -123,9 +123,7 @@
       "role": "committee membership roster",
       "required": true,
       "runtimeStatus": "active",
-      "notes": [
-        "Runtime uses this endpoint for current committee memberships."
-      ]
+      "notes": ["Runtime uses this endpoint for current committee memberships."]
     },
     {
       "key": "billVoteSummary",

@@ -2,17 +2,16 @@ import { WebMercatorViewport } from "@deck.gl/core";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import { GeoJsonLayer } from "@deck.gl/layers";
 import DeckGL from "@deck.gl/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Map as MapGL } from "react-map-gl/maplibre";
-
-import type {
-  AccountabilitySummaryExport,
-  Manifest,
-  MemberAssetsIndexExport
-} from "@lawmaker-monitor/schemas";
 
 import { normalizeConstituencyLookupKey } from "../lib/constituency-map.js";
 import { formatAssetEok, formatPercent } from "../lib/format.js";
+import {
+  createLogNormalizer,
+  getMetricModulatedColor,
+  getPartyColor
+} from "../lib/geo-utils.js";
 import {
   endPerformanceSpan,
   getHexCellsBounds,
@@ -20,19 +19,20 @@ import {
   startPerformanceSpan,
   type SummaryItem
 } from "../lib/hex-cells.js";
-import type { ExtrudedFeature, H3DataCell } from "../lib/geo-utils.js";
-import {
-  createLogNormalizer,
-  getMetricModulatedColor,
-  getPartyColor
-} from "../lib/geo-utils.js";
 import {
   ensureHexmapStaticLoad,
   getHexmapStaticSessionKey,
   getHexmapStaticState,
   subscribeHexmapStaticState
 } from "../lib/hexmap-static-loader.js";
+
+import type { ExtrudedFeature, H3DataCell } from "../lib/geo-utils.js";
 import type { MapMetric, MapRouteArgs } from "../lib/map-route.js";
+import type {
+  AccountabilitySummaryExport,
+  Manifest,
+  MemberAssetsIndexExport
+} from "@lawmaker-monitor/schemas";
 
 const MAP_STYLE = {
   version: 8 as const,
@@ -67,7 +67,9 @@ const INITIAL_DETAIL_VIEW_STATE = {
   maxZoom: 14
 };
 
-const UNMATCHED_CELL_COLOR: [number, number, number, number] = [204, 210, 216, 190];
+const UNMATCHED_CELL_COLOR: [number, number, number, number] = [
+  204, 210, 216, 190
+];
 const NATIONAL_POLYGON_MAX_ZOOM = 5.8;
 
 type TooltipDatum = Omit<H3DataCell, "h3Index">;
@@ -113,7 +115,9 @@ type VizConfig = {
   tooltipLabel: (cell: TooltipDatum) => string;
 };
 
-function isAssetMetric(metric: MapMetric): metric is "realEstate" | "assetTotal" {
+function isAssetMetric(
+  metric: MapMetric
+): metric is "realEstate" | "assetTotal" {
   return metric === "realEstate" || metric === "assetTotal";
 }
 
@@ -220,26 +224,40 @@ export function HexmapPage({
   const [selectedDistrictKey, setSelectedDistrictKey] = useState<string | null>(
     normalizeConstituencyLookupKey(initialDistrict) || null
   );
-  const [selectedProvinceFilter, setSelectedProvinceFilter] = useState<string | null>(
-    initialDistrict ? null : initialProvince
+  const [selectedProvinceFilter, setSelectedProvinceFilter] = useState<
+    string | null
+  >(initialDistrict ? null : initialProvince);
+  const [staticState, setStaticState] = useState(() =>
+    getHexmapStaticState(manifest)
   );
-  const [staticState, setStaticState] = useState(() => getHexmapStaticState(manifest));
-  const [nationalTooltip, setNationalTooltip] = useState<TooltipInfo | null>(null);
-  const [detailTooltip, setDetailTooltip] = useState<TooltipInfo | null>(null);
-  const [selectedDetailMemberOverlay, setSelectedDetailMemberOverlay] = useState<DetailMemberOverlay | null>(
+  const [nationalTooltip, setNationalTooltip] = useState<TooltipInfo | null>(
     null
   );
-  const [nationalViewState, setNationalViewState] = useState(INITIAL_VIEW_STATE);
-  const [detailViewState, setDetailViewState] = useState(INITIAL_DETAIL_VIEW_STATE);
+  const [detailTooltip, setDetailTooltip] = useState<TooltipInfo | null>(null);
+  const [selectedDetailMemberOverlay, setSelectedDetailMemberOverlay] =
+    useState<DetailMemberOverlay | null>(null);
+  const [nationalViewState, setNationalViewState] =
+    useState(INITIAL_VIEW_STATE);
+  const [detailViewState, setDetailViewState] = useState(
+    INITIAL_DETAIL_VIEW_STATE
+  );
 
   const onChangeRouteRef = useRef(onChangeRoute);
   onChangeRouteRef.current = onChangeRoute;
 
   const isMountedRef = useRef(false);
-  const firstVisibleSpanRef = useRef<ReturnType<typeof startPerformanceSpan> | null>(null);
-  const layerReadySpanRef = useRef<ReturnType<typeof startPerformanceSpan> | null>(null);
-  const districtPanelSpanRef = useRef<ReturnType<typeof startPerformanceSpan> | null>(null);
-  const metricSwitchSpanRef = useRef<ReturnType<typeof startPerformanceSpan> | null>(null);
+  const firstVisibleSpanRef = useRef<ReturnType<
+    typeof startPerformanceSpan
+  > | null>(null);
+  const layerReadySpanRef = useRef<ReturnType<
+    typeof startPerformanceSpan
+  > | null>(null);
+  const districtPanelSpanRef = useRef<ReturnType<
+    typeof startPerformanceSpan
+  > | null>(null);
+  const metricSwitchSpanRef = useRef<ReturnType<
+    typeof startPerformanceSpan
+  > | null>(null);
   const sessionKey = getHexmapStaticSessionKey(manifest);
 
   useEffect(() => {
@@ -248,17 +266,22 @@ export function HexmapPage({
         return current;
       }
 
-      metricSwitchSpanRef.current = startPerformanceSpan("hexmap:metricSwitchReady");
+      metricSwitchSpanRef.current = startPerformanceSpan(
+        "hexmap:metricSwitchReady"
+      );
       return initialMetric;
     });
   }, [initialMetric]);
 
   useEffect(() => {
-    const nextDistrictKey = normalizeConstituencyLookupKey(initialDistrict) || null;
+    const nextDistrictKey =
+      normalizeConstituencyLookupKey(initialDistrict) || null;
     const nextProvince = nextDistrictKey ? null : initialProvince;
 
     if (nextDistrictKey || nextProvince) {
-      districtPanelSpanRef.current = startPerformanceSpan("hexmap:districtPanelReady");
+      districtPanelSpanRef.current = startPerformanceSpan(
+        "hexmap:districtPanelReady"
+      );
     }
 
     setSelectedDistrictKey(nextDistrictKey);
@@ -274,13 +297,16 @@ export function HexmapPage({
     }
 
     const assetByMemberId = new Map(
-      (memberAssetsIndex?.members ?? []).map((entry) => [
-        entry.memberId,
-        {
-          assetTotal: entry.latestTotal,
-          realEstateTotal: entry.latestRealEstateTotal ?? null
-        }
-      ] as const)
+      (memberAssetsIndex?.members ?? []).map(
+        (entry) =>
+          [
+            entry.memberId,
+            {
+              assetTotal: entry.latestTotal,
+              realEstateTotal: entry.latestRealEstateTotal ?? null
+            }
+          ] as const
+      )
     );
 
     return accountabilitySummary.items.flatMap((item) => {
@@ -290,17 +316,19 @@ export function HexmapPage({
 
       const assetSummary = assetByMemberId.get(item.memberId);
 
-      return [{
-        memberId: item.memberId,
-        name: item.name,
-        party: item.party,
-        district: item.district,
-        absentRate: item.absentRate,
-        noRate: item.noRate,
-        abstainRate: item.abstainRate,
-        realEstateTotal: assetSummary?.realEstateTotal ?? null,
-        assetTotal: assetSummary?.assetTotal ?? null
-      }];
+      return [
+        {
+          memberId: item.memberId,
+          name: item.name,
+          party: item.party,
+          district: item.district,
+          absentRate: item.absentRate,
+          noRate: item.noRate,
+          abstainRate: item.abstainRate,
+          realEstateTotal: assetSummary?.realEstateTotal ?? null,
+          assetTotal: assetSummary?.assetTotal ?? null
+        }
+      ];
     });
   }, [accountabilitySummary, memberAssetsIndex]);
 
@@ -312,7 +340,9 @@ export function HexmapPage({
   useEffect(() => {
     setNationalTooltip(null);
     setDetailTooltip(null);
-    firstVisibleSpanRef.current = startPerformanceSpan("hexmap:firstVisibleHexCells");
+    firstVisibleSpanRef.current = startPerformanceSpan(
+      "hexmap:firstVisibleHexCells"
+    );
     layerReadySpanRef.current = startPerformanceSpan("hexmap:layerReady");
 
     void ensureHexmapStaticLoad(manifest, { source: "map" });
@@ -349,8 +379,10 @@ export function HexmapPage({
     }
 
     const resolvedProvince =
-      allCachedCells.find((cell) => cell.districtKey === selectedDistrictKey)?.provinceShortName ??
-      nationalCells.find((cell) => cell.districtKey === selectedDistrictKey)?.provinceShortName ??
+      allCachedCells.find((cell) => cell.districtKey === selectedDistrictKey)
+        ?.provinceShortName ??
+      nationalCells.find((cell) => cell.districtKey === selectedDistrictKey)
+        ?.provinceShortName ??
       null;
 
     if (!resolvedProvince) {
@@ -361,7 +393,12 @@ export function HexmapPage({
     setSelectedDistrictKey(null);
     setNationalTooltip(null);
     setDetailTooltip(null);
-  }, [allCachedCells, nationalCells, selectedDistrictKey, selectedProvinceFilter]);
+  }, [
+    allCachedCells,
+    nationalCells,
+    selectedDistrictKey,
+    selectedProvinceFilter
+  ]);
 
   useEffect(() => {
     if (firstVisibleSpanRef.current && nationalCells.length > 0) {
@@ -369,12 +406,19 @@ export function HexmapPage({
       firstVisibleSpanRef.current = null;
     }
 
-    if (layerReadySpanRef.current && !staticState.isLoading && staticState.entries.length > 0) {
+    if (
+      layerReadySpanRef.current &&
+      !staticState.isLoading &&
+      staticState.entries.length > 0
+    ) {
       endPerformanceSpan(layerReadySpanRef.current);
       layerReadySpanRef.current = null;
     }
 
-    if (metricSwitchSpanRef.current && (nationalCells.length > 0 || !staticState.isLoading)) {
+    if (
+      metricSwitchSpanRef.current &&
+      (nationalCells.length > 0 || !staticState.isLoading)
+    ) {
       endPerformanceSpan(metricSwitchSpanRef.current);
       metricSwitchSpanRef.current = null;
     }
@@ -387,11 +431,15 @@ export function HexmapPage({
     }
 
     if (!districtPanelSpanRef.current) {
-      districtPanelSpanRef.current = startPerformanceSpan("hexmap:districtPanelReady");
+      districtPanelSpanRef.current = startPerformanceSpan(
+        "hexmap:districtPanelReady"
+      );
     }
   }, [selectedDistrictKey, selectedProvinceFilter]);
 
-  const vizConfig = VIZ_CONFIGS.find((config) => config.key === activeMetric) ?? VIZ_CONFIGS[0]!;
+  const vizConfig =
+    VIZ_CONFIGS.find((config) => config.key === activeMetric) ??
+    VIZ_CONFIGS[0]!;
 
   const partiesPresent = useMemo(() => {
     const seen = new Map<string, [number, number, number, number]>();
@@ -432,7 +480,9 @@ export function HexmapPage({
         ...district,
         properties: {
           ...district.properties,
-          summary: districtSummaryByKey.get(district.properties.districtKey) ?? {
+          summary: districtSummaryByKey.get(
+            district.properties.districtKey
+          ) ?? {
             districtKey: district.properties.districtKey,
             districtLabel: district.properties.label,
             provinceShortName: entry.provinceShortName,
@@ -449,32 +499,38 @@ export function HexmapPage({
     );
   }, [districtSummaryByKey, staticState.entries]);
 
-  function getCellFillColor(
-    cell: TooltipDatum,
-    normalizeMetric: (value: number) => number
-  ): [number, number, number, number] {
-    if (cell.memberCount === 0) {
-      return UNMATCHED_CELL_COLOR;
-    }
-
-    if (isAssetMetric(activeMetric)) {
-      if (cell.metricMemberCount === 0) {
+  const getCellFillColor = useCallback(
+    (
+      cell: TooltipDatum,
+      normalizeMetric: (value: number) => number
+    ): [number, number, number, number] => {
+      if (cell.memberCount === 0) {
         return UNMATCHED_CELL_COLOR;
       }
-    }
 
-    return getMetricModulatedColor(cell.party, normalizeMetric(cell.metric));
-  }
+      if (isAssetMetric(activeMetric) && cell.metricMemberCount === 0) {
+        return UNMATCHED_CELL_COLOR;
+      }
+
+      return getMetricModulatedColor(cell.party, normalizeMetric(cell.metric));
+    },
+    [activeMetric]
+  );
 
   const detailCells = useMemo(() => {
     if (selectedProvinceFilter) {
-      return nationalCells.filter((cell) => cell.provinceShortName === selectedProvinceFilter);
+      return nationalCells.filter(
+        (cell) => cell.provinceShortName === selectedProvinceFilter
+      );
     }
 
     return [];
   }, [nationalCells, selectedProvinceFilter]);
 
-  const detailBounds = useMemo(() => getHexCellsBounds(detailCells), [detailCells]);
+  const detailBounds = useMemo(
+    () => getHexCellsBounds(detailCells),
+    [detailCells]
+  );
 
   useEffect(() => {
     if (!detailBounds) {
@@ -485,7 +541,9 @@ export function HexmapPage({
 
     try {
       const viewport = new WebMercatorViewport({ width: 900, height: 480 });
-      const { longitude, latitude, zoom } = viewport.fitBounds(detailBounds, { padding: 48 });
+      const { longitude, latitude, zoom } = viewport.fitBounds(detailBounds, {
+        padding: 48
+      });
       setDetailViewState((current) => ({
         ...current,
         longitude,
@@ -531,10 +589,15 @@ export function HexmapPage({
     }
 
     const normalizeMetric = createLogNormalizer(
-      nationalCells.filter((cell) => cell.metricMemberCount > 0).map((cell) => cell.metric)
+      nationalCells
+        .filter((cell) => cell.metricMemberCount > 0)
+        .map((cell) => cell.metric)
     );
 
-    if (nationalViewState.zoom <= NATIONAL_POLYGON_MAX_ZOOM && nationalDistricts.length > 0) {
+    if (
+      nationalViewState.zoom <= NATIONAL_POLYGON_MAX_ZOOM &&
+      nationalDistricts.length > 0
+    ) {
       return [
         new GeoJsonLayer<NationalDistrictFeature>({
           id: `district-national-${activeMetric}`,
@@ -543,30 +606,43 @@ export function HexmapPage({
           stroked: true,
           getFillColor: (feature) =>
             getCellFillColor(
-              (feature as unknown as NationalDistrictFeature).properties.summary,
+              (feature as unknown as NationalDistrictFeature).properties
+                .summary,
               normalizeMetric
             ),
           getLineColor: [255, 255, 255, 110],
           lineWidthMinPixels: 1,
           pickable: true,
           onHover: (info) => {
-            const feature = info.object as unknown as NationalDistrictFeature | undefined;
+            const feature = info.object as unknown as
+              | NationalDistrictFeature
+              | undefined;
             if (feature && info.x !== undefined && info.y !== undefined) {
-              setNationalTooltip({ x: info.x, y: info.y, datum: feature.properties.summary });
+              setNationalTooltip({
+                x: info.x,
+                y: info.y,
+                datum: feature.properties.summary
+              });
               return;
             }
 
             setNationalTooltip(null);
           },
           onClick: (info) => {
-            const feature = info.object as unknown as NationalDistrictFeature | undefined;
+            const feature = info.object as unknown as
+              | NationalDistrictFeature
+              | undefined;
             if (!feature) {
               return;
             }
 
-            districtPanelSpanRef.current = startPerformanceSpan("hexmap:districtPanelReady");
+            districtPanelSpanRef.current = startPerformanceSpan(
+              "hexmap:districtPanelReady"
+            );
             setSelectedDistrictKey(null);
-            setSelectedProvinceFilter(feature.properties.summary.provinceShortName);
+            setSelectedProvinceFilter(
+              feature.properties.summary.provinceShortName
+            );
             setNationalTooltip(null);
             setDetailTooltip(null);
             setSelectedDetailMemberOverlay(null);
@@ -599,7 +675,9 @@ export function HexmapPage({
             return;
           }
 
-          districtPanelSpanRef.current = startPerformanceSpan("hexmap:districtPanelReady");
+          districtPanelSpanRef.current = startPerformanceSpan(
+            "hexmap:districtPanelReady"
+          );
           setSelectedDistrictKey(null);
           setSelectedProvinceFilter(info.object.provinceShortName);
           setNationalTooltip(null);
@@ -608,7 +686,13 @@ export function HexmapPage({
         }
       })
     ];
-  }, [activeMetric, nationalCells, nationalDistricts, nationalViewState.zoom]);
+  }, [
+    activeMetric,
+    getCellFillColor,
+    nationalCells,
+    nationalDistricts,
+    nationalViewState.zoom
+  ]);
 
   const detailLayers = useMemo(() => {
     if (detailCells.length === 0) {
@@ -616,7 +700,9 @@ export function HexmapPage({
     }
 
     const normalizeMetric = createLogNormalizer(
-      detailCells.filter((cell) => cell.metricMemberCount > 0).map((cell) => cell.metric)
+      detailCells
+        .filter((cell) => cell.metricMemberCount > 0)
+        .map((cell) => cell.metric)
     );
     const filterKey = selectedProvinceFilter ?? selectedDistrictKey ?? "none";
 
@@ -656,7 +742,14 @@ export function HexmapPage({
         }
       })
     ];
-  }, [activeMetric, detailCells, selectedDetailMemberOverlay, selectedDistrictKey, selectedProvinceFilter]);
+  }, [
+    activeMetric,
+    detailCells,
+    getCellFillColor,
+    selectedDetailMemberOverlay,
+    selectedDistrictKey,
+    selectedProvinceFilter
+  ]);
 
   const detailPanelLabel = selectedProvinceFilter;
   const isFilterPending =
@@ -703,7 +796,9 @@ export function HexmapPage({
       return;
     }
 
-    const visibleMemberIds = new Set(detailCells.flatMap((cell) => cell.memberIds));
+    const visibleMemberIds = new Set(
+      detailCells.flatMap((cell) => cell.memberIds)
+    );
     if (!visibleMemberIds.has(selectedDetailMemberId)) {
       setSelectedDetailMemberOverlay(null);
     }
@@ -720,15 +815,24 @@ export function HexmapPage({
     const [red, green, blue] =
       cell.memberCount > 0 ? getPartyColor(cell.party) : UNMATCHED_CELL_COLOR;
     const dotStyle = { background: `rgb(${red},${green},${blue})` };
-    const assetMetricLabel = isAssetMetric(activeMetric) ? getAssetMetricLabel(activeMetric) : null;
+    const assetMetricLabel = isAssetMetric(activeMetric)
+      ? getAssetMetricLabel(activeMetric)
+      : null;
 
     return (
-      <div className="hexmap-tooltip" style={{ left: info.x + 12, top: info.y - 72 }}>
+      <div
+        className="hexmap-tooltip"
+        style={{ left: info.x + 12, top: info.y - 72 }}
+      >
         <div className="hexmap-tooltip__party">{cell.districtLabel}</div>
         {cell.memberCount > 0 ? (
           <>
             <div className="hexmap-tooltip__member">
-              <span className="hexmap-tooltip__party-dot" style={dotStyle} aria-hidden="true" />
+              <span
+                className="hexmap-tooltip__party-dot"
+                style={dotStyle}
+                aria-hidden="true"
+              />
               <span className="hexmap-tooltip__name">
                 {cell.memberCount === 1
                   ? cell.memberNames[0]
@@ -770,9 +874,15 @@ export function HexmapPage({
           transform: "translateY(-100%)"
         }}
       >
-        <div className="hexmap-tooltip__party">{member.district ?? "지역 정보 없음"}</div>
+        <div className="hexmap-tooltip__party">
+          {member.district ?? "지역 정보 없음"}
+        </div>
         <div className="hexmap-tooltip__member">
-          <span className="hexmap-tooltip__party-dot" style={dotStyle} aria-hidden="true" />
+          <span
+            className="hexmap-tooltip__party-dot"
+            style={dotStyle}
+            aria-hidden="true"
+          />
           <span className="hexmap-tooltip__name">{member.name}</span>
         </div>
         <div className="hexmap-tooltip__party">{member.party}</div>
@@ -798,22 +908,30 @@ export function HexmapPage({
       <div className="hexmap-page__header">
         <h1 className="hexmap-page__title">의원 활동·재산 지도</h1>
         <p className="hexmap-page__subtitle">
-          {assemblyLabel} 의원 활동과 재산 공개 데이터를 전국 상세 H3 격자로 탐색합니다.
+          {assemblyLabel} 의원 활동과 재산 공개 데이터를 전국 상세 H3 격자로
+          탐색합니다.
         </p>
       </div>
 
       <div className="hexmap-disclaimer">
-        비례대표 의원은 지역구가 없어 표시되지 않으며, 공석 또는 매칭되지 않은 지역은 회색 타일로 유지합니다.
+        비례대표 의원은 지역구가 없어 표시되지 않으며, 공석 또는 매칭되지 않은
+        지역은 회색 타일로 유지합니다.
         {isAssetMetric(activeMetric) &&
           ` · ${getAssetMetricLabel(activeMetric)} 비교는 ${
-            activeMetric === "realEstate" ? "최신 공개 건물·토지 합계" : "최신 공개 총재산"
+            activeMetric === "realEstate"
+              ? "최신 공개 건물·토지 합계"
+              : "최신 공개 총재산"
           } 기준이며, 공개 데이터가 없는 지역구는 중립 타일로 남깁니다.`}
         {loadProgress &&
           ` · ${loadProgress.total}개 시·도 중 ${loadProgress.done}개 상세 격자 로드 완료`}
         {nationalCells.length > 0 && ` · ${nationalCells.length}개 상세 셀`}
       </div>
 
-      <div className="hexmap-metric-selector" role="tablist" aria-label="시각화 지표 선택">
+      <div
+        className="hexmap-metric-selector"
+        role="tablist"
+        aria-label="시각화 지표 선택"
+      >
         {VIZ_CONFIGS.map((config) => (
           <button
             key={config.key}
@@ -822,7 +940,9 @@ export function HexmapPage({
             className={`hexmap-metric-tab${activeMetric === config.key ? " hexmap-metric-tab--active" : ""}`}
             onClick={() => {
               if (config.key !== activeMetric) {
-                metricSwitchSpanRef.current = startPerformanceSpan("hexmap:metricSwitchReady");
+                metricSwitchSpanRef.current = startPerformanceSpan(
+                  "hexmap:metricSwitchReady"
+                );
               }
               setNationalTooltip(null);
               setDetailTooltip(null);
@@ -844,7 +964,9 @@ export function HexmapPage({
           <div className="hexmap-party-legend" aria-label="정당 범례">
             <div className="hexmap-party-legend__copy">
               <span className="hexmap-party-legend__heading">정당</span>
-              <span className="hexmap-party-legend__description">{partyLegendDescription}</span>
+              <span className="hexmap-party-legend__description">
+                {partyLegendDescription}
+              </span>
             </div>
             {partiesPresent.map(({ party, color: [red, green, blue] }) => (
               <span key={party} className="hexmap-party-legend__item">
@@ -861,18 +983,24 @@ export function HexmapPage({
 
         <div
           className={`hexmap-map-container${
-            error && nationalCells.length === 0 ? " hexmap-map-container--error" : ""
+            error && nationalCells.length === 0
+              ? " hexmap-map-container--error"
+              : ""
           }`}
         >
           {error && nationalCells.length === 0 ? (
             <div className="hexmap-state">
-              <div className="hexmap-state__title">데이터를 불러오지 못했습니다</div>
+              <div className="hexmap-state__title">
+                데이터를 불러오지 못했습니다
+              </div>
               <p>{error}</p>
             </div>
           ) : nationalCells.length === 0 ? (
             <div className="hexmap-state">
               <div className="hexmap-state__title">
-                {isLoading ? "전국 상세 격자 로딩 중…" : "지도 데이터를 준비 중입니다"}
+                {isLoading
+                  ? "전국 상세 격자 로딩 중…"
+                  : "지도 데이터를 준비 중입니다"}
               </div>
               <p>
                 {!accountabilitySummary
@@ -897,20 +1025,23 @@ export function HexmapPage({
               {isLoading && (
                 <div className="hexmap-computing-overlay">
                   전국 상세 격자 로딩 중…
-                  {loadProgress ? ` ${loadProgress.done}/${loadProgress.total}` : ""}
+                  {loadProgress
+                    ? ` ${loadProgress.done}/${loadProgress.total}`
+                    : ""}
                 </div>
               )}
             </>
           )}
 
-          {nationalTooltip && nationalCells.length > 0 && (
-            renderTooltipContent(nationalTooltip, "클릭 → 아래에서 확대")
-          )}
+          {nationalTooltip &&
+            nationalCells.length > 0 &&
+            renderTooltipContent(nationalTooltip, "클릭 → 아래에서 확대")}
         </div>
       </section>
 
       <p className="hexmap-footer-note">
-        데이터: 공개 기록표결·재산공개 기준 · 지도: © OpenStreetMap contributors © CARTO · 시각화: deck.gl · 격자: Uber H3
+        데이터: 공개 기록표결·재산공개 기준 · 지도: © OpenStreetMap contributors
+        © CARTO · 시각화: deck.gl · 격자: Uber H3
       </p>
 
       <section className="hexmap-section hexmap-section--detail">
@@ -923,8 +1054,9 @@ export function HexmapPage({
                   ? `${selectedProvinceFilter} 전체 지역구를 보여줍니다.`
                   : selectedDistrictKey
                     ? "선택한 지역구의 상위 시·도 범위를 불러오는 중입니다."
-                    : "상단 전국 지도에서 지역구를 클릭하면 아래에서 해당 시·도를 보여줍니다."}
-                {" "}헥사곤을 클릭하면 작은 의원 오버레이와 활동 캘린더 바로가기가 열립니다.
+                    : "상단 전국 지도에서 지역구를 클릭하면 아래에서 해당 시·도를 보여줍니다."}{" "}
+                헥사곤을 클릭하면 작은 의원 오버레이와 활동 캘린더 바로가기가
+                열립니다.
               </p>
             </div>
             {(selectedDistrictKey || selectedProvinceFilter) && (
@@ -955,19 +1087,28 @@ export function HexmapPage({
         <div className="hexmap-map-container">
           {!selectedDistrictKey && !selectedProvinceFilter ? (
             <div className="hexmap-state">
-              <div className="hexmap-state__title">아직 선택된 지역구가 없습니다</div>
-              <p>상단 전국 지도에서 지역구를 클릭하면 이 영역에 해당 시·도가 나타납니다.</p>
+              <div className="hexmap-state__title">
+                아직 선택된 지역구가 없습니다
+              </div>
+              <p>
+                상단 전국 지도에서 지역구를 클릭하면 이 영역에 해당 시·도가
+                나타납니다.
+              </p>
             </div>
           ) : isFilterPending ? (
             <div className="hexmap-state">
               <div className="hexmap-state__title">
                 {detailPanelLabel ?? "선택 지역"} 데이터를 불러오는 중…
               </div>
-              <p>브라우저 캐시를 확인하고 필요한 시·도만 순차적으로 계산합니다.</p>
+              <p>
+                브라우저 캐시를 확인하고 필요한 시·도만 순차적으로 계산합니다.
+              </p>
             </div>
           ) : detailCells.length === 0 ? (
             <div className="hexmap-state">
-              <div className="hexmap-state__title">표시할 지역구 데이터를 찾지 못했습니다</div>
+              <div className="hexmap-state__title">
+                표시할 지역구 데이터를 찾지 못했습니다
+              </div>
               <p>선택한 필터와 현재 공개된 비교 데이터를 다시 확인해 주세요.</p>
             </div>
           ) : (
@@ -983,16 +1124,22 @@ export function HexmapPage({
             </DeckGL>
           )}
 
-          {!selectedDetailMemberOverlay && detailTooltip && detailCells.length > 0 && (
-            renderTooltipContent(detailTooltip, "클릭 → 캘린더 바로가기")
-          )}
+          {!selectedDetailMemberOverlay &&
+            detailTooltip &&
+            detailCells.length > 0 &&
+            renderTooltipContent(detailTooltip, "클릭 → 캘린더 바로가기")}
 
           {detailCells.length > 0 && !isFilterPending ? (
             selectedDetailMember ? (
               renderDetailMemberOverlay(selectedDetailMember)
             ) : (
-              <div className="hexmap-detail-member-placeholder" role="status" aria-live="polite">
-                상세 지도에서 헥사곤을 클릭하면 작은 오버레이와 활동 캘린더 바로가기가 나타납니다.
+              <div
+                className="hexmap-detail-member-placeholder"
+                role="status"
+                aria-live="polite"
+              >
+                상세 지도에서 헥사곤을 클릭하면 작은 오버레이와 활동 캘린더
+                바로가기가 나타납니다.
               </div>
             )
           ) : null}

@@ -1,6 +1,5 @@
-import type { MemberProfile, MemberRecord } from "@lawmaker-monitor/schemas";
-
 import type { MemberProfileAllRecord } from "./parsers.js";
+import type { MemberProfile, MemberRecord } from "@lawmaker-monitor/schemas";
 
 export type MemberProfileEnrichmentIssue = {
   key: string;
@@ -42,7 +41,10 @@ function buildMatchKey(args: {
   ].join("|");
 }
 
-function mergeUniqueStrings(left: string[] = [], right: string[] = []): string[] {
+function mergeUniqueStrings(
+  left: string[] = [],
+  right: string[] = []
+): string[] {
   return [...new Set([...left, ...right].filter(Boolean))];
 }
 
@@ -60,14 +62,21 @@ function mergeMemberProfile(
     birthType: incoming?.birthType ?? existing?.birthType ?? null,
     birthDate: incoming?.birthDate ?? existing?.birthDate ?? null,
     roleName: incoming?.roleName ?? existing?.roleName ?? null,
-    reelectionLabel: incoming?.reelectionLabel ?? existing?.reelectionLabel ?? null,
+    reelectionLabel:
+      incoming?.reelectionLabel ?? existing?.reelectionLabel ?? null,
     electedAssembliesLabel:
-      incoming?.electedAssembliesLabel ?? existing?.electedAssembliesLabel ?? null,
+      incoming?.electedAssembliesLabel ??
+      existing?.electedAssembliesLabel ??
+      null,
     gender: incoming?.gender ?? existing?.gender ?? null,
     representativeCommitteeName:
-      incoming?.representativeCommitteeName ?? existing?.representativeCommitteeName ?? null,
+      incoming?.representativeCommitteeName ??
+      existing?.representativeCommitteeName ??
+      null,
     affiliatedCommitteeName:
-      incoming?.affiliatedCommitteeName ?? existing?.affiliatedCommitteeName ?? null,
+      incoming?.affiliatedCommitteeName ??
+      existing?.affiliatedCommitteeName ??
+      null,
     briefHistory: incoming?.briefHistory ?? existing?.briefHistory ?? null,
     officeRoom: incoming?.officeRoom ?? existing?.officeRoom ?? null,
     officePhone: incoming?.officePhone ?? existing?.officePhone ?? null,
@@ -77,7 +86,10 @@ function mergeMemberProfile(
       existing?.chiefSecretaryNames,
       incoming?.chiefSecretaryNames
     ),
-    secretaryNames: mergeUniqueStrings(existing?.secretaryNames, incoming?.secretaryNames)
+    secretaryNames: mergeUniqueStrings(
+      existing?.secretaryNames,
+      incoming?.secretaryNames
+    )
   };
 }
 
@@ -88,11 +100,16 @@ function mergeMemberWithProfile(
   return {
     ...member,
     committeeMemberships: [
-      ...new Set([...(member.committeeMemberships ?? []), ...(profile.committeeMemberships ?? [])])
+      ...new Set([
+        ...(member.committeeMemberships ?? []),
+        ...(profile.committeeMemberships ?? [])
+      ])
     ],
     photoUrl: profile.photoUrl ?? member.photoUrl ?? null,
-    officialProfileUrl: profile.officialProfileUrl ?? member.officialProfileUrl ?? null,
-    officialExternalUrl: profile.officialExternalUrl ?? member.officialExternalUrl ?? null,
+    officialProfileUrl:
+      profile.officialProfileUrl ?? member.officialProfileUrl ?? null,
+    officialExternalUrl:
+      profile.officialExternalUrl ?? member.officialExternalUrl ?? null,
     profile: mergeMemberProfile(member.profile, profile.profile),
     proportionalFlag: profile.proportionalFlag ?? member.proportionalFlag
   };

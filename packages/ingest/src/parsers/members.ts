@@ -1,5 +1,3 @@
-import type { MemberProfile, MemberRecord } from "@lawmaker-monitor/schemas";
-
 import { parseXmlDocument, pickFirst } from "../utils.js";
 import {
   buildOfficialProfileUrl,
@@ -17,12 +15,14 @@ import {
   normalizeOptionalUrl,
   normalizeUrlAgainstAssemblyOrigin
 } from "./helpers.js";
+
 import type {
   MemberInfoParseResult,
   MemberProfileAllParseResult,
   MemberProfileAllRecord,
   MemberTenureRecord
 } from "./types.js";
+import type { MemberProfile, MemberRecord } from "@lawmaker-monitor/schemas";
 
 function buildMemberInfoProfile(values: {
   nameHanja?: string | null;
@@ -78,7 +78,9 @@ function buildMemberInfoProfile(values: {
   return hasScalarValue ? profile : undefined;
 }
 
-export function parseMemberInfoRow(row: Record<string, unknown>): MemberRecord | null {
+export function parseMemberInfoRow(
+  row: Record<string, unknown>
+): MemberRecord | null {
   const memberId = pickFirst(row, ["MONA_CD", "monaCd"]);
   const name = pickFirst(row, ["HG_NM", "hgNm"]);
   const party = pickFirst(row, ["POLY_NM", "polyNm"]);
@@ -104,7 +106,9 @@ export function parseMemberInfoRow(row: Record<string, unknown>): MemberRecord |
     committeeMemberships: normalizeCommitteeMemberships(
       pickFirst(row, ["CMITS", "cmits", "CMIT_NM", "cmitNm"]) ?? ""
     ),
-    photoUrl: normalizeOptionalUrl(pickFirst(row, ["DEPT_IMG_URL", "deptImgUrl"])),
+    photoUrl: normalizeOptionalUrl(
+      pickFirst(row, ["DEPT_IMG_URL", "deptImgUrl"])
+    ),
     officialProfileUrl,
     officialExternalUrl: normalizeOfficialExternalUrl(
       pickFirst(row, ["HOMEPAGE", "homepage"]),
@@ -112,12 +116,15 @@ export function parseMemberInfoRow(row: Record<string, unknown>): MemberRecord |
     ),
     isCurrentMember: true,
     proportionalFlag:
-      pickFirst(row, ["ELECT_GBN_NM", "electGbnNm", "ORIG_NM", "origNm"]) === "비례대표",
+      pickFirst(row, ["ELECT_GBN_NM", "electGbnNm", "ORIG_NM", "origNm"]) ===
+      "비례대표",
     assemblyNo
   };
 }
 
-export function parseMemberInfoRows(rows: Record<string, unknown>[]): MemberInfoParseResult {
+export function parseMemberInfoRows(
+  rows: Record<string, unknown>[]
+): MemberInfoParseResult {
   const members: MemberRecord[] = [];
   let currentAssemblyNo = 0;
 
@@ -167,9 +174,17 @@ function normalizeTenurePeriod(record: Record<string, unknown>): {
   startDate: string;
   endDate: string | null;
 } | null {
-  const frtoDate = pickFirst(record, ["FRTO_DATE", "frtoDate", "PROFILE_DATE", "profileDate"]);
+  const frtoDate = pickFirst(record, [
+    "FRTO_DATE",
+    "frtoDate",
+    "PROFILE_DATE",
+    "profileDate"
+  ]);
   const profile = pickFirst(record, ["PROFILE_SJ", "profileSj"]);
-  const tokens = [...extractDateTokens(frtoDate), ...extractDateTokens(profile)];
+  const tokens = [
+    ...extractDateTokens(frtoDate),
+    ...extractDateTokens(profile)
+  ];
   const uniqueTokens = [...new Set(tokens)].sort();
   const startDate = uniqueTokens[0];
 
@@ -183,7 +198,9 @@ function normalizeTenurePeriod(record: Record<string, unknown>): {
   };
 }
 
-export function parseMemberProfileAllXml(xml: string): MemberProfileAllParseResult {
+export function parseMemberProfileAllXml(
+  xml: string
+): MemberProfileAllParseResult {
   const parsed = parseXmlDocument(xml);
   const rows = findItems(parsed);
   const candidateProfiles: MemberProfileAllRecord[] = [];
@@ -192,8 +209,12 @@ export function parseMemberProfileAllXml(xml: string): MemberProfileAllParseResu
   for (const row of rows) {
     const naasCd = pickFirst(row, ["NAAS_CD", "naasCd"]);
     const name = pickFirst(row, ["NAAS_NM", "naasNm"]);
-    const party = normalizeCurrentSegment(pickFirst(row, ["PLPT_NM", "plptNm"]));
-    const district = normalizeCurrentSegment(pickFirst(row, ["ELECD_NM", "elecdNm"]));
+    const party = normalizeCurrentSegment(
+      pickFirst(row, ["PLPT_NM", "plptNm"])
+    );
+    const district = normalizeCurrentSegment(
+      pickFirst(row, ["ELECD_NM", "elecdNm"])
+    );
     const electionDivision = normalizeCurrentSegment(
       pickFirst(row, ["ELECD_DIV_NM", "elecdDivNm"])
     );
@@ -215,11 +236,10 @@ export function parseMemberProfileAllXml(xml: string): MemberProfileAllParseResu
       continue;
     }
 
-    const nameEnglish = normalizeNullableText(pickFirst(row, ["NAAS_EN_NM", "naasEnNm"]));
-    const officialProfileUrl = buildOfficialProfileUrl(
-      assemblyNo,
-      nameEnglish
+    const nameEnglish = normalizeNullableText(
+      pickFirst(row, ["NAAS_EN_NM", "naasEnNm"])
     );
+    const officialProfileUrl = buildOfficialProfileUrl(assemblyNo, nameEnglish);
     const committeeMemberships = [
       ...normalizeCommitteeMemberships(affiliatedCommitteeName ?? ""),
       ...normalizeCommitteeMemberships(representativeCommitteeName ?? "")
@@ -231,26 +251,41 @@ export function parseMemberProfileAllXml(xml: string): MemberProfileAllParseResu
       party,
       district: district ?? null,
       committeeMemberships: [...new Set(committeeMemberships)],
-      photoUrl: normalizeUrlAgainstAssemblyOrigin(pickFirst(row, ["NAAS_PIC", "naasPic"])),
+      photoUrl: normalizeUrlAgainstAssemblyOrigin(
+        pickFirst(row, ["NAAS_PIC", "naasPic"])
+      ),
       officialProfileUrl,
       officialExternalUrl: normalizeOfficialExternalUrl(
         pickFirst(row, ["NAAS_HP_URL", "naasHpUrl"]),
         officialProfileUrl
       ),
       profile: buildMemberInfoProfile({
-        nameHanja: normalizeNullableText(pickFirst(row, ["NAAS_CH_NM", "naasChNm"])),
+        nameHanja: normalizeNullableText(
+          pickFirst(row, ["NAAS_CH_NM", "naasChNm"])
+        ),
         nameEnglish,
-        birthType: normalizeNullableText(pickFirst(row, ["BIRDY_DIV_CD", "birdyDivCd"])),
-        birthDate: normalizeDate(pickFirst(row, ["BIRDY_DT", "birdyDt"])) ?? null,
+        birthType: normalizeNullableText(
+          pickFirst(row, ["BIRDY_DIV_CD", "birdyDivCd"])
+        ),
+        birthDate:
+          normalizeDate(pickFirst(row, ["BIRDY_DT", "birdyDt"])) ?? null,
         roleName: normalizeNullableText(pickFirst(row, ["DTY_NM", "dtyNm"])),
-        reelectionLabel: normalizeNullableText(pickFirst(row, ["RLCT_DIV_NM", "rlctDivNm"])),
+        reelectionLabel: normalizeNullableText(
+          pickFirst(row, ["RLCT_DIV_NM", "rlctDivNm"])
+        ),
         electedAssembliesLabel,
         gender: normalizeNullableText(pickFirst(row, ["NTR_DIV", "ntrDiv"])),
         representativeCommitteeName,
         affiliatedCommitteeName,
-        briefHistory: normalizeMultilineText(pickFirst(row, ["BRF_HST", "brfHst"])),
-        officeRoom: normalizeNullableText(pickFirst(row, ["OFFM_RNUM_NO", "offmRnumNo"])),
-        officePhone: normalizeNullableText(pickFirst(row, ["NAAS_TEL_NO", "naasTelNo"])),
+        briefHistory: normalizeMultilineText(
+          pickFirst(row, ["BRF_HST", "brfHst"])
+        ),
+        officeRoom: normalizeNullableText(
+          pickFirst(row, ["OFFM_RNUM_NO", "offmRnumNo"])
+        ),
+        officePhone: normalizeNullableText(
+          pickFirst(row, ["NAAS_TEL_NO", "naasTelNo"])
+        ),
         email: normalizeNullableText(
           pickFirst(row, ["NAAS_EMAIL_ADDR", "naasEmailAddr"])
         ),
@@ -270,7 +305,9 @@ export function parseMemberProfileAllXml(xml: string): MemberProfileAllParseResu
 
   const profiles =
     currentAssemblyNo > 0
-      ? candidateProfiles.filter((member) => member.assemblyNo === currentAssemblyNo)
+      ? candidateProfiles.filter(
+          (member) => member.assemblyNo === currentAssemblyNo
+        )
       : candidateProfiles;
 
   return {
@@ -289,8 +326,15 @@ export function parseMemberInfoXml(xml: string): MemberInfoParseResult {
   return parseLegacyMemberInfoXml(xml);
 }
 
-export function parseMemberHistoryRow(row: Record<string, unknown>): MemberTenureRecord | null {
-  const memberId = pickFirst(row, ["MONA_CD", "monaCd", "memberId", "MEMBER_ID"]);
+export function parseMemberHistoryRow(
+  row: Record<string, unknown>
+): MemberTenureRecord | null {
+  const memberId = pickFirst(row, [
+    "MONA_CD",
+    "monaCd",
+    "memberId",
+    "MEMBER_ID"
+  ]);
   const name = pickFirst(row, ["HG_NM", "hgNm", "name", "NAME"]);
   const unitCd = pickFirst(row, ["UNIT_CD", "unitCd"]);
   const assemblyNo = normalizeAssemblyNo(row);
@@ -310,7 +354,9 @@ export function parseMemberHistoryRow(row: Record<string, unknown>): MemberTenur
   };
 }
 
-export function parseMemberHistoryRows(rows: Record<string, unknown>[]): MemberTenureRecord[] {
+export function parseMemberHistoryRows(
+  rows: Record<string, unknown>[]
+): MemberTenureRecord[] {
   return rows
     .map(parseMemberHistoryRow)
     .filter((record): record is MemberTenureRecord => Boolean(record));

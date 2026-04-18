@@ -1,10 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-
-import type {
-  AccountabilitySummaryExport,
-  Manifest,
-  MemberActivityCalendarExport
-} from "@lawmaker-monitor/schemas";
 import {
   CartesianGrid,
   ReferenceLine,
@@ -16,6 +10,8 @@ import {
   YAxis
 } from "recharts";
 
+import { MemberIdentity } from "./MemberIdentity.js";
+import { MemberSearchField } from "./MemberSearchField.js";
 import { buildCalendarHref } from "../lib/calendar-route.js";
 import {
   buildDistributionBehaviorSummaries,
@@ -30,20 +26,25 @@ import {
 } from "../lib/distribution.js";
 import { formatNumber, formatPercent } from "../lib/format.js";
 import { getOptimizedMemberPhotoUrl } from "../lib/member-photo.js";
-import { MemberIdentity } from "./MemberIdentity.js";
-import { MemberSearchField } from "./MemberSearchField.js";
+
+import type {
+  AccountabilitySummaryExport,
+  MemberActivityCalendarExport
+} from "@lawmaker-monitor/schemas";
 
 type DistributionPageProps = {
   accountabilitySummary: AccountabilitySummaryExport | null;
   activityCalendar: MemberActivityCalendarExport | null;
-  manifest: Manifest | null;
   loading: boolean;
   errors: string[];
   assemblyLabel: string;
   initialMemberId?: string | null;
   initialBehaviorFilter?: DistributionBehaviorFilter | null;
   onBack: () => void;
-  onSelectMember: (memberId: string, behaviorFilter?: DistributionBehaviorFilter | null) => void;
+  onSelectMember: (
+    memberId: string,
+    behaviorFilter?: DistributionBehaviorFilter | null
+  ) => void;
   onSelectBehaviorFilter: (
     behaviorFilter: DistributionBehaviorFilter | null,
     memberId?: string | null
@@ -89,21 +90,31 @@ function formatPercentPointDelta(value: number): string {
   return `평균 대비 ${prefix}${Math.abs(value * 100).toFixed(1)}%p`;
 }
 
-function buildPartyColorMap(members: DistributionMemberPoint[]): Map<string, string> {
+function buildPartyColorMap(
+  members: DistributionMemberPoint[]
+): Map<string, string> {
   const parties = [...new Set(members.map((member) => member.party))];
   const fallbackColor = "#7b3128";
 
   return new Map(
-    parties.map((party, index) => [party, partyPalette[index % partyPalette.length] ?? fallbackColor])
+    parties.map((party, index) => [
+      party,
+      partyPalette[index % partyPalette.length] ?? fallbackColor
+    ])
   );
 }
 
-function buildChartPoints(members: DistributionMemberPoint[]): DistributionChartPoint[] {
+function buildChartPoints(
+  members: DistributionMemberPoint[]
+): DistributionChartPoint[] {
   return members.map((member) => ({
     ...member,
     attendancePercent: Number((member.attendanceRate * 100).toFixed(1)),
     negativePercent: Number((member.negativeRate * 100).toFixed(1)),
-    radius: 7 + Math.min(member.currentNegativeOrAbsentStreak, 4) + Math.min(member.absentVoteCount, 3)
+    radius:
+      7 +
+      Math.min(member.currentNegativeOrAbsentStreak, 4) +
+      Math.min(member.absentVoteCount, 3)
   }));
 }
 
@@ -182,6 +193,9 @@ function DistributionPointShape({
   onSelectMember: (memberId: string) => void;
   showPhoto: boolean;
 }) {
+  const resolvedPhotoUrl = getOptimizedMemberPhotoUrl(payload?.photoUrl);
+  const canUsePhoto = useDistributionPointPhoto(resolvedPhotoUrl);
+
   if (!payload) {
     return null;
   }
@@ -189,8 +203,6 @@ function DistributionPointShape({
   const resolvedColor = partyColors.get(payload.party);
   const fill = resolvedColor ?? partyPalette[0];
   const radius = payload.radius + (selected ? 2 : 0);
-  const resolvedPhotoUrl = getOptimizedMemberPhotoUrl(payload.photoUrl);
-  const canUsePhoto = useDistributionPointPhoto(resolvedPhotoUrl);
   const markerIdBase = `distribution-point-${payload.memberId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const clipPathId = `${markerIdBase}-clip`;
   const badgeRadius = Math.max(3.4, Math.round(radius * 0.28 * 10) / 10);
@@ -335,12 +347,16 @@ function DistributionSignalList({
               onClick={() => onSelectMember(member.memberId)}
             >
               <span className="distribution-signal-list__identity">
-                <span className="distribution-signal-list__name">{member.name}</span>
+                <span className="distribution-signal-list__name">
+                  {member.name}
+                </span>
                 <span className="distribution-signal-list__meta">
                   {`${member.party} · ${member.district ?? "지역 정보 없음"}`}
                 </span>
               </span>
-              <strong className="distribution-signal-list__value">{renderValue(member)}</strong>
+              <strong className="distribution-signal-list__value">
+                {renderValue(member)}
+              </strong>
             </button>
           </li>
         ))}
@@ -352,7 +368,6 @@ function DistributionSignalList({
 export function DistributionPage({
   accountabilitySummary,
   activityCalendar,
-  manifest,
   loading,
   errors,
   assemblyLabel,
@@ -363,10 +378,11 @@ export function DistributionPage({
   onSelectBehaviorFilter
 }: DistributionPageProps) {
   const [isChartHelpOpen, setIsChartHelpOpen] = useState(false);
-  const [activeBehaviorFilter, setActiveBehaviorFilter] = useState<DistributionBehaviorFilter | null>(
-    initialBehaviorFilter ?? null
+  const [activeBehaviorFilter, setActiveBehaviorFilter] =
+    useState<DistributionBehaviorFilter | null>(initialBehaviorFilter ?? null);
+  const [activePartyFilter, setActivePartyFilter] = useState<string | null>(
+    null
   );
-  const [activePartyFilter, setActivePartyFilter] = useState<string | null>(null);
   const members = useMemo(
     () =>
       accountabilitySummary && activityCalendar
@@ -379,9 +395,13 @@ export function DistributionPage({
     setActivePartyFilter(null);
   }, [initialBehaviorFilter]);
 
-  const behaviorSummaries = useMemo(() => buildDistributionBehaviorSummaries(members), [members]);
+  const behaviorSummaries = useMemo(
+    () => buildDistributionBehaviorSummaries(members),
+    [members]
+  );
   const activeBehaviorSummary =
-    behaviorSummaries.find((summary) => summary.key === activeBehaviorFilter) ?? null;
+    behaviorSummaries.find((summary) => summary.key === activeBehaviorFilter) ??
+    null;
   const behaviorFilteredMembers = useMemo(
     () => filterDistributionMembersByBehavior(members, activeBehaviorFilter),
     [activeBehaviorFilter, members]
@@ -390,13 +410,22 @@ export function DistributionPage({
     () => buildDistributionPartySummaries(behaviorFilteredMembers),
     [behaviorFilteredMembers]
   );
-  const chartPoints = useMemo(() => buildChartPoints(behaviorFilteredMembers), [behaviorFilteredMembers]);
+  const chartPoints = useMemo(
+    () => buildChartPoints(behaviorFilteredMembers),
+    [behaviorFilteredMembers]
+  );
   const attendanceDomain = useMemo(
-    () => buildDistributionChartDomain(chartPoints.map((member) => member.attendancePercent)),
+    () =>
+      buildDistributionChartDomain(
+        chartPoints.map((member) => member.attendancePercent)
+      ),
     [chartPoints]
   );
   const negativeDomain = useMemo(
-    () => buildDistributionChartDomain(chartPoints.map((member) => member.negativePercent)),
+    () =>
+      buildDistributionChartDomain(
+        chartPoints.map((member) => member.negativePercent)
+      ),
     [chartPoints]
   );
   const partyColors = useMemo(() => buildPartyColorMap(members), [members]);
@@ -413,7 +442,9 @@ export function DistributionPage({
   const filteredMembers = useMemo(
     () =>
       activePartyFilter
-        ? behaviorFilteredMembers.filter((member) => member.party === activePartyFilter)
+        ? behaviorFilteredMembers.filter(
+            (member) => member.party === activePartyFilter
+          )
         : behaviorFilteredMembers,
     [activePartyFilter, behaviorFilteredMembers]
   );
@@ -425,30 +456,36 @@ export function DistributionPage({
     [activePartyFilter, chartPoints]
   );
   const selectedMemberId =
-    initialMemberId && filteredMembers.some((member) => member.memberId === initialMemberId)
+    initialMemberId &&
+    filteredMembers.some((member) => member.memberId === initialMemberId)
       ? initialMemberId
       : getDefaultDistributionMemberId(filteredMembers);
   const selectedMember =
-    filteredMembers.find((member) => member.memberId === selectedMemberId) ?? null;
+    filteredMembers.find((member) => member.memberId === selectedMemberId) ??
+    null;
   const selectedChartPoint =
-    filteredChartPoints.find((member) => member.memberId === selectedMemberId) ?? null;
-  const otherChartPoints = filteredChartPoints.filter((member) => member.memberId !== selectedMemberId);
-  const activePartySummary =
-    partySummaries.find((summary) => summary.party === activePartyFilter) ?? null;
-  const highlightedMemberIds = useMemo(
-    () => new Set(filteredMembers.map((member) => member.memberId)),
-    [filteredMembers]
+    filteredChartPoints.find(
+      (member) => member.memberId === selectedMemberId
+    ) ?? null;
+  const otherChartPoints = filteredChartPoints.filter(
+    (member) => member.memberId !== selectedMemberId
   );
-
+  const activePartySummary =
+    partySummaries.find((summary) => summary.party === activePartyFilter) ??
+    null;
   const averageAttendanceRate =
     behaviorFilteredMembers.length > 0
-      ? behaviorFilteredMembers.reduce((sum, member) => sum + member.attendanceRate, 0) /
-        behaviorFilteredMembers.length
+      ? behaviorFilteredMembers.reduce(
+          (sum, member) => sum + member.attendanceRate,
+          0
+        ) / behaviorFilteredMembers.length
       : 0;
   const averageNegativeRate =
     behaviorFilteredMembers.length > 0
-      ? behaviorFilteredMembers.reduce((sum, member) => sum + member.negativeRate, 0) /
-        behaviorFilteredMembers.length
+      ? behaviorFilteredMembers.reduce(
+          (sum, member) => sum + member.negativeRate,
+          0
+        ) / behaviorFilteredMembers.length
       : 0;
   const highNegativeMembers = [...behaviorFilteredMembers]
     .sort((left, right) => {
@@ -460,7 +497,9 @@ export function DistributionPage({
         return right.noRate - left.noRate;
       }
 
-      return right.currentNegativeOrAbsentStreak - left.currentNegativeOrAbsentStreak;
+      return (
+        right.currentNegativeOrAbsentStreak - left.currentNegativeOrAbsentStreak
+      );
     })
     .slice(0, 5);
   const attendanceRiskMembers = [...behaviorFilteredMembers]
@@ -478,12 +517,24 @@ export function DistributionPage({
     .slice(0, 5);
   const streakMembers = [...behaviorFilteredMembers]
     .sort((left, right) => {
-      if (right.currentNegativeOrAbsentStreak !== left.currentNegativeOrAbsentStreak) {
-        return right.currentNegativeOrAbsentStreak - left.currentNegativeOrAbsentStreak;
+      if (
+        right.currentNegativeOrAbsentStreak !==
+        left.currentNegativeOrAbsentStreak
+      ) {
+        return (
+          right.currentNegativeOrAbsentStreak -
+          left.currentNegativeOrAbsentStreak
+        );
       }
 
-      if (right.longestNegativeOrAbsentStreak !== left.longestNegativeOrAbsentStreak) {
-        return right.longestNegativeOrAbsentStreak - left.longestNegativeOrAbsentStreak;
+      if (
+        right.longestNegativeOrAbsentStreak !==
+        left.longestNegativeOrAbsentStreak
+      ) {
+        return (
+          right.longestNegativeOrAbsentStreak -
+          left.longestNegativeOrAbsentStreak
+        );
       }
 
       return right.disruptionRate - left.disruptionRate;
@@ -491,16 +542,25 @@ export function DistributionPage({
     .slice(0, 5);
 
   function handleSelectMember(memberId: string) {
-    const nextMember = members.find((member) => member.memberId === memberId) ?? null;
+    const nextMember =
+      members.find((member) => member.memberId === memberId) ?? null;
 
-    if (activeBehaviorFilter && nextMember && !matchesDistributionBehavior(nextMember, activeBehaviorFilter)) {
+    if (
+      activeBehaviorFilter &&
+      nextMember &&
+      !matchesDistributionBehavior(nextMember, activeBehaviorFilter)
+    ) {
       setActiveBehaviorFilter(null);
       setActivePartyFilter(null);
       onSelectBehaviorFilter(null, memberId);
       return;
     }
 
-    if (activePartyFilter && nextMember && nextMember.party !== activePartyFilter) {
+    if (
+      activePartyFilter &&
+      nextMember &&
+      nextMember.party !== activePartyFilter
+    ) {
       setActivePartyFilter(null);
     }
 
@@ -519,7 +579,9 @@ export function DistributionPage({
       return;
     }
 
-    const fallbackMember = behaviorFilteredMembers.find((member) => member.party === party);
+    const fallbackMember = behaviorFilteredMembers.find(
+      (member) => member.party === party
+    );
     if (fallbackMember) {
       onSelectMember(fallbackMember.memberId, activeBehaviorFilter);
     }
@@ -552,22 +614,37 @@ export function DistributionPage({
     return (
       <main className="app-shell">
         <section className="distribution-page__empty">
-          <button type="button" className="distribution-page__back" onClick={onBack}>
+          <button
+            type="button"
+            className="distribution-page__back"
+            onClick={onBack}
+          >
             홈으로
           </button>
           <p className="section-label">전체 분포</p>
           <h1>{`${assemblyLabel} 분포 화면을 준비 중입니다.`}</h1>
-          <p>책임성 요약과 활동 캘린더를 합쳐 의원별 위치를 계산하고 있습니다.</p>
+          <p>
+            책임성 요약과 활동 캘린더를 합쳐 의원별 위치를 계산하고 있습니다.
+          </p>
         </section>
       </main>
     );
   }
 
-  if (!loading && members.length > 0 && behaviorFilteredMembers.length === 0 && activeBehaviorSummary) {
+  if (
+    !loading &&
+    members.length > 0 &&
+    behaviorFilteredMembers.length === 0 &&
+    activeBehaviorSummary
+  ) {
     return (
       <main className="app-shell">
         <section className="distribution-page__empty">
-          <button type="button" className="distribution-page__back" onClick={onBack}>
+          <button
+            type="button"
+            className="distribution-page__back"
+            onClick={onBack}
+          >
             홈으로
           </button>
           <p className="section-label">행동 분류</p>
@@ -585,7 +662,11 @@ export function DistributionPage({
     return (
       <main className="app-shell">
         <section className="distribution-page__empty">
-          <button type="button" className="distribution-page__back" onClick={onBack}>
+          <button
+            type="button"
+            className="distribution-page__back"
+            onClick={onBack}
+          >
             홈으로
           </button>
           <p className="section-label">전체 분포</p>
@@ -593,7 +674,10 @@ export function DistributionPage({
           <ul className="distribution-page__error-list">
             {(errors.length > 0
               ? errors
-              : ["책임성 요약 또는 활동 캘린더 데이터가 아직 준비되지 않았습니다."]).map((error) => (
+              : [
+                  "책임성 요약 또는 활동 캘린더 데이터가 아직 준비되지 않았습니다."
+                ]
+            ).map((error) => (
               <li key={error}>{error}</li>
             ))}
           </ul>
@@ -606,7 +690,11 @@ export function DistributionPage({
     <main className="app-shell">
       <section className="distribution-page__masthead">
         <div className="distribution-page__headline">
-          <button type="button" className="distribution-page__back" onClick={onBack}>
+          <button
+            type="button"
+            className="distribution-page__back"
+            onClick={onBack}
+          >
             홈으로
           </button>
           <p className="section-label">전체 분포</p>
@@ -637,7 +725,9 @@ export function DistributionPage({
                   <button
                     type="button"
                     className="distribution-chart__help-button"
-                    aria-label={isChartHelpOpen ? "분포 설명 닫기" : "분포 설명 보기"}
+                    aria-label={
+                      isChartHelpOpen ? "분포 설명 닫기" : "분포 설명 보기"
+                    }
                     aria-expanded={isChartHelpOpen}
                     aria-controls="distribution-chart-help"
                     onClick={() => setIsChartHelpOpen((current) => !current)}
@@ -664,18 +754,30 @@ export function DistributionPage({
                   </div>
                 ) : null}
                 {isChartHelpOpen ? (
-                  <div id="distribution-chart-help" className="distribution-chart__help-panel" role="note">
+                  <div
+                    id="distribution-chart-help"
+                    className="distribution-chart__help-panel"
+                    role="note"
+                  >
                     <p className="distribution-page__copy">
-                      출석률과 반대·기권 비중을 한 좌표에 두고, 불참과 연속 패턴을 함께 읽는 첫 분포 화면입니다.
+                      출석률과 반대·기권 비중을 한 좌표에 두고, 불참과 연속
+                      패턴을 함께 읽는 첫 분포 화면입니다.
                     </p>
                     <p className="distribution-chart__copy">
-                      가로축은 출석률, 세로축은 반대·기권 비중이며 값이 낮을수록 위로 올라갑니다. 점 크기는 현재 반대·기권·불참 연속 패턴을 반영합니다.
+                      가로축은 출석률, 세로축은 반대·기권 비중이며 값이 낮을수록
+                      위로 올라갑니다. 점 크기는 현재 반대·기권·불참 연속 패턴을
+                      반영합니다.
                     </p>
-                    <p className="distribution-page__search-note">{chartSearchNote}</p>
+                    <p className="distribution-page__search-note">
+                      {chartSearchNote}
+                    </p>
                   </div>
                 ) : null}
               </div>
-              <div className="distribution-chart__summary-grid" aria-label="분포 요약">
+              <div
+                className="distribution-chart__summary-grid"
+                aria-label="분포 요약"
+              >
                 <div className="chart-card__summary">
                   <span>대상 의원</span>
                   <strong>{`${formatNumber(filteredMembers.length)}명`}</strong>
@@ -693,15 +795,17 @@ export function DistributionPage({
                     {activeBehaviorSummary
                       ? "행동 분류 기준"
                       : activePartySummary
-                      ? `${activePartySummary.party} 필터 적용 중`
-                      : "기록표결 분모 기준"}
+                        ? `${activePartySummary.party} 필터 적용 중`
+                        : "기록표결 분모 기준"}
                   </small>
                 </div>
               </div>
             </div>
             <div className="distribution-chart__surface">
               <ResponsiveContainer width="100%" height={420}>
-                <ScatterChart margin={{ top: 22, right: 28, bottom: 34, left: 12 }}>
+                <ScatterChart
+                  margin={{ top: 22, right: 28, bottom: 34, left: 12 }}
+                >
                   <CartesianGrid stroke="rgba(72, 56, 40, 0.12)" />
                   <ReferenceLine
                     x={Number((averageAttendanceRate * 100).toFixed(1))}
@@ -719,7 +823,11 @@ export function DistributionPage({
                     domain={attendanceDomain}
                     tick={{ fill: "rgba(29, 24, 18, 0.72)", fontSize: 12 }}
                     tickFormatter={(value) => `${value}%`}
-                    label={{ value: "출석률", position: "insideBottom", offset: -12 }}
+                    label={{
+                      value: "출석률",
+                      position: "insideBottom",
+                      offset: -12
+                    }}
                   />
                   <YAxis
                     type="number"
@@ -729,7 +837,11 @@ export function DistributionPage({
                     tick={{ fill: "rgba(29, 24, 18, 0.72)", fontSize: 12 }}
                     tickFormatter={(value) => `${value}%`}
                     width={44}
-                    label={{ value: "반대·기권 비중", angle: -90, position: "insideLeft" }}
+                    label={{
+                      value: "반대·기권 비중",
+                      angle: -90,
+                      position: "insideLeft"
+                    }}
                   />
                   <Tooltip content={<DistributionTooltipPanel />} />
                   <Scatter
@@ -769,7 +881,10 @@ export function DistributionPage({
                     : "정당을 누르면 해당 정당만 남기고 점은 얼굴 대신 정당색으로 전환됩니다."}
                 </span>
               </div>
-              <ul className="distribution-chart__legend-list" aria-label="정당 필터">
+              <ul
+                className="distribution-chart__legend-list"
+                aria-label="정당 필터"
+              >
                 {partySummaries.map((summary) => (
                   <li key={summary.party}>
                     <button
@@ -787,7 +902,12 @@ export function DistributionPage({
                       }
                       onClick={() => handleTogglePartyFilter(summary.party)}
                     >
-                      <i style={{ backgroundColor: partyColors.get(summary.party) ?? partyPalette[0] }} />
+                      <i
+                        style={{
+                          backgroundColor:
+                            partyColors.get(summary.party) ?? partyPalette[0]
+                        }}
+                      />
                       <span>{summary.party}</span>
                       <strong>{`${formatNumber(summary.memberCount)}명`}</strong>
                       <small>{`평균 반대·기권 ${formatPercent(summary.averageNegativeRate)}`}</small>
@@ -822,9 +942,12 @@ export function DistributionPage({
             </div>
 
             <div className="distribution-focus__actions">
-              <a className="distribution-focus__action distribution-focus__action--primary" href={buildCalendarHref({
-                memberId: selectedMember.memberId
-              })}>
+              <a
+                className="distribution-focus__action distribution-focus__action--primary"
+                href={buildCalendarHref({
+                  memberId: selectedMember.memberId
+                })}
+              >
                 활동 캘린더 열기
               </a>
               {selectedMember.officialProfileUrl ? (
@@ -852,7 +975,11 @@ export function DistributionPage({
               <article className="distribution-focus__metric distribution-focus__metric--alert">
                 <span>반대·기권 비중</span>
                 <strong>{formatPercent(selectedMember.negativeRate)}</strong>
-                <small>{formatPercentPointDelta(selectedMember.negativeRate - averageNegativeRate)}</small>
+                <small>
+                  {formatPercentPointDelta(
+                    selectedMember.negativeRate - averageNegativeRate
+                  )}
+                </small>
               </article>
               <article className="distribution-focus__metric">
                 <span>불참 비중</span>
@@ -867,7 +994,10 @@ export function DistributionPage({
             </div>
 
             <div className="distribution-focus__composition">
-              <div className="distribution-focus__composition-bar" aria-hidden="true">
+              <div
+                className="distribution-focus__composition-bar"
+                aria-hidden="true"
+              >
                 <span
                   className="distribution-focus__segment distribution-focus__segment--yes"
                   style={{ width: `${selectedMember.yesRate * 100}%` }}
@@ -886,10 +1016,22 @@ export function DistributionPage({
                 />
               </div>
               <div className="distribution-focus__composition-list">
-                <span><i className="distribution-focus__dot distribution-focus__dot--yes" />찬성 {formatPercent(selectedMember.yesRate)}</span>
-                <span><i className="distribution-focus__dot distribution-focus__dot--no" />반대 {formatPercent(selectedMember.noRate)}</span>
-                <span><i className="distribution-focus__dot distribution-focus__dot--abstain" />기권 {formatPercent(selectedMember.abstainRate)}</span>
-                <span><i className="distribution-focus__dot distribution-focus__dot--absent" />불참 {formatPercent(selectedMember.absentRate)}</span>
+                <span>
+                  <i className="distribution-focus__dot distribution-focus__dot--yes" />
+                  찬성 {formatPercent(selectedMember.yesRate)}
+                </span>
+                <span>
+                  <i className="distribution-focus__dot distribution-focus__dot--no" />
+                  반대 {formatPercent(selectedMember.noRate)}
+                </span>
+                <span>
+                  <i className="distribution-focus__dot distribution-focus__dot--abstain" />
+                  기권 {formatPercent(selectedMember.abstainRate)}
+                </span>
+                <span>
+                  <i className="distribution-focus__dot distribution-focus__dot--absent" />
+                  불참 {formatPercent(selectedMember.absentRate)}
+                </span>
               </div>
             </div>
 
@@ -912,7 +1054,11 @@ export function DistributionPage({
               </div>
               <div>
                 <dt>출석률 위치</dt>
-                <dd>{formatPercentPointDelta(selectedMember.attendanceRate - averageAttendanceRate)}</dd>
+                <dd>
+                  {formatPercentPointDelta(
+                    selectedMember.attendanceRate - averageAttendanceRate
+                  )}
+                </dd>
               </div>
             </dl>
           </aside>
@@ -942,13 +1088,18 @@ export function DistributionPage({
           members={streakMembers}
           selectedMemberId={selectedMemberId}
           onSelectMember={handleSelectMember}
-          renderValue={(member) => `${formatNumber(member.currentNegativeOrAbsentStreak)}일`}
+          renderValue={(member) =>
+            `${formatNumber(member.currentNegativeOrAbsentStreak)}일`
+          }
         />
         <section className="distribution-signal-card distribution-signal-card--party">
           <div className="distribution-signal-card__header">
             <div>
               <p className="section-label">정당 필터</p>
-              <h3>정당 평균을 눌러 차트를 해당 정당만 남기는 강조 모드로 전환합니다.</h3>
+              <h3>
+                정당 평균을 눌러 차트를 해당 정당만 남기는 강조 모드로
+                전환합니다.
+              </h3>
             </div>
           </div>
           <ul className="distribution-party-list">
@@ -972,7 +1123,10 @@ export function DistributionPage({
                   <div className="distribution-party-list__title">
                     <span>
                       <i
-                        style={{ backgroundColor: partyColors.get(summary.party) ?? partyPalette[0] }}
+                        style={{
+                          backgroundColor:
+                            partyColors.get(summary.party) ?? partyPalette[0]
+                        }}
                       />
                       {summary.party}
                     </span>

@@ -24,7 +24,10 @@ const accountabilitySummaryFixture = JSON.parse(
   readFileSync(resolve(fixturesDir, "accountability_summary.json"), "utf8")
 );
 const busanTopologyFixture = JSON.parse(
-  readFileSync(resolve(fixturesDir, "constituency_province_busan.topo.json"), "utf8")
+  readFileSync(
+    resolve(fixturesDir, "constituency_province_busan.topo.json"),
+    "utf8"
+  )
 );
 
 describe("hex-cells", () => {
@@ -32,23 +35,25 @@ describe("hex-cells", () => {
     const staticResult = buildStaticHexCells(busanTopologyFixture, "부산");
     const summaryItems = accountabilitySummaryFixture.items
       .filter((item: { district?: string | null }) => Boolean(item.district))
-      .map((item: {
-        memberId: string;
-        name: string;
-        party: string;
-        district: string;
-        absentRate: number;
-        noRate: number;
-        abstainRate: number;
-      }) => ({
-        memberId: item.memberId,
-        name: item.name,
-        party: item.party,
-        district: item.district,
-        absentRate: item.absentRate,
-        noRate: item.noRate,
-        abstainRate: item.abstainRate
-      })) satisfies SummaryItem[];
+      .map(
+        (item: {
+          memberId: string;
+          name: string;
+          party: string;
+          district: string;
+          absentRate: number;
+          noRate: number;
+          abstainRate: number;
+        }) => ({
+          memberId: item.memberId,
+          name: item.name,
+          party: item.party,
+          district: item.district,
+          absentRate: item.absentRate,
+          noRate: item.noRate,
+          abstainRate: item.abstainRate
+        })
+      ) satisfies SummaryItem[];
 
     expect(staticResult.detailRes).toBeGreaterThanOrEqual(6);
     expect(staticResult.cells.length).toBeGreaterThan(0);
@@ -59,7 +64,11 @@ describe("hex-cells", () => {
       provinceShortName: "부산"
     });
 
-    const hydrated = hydrateHexCells(staticResult.cells, summaryItems, "absence");
+    const hydrated = hydrateHexCells(
+      staticResult.cells,
+      summaryItems,
+      "absence"
+    );
     expect(hydrated[0]).toMatchObject({
       districtKey: "부산남구",
       districtLabel: "부산 남구",

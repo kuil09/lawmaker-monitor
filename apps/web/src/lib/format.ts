@@ -1,4 +1,8 @@
-import type { SourceStatus, VoteCode, VoteVisibility } from "@lawmaker-monitor/schemas";
+import type {
+  SourceStatus,
+  VoteCode,
+  VoteVisibility
+} from "@lawmaker-monitor/schemas";
 
 const dateTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
   dateStyle: "long",
@@ -115,7 +119,10 @@ export function formatSourceStatusLabel(value: SourceStatus): string {
   return sourceStatusLabels[value] ?? value;
 }
 
-export function isSameKoreanDay(left: string, right: Date = new Date()): boolean {
+export function isSameKoreanDay(
+  left: string,
+  right: Date = new Date()
+): boolean {
   try {
     return getKoreanDateKey(left) === dayKeyFormatter.format(right);
   } catch {

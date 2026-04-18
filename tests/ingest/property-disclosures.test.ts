@@ -8,7 +8,10 @@ import {
   parsePropertyDisclosureSummary
 } from "../../packages/ingest/src/property-disclosures.js";
 import { loadPropertyMemberContext } from "../../packages/ingest/src/property-member-context.js";
-const propertyMirrorDir = resolve(process.cwd(), "tests/fixtures/property_mirror");
+const propertyMirrorDir = resolve(
+  process.cwd(),
+  "tests/fixtures/property_mirror"
+);
 
 async function loadCurrentFixtureMembers() {
   return loadPropertyMemberContext({
@@ -52,7 +55,10 @@ describe("property disclosure pipeline", () => {
       extractLawmakerLines([
         { pageNumber: 1, text: "1. 국회의원" },
         { pageNumber: 1, text: "소속 국회 직위 국회의원 성명 김기웅" },
-        { pageNumber: 1, text: "경기도 남양주시 다산동 다산안강럭스나인 대지 4.27㎡ 중" },
+        {
+          pageNumber: 1,
+          text: "경기도 남양주시 다산동 다산안강럭스나인 대지 4.27㎡ 중"
+        },
         { pageNumber: 1, text: "2.14㎡ 건물 19.66㎡ 중 9.83㎡" },
         { pageNumber: 2, text: "2. 법원공무원" },
         { pageNumber: 2, text: "소속 법원 직위 법관 성명 홍길동" }
@@ -81,7 +87,9 @@ describe("property disclosure pipeline", () => {
     expect(artifacts.categories).toHaveLength(9);
     expect(artifacts.items).toHaveLength(9);
 
-    expect(artifacts.files.map((file) => file.fileSeq)).toEqual([10001706, 10001707]);
+    expect(artifacts.files.map((file) => file.fileSeq)).toEqual([
+      10001706, 10001707
+    ]);
     expect(
       artifacts.records.map((record) => ({
         name: record.disclosureName,
@@ -96,7 +104,8 @@ describe("property disclosure pipeline", () => {
     ]);
 
     const regularKimAra = artifacts.records.find(
-      (record) => record.disclosureName === "김아라" && record.reportedAt === "2025-03-27"
+      (record) =>
+        record.disclosureName === "김아라" && record.reportedAt === "2025-03-27"
     );
     expect(regularKimAra).toMatchObject({
       pageStart: 1,
@@ -151,7 +160,9 @@ describe("property disclosure pipeline", () => {
       historyPath: "exports/member_assets_history/M001.json"
     });
 
-    const kimAraHistory = artifacts.memberAssetsHistory.find((item) => item.memberId === "M001");
+    const kimAraHistory = artifacts.memberAssetsHistory.find(
+      (item) => item.memberId === "M001"
+    );
     expect(kimAraHistory?.series).toHaveLength(2);
     expect(kimAraHistory?.series[0]).toMatchObject({
       reportedAt: "2025-03-27",
@@ -174,10 +185,14 @@ describe("property disclosure pipeline", () => {
       kimAraHistory?.categorySeries.map((series) => series.categoryLabel)
     ).toEqual(["예금", "건물", "증권"]);
     expect(
-      kimAraHistory?.selfOnly?.categorySeries.map((series) => series.categoryLabel)
+      kimAraHistory?.selfOnly?.categorySeries.map(
+        (series) => series.categoryLabel
+      )
     ).toEqual(["예금", "건물"]);
 
-    const parkMinHistory = artifacts.memberAssetsHistory.find((item) => item.memberId === "M002");
+    const parkMinHistory = artifacts.memberAssetsHistory.find(
+      (item) => item.memberId === "M002"
+    );
     expect(parkMinHistory?.selfOnly?.latestSummary).toMatchObject({
       currentAmount: 360000,
       deltaAmount: 10000

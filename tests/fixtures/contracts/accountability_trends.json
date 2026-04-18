@@ -4,18 +4,114 @@
   "assemblyNo": 22,
   "assemblyLabel": "제22대 국회",
   "weeks": [
-    { "weekStart": "2026-01-05", "weekEnd": "2026-01-11", "yesCount": 88, "noCount": 10, "abstainCount": 8, "absentCount": 6, "eligibleVoteCount": 112 },
-    { "weekStart": "2026-01-12", "weekEnd": "2026-01-18", "yesCount": 82, "noCount": 12, "abstainCount": 10, "absentCount": 8, "eligibleVoteCount": 112 },
-    { "weekStart": "2026-01-19", "weekEnd": "2026-01-25", "yesCount": 76, "noCount": 13, "abstainCount": 12, "absentCount": 11, "eligibleVoteCount": 112 },
-    { "weekStart": "2026-01-26", "weekEnd": "2026-02-01", "yesCount": 70, "noCount": 16, "abstainCount": 13, "absentCount": 13, "eligibleVoteCount": 112 },
-    { "weekStart": "2026-02-02", "weekEnd": "2026-02-08", "yesCount": 92, "noCount": 0, "abstainCount": 0, "absentCount": 0, "eligibleVoteCount": 92 },
-    { "weekStart": "2026-02-09", "weekEnd": "2026-02-15", "yesCount": 65, "noCount": 17, "abstainCount": 14, "absentCount": 12, "eligibleVoteCount": 108 },
-    { "weekStart": "2026-02-16", "weekEnd": "2026-02-22", "yesCount": 61, "noCount": 18, "abstainCount": 15, "absentCount": 14, "eligibleVoteCount": 108 },
-    { "weekStart": "2026-02-23", "weekEnd": "2026-03-01", "yesCount": 56, "noCount": 20, "abstainCount": 16, "absentCount": 16, "eligibleVoteCount": 108 },
-    { "weekStart": "2026-03-02", "weekEnd": "2026-03-08", "yesCount": 52, "noCount": 20, "abstainCount": 18, "absentCount": 18, "eligibleVoteCount": 108 },
-    { "weekStart": "2026-03-09", "weekEnd": "2026-03-15", "yesCount": 48, "noCount": 21, "abstainCount": 19, "absentCount": 20, "eligibleVoteCount": 108 },
-    { "weekStart": "2026-03-16", "weekEnd": "2026-03-22", "yesCount": 44, "noCount": 24, "abstainCount": 20, "absentCount": 20, "eligibleVoteCount": 108 },
-    { "weekStart": "2026-03-23", "weekEnd": "2026-03-29", "yesCount": 0, "noCount": 0, "abstainCount": 0, "absentCount": 0, "eligibleVoteCount": 0 }
+    {
+      "weekStart": "2026-01-05",
+      "weekEnd": "2026-01-11",
+      "yesCount": 88,
+      "noCount": 10,
+      "abstainCount": 8,
+      "absentCount": 6,
+      "eligibleVoteCount": 112
+    },
+    {
+      "weekStart": "2026-01-12",
+      "weekEnd": "2026-01-18",
+      "yesCount": 82,
+      "noCount": 12,
+      "abstainCount": 10,
+      "absentCount": 8,
+      "eligibleVoteCount": 112
+    },
+    {
+      "weekStart": "2026-01-19",
+      "weekEnd": "2026-01-25",
+      "yesCount": 76,
+      "noCount": 13,
+      "abstainCount": 12,
+      "absentCount": 11,
+      "eligibleVoteCount": 112
+    },
+    {
+      "weekStart": "2026-01-26",
+      "weekEnd": "2026-02-01",
+      "yesCount": 70,
+      "noCount": 16,
+      "abstainCount": 13,
+      "absentCount": 13,
+      "eligibleVoteCount": 112
+    },
+    {
+      "weekStart": "2026-02-02",
+      "weekEnd": "2026-02-08",
+      "yesCount": 92,
+      "noCount": 0,
+      "abstainCount": 0,
+      "absentCount": 0,
+      "eligibleVoteCount": 92
+    },
+    {
+      "weekStart": "2026-02-09",
+      "weekEnd": "2026-02-15",
+      "yesCount": 65,
+      "noCount": 17,
+      "abstainCount": 14,
+      "absentCount": 12,
+      "eligibleVoteCount": 108
+    },
+    {
+      "weekStart": "2026-02-16",
+      "weekEnd": "2026-02-22",
+      "yesCount": 61,
+      "noCount": 18,
+      "abstainCount": 15,
+      "absentCount": 14,
+      "eligibleVoteCount": 108
+    },
+    {
+      "weekStart": "2026-02-23",
+      "weekEnd": "2026-03-01",
+      "yesCount": 56,
+      "noCount": 20,
+      "abstainCount": 16,
+      "absentCount": 16,
+      "eligibleVoteCount": 108
+    },
+    {
+      "weekStart": "2026-03-02",
+      "weekEnd": "2026-03-08",
+      "yesCount": 52,
+      "noCount": 20,
+      "abstainCount": 18,
+      "absentCount": 18,
+      "eligibleVoteCount": 108
+    },
+    {
+      "weekStart": "2026-03-09",
+      "weekEnd": "2026-03-15",
+      "yesCount": 48,
+      "noCount": 21,
+      "abstainCount": 19,
+      "absentCount": 20,
+      "eligibleVoteCount": 108
+    },
+    {
+      "weekStart": "2026-03-16",
+      "weekEnd": "2026-03-22",
+      "yesCount": 44,
+      "noCount": 24,
+      "abstainCount": 20,
+      "absentCount": 20,
+      "eligibleVoteCount": 108
+    },
+    {
+      "weekStart": "2026-03-23",
+      "weekEnd": "2026-03-29",
+      "yesCount": 0,
+      "noCount": 0,
+      "abstainCount": 0,
+      "absentCount": 0,
+      "eligibleVoteCount": 0
+    }
   ],
   "movers": [
     {

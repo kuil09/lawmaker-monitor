@@ -19,10 +19,17 @@ import {
 let browser: Browser;
 let appServer: Server | undefined;
 let dataServer: Server | undefined;
-const scenarioManifest: Array<{ viewport: string; scenario: string; screenshot: string }> = [];
+const scenarioManifest: Array<{
+  viewport: string;
+  scenario: string;
+  screenshot: string;
+}> = [];
 
 async function openHomeFlow(viewportName: string): Promise<void> {
-  const { context, page, issues } = await createBrowserSession(browser, viewportCases.find((item) => item.name === viewportName)!);
+  const { context, page, issues } = await createBrowserSession(
+    browser,
+    viewportCases.find((item) => item.name === viewportName)!
+  );
 
   try {
     await page.goto(appUrl, { waitUntil: "networkidle" });
@@ -39,36 +46,60 @@ async function openHomeFlow(viewportName: string): Promise<void> {
     });
 
     await page.getByRole("heading", { name: "국회 책임성 모니터" }).waitFor();
-    await page.getByRole("heading", { name: "제22대 국회 의원 순위" }).waitFor();
-    expect(await page.getByRole("heading", { name: "제22대 국회 의원 순위" }).isVisible()).toBe(true);
-    expect(await page.getByRole("button", { name: "활동 캘린더 열기" }).isDisabled()).toBe(true);
+    await page
+      .getByRole("heading", { name: "제22대 국회 의원 순위" })
+      .waitFor();
+    expect(
+      await page
+        .getByRole("heading", { name: "제22대 국회 의원 순위" })
+        .isVisible()
+    ).toBe(true);
+    expect(
+      await page.getByRole("button", { name: "활동 캘린더 열기" }).isDisabled()
+    ).toBe(true);
     await expect
-      .poll(async () => page.getByRole("tab", { name: "불참" }).getAttribute("aria-selected"))
+      .poll(async () =>
+        page.getByRole("tab", { name: "불참" }).getAttribute("aria-selected")
+      )
       .toBe("true");
 
     const navLinks = await page.locator(".global-nav__link").count();
     expect(navLinks).toBeGreaterThanOrEqual(2);
 
-    const searchLayout = await page.locator(".search-panel").evaluate((element) => {
-      const panel = element as HTMLElement;
-      const layout = panel.querySelector(".search-panel__layout") as HTMLElement | null;
-      const form = panel.querySelector(".search-panel__form") as HTMLElement | null;
-      const explore = panel.querySelector(".search-panel__explore") as HTMLElement | null;
-      const exploreAction = panel.querySelector(".search-panel__explore-action") as HTMLElement | null;
+    const searchLayout = await page
+      .locator(".search-panel")
+      .evaluate((element) => {
+        const panel = element as HTMLElement;
+        const layout = panel.querySelector(
+          ".search-panel__layout"
+        ) as HTMLElement | null;
+        const form = panel.querySelector(
+          ".search-panel__form"
+        ) as HTMLElement | null;
+        const explore = panel.querySelector(
+          ".search-panel__explore"
+        ) as HTMLElement | null;
+        const exploreAction = panel.querySelector(
+          ".search-panel__explore-action"
+        ) as HTMLElement | null;
 
-      if (!layout || !form || !explore || !exploreAction) {
-        return null;
-      }
+        if (!layout || !form || !explore || !exploreAction) {
+          return null;
+        }
 
-      return {
-        panelOverflow: panel.scrollWidth - panel.clientWidth,
-        layoutColumnCount: window.getComputedStyle(layout).gridTemplateColumns.split(" ").length,
-        exploreActionInForm: form.contains(exploreAction),
-        exploreButtonHeight: exploreAction.getBoundingClientRect().height
-      };
-    });
+        return {
+          panelOverflow: panel.scrollWidth - panel.clientWidth,
+          layoutColumnCount: window
+            .getComputedStyle(layout)
+            .gridTemplateColumns.split(" ").length,
+          exploreActionInForm: form.contains(exploreAction),
+          exploreButtonHeight: exploreAction.getBoundingClientRect().height
+        };
+      });
 
-    const leaderboardPrimaryLink = page.locator(".member-identity--small .member-identity__primary").first();
+    const leaderboardPrimaryLink = page
+      .locator(".member-identity--small .member-identity__primary")
+      .first();
     await leaderboardPrimaryLink.waitFor();
 
     const leaderboardPrimaryHeight = await leaderboardPrimaryLink.evaluate(
@@ -76,12 +107,22 @@ async function openHomeFlow(viewportName: string): Promise<void> {
     );
     const heroLayout = await page.locator(".hero-panel").evaluate((element) => {
       const panel = element as HTMLElement;
-      const masthead = panel.querySelector(".hero-panel__masthead") as HTMLElement | null;
-      const chips = panel.querySelector(".hero-panel__chips") as HTMLElement | null;
-      const freshness = panel.querySelector(".freshness-indicator") as HTMLElement | null;
-      const headline = panel.querySelector(".hero-panel__headline") as HTMLElement | null;
+      const masthead = panel.querySelector(
+        ".hero-panel__masthead"
+      ) as HTMLElement | null;
+      const chips = panel.querySelector(
+        ".hero-panel__chips"
+      ) as HTMLElement | null;
+      const freshness = panel.querySelector(
+        ".freshness-indicator"
+      ) as HTMLElement | null;
+      const headline = panel.querySelector(
+        ".hero-panel__headline"
+      ) as HTMLElement | null;
       const title = headline?.querySelector("h1") as HTMLElement | null;
-      const lede = panel.querySelector(".hero-panel__lede") as HTMLElement | null;
+      const lede = panel.querySelector(
+        ".hero-panel__lede"
+      ) as HTMLElement | null;
 
       if (!masthead || !chips || !freshness || !headline || !title || !lede) {
         return null;
@@ -93,40 +134,64 @@ async function openHomeFlow(viewportName: string): Promise<void> {
 
       return {
         panelOverflow: panel.scrollWidth - panel.clientWidth,
-        mastheadColumns: window.getComputedStyle(masthead).gridTemplateColumns.split(" ").length,
-        chipsBottomToFreshnessTop: freshness.getBoundingClientRect().top - chips.getBoundingClientRect().bottom,
-        ledeTopToTitleBottom: lede.getBoundingClientRect().top - titleRect.bottom,
+        mastheadColumns: window
+          .getComputedStyle(masthead)
+          .gridTemplateColumns.split(" ").length,
+        chipsBottomToFreshnessTop:
+          freshness.getBoundingClientRect().top -
+          chips.getBoundingClientRect().bottom,
+        ledeTopToTitleBottom:
+          lede.getBoundingClientRect().top - titleRect.bottom,
         titleLineCount:
           Number.isFinite(titleLineHeight) && titleLineHeight > 0
             ? titleRect.height / titleLineHeight
             : null
       };
     });
-    const leaderboardLayout = await page.locator(".ranking-item").first().evaluate((element) => {
-      const content = element.querySelector(".ranking-item__content") as HTMLElement | null;
-      const stats = element.querySelector(".ranking-item__stats") as HTMLElement | null;
-      const graph = element.querySelector(".ranking-item__graph") as HTMLElement | null;
-      const meta = element.querySelector(".ranking-item__meta") as HTMLElement | null;
-      const metaItems = Array.from(element.querySelectorAll(".ranking-item__meta-item")) as HTMLElement[];
+    const leaderboardLayout = await page
+      .locator(".ranking-item")
+      .first()
+      .evaluate((element) => {
+        const content = element.querySelector(
+          ".ranking-item__content"
+        ) as HTMLElement | null;
+        const stats = element.querySelector(
+          ".ranking-item__stats"
+        ) as HTMLElement | null;
+        const graph = element.querySelector(
+          ".ranking-item__graph"
+        ) as HTMLElement | null;
+        const meta = element.querySelector(
+          ".ranking-item__meta"
+        ) as HTMLElement | null;
+        const metaItems = Array.from(
+          element.querySelectorAll(".ranking-item__meta-item")
+        ) as HTMLElement[];
 
-      if (!content || !stats || !graph || !meta) {
-        return null;
-      }
+        if (!content || !stats || !graph || !meta) {
+          return null;
+        }
 
-      const contentRect = content.getBoundingClientRect();
-      const graphRect = graph.getBoundingClientRect();
-      const metaRect = meta.getBoundingClientRect();
+        const contentRect = content.getBoundingClientRect();
+        const graphRect = graph.getBoundingClientRect();
+        const metaRect = meta.getBoundingClientRect();
 
-      return {
-        statsHeight: stats.getBoundingClientRect().height,
-        graphOffsetLeft: graphRect.left - contentRect.left,
-        metaOffsetLeft: metaRect.left - contentRect.left,
-        metaColumnCount: window.getComputedStyle(meta).gridTemplateColumns.split(" ").length,
-        contentColumnCount: window.getComputedStyle(content).gridTemplateColumns.split(" ").length,
-        itemOverflow: element.scrollWidth - element.clientWidth,
-        metaItemHeights: metaItems.map((metaItem) => metaItem.getBoundingClientRect().height)
-      };
-    });
+        return {
+          statsHeight: stats.getBoundingClientRect().height,
+          graphOffsetLeft: graphRect.left - contentRect.left,
+          metaOffsetLeft: metaRect.left - contentRect.left,
+          metaColumnCount: window
+            .getComputedStyle(meta)
+            .gridTemplateColumns.split(" ").length,
+          contentColumnCount: window
+            .getComputedStyle(content)
+            .gridTemplateColumns.split(" ").length,
+          itemOverflow: element.scrollWidth - element.clientWidth,
+          metaItemHeights: metaItems.map(
+            (metaItem) => metaItem.getBoundingClientRect().height
+          )
+        };
+      });
     expect(leaderboardPrimaryHeight).toBeGreaterThanOrEqual(44);
     expect(heroLayout).not.toBeNull();
     expect(heroLayout?.panelOverflow ?? 99).toBeLessThanOrEqual(1);
@@ -140,11 +205,15 @@ async function openHomeFlow(viewportName: string): Promise<void> {
     expect(Math.abs(leaderboardLayout?.graphOffsetLeft ?? 99)).toBeLessThan(2);
     expect(Math.abs(leaderboardLayout?.metaOffsetLeft ?? 99)).toBeLessThan(2);
     expect(leaderboardLayout?.itemOverflow ?? 99).toBeLessThanOrEqual(1);
-    expect((leaderboardLayout?.metaItemHeights ?? []).every((height) => height >= 32)).toBe(true);
+    expect(
+      (leaderboardLayout?.metaItemHeights ?? []).every((height) => height >= 32)
+    ).toBe(true);
 
     if (viewportName === "mobile") {
       expect(heroLayout?.mastheadColumns).toBe(1);
-      expect(heroLayout?.chipsBottomToFreshnessTop ?? -1).toBeGreaterThanOrEqual(0);
+      expect(
+        heroLayout?.chipsBottomToFreshnessTop ?? -1
+      ).toBeGreaterThanOrEqual(0);
       expect(heroLayout?.titleLineCount ?? 99).toBeLessThanOrEqual(2.4);
       expect(searchLayout?.layoutColumnCount).toBe(1);
       expect(leaderboardLayout?.metaColumnCount).toBe(2);
@@ -155,17 +224,32 @@ async function openHomeFlow(viewportName: string): Promise<void> {
       expect(searchLayout?.layoutColumnCount).toBe(2);
     }
 
-    const homeScreenshot = await saveScreenshot(page, `${viewportName}/home.png`);
-    scenarioManifest.push({ viewport: viewportName, scenario: "home-overview", screenshot: homeScreenshot });
+    const homeScreenshot = await saveScreenshot(
+      page,
+      `${viewportName}/home.png`
+    );
+    scenarioManifest.push({
+      viewport: viewportName,
+      scenario: "home-overview",
+      screenshot: homeScreenshot
+    });
 
     const searchField = page.getByRole("combobox", { name: "의원 검색" });
     await searchField.fill("박민");
     await searchField.press("Tab");
-    await expect.poll(async () => page.getByRole("button", { name: "활동 캘린더 열기" }).isEnabled()).toBe(true);
+    await expect
+      .poll(async () =>
+        page.getByRole("button", { name: "활동 캘린더 열기" }).isEnabled()
+      )
+      .toBe(true);
     await page.getByRole("button", { name: "활동 캘린더 열기" }).click();
 
-    await expect.poll(() => new URL(page.url()).hash).toBe("#calendar?member=M002");
-    await page.getByRole("heading", { name: "의원 표결 활동 그래프" }).waitFor();
+    await expect
+      .poll(() => new URL(page.url()).hash)
+      .toBe("#calendar?member=M002");
+    await page
+      .getByRole("heading", { name: "의원 표결 활동 그래프" })
+      .waitFor();
     await page.getByRole("heading", { name: "최근 표결 날짜 흐름" }).waitFor();
     await page.getByText("현재 소속 위원회", { exact: true }).waitFor();
 
@@ -202,63 +286,107 @@ async function openHomeFlow(viewportName: string): Promise<void> {
       expect(helpButtonBounds.height).toBeGreaterThanOrEqual(48);
     }
 
-    const memberHeaderLayout = await page.locator(".activity-drawer__member-header").evaluate((element) => {
-      const header = element as HTMLElement;
-      const identityRow = header.querySelector(".activity-drawer__identity-row") as HTMLElement | null;
-      const actions = header.querySelector(".activity-page__member-actions") as HTMLElement | null;
-      const context = header.querySelector(".activity-drawer__member-context") as HTMLElement | null;
-      const memberships = header.querySelector(".activity-drawer__committee-memberships") as HTMLElement | null;
-      const summary = header.querySelector(".activity-drawer__summary") as HTMLElement | null;
-      const actionButtons = Array.from(
-        header.querySelectorAll(".activity-page__member-actions .activity-page__action-button")
-      ) as HTMLElement[];
-      const summaryCards = Array.from(header.querySelectorAll(".activity-drawer__summary > div")) as HTMLElement[];
+    const memberHeaderLayout = await page
+      .locator(".activity-drawer__member-header")
+      .evaluate((element) => {
+        const header = element as HTMLElement;
+        const identityRow = header.querySelector(
+          ".activity-drawer__identity-row"
+        ) as HTMLElement | null;
+        const actions = header.querySelector(
+          ".activity-page__member-actions"
+        ) as HTMLElement | null;
+        const context = header.querySelector(
+          ".activity-drawer__member-context"
+        ) as HTMLElement | null;
+        const memberships = header.querySelector(
+          ".activity-drawer__committee-memberships"
+        ) as HTMLElement | null;
+        const summary = header.querySelector(
+          ".activity-drawer__summary"
+        ) as HTMLElement | null;
+        const actionButtons = Array.from(
+          header.querySelectorAll(
+            ".activity-page__member-actions .activity-page__action-button"
+          )
+        ) as HTMLElement[];
+        const summaryCards = Array.from(
+          header.querySelectorAll(".activity-drawer__summary > div")
+        ) as HTMLElement[];
 
-      if (!identityRow || !actions || !context || !memberships || !summary) {
-        return null;
-      }
+        if (!identityRow || !actions || !context || !memberships || !summary) {
+          return null;
+        }
 
-      const actionsRect = actions.getBoundingClientRect();
-      const membershipsRect = memberships.getBoundingClientRect();
+        const actionsRect = actions.getBoundingClientRect();
+        const membershipsRect = memberships.getBoundingClientRect();
 
-      return {
-        headerOverflow: header.scrollWidth - header.clientWidth,
-        identityColumns: window.getComputedStyle(identityRow).gridTemplateColumns.split(" ").length,
-        contextColumns: window.getComputedStyle(context).gridTemplateColumns.split(" ").length,
-        summaryColumns: window.getComputedStyle(summary).gridTemplateColumns.split(" ").length,
-        actionsBottomToMembershipsTop: membershipsRect.top - actionsRect.bottom,
-        actionButtonHeights: actionButtons.map((button) => button.getBoundingClientRect().height),
-        summaryCardHeights: summaryCards.map((card) => card.getBoundingClientRect().height)
-      };
-    });
+        return {
+          headerOverflow: header.scrollWidth - header.clientWidth,
+          identityColumns: window
+            .getComputedStyle(identityRow)
+            .gridTemplateColumns.split(" ").length,
+          contextColumns: window
+            .getComputedStyle(context)
+            .gridTemplateColumns.split(" ").length,
+          summaryColumns: window
+            .getComputedStyle(summary)
+            .gridTemplateColumns.split(" ").length,
+          actionsBottomToMembershipsTop:
+            membershipsRect.top - actionsRect.bottom,
+          actionButtonHeights: actionButtons.map(
+            (button) => button.getBoundingClientRect().height
+          ),
+          summaryCardHeights: summaryCards.map(
+            (card) => card.getBoundingClientRect().height
+          )
+        };
+      });
     expect(memberHeaderLayout).not.toBeNull();
     expect(memberHeaderLayout?.headerOverflow ?? 99).toBeLessThanOrEqual(1);
-    expect((memberHeaderLayout?.actionButtonHeights ?? []).every((height) => height >= 44)).toBe(true);
-    expect((memberHeaderLayout?.summaryCardHeights ?? []).every((height) => height >= 60)).toBe(true);
+    expect(
+      (memberHeaderLayout?.actionButtonHeights ?? []).every(
+        (height) => height >= 44
+      )
+    ).toBe(true);
+    expect(
+      (memberHeaderLayout?.summaryCardHeights ?? []).every(
+        (height) => height >= 60
+      )
+    ).toBe(true);
 
-    const committeeToggle = page.locator(".activity-committee-card__details-toggle").first();
+    const committeeToggle = page
+      .locator(".activity-committee-card__details-toggle")
+      .first();
     await committeeToggle.waitFor();
 
-    const toggleHeight = await committeeToggle.evaluate((element) =>
-      element.getBoundingClientRect().height
+    const toggleHeight = await committeeToggle.evaluate(
+      (element) => element.getBoundingClientRect().height
     );
     expect(toggleHeight).toBeGreaterThanOrEqual(44);
 
     await committeeToggle.click();
 
-    const firstCommitteeRecord = page.locator(".activity-committee-card__record-link").first();
+    const firstCommitteeRecord = page
+      .locator(".activity-committee-card__record-link")
+      .first();
     await firstCommitteeRecord.waitFor();
 
-    const committeeRecordLayout = await firstCommitteeRecord.evaluate((element) => {
-      const title = element.querySelector(".activity-committee-card__record-title") as HTMLElement | null;
-      const titleStyles = title ? window.getComputedStyle(title) : null;
+    const committeeRecordLayout = await firstCommitteeRecord.evaluate(
+      (element) => {
+        const title = element.querySelector(
+          ".activity-committee-card__record-title"
+        ) as HTMLElement | null;
+        const titleStyles = title ? window.getComputedStyle(title) : null;
 
-      return {
-        height: element.getBoundingClientRect().height,
-        titleWhiteSpace: titleStyles?.whiteSpace ?? "",
-        titleLineClamp: titleStyles?.getPropertyValue("-webkit-line-clamp") ?? ""
-      };
-    });
+        return {
+          height: element.getBoundingClientRect().height,
+          titleWhiteSpace: titleStyles?.whiteSpace ?? "",
+          titleLineClamp:
+            titleStyles?.getPropertyValue("-webkit-line-clamp") ?? ""
+        };
+      }
+    );
 
     expect(committeeRecordLayout.height).toBeGreaterThanOrEqual(44);
     expect(committeeRecordLayout.titleWhiteSpace).not.toBe("nowrap");
@@ -286,10 +414,15 @@ async function openHomeFlow(viewportName: string): Promise<void> {
       expect(memberHeaderLayout?.identityColumns).toBe(1);
       expect(memberHeaderLayout?.contextColumns).toBe(1);
       expect(memberHeaderLayout?.summaryColumns).toBe(2);
-      expect(memberHeaderLayout?.actionsBottomToMembershipsTop ?? -1).toBeGreaterThanOrEqual(0);
+      expect(
+        memberHeaderLayout?.actionsBottomToMembershipsTop ?? -1
+      ).toBeGreaterThanOrEqual(0);
     }
 
-    const calendarScreenshot = await saveScreenshot(page, `${viewportName}/calendar-single.png`);
+    const calendarScreenshot = await saveScreenshot(
+      page,
+      `${viewportName}/calendar-single.png`
+    );
     scenarioManifest.push({
       viewport: viewportName,
       scenario: "home-search-to-single-calendar",
@@ -299,13 +432,17 @@ async function openHomeFlow(viewportName: string): Promise<void> {
     const voteRecordSection = page.locator(".activity-vote-records").first();
     await voteRecordSection.scrollIntoViewIfNeeded();
     await voteRecordSection.waitFor();
-    expect(await voteRecordSection.getByText("불참", { exact: true }).isVisible()).toBe(true);
+    expect(
+      await voteRecordSection.getByText("불참", { exact: true }).isVisible()
+    ).toBe(true);
 
-    const voteRecordToggle = voteRecordSection.locator(".activity-vote-records__details-toggle");
-    expect(await voteRecordToggle.count()).toBeGreaterThan(0);
-    const voteRecordToggleHeight = await voteRecordToggle.first().evaluate((element) =>
-      element.getBoundingClientRect().height
+    const voteRecordToggle = voteRecordSection.locator(
+      ".activity-vote-records__details-toggle"
     );
+    expect(await voteRecordToggle.count()).toBeGreaterThan(0);
+    const voteRecordToggleHeight = await voteRecordToggle
+      .first()
+      .evaluate((element) => element.getBoundingClientRect().height);
     expect(voteRecordToggleHeight).toBeGreaterThanOrEqual(44);
 
     const voteRecordsScreenshot = await saveLocatorScreenshot(
@@ -329,10 +466,15 @@ async function openHomeFlow(viewportName: string): Promise<void> {
 }
 
 async function openCompareFlow(viewportName: string): Promise<void> {
-  const { context, page, issues } = await createBrowserSession(browser, viewportCases.find((item) => item.name === viewportName)!);
+  const { context, page, issues } = await createBrowserSession(
+    browser,
+    viewportCases.find((item) => item.name === viewportName)!
+  );
 
   try {
-    await page.goto(`${appUrl}/#calendar?member=M002`, { waitUntil: "networkidle" });
+    await page.goto(`${appUrl}/#calendar?member=M002`, {
+      waitUntil: "networkidle"
+    });
     await page.addStyleTag({
       content: `
         *,
@@ -345,19 +487,28 @@ async function openCompareFlow(viewportName: string): Promise<void> {
       `
     });
 
-    await page.getByRole("heading", { name: "의원 표결 활동 그래프" }).waitFor();
+    await page
+      .getByRole("heading", { name: "의원 표결 활동 그래프" })
+      .waitFor();
     await page.getByRole("heading", { name: "최근 표결 날짜 흐름" }).waitFor();
     await page.getByRole("button", { name: "설명 보기" }).click();
-    await page.getByText(/이 화면은 표결이 있었던 날짜를 하루 단위로 묶어 보여줍니다/).waitFor();
+    await page
+      .getByText(/이 화면은 표결이 있었던 날짜를 하루 단위로 묶어 보여줍니다/)
+      .waitFor();
 
-    const helpScreenshot = await saveScreenshot(page, `${viewportName}/calendar-help.png`);
+    const helpScreenshot = await saveScreenshot(
+      page,
+      `${viewportName}/calendar-help.png`
+    );
     scenarioManifest.push({
       viewport: viewportName,
       scenario: "calendar-help",
       screenshot: helpScreenshot
     });
 
-    const viewportLocator = page.locator(".activity-drawer__main .contribution-calendar__viewport").first();
+    const viewportLocator = page
+      .locator(".activity-drawer__main .contribution-calendar__viewport")
+      .first();
     await viewportLocator.evaluate((element) => {
       const viewport = element as HTMLDivElement;
       viewport.scrollLeft = 0;
@@ -385,20 +536,32 @@ async function openCompareFlow(viewportName: string): Promise<void> {
     }
 
     await page.getByRole("tab", { name: "VS 비교" }).click();
-    expect(await page.getByRole("tab", { name: "VS 비교" }).getAttribute("aria-selected")).toBe("true");
+    expect(
+      await page
+        .getByRole("tab", { name: "VS 비교" })
+        .getAttribute("aria-selected")
+    ).toBe("true");
 
-    const compareSearchField = page.getByRole("combobox", { name: "비교 의원 찾기" });
+    const compareSearchField = page.getByRole("combobox", {
+      name: "비교 의원 찾기"
+    });
     await compareSearchField.fill("김아라");
     await compareSearchField.press("Tab");
-    await expect.poll(() => compareSearchField.inputValue()).toContain("김아라");
+    await expect
+      .poll(() => compareSearchField.inputValue())
+      .toContain("김아라");
 
-    await page.getByRole("region", { name: "비교 요약", exact: true }).waitFor();
+    await page
+      .getByRole("region", { name: "비교 요약", exact: true })
+      .waitFor();
     expect(await page.getByText("김아라").count()).toBeGreaterThan(0);
     expect(await page.getByText("박민").count()).toBeGreaterThan(0);
 
     const compareAvatarWidths = await page
       .locator(".activity-compare__column .member-identity__avatar")
-      .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().width));
+      .evaluateAll((elements) =>
+        elements.map((element) => element.getBoundingClientRect().width)
+      );
     expect(compareAvatarWidths).toHaveLength(2);
     expect(compareAvatarWidths.every((width) => width <= 40)).toBe(true);
 
@@ -406,25 +569,39 @@ async function openCompareFlow(viewportName: string): Promise<void> {
       .locator(".activity-ratio-card--compare")
       .evaluate((element) => {
         const card = element as HTMLElement;
-        const legend = card.querySelector(".activity-ratio-compare__legend") as HTMLElement | null;
+        const legend = card.querySelector(
+          ".activity-ratio-compare__legend"
+        ) as HTMLElement | null;
         const legendItems = Array.from(
           card.querySelectorAll(".activity-ratio-compare__legend-item")
         ) as HTMLElement[];
-        const table = card.querySelector(".activity-ratio-compare__table") as HTMLElement | null;
-        const headRow = card.querySelector(".activity-ratio-compare__row--head") as HTMLElement | null;
+        const table = card.querySelector(
+          ".activity-ratio-compare__table"
+        ) as HTMLElement | null;
+        const headRow = card.querySelector(
+          ".activity-ratio-compare__row--head"
+        ) as HTMLElement | null;
         const firstDataRow = card.querySelector(
           ".activity-ratio-compare__row:not(.activity-ratio-compare__row--head)"
         ) as HTMLElement | null;
-        const values = firstDataRow?.querySelector(".activity-ratio-compare__values") as
-          | HTMLElement
-          | null;
-        const cells = Array.from(firstDataRow?.querySelectorAll(".activity-ratio-compare__cell") ?? []) as
-          HTMLElement[];
+        const values = firstDataRow?.querySelector(
+          ".activity-ratio-compare__values"
+        ) as HTMLElement | null;
+        const cells = Array.from(
+          firstDataRow?.querySelectorAll(".activity-ratio-compare__cell") ?? []
+        ) as HTMLElement[];
         const firstCellLabel = firstDataRow?.querySelector(
           ".activity-ratio-compare__cell-label"
         ) as HTMLElement | null;
 
-        if (!legend || !table || !headRow || !firstDataRow || !values || cells.length === 0) {
+        if (
+          !legend ||
+          !table ||
+          !headRow ||
+          !firstDataRow ||
+          !values ||
+          cells.length === 0
+        ) {
           return null;
         }
 
@@ -432,12 +609,22 @@ async function openCompareFlow(viewportName: string): Promise<void> {
           cardOverflow: card.scrollWidth - card.clientWidth,
           tableOverflow: table.scrollWidth - table.clientWidth,
           rowOverflow: firstDataRow.scrollWidth - firstDataRow.clientWidth,
-          legendColumns: window.getComputedStyle(legend).gridTemplateColumns.split(" ").length,
-          valuesColumns: window.getComputedStyle(values).gridTemplateColumns.split(" ").length,
-          rowColumns: window.getComputedStyle(firstDataRow).gridTemplateColumns.split(" ").length,
+          legendColumns: window
+            .getComputedStyle(legend)
+            .gridTemplateColumns.split(" ").length,
+          valuesColumns: window
+            .getComputedStyle(values)
+            .gridTemplateColumns.split(" ").length,
+          rowColumns: window
+            .getComputedStyle(firstDataRow)
+            .gridTemplateColumns.split(" ").length,
           headDisplay: window.getComputedStyle(headRow).display,
-          firstCellLabelDisplay: firstCellLabel ? window.getComputedStyle(firstCellLabel).display : null,
-          legendItemHeights: legendItems.map((item) => item.getBoundingClientRect().height),
+          firstCellLabelDisplay: firstCellLabel
+            ? window.getComputedStyle(firstCellLabel).display
+            : null,
+          legendItemHeights: legendItems.map(
+            (item) => item.getBoundingClientRect().height
+          ),
           cellHeights: cells.map((cell) => cell.getBoundingClientRect().height)
         };
       });
@@ -445,8 +632,14 @@ async function openCompareFlow(viewportName: string): Promise<void> {
     expect(compareRatioLayout?.cardOverflow ?? 99).toBeLessThanOrEqual(1);
     expect(compareRatioLayout?.tableOverflow ?? 99).toBeLessThanOrEqual(1);
     expect(compareRatioLayout?.rowOverflow ?? 99).toBeLessThanOrEqual(1);
-    expect((compareRatioLayout?.legendItemHeights ?? []).every((height) => height >= 44)).toBe(true);
-    expect((compareRatioLayout?.cellHeights ?? []).every((height) => height >= 44)).toBe(true);
+    expect(
+      (compareRatioLayout?.legendItemHeights ?? []).every(
+        (height) => height >= 44
+      )
+    ).toBe(true);
+    expect(
+      (compareRatioLayout?.cellHeights ?? []).every((height) => height >= 44)
+    ).toBe(true);
 
     if (viewportName === "mobile") {
       expect(compareRatioLayout?.legendColumns).toBe(1);
@@ -456,18 +649,30 @@ async function openCompareFlow(viewportName: string): Promise<void> {
       expect(compareRatioLayout?.firstCellLabelDisplay).not.toBe("none");
     }
 
-    const compareScreenshot = await saveScreenshot(page, `${viewportName}/calendar-compare.png`);
+    const compareScreenshot = await saveScreenshot(
+      page,
+      `${viewportName}/calendar-compare.png`
+    );
     scenarioManifest.push({
       viewport: viewportName,
       scenario: "calendar-compare",
       screenshot: compareScreenshot
     });
 
-    await page.goto(`${appUrl}/#calendar?member=M002&compare=M001&view=compare`, {
-      waitUntil: "networkidle"
-    });
-    await page.getByRole("region", { name: "비교 요약", exact: true }).waitFor();
-    expect(await page.getByRole("tab", { name: "VS 비교" }).getAttribute("aria-selected")).toBe("true");
+    await page.goto(
+      `${appUrl}/#calendar?member=M002&compare=M001&view=compare`,
+      {
+        waitUntil: "networkidle"
+      }
+    );
+    await page
+      .getByRole("region", { name: "비교 요약", exact: true })
+      .waitFor();
+    expect(
+      await page
+        .getByRole("tab", { name: "VS 비교" })
+        .getAttribute("aria-selected")
+    ).toBe("true");
 
     expect(issues).toEqual([]);
   } finally {
@@ -476,10 +681,15 @@ async function openCompareFlow(viewportName: string): Promise<void> {
 }
 
 async function openDistributionFlow(viewportName: string): Promise<void> {
-  const { context, page, issues } = await createBrowserSession(browser, viewportCases.find((item) => item.name === viewportName)!);
+  const { context, page, issues } = await createBrowserSession(
+    browser,
+    viewportCases.find((item) => item.name === viewportName)!
+  );
 
   try {
-    await page.goto(`${appUrl}/#distribution?member=M002`, { waitUntil: "networkidle" });
+    await page.goto(`${appUrl}/#distribution?member=M002`, {
+      waitUntil: "networkidle"
+    });
     await page.addStyleTag({
       content: `
         *,
@@ -492,37 +702,63 @@ async function openDistributionFlow(viewportName: string): Promise<void> {
       `
     });
 
-    await page.getByRole("heading", { name: "제22대 국회 의원 분포" }).waitFor();
+    await page
+      .getByRole("heading", { name: "제22대 국회 의원 분포" })
+      .waitFor();
     await page.getByRole("combobox", { name: "분포에서 의원 찾기" }).waitFor();
-    await page.getByRole("heading", {
-      name: "위로 갈수록 반대·기권 비중이 낮고, 오른쪽으로 갈수록 출석률이 높습니다."
-    }).waitFor();
+    await page
+      .getByRole("heading", {
+        name: "위로 갈수록 반대·기권 비중이 낮고, 오른쪽으로 갈수록 출석률이 높습니다."
+      })
+      .waitFor();
     await expect
-      .poll(async () => page.locator(".distribution-focus__district").textContent())
+      .poll(async () =>
+        page.locator(".distribution-focus__district").textContent()
+      )
       .toBe("부산 남구");
-    await page.getByText("정당 평균을 눌러 차트를 해당 정당만 남기는 강조 모드로 전환합니다.").waitFor();
+    await page
+      .getByText(
+        "정당 평균을 눌러 차트를 해당 정당만 남기는 강조 모드로 전환합니다."
+      )
+      .waitFor();
     await page.locator(".distribution-chart").scrollIntoViewIfNeeded();
 
-    const layout = await page.locator(".distribution-page__layout").evaluate((element) => {
-      const layoutElement = element as HTMLElement;
-      const focus = layoutElement.querySelector(".distribution-focus") as HTMLElement | null;
-      const chart = layoutElement.querySelector(".distribution-chart") as HTMLElement | null;
-      const metricGrid = layoutElement.querySelector(".distribution-focus__metric-grid") as HTMLElement | null;
-      const signalGrid = document.querySelector(".distribution-signal-grid") as HTMLElement | null;
+    const layout = await page
+      .locator(".distribution-page__layout")
+      .evaluate((element) => {
+        const layoutElement = element as HTMLElement;
+        const focus = layoutElement.querySelector(
+          ".distribution-focus"
+        ) as HTMLElement | null;
+        const chart = layoutElement.querySelector(
+          ".distribution-chart"
+        ) as HTMLElement | null;
+        const metricGrid = layoutElement.querySelector(
+          ".distribution-focus__metric-grid"
+        ) as HTMLElement | null;
+        const signalGrid = document.querySelector(
+          ".distribution-signal-grid"
+        ) as HTMLElement | null;
 
-      if (!focus || !chart || !metricGrid || !signalGrid) {
-        return null;
-      }
+        if (!focus || !chart || !metricGrid || !signalGrid) {
+          return null;
+        }
 
-      return {
-        layoutOverflow: layoutElement.scrollWidth - layoutElement.clientWidth,
-        chartOverflow: chart.scrollWidth - chart.clientWidth,
-        focusOverflow: focus.scrollWidth - focus.clientWidth,
-        layoutColumns: window.getComputedStyle(layoutElement).gridTemplateColumns.split(" ").length,
-        metricColumns: window.getComputedStyle(metricGrid).gridTemplateColumns.split(" ").length,
-        signalColumns: window.getComputedStyle(signalGrid).gridTemplateColumns.split(" ").length
-      };
-    });
+        return {
+          layoutOverflow: layoutElement.scrollWidth - layoutElement.clientWidth,
+          chartOverflow: chart.scrollWidth - chart.clientWidth,
+          focusOverflow: focus.scrollWidth - focus.clientWidth,
+          layoutColumns: window
+            .getComputedStyle(layoutElement)
+            .gridTemplateColumns.split(" ").length,
+          metricColumns: window
+            .getComputedStyle(metricGrid)
+            .gridTemplateColumns.split(" ").length,
+          signalColumns: window
+            .getComputedStyle(signalGrid)
+            .gridTemplateColumns.split(" ").length
+        };
+      });
 
     expect(layout).not.toBeNull();
     expect(layout?.layoutOverflow ?? 99).toBeLessThanOrEqual(1);
@@ -548,14 +784,23 @@ async function openDistributionFlow(viewportName: string): Promise<void> {
       expect(layout?.signalColumns).toBe(2);
     }
 
-    const streakSignal = page.getByRole("button", { name: /김아라 미래개혁당/ }).first();
+    const streakSignal = page
+      .getByRole("button", { name: /김아라 미래개혁당/ })
+      .first();
     await streakSignal.click();
-    await expect.poll(() => new URL(page.url()).hash).toBe("#distribution?member=M001");
     await expect
-      .poll(async () => page.locator(".distribution-focus__district").textContent())
+      .poll(() => new URL(page.url()).hash)
+      .toBe("#distribution?member=M001");
+    await expect
+      .poll(async () =>
+        page.locator(".distribution-focus__district").textContent()
+      )
       .toBe("서울 중구");
 
-    const distributionScreenshot = await saveScreenshot(page, `${viewportName}/distribution.png`);
+    const distributionScreenshot = await saveScreenshot(
+      page,
+      `${viewportName}/distribution.png`
+    );
     scenarioManifest.push({
       viewport: viewportName,
       scenario: "distribution-overview",
@@ -571,9 +816,11 @@ async function openDistributionFlow(viewportName: string): Promise<void> {
       screenshot: distributionChartScreenshot
     });
 
-    expect(await page.getByRole("link", { name: "활동 캘린더 열기" }).getAttribute("href")).toBe(
-      "#calendar?member=M001"
-    );
+    expect(
+      await page
+        .getByRole("link", { name: "활동 캘린더 열기" })
+        .getAttribute("href")
+    ).toBe("#calendar?member=M001");
     expect(issues).toEqual([]);
   } finally {
     await context.close();

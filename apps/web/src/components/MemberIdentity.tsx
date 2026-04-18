@@ -22,15 +22,25 @@ export function MemberIdentity({
   const identityBody = (
     <>
       {resolvedPhotoUrl ? (
-        <img className="member-identity__avatar" src={resolvedPhotoUrl} alt="" loading="lazy" />
+        <img
+          className="member-identity__avatar"
+          src={resolvedPhotoUrl}
+          alt=""
+          loading="lazy"
+        />
       ) : (
-        <span className="member-identity__avatar member-identity__avatar--fallback" aria-hidden="true">
+        <span
+          className="member-identity__avatar member-identity__avatar--fallback"
+          aria-hidden="true"
+        >
           {name.slice(0, 1)}
         </span>
       )}
       <div className="member-identity__text">
         <span className="member-identity__name">{name}</span>
-        {showParty && party ? <span className="member-identity__party">{party}</span> : null}
+        {showParty && party ? (
+          <span className="member-identity__party">{party}</span>
+        ) : null}
       </div>
     </>
   );

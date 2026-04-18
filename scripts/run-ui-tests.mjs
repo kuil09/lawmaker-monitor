@@ -22,11 +22,28 @@ function run(command, args, env = sharedEnv) {
         return;
       }
 
-      reject(new Error(`${command} ${args.join(" ")} exited with code ${code ?? "unknown"}.`));
+      reject(
+        new Error(
+          `${command} ${args.join(" ")} exited with code ${code ?? "unknown"}.`
+        )
+      );
     });
   });
 }
 
-await run(npmCommand, ["run", "build", "--workspace", "@lawmaker-monitor/schemas"]);
-await run(npmCommand, ["run", "build", "--workspace", "@lawmaker-monitor/web"], sharedEnv);
-await run(npxCommand, ["vitest", "run", "--config", "vitest.ui.config.ts"], sharedEnv);
+await run(npmCommand, [
+  "run",
+  "build",
+  "--workspace",
+  "@lawmaker-monitor/schemas"
+]);
+await run(
+  npmCommand,
+  ["run", "build", "--workspace", "@lawmaker-monitor/web"],
+  sharedEnv
+);
+await run(
+  npxCommand,
+  ["vitest", "run", "--config", "vitest.ui.config.ts"],
+  sharedEnv
+);

@@ -10,8 +10,18 @@ const memberAssetsIndexFixture = JSON.parse(
   readFileSync(resolve(fixturesDir, "member_assets_index.json"), "utf8")
 );
 const memberAssetsHistoryFixtures = {
-  M001: JSON.parse(readFileSync(resolve(fixturesDir, "member_assets_history/M001.json"), "utf8")),
-  M002: JSON.parse(readFileSync(resolve(fixturesDir, "member_assets_history/M002.json"), "utf8"))
+  M001: JSON.parse(
+    readFileSync(
+      resolve(fixturesDir, "member_assets_history/M001.json"),
+      "utf8"
+    )
+  ),
+  M002: JSON.parse(
+    readFileSync(
+      resolve(fixturesDir, "member_assets_history/M002.json"),
+      "utf8"
+    )
+  )
 };
 
 describe("member-assets", () => {
@@ -26,10 +36,14 @@ describe("member-assets", () => {
       memberAssetsHistoryFixtures
     );
 
-    expect(enrichedIndex?.members.find((member) => member.memberId === "M001")).toMatchObject({
+    expect(
+      enrichedIndex?.members.find((member) => member.memberId === "M001")
+    ).toMatchObject({
       latestRealEstateTotal: 510000
     });
-    expect(enrichedIndex?.members.find((member) => member.memberId === "M002")).toMatchObject({
+    expect(
+      enrichedIndex?.members.find((member) => member.memberId === "M002")
+    ).toMatchObject({
       latestRealEstateTotal: 320000
     });
   });

@@ -11,15 +11,21 @@ describe("ingest utils", () => {
     let activeWorkers = 0;
     let maxConcurrentWorkers = 0;
 
-    const results = await mapWithConcurrency([1, 2, 3, 4, 5], 2, async (value) => {
-      activeWorkers += 1;
-      maxConcurrentWorkers = Math.max(maxConcurrentWorkers, activeWorkers);
+    const results = await mapWithConcurrency(
+      [1, 2, 3, 4, 5],
+      2,
+      async (value) => {
+        activeWorkers += 1;
+        maxConcurrentWorkers = Math.max(maxConcurrentWorkers, activeWorkers);
 
-      await new Promise((resolveDelay) => setTimeout(resolveDelay, 5 - value));
+        await new Promise((resolveDelay) =>
+          setTimeout(resolveDelay, 5 - value)
+        );
 
-      activeWorkers -= 1;
-      return value * 10;
-    });
+        activeWorkers -= 1;
+        return value * 10;
+      }
+    );
 
     expect(results).toEqual([10, 20, 30, 40, 50]);
     expect(maxConcurrentWorkers).toBeLessThanOrEqual(2);
@@ -67,7 +73,9 @@ describe("ingest utils", () => {
     try {
       await expect(
         fetchTextWithTimeout("https://example.test/slow", {}, 5)
-      ).rejects.toThrow("Request timed out for https://example.test/slow after 5ms");
+      ).rejects.toThrow(
+        "Request timed out for https://example.test/slow after 5ms"
+      );
     } finally {
       global.fetch = originalFetch;
     }

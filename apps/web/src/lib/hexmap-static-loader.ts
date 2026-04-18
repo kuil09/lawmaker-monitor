@@ -1,11 +1,5 @@
-import type {
-  ConstituencyBoundariesIndexExport,
-  HexmapStaticIndexExport,
-  Manifest
-} from "@lawmaker-monitor/schemas";
 import { hexmapStaticProvinceArtifactSchema } from "@lawmaker-monitor/schemas";
 
-import type { ConstituencyBoundaryTopology } from "./constituency-map.js";
 import {
   buildDataUrl,
   getConstituencyBoundariesIndexPath,
@@ -14,19 +8,29 @@ import {
   loadConstituencyProvinceTopology,
   loadHexmapStaticIndex
 } from "./data.js";
+import { extractReprojectedFeatures } from "./geo-utils.js";
 import {
   buildHexCellStaticCacheKey,
   getSharedHexCellCache,
   type HexCellStaticCacheEntry
 } from "./hex-cell-cache.js";
-import { endPerformanceSpan, startPerformanceSpan } from "./hex-cells.js";
 import { getSharedHexCellsWorkerClient } from "./hex-cells-worker.js";
-import { extractReprojectedFeatures } from "./geo-utils.js";
+import { endPerformanceSpan, startPerformanceSpan } from "./hex-cells.js";
+
+import type { ConstituencyBoundaryTopology } from "./constituency-map.js";
+import type {
+  ConstituencyBoundariesIndexExport,
+  HexmapStaticIndexExport,
+  Manifest
+} from "@lawmaker-monitor/schemas";
 
 type HexmapLoadSource = "home" | "map";
 type Listener = (state: HexmapStaticState) => void;
 type IdleHandle = number;
-type IdleCallback = (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void;
+type IdleCallback = (deadline: {
+  didTimeout: boolean;
+  timeRemaining: () => number;
+}) => void;
 type PrimaryHexmapIndex =
   | { kind: "precomputed"; index: HexmapStaticIndexExport }
   | { kind: "boundary"; index: ConstituencyBoundariesIndexExport };
@@ -136,7 +140,11 @@ function resetSessionForSnapshot(session: Session, snapshotId: string): void {
   emit(session);
 }
 
-function syncSessionSnapshot(session: Session, snapshotId: string, total: number): void {
+function syncSessionSnapshot(
+  session: Session,
+  snapshotId: string,
+  total: number
+): void {
   if (session.state.snapshotId !== snapshotId) {
     resetSessionForSnapshot(session, snapshotId);
   }
@@ -157,7 +165,11 @@ async function ensurePrimaryIndex(
 ): Promise<PrimaryHexmapIndex | null> {
   const precomputedIndex = await loadHexmapStaticIndex(manifest);
   if (precomputedIndex) {
-    syncSessionSnapshot(session, precomputedIndex.snapshotId, precomputedIndex.provinces.length);
+    syncSessionSnapshot(
+      session,
+      precomputedIndex.snapshotId,
+      precomputedIndex.provinces.length
+    );
     return { kind: "precomputed", index: precomputedIndex };
   }
 
@@ -166,7 +178,11 @@ async function ensurePrimaryIndex(
     return null;
   }
 
-  syncSessionSnapshot(session, boundaryIndex.snapshotId, boundaryIndex.provinces.length);
+  syncSessionSnapshot(
+    session,
+    boundaryIndex.snapshotId,
+    boundaryIndex.provinces.length
+  );
   return { kind: "boundary", index: boundaryIndex };
 }
 
@@ -175,7 +191,9 @@ async function ensureBoundaryIndex(
   manifest?: Manifest | null
 ): Promise<ConstituencyBoundariesIndexExport | null> {
   if (!session.boundaryIndexPromise) {
-    session.boundaryIndexPromise = loadConstituencyBoundariesIndex(manifest).catch((error) => {
+    session.boundaryIndexPromise = loadConstituencyBoundariesIndex(
+      manifest
+    ).catch((error) => {
       session.boundaryIndexPromise = null;
       throw error;
     });
@@ -183,7 +201,11 @@ async function ensureBoundaryIndex(
 
   const boundaryIndex = await session.boundaryIndexPromise;
   if (boundaryIndex) {
-    syncSessionSnapshot(session, boundaryIndex.snapshotId, boundaryIndex.provinces.length);
+    syncSessionSnapshot(
+      session,
+      boundaryIndex.snapshotId,
+      boundaryIndex.provinces.length
+    );
   }
 
   return boundaryIndex;
@@ -211,7 +233,9 @@ async function loadPrecomputedProvinceEntry(args: {
   path: string;
   provinceShortName: string;
 }): Promise<HexCellStaticCacheEntry | null> {
-  const fetchSpan = startPerformanceSpan(`hexmap:${args.provinceShortName}:precomputedFetch`);
+  const fetchSpan = startPerformanceSpan(
+    `hexmap:${args.provinceShortName}:precomputedFetch`
+  );
   const response = await fetch(buildDataUrl(args.path));
   endPerformanceSpan(fetchSpan);
 
@@ -223,8 +247,12 @@ async function loadPrecomputedProvinceEntry(args: {
     throw new Error(`데이터 요청에 실패했습니다 (${response.status}).`);
   }
 
-  const parseSpan = startPerformanceSpan(`hexmap:${args.provinceShortName}:precomputedParse`);
-  const artifact = hexmapStaticProvinceArtifactSchema.parse(await response.json());
+  const parseSpan = startPerformanceSpan(
+    `hexmap:${args.provinceShortName}:precomputedParse`
+  );
+  const artifact = hexmapStaticProvinceArtifactSchema.parse(
+    await response.json()
+  );
   endPerformanceSpan(parseSpan);
 
   if (artifact.provinceShortName !== args.provinceShortName) {
@@ -250,23 +278,35 @@ async function loadFallbackProvinceEntry(
 ): Promise<HexCellStaticCacheEntry | null> {
   const boundaryProvince =
     workItem.boundaryProvince ??
-    (await resolveBoundaryProvince(session, manifest, workItem.provinceShortName));
+    (await resolveBoundaryProvince(
+      session,
+      manifest,
+      workItem.provinceShortName
+    ));
   if (!boundaryProvince) {
     return null;
   }
 
-  const topologySpan = startPerformanceSpan(`hexmap:${workItem.provinceShortName}:topologyFetch`);
-  const topology = await loadConstituencyProvinceTopology<ConstituencyBoundaryTopology>(
-    boundaryProvince.path
+  const topologySpan = startPerformanceSpan(
+    `hexmap:${workItem.provinceShortName}:topologyFetch`
   );
+  const topology =
+    await loadConstituencyProvinceTopology<ConstituencyBoundaryTopology>(
+      boundaryProvince.path
+    );
   endPerformanceSpan(topologySpan);
 
   if (!topology) {
     return null;
   }
 
-  const districts = extractReprojectedFeatures(topology, LOW_ZOOM_DISTRICT_STEP);
-  const fallbackSpan = startPerformanceSpan(`hexmap:${workItem.provinceShortName}:fallbackCompute`);
+  const districts = extractReprojectedFeatures(
+    topology,
+    LOW_ZOOM_DISTRICT_STEP
+  );
+  const fallbackSpan = startPerformanceSpan(
+    `hexmap:${workItem.provinceShortName}:fallbackCompute`
+  );
   const computed = await getSharedHexCellsWorkerClient().computeStatic(
     topology,
     workItem.provinceShortName
@@ -296,7 +336,9 @@ async function loadProvinceEntry(
   const cache = getSharedHexCellCache();
 
   const provincePromise = (async () => {
-    const idbSpan = startPerformanceSpan(`hexmap:${workItem.provinceShortName}:idbRead`);
+    const idbSpan = startPerformanceSpan(
+      `hexmap:${workItem.provinceShortName}:idbRead`
+    );
     const cached = await cache.readStatic(workItem.cacheKey);
     endPerformanceSpan(idbSpan);
 
@@ -339,7 +381,10 @@ async function loadProvinceEntry(
   }
 }
 
-function buildProvinceWorkItem(primaryIndex: PrimaryHexmapIndex, provinceIndex: number): ProvinceWorkItem {
+function buildProvinceWorkItem(
+  primaryIndex: PrimaryHexmapIndex,
+  provinceIndex: number
+): ProvinceWorkItem {
   if (primaryIndex.kind === "precomputed") {
     const province = primaryIndex.index.provinces[provinceIndex];
     if (!province) {
@@ -363,7 +408,10 @@ function buildProvinceWorkItem(primaryIndex: PrimaryHexmapIndex, provinceIndex: 
   }
 
   return {
-    cacheKey: buildHexCellStaticCacheKey(primaryIndex.index.snapshotId, province.checksumSha256),
+    cacheKey: buildHexCellStaticCacheKey(
+      primaryIndex.index.snapshotId,
+      province.checksumSha256
+    ),
     provinceShortName: province.provinceShortName,
     precomputedPath: null,
     boundaryProvince: province
@@ -433,7 +481,10 @@ async function runHexmapStaticLoad(
     };
 
     const startMoreWork = (): void => {
-      while (nextProvinceIndex < totalProvinces && inFlight.size < concurrency) {
+      while (
+        nextProvinceIndex < totalProvinces &&
+        inFlight.size < concurrency
+      ) {
         const currentProvinceIndex = nextProvinceIndex++;
         const task = consumeProvince(currentProvinceIndex).finally(() => {
           inFlight.delete(task);
@@ -485,7 +536,9 @@ export function getHexmapStaticSessionKey(manifest?: Manifest | null): string {
   return `${hexmapStaticToken}::${boundaryToken}`;
 }
 
-export function getHexmapStaticState(manifest?: Manifest | null): HexmapStaticState {
+export function getHexmapStaticState(
+  manifest?: Manifest | null
+): HexmapStaticState {
   return getSession(manifest).state;
 }
 
@@ -508,14 +561,20 @@ export async function ensureHexmapStaticLoad(
 ): Promise<void> {
   const session = getSession(manifest);
   const isComplete =
-    session.state.total > 0 && session.state.done >= session.state.total && !session.state.isLoading;
+    session.state.total > 0 &&
+    session.state.done >= session.state.total &&
+    !session.state.isLoading;
 
   if (options.source === "map" && isComplete) {
     markInstant("hexmap:mapReuseWarmCache");
     return;
   }
 
-  if (options.source === "map" && session.runPromise && session.activeSource === "home") {
+  if (
+    options.source === "map" &&
+    session.runPromise &&
+    session.activeSource === "home"
+  ) {
     markInstant("hexmap:mapJoinedInFlightPrewarm");
   }
 
@@ -527,10 +586,14 @@ export async function ensureHexmapStaticLoad(
   return session.runPromise;
 }
 
-export function scheduleHexmapPrewarm(manifest: Manifest | null | undefined): () => void {
+export function scheduleHexmapPrewarm(
+  manifest: Manifest | null | undefined
+): () => void {
   const session = getSession(manifest);
   const isComplete =
-    session.state.total > 0 && session.state.done >= session.state.total && !session.state.isLoading;
+    session.state.total > 0 &&
+    session.state.done >= session.state.total &&
+    !session.state.isLoading;
 
   if (isComplete || session.runPromise || session.scheduledPrewarm) {
     return () => {};
@@ -570,7 +633,10 @@ export function scheduleHexmapPrewarm(manifest: Manifest | null | undefined): ()
       return;
     }
 
-    if (idleHandle !== null && typeof globalWindow.cancelIdleCallback === "function") {
+    if (
+      idleHandle !== null &&
+      typeof globalWindow.cancelIdleCallback === "function"
+    ) {
       globalWindow.cancelIdleCallback(idleHandle);
     }
 

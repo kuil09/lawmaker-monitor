@@ -26,13 +26,15 @@ function polygon(
   east: number,
   north: number
 ): Array<Array<[number, number]>> {
-  return [[
-    [west, south],
-    [east, south],
-    [east, north],
-    [west, north],
-    [west, south]
-  ]];
+  return [
+    [
+      [west, south],
+      [east, south],
+      [east, north],
+      [west, north],
+      [west, south]
+    ]
+  ];
 }
 
 function createBoundaryExport(seoulEast = 127.04): ConstituencyBoundaryExport {
@@ -151,7 +153,9 @@ function createBoundaryExport(seoulEast = 127.04): ConstituencyBoundaryExport {
   };
 }
 
-function createManifestInput(hexmapStaticIndex: ReturnType<typeof validateHexmapStaticIndexExport>) {
+function createManifestInput(
+  hexmapStaticIndex: ReturnType<typeof validateHexmapStaticIndexExport>
+) {
   const bundle = createNormalizedBundle({
     members: [],
     rollCalls: [],
@@ -264,7 +268,9 @@ describe("hexmap static runtime artifacts", () => {
     );
 
     const manifest = createManifestInput(index);
-    expect(manifest.exports.hexmapStaticIndex?.path).toBe(HEXMAP_STATIC_INDEX_PATH);
+    expect(manifest.exports.hexmapStaticIndex?.path).toBe(
+      HEXMAP_STATIC_INDEX_PATH
+    );
     expect(manifest.exports.hexmapStaticIndex?.rowCount).toBe(2);
     expect(manifest.exports.hexmapStaticIndex?.checksumSha256).toBe(
       sha256(serializePublishedJson(index))
@@ -272,16 +278,18 @@ describe("hexmap static runtime artifacts", () => {
   });
 
   it("changes the province checksum and manifest export checksum when the artifact content changes", () => {
-    const originalBoundaryRuntimeArtifacts = buildConstituencyBoundaryRuntimeArtifacts({
-      boundaryExport: createBoundaryExport(),
-      generatedAt: "2026-03-28T08:00:00.000Z",
-      snapshotId: "snapshot-22"
-    });
-    const changedBoundaryRuntimeArtifacts = buildConstituencyBoundaryRuntimeArtifacts({
-      boundaryExport: createBoundaryExport(127.06),
-      generatedAt: "2026-03-28T08:00:00.000Z",
-      snapshotId: "snapshot-22"
-    });
+    const originalBoundaryRuntimeArtifacts =
+      buildConstituencyBoundaryRuntimeArtifacts({
+        boundaryExport: createBoundaryExport(),
+        generatedAt: "2026-03-28T08:00:00.000Z",
+        snapshotId: "snapshot-22"
+      });
+    const changedBoundaryRuntimeArtifacts =
+      buildConstituencyBoundaryRuntimeArtifacts({
+        boundaryExport: createBoundaryExport(127.06),
+        generatedAt: "2026-03-28T08:00:00.000Z",
+        snapshotId: "snapshot-22"
+      });
 
     const originalRuntimeArtifacts = buildHexmapStaticRuntimeArtifacts({
       generatedAt: "2026-03-28T08:00:00.000Z",

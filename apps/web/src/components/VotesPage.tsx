@@ -1,6 +1,6 @@
-import type { LatestVotesExport } from "@lawmaker-monitor/schemas";
-
 import { VoteCarousel } from "./VoteCarousel.js";
+
+import type { LatestVotesExport } from "@lawmaker-monitor/schemas";
 
 type VotesPageProps = {
   latestVotes: LatestVotesExport | null;

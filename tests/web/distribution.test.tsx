@@ -77,10 +77,14 @@ describe("distribution helpers", () => {
       ["committee-risk", 1]
     ]);
     expect(
-      filterDistributionMembersByBehavior(members, "high-absence").map((member) => member.memberId)
+      filterDistributionMembersByBehavior(members, "high-absence").map(
+        (member) => member.memberId
+      )
     ).toEqual(["M002"]);
     expect(
-      filterDistributionMembersByBehavior(members, "committee-risk").map((member) => member.memberId)
+      filterDistributionMembersByBehavior(members, "committee-risk").map(
+        (member) => member.memberId
+      )
     ).toEqual(["M002"]);
   });
 

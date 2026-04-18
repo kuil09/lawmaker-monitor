@@ -18,24 +18,37 @@ const memberActivityCalendarFixture = JSON.parse(
   readFileSync(resolve(fixturesDir, "member_activity_calendar.json"), "utf8")
 );
 const constituencyBoundariesIndexFixture = JSON.parse(
-  readFileSync(resolve(fixturesDir, "constituency_boundaries_index.json"), "utf8")
+  readFileSync(
+    resolve(fixturesDir, "constituency_boundaries_index.json"),
+    "utf8"
+  )
 );
 const busanTopologyFixture = JSON.parse(
-  readFileSync(resolve(fixturesDir, "constituency_province_busan.topo.json"), "utf8")
+  readFileSync(
+    resolve(fixturesDir, "constituency_province_busan.topo.json"),
+    "utf8"
+  )
 );
 
 describe("constituency map helpers", () => {
   it("resolves a province shard from the current member district", () => {
     expect(
-      resolveProvinceForDistrict("부산 남구", constituencyBoundariesIndexFixture.provinces)
-        ?.provinceShortName
+      resolveProvinceForDistrict(
+        "부산 남구",
+        constituencyBoundariesIndexFixture.provinces
+      )?.provinceShortName
     ).toBe("부산");
     expect(
-      resolveProvinceForDistrict("서울 중구", constituencyBoundariesIndexFixture.provinces)
-        ?.provinceShortName
+      resolveProvinceForDistrict(
+        "서울 중구",
+        constituencyBoundariesIndexFixture.provinces
+      )?.provinceShortName
     ).toBe("서울");
     expect(
-      resolveProvinceForDistrict("제주 제주시갑", constituencyBoundariesIndexFixture.provinces)
+      resolveProvinceForDistrict(
+        "제주 제주시갑",
+        constituencyBoundariesIndexFixture.provinces
+      )
     ).toBeNull();
   });
 

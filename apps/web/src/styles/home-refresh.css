@@ -1,13 +1,15 @@
-/* ─── 섹션 공통 ───────────────────────────────────────── */
-.hero-panel,
-.search-panel,
-.status-panel,
-.visualization-panel,
-.leaderboard-panel,
-.feed-panel,
-.info-panel {
-  position: relative;
-  padding: 1.35rem;
+@layer feature {
+  /* ─── 섹션 공통 ───────────────────────────────────────── */
+  .hero-panel,
+  .search-panel,
+  .status-panel,
+  .visualization-panel,
+  .leaderboard-panel,
+  .feed-panel,
+  .info-panel {
+    position: relative;
+    padding: 1.35rem;
+  }
 }
 
 .hero-panel {
@@ -26,7 +28,11 @@
   inset: 0 auto auto 0;
   width: 100%;
   height: 0.2rem;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 55%, transparent), transparent 70%);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 55%, transparent),
+    transparent 70%
+  );
   pointer-events: none;
 }
 
@@ -94,8 +100,11 @@
   padding: 1rem;
   border: 1px solid var(--border);
   border-radius: 22px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), var(--surface-accent));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.88),
+    var(--surface-accent)
+  );
   box-shadow: var(--shadow-soft);
 }
 
@@ -118,8 +127,11 @@
   padding: 0.95rem;
   border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
   border-radius: 20px;
-  background:
-    linear-gradient(145deg, color-mix(in srgb, var(--accent) 6%, white), rgba(255, 255, 255, 0.96));
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--accent) 6%, white),
+    rgba(255, 255, 255, 0.96)
+  );
 }
 
 .hero-panel__spotlight-header,
@@ -179,11 +191,13 @@
 /* 불참 비중 — 적색 알림 카드 */
 .hero-panel__spotlight-metric--alert {
   border-color: color-mix(in srgb, var(--negative) 28%, transparent);
-  background:
-    linear-gradient(145deg,
-      color-mix(in srgb, var(--negative) 12%, white) 0%,
-      color-mix(in srgb, var(--negative) 5%, white) 100%);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--negative) 14%, transparent);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--negative) 12%, white) 0%,
+    color-mix(in srgb, var(--negative) 5%, white) 100%
+  );
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--negative) 14%, transparent);
 }
 
 .hero-panel__spotlight-metric--alert span {
@@ -447,8 +461,11 @@
   padding: 1rem;
   border: 1px dashed color-mix(in srgb, var(--accent) 22%, transparent);
   border-radius: 20px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.7), var(--surface-accent));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.7),
+    var(--surface-accent)
+  );
 }
 
 .search-panel__form {
@@ -469,7 +486,11 @@
 }
 
 .search-panel__submit:hover {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 85%, black), var(--accent-strong));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 85%, black),
+    var(--accent-strong)
+  );
 }
 
 .search-panel__submit:disabled {
@@ -484,7 +505,11 @@
   padding: 1rem;
   border: 1px solid var(--border);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), var(--surface-accent));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.9),
+    var(--surface-accent)
+  );
 }
 
 .search-panel__explore-copy {
@@ -578,8 +603,11 @@
   padding: 1.18rem;
   border-radius: 22px;
   border-color: var(--border);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.9), var(--surface-accent));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.9),
+    var(--surface-accent)
+  );
   box-shadow: var(--shadow-soft);
 }
 
@@ -648,8 +676,11 @@
 .vote-carousel__group-header {
   top: 0.25rem;
   padding: 0.15rem 0 0.7rem;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-strong) 95%, transparent), transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-strong) 95%, transparent),
+    transparent
+  );
 }
 
 .vote-carousel__group-title {
@@ -676,8 +707,11 @@
   padding: 1.12rem;
   border-color: var(--border);
   border-radius: 22px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), var(--surface-accent));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.92),
+    var(--surface-accent)
+  );
   box-shadow: var(--shadow-soft);
 }
 

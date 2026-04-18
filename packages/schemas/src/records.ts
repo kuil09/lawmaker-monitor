@@ -29,28 +29,32 @@ export const officialTallySchema = z.object({
   invalidCount: z.number().int().nonnegative().default(0)
 });
 
-export const memberPublicProfileSchema = z.object({
-  nameHanja: nonEmptyString.nullable().optional(),
-  nameEnglish: nonEmptyString.nullable().optional(),
-  birthType: nonEmptyString.nullable().optional(),
-  birthDate: nonEmptyString.nullable().optional(),
-  roleName: nonEmptyString.nullable().optional(),
-  reelectionLabel: nonEmptyString.nullable().optional(),
-  electedAssembliesLabel: nonEmptyString.nullable().optional(),
-  gender: nonEmptyString.nullable().optional(),
-  representativeCommitteeName: nonEmptyString.nullable().optional(),
-  affiliatedCommitteeName: nonEmptyString.nullable().optional(),
-  briefHistory: nonEmptyString.nullable().optional(),
-  officeRoom: nonEmptyString.nullable().optional()
-}).strict();
+export const memberPublicProfileSchema = z
+  .object({
+    nameHanja: nonEmptyString.nullable().optional(),
+    nameEnglish: nonEmptyString.nullable().optional(),
+    birthType: nonEmptyString.nullable().optional(),
+    birthDate: nonEmptyString.nullable().optional(),
+    roleName: nonEmptyString.nullable().optional(),
+    reelectionLabel: nonEmptyString.nullable().optional(),
+    electedAssembliesLabel: nonEmptyString.nullable().optional(),
+    gender: nonEmptyString.nullable().optional(),
+    representativeCommitteeName: nonEmptyString.nullable().optional(),
+    affiliatedCommitteeName: nonEmptyString.nullable().optional(),
+    briefHistory: nonEmptyString.nullable().optional(),
+    officeRoom: nonEmptyString.nullable().optional()
+  })
+  .strict();
 
-export const memberProfileSchema = memberPublicProfileSchema.extend({
-  officePhone: nonEmptyString.nullable().optional(),
-  email: nonEmptyString.nullable().optional(),
-  aideNames: z.array(nonEmptyString).default([]),
-  chiefSecretaryNames: z.array(nonEmptyString).default([]),
-  secretaryNames: z.array(nonEmptyString).default([])
-}).strict();
+export const memberProfileSchema = memberPublicProfileSchema
+  .extend({
+    officePhone: nonEmptyString.nullable().optional(),
+    email: nonEmptyString.nullable().optional(),
+    aideNames: z.array(nonEmptyString).default([]),
+    chiefSecretaryNames: z.array(nonEmptyString).default([]),
+    secretaryNames: z.array(nonEmptyString).default([])
+  })
+  .strict();
 
 export const memberSchema = z.object({
   memberId: nonEmptyString,

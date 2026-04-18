@@ -30,13 +30,17 @@ import type {
   NormalizedBundle
 } from "@lawmaker-monitor/schemas";
 
-export function validateNormalizedBundle(bundle: NormalizedBundle): NormalizedBundle {
+export function validateNormalizedBundle(
+  bundle: NormalizedBundle
+): NormalizedBundle {
   const parsed = normalizedBundleSchema.parse(bundle);
   assertCriticalFields(parsed);
   return parsed;
 }
 
-export function validateLatestVotesExport(payload: LatestVotesExport): LatestVotesExport {
+export function validateLatestVotesExport(
+  payload: LatestVotesExport
+): LatestVotesExport {
   return latestVotesExportSchema.parse(payload);
 }
 
@@ -110,8 +114,14 @@ function assertCriticalFields(bundle: NormalizedBundle): void {
   }
 
   for (const rollCall of bundle.rollCalls) {
-    if (!rollCall.officialSourceUrl || !rollCall.snapshotId || !rollCall.sourceHash) {
-      throw new Error(`Roll call ${rollCall.rollCallId} is missing traceability metadata.`);
+    if (
+      !rollCall.officialSourceUrl ||
+      !rollCall.snapshotId ||
+      !rollCall.sourceHash
+    ) {
+      throw new Error(
+        `Roll call ${rollCall.rollCallId} is missing traceability metadata.`
+      );
     }
   }
 }

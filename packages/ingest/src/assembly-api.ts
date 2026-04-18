@@ -1,5 +1,5 @@
-import { readString } from "./utils.js";
 import { getOfficialAssemblyEndpointPaths } from "./assembly-source-registry.js";
+import { readString } from "./utils.js";
 
 export type AssemblyEndpointConfig = {
   memberInfoPath: string;
@@ -56,11 +56,9 @@ function readPositiveInt(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function trimTrailingSlash(value: string): string {
-  return value.replace(/\/+$/, "");
-}
-
-function toRecord(value: Record<string, string | number | undefined>): Record<string, string> {
+function toRecord(
+  value: Record<string, string | number | undefined>
+): Record<string, string> {
   const entries = Object.entries(value)
     .map(([key, item]) => [key, readString(item)] as const)
     .filter((entry): entry is [string, string] => entry[1] !== undefined);
@@ -94,7 +92,10 @@ export function resolveAssemblyApiConfig(
       env.ASSEMBLY_FETCH_TIMEOUT_MS,
       DEFAULT_FETCH_TIMEOUT_MS
     ),
-    fetchRetries: readPositiveInt(env.ASSEMBLY_FETCH_RETRIES, DEFAULT_FETCH_RETRIES),
+    fetchRetries: readPositiveInt(
+      env.ASSEMBLY_FETCH_RETRIES,
+      DEFAULT_FETCH_RETRIES
+    ),
     endpoints: {
       memberInfoPath: DEFAULT_OFFICIAL_ENDPOINT_PATHS.memberInfo,
       memberProfileAllPath: DEFAULT_OFFICIAL_ENDPOINT_PATHS.memberProfileAll,
@@ -105,8 +106,10 @@ export function resolveAssemblyApiConfig(
       votesPath: DEFAULT_OFFICIAL_ENDPOINT_PATHS.votes,
       plenarySchedulePath: DEFAULT_OFFICIAL_ENDPOINT_PATHS.plenarySchedule,
       plenaryLawBillsPath: DEFAULT_OFFICIAL_ENDPOINT_PATHS.plenaryBillsLaw,
-      plenaryBudgetBillsPath: DEFAULT_OFFICIAL_ENDPOINT_PATHS.plenaryBillsBudget,
-      plenarySettlementBillsPath: DEFAULT_OFFICIAL_ENDPOINT_PATHS.plenaryBillsSettlement,
+      plenaryBudgetBillsPath:
+        DEFAULT_OFFICIAL_ENDPOINT_PATHS.plenaryBillsBudget,
+      plenarySettlementBillsPath:
+        DEFAULT_OFFICIAL_ENDPOINT_PATHS.plenaryBillsSettlement,
       plenaryOtherBillsPath: DEFAULT_OFFICIAL_ENDPOINT_PATHS.plenaryBillsOther,
       plenaryMinutesPath: DEFAULT_OFFICIAL_ENDPOINT_PATHS.plenaryMinutes,
       livePath: DEFAULT_OFFICIAL_ENDPOINT_PATHS.liveWebcast

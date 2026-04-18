@@ -1,21 +1,11 @@
 import {
   useEffect,
-  useState,
   useRef,
+  useMemo,
+  useState,
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent
 } from "react";
-
-import type {
-  MemberActivityCalendarAssembly,
-  MemberActivityCalendarExport,
-  MemberActivityCalendarMember,
-  MemberActivityCalendarMemberDetailExport,
-  MemberActivityVoteRecord,
-  MemberAssetsHistoryExport,
-  MemberAssetsIndexExport,
-  MemberAssetsIndexItem
-} from "@lawmaker-monitor/schemas";
 import {
   CartesianGrid,
   Legend,
@@ -32,17 +22,12 @@ import {
   YAxis
 } from "recharts";
 
+import { MemberIdentity } from "./MemberIdentity.js";
+import { MemberSearchField } from "./MemberSearchField.js";
 import {
-  buildCalendarWeeks,
-  buildHeadToHeadSummary,
-  buildMonthLabels,
-  getCurrentStreak,
-  getMemberDayBreakdown,
-  getLongestStreak,
-  rankActivityMembers,
-  type CalendarCell
-} from "../lib/member-activity.js";
-import { buildCalendarHref, type ActivityViewMode } from "../lib/calendar-route.js";
+  buildCalendarHref,
+  type ActivityViewMode
+} from "../lib/calendar-route.js";
 import {
   formatAssetEok,
   formatAssetEokAxis,
@@ -54,15 +39,33 @@ import {
   formatVoteCodeLabel
 } from "../lib/format.js";
 import {
+  buildCalendarWeeks,
+  buildHeadToHeadSummary,
+  buildMonthLabels,
+  getCurrentStreak,
+  getMemberDayBreakdown,
+  getLongestStreak,
+  rankActivityMembers,
+  type CalendarCell
+} from "../lib/member-activity.js";
+import {
   buildRealEstateFocusSummary,
   getFamilyGapLatest,
   resolveAssetHistorySnapshot,
   type AssetHistorySnapshot,
-  type AssetScopeMode,
-  type RealEstateFocusSummary
+  type AssetScopeMode
 } from "../lib/member-assets.js";
-import { MemberIdentity } from "./MemberIdentity.js";
-import { MemberSearchField } from "./MemberSearchField.js";
+
+import type {
+  MemberActivityCalendarAssembly,
+  MemberActivityCalendarExport,
+  MemberActivityCalendarMember,
+  MemberActivityCalendarMemberDetailExport,
+  MemberActivityVoteRecord,
+  MemberAssetsHistoryExport,
+  MemberAssetsIndexExport,
+  MemberAssetsIndexItem
+} from "@lawmaker-monitor/schemas";
 
 type ActivityCalendarPageProps = {
   activityCalendar: MemberActivityCalendarExport | null;
@@ -72,7 +75,10 @@ type ActivityCalendarPageProps = {
   initialMemberId?: string | null;
   initialCompareMemberId?: string | null;
   initialView?: ActivityViewMode;
-  memberDetails: Record<string, MemberActivityCalendarMemberDetailExport | undefined>;
+  memberDetails: Record<
+    string,
+    MemberActivityCalendarMemberDetailExport | undefined
+  >;
   memberDetailErrors: Record<string, string | null | undefined>;
   memberDetailLoading: Record<string, boolean | undefined>;
   memberAssetsIndex: MemberAssetsIndexExport | null;
@@ -80,9 +86,13 @@ type ActivityCalendarPageProps = {
   memberAssetHistories: Record<string, MemberAssetsHistoryExport | undefined>;
   memberAssetHistoryErrors: Record<string, string | null | undefined>;
   memberAssetHistoryLoading: Record<string, boolean | undefined>;
-  onEnsureMemberDetail: (member: MemberActivityCalendarMember) => void | Promise<void>;
+  onEnsureMemberDetail: (
+    member: MemberActivityCalendarMember
+  ) => void | Promise<void>;
   onRetryMemberDetail: (member: MemberActivityCalendarMember) => void;
-  onEnsureMemberAssetHistory: (member: MemberActivityCalendarMember) => void | Promise<void>;
+  onEnsureMemberAssetHistory: (
+    member: MemberActivityCalendarMember
+  ) => void | Promise<void>;
   onRetryMemberAssetHistory: (member: MemberActivityCalendarMember) => void;
   onBack: () => void;
   onRetry: () => void;
@@ -199,8 +209,12 @@ function sortAssetCategorySeries(
   }
 
   return [...history.categorySeries].sort((left, right) => {
-    const leftPriority = assetCategoryPriority.findIndex((value) => value === left.categoryLabel);
-    const rightPriority = assetCategoryPriority.findIndex((value) => value === right.categoryLabel);
+    const leftPriority = assetCategoryPriority.findIndex(
+      (value) => value === left.categoryLabel
+    );
+    const rightPriority = assetCategoryPriority.findIndex(
+      (value) => value === right.categoryLabel
+    );
     const normalizedLeft = leftPriority === -1 ? 99 : leftPriority;
     const normalizedRight = rightPriority === -1 ? 99 : rightPriority;
 
@@ -223,7 +237,18 @@ function buildAssetChartRows(
   const categoryLookup = new Map(
     history.categorySeries
       .filter((series) => visibleCategoryKeys.includes(series.categoryKey))
-      .map((series) => [series.categoryKey, new Map(series.points.map((point) => [point.reportedAt, point.currentAmount]))] as const)
+      .map(
+        (series) =>
+          [
+            series.categoryKey,
+            new Map(
+              series.points.map((point) => [
+                point.reportedAt,
+                point.currentAmount
+              ])
+            )
+          ] as const
+      )
   );
 
   return history.series.map((point) => {
@@ -234,7 +259,8 @@ function buildAssetChartRows(
     };
 
     for (const categoryKey of visibleCategoryKeys) {
-      row[categoryKey] = categoryLookup.get(categoryKey)?.get(point.reportedAt) ?? 0;
+      row[categoryKey] =
+        categoryLookup.get(categoryKey)?.get(point.reportedAt) ?? 0;
     }
 
     return row;
@@ -254,12 +280,19 @@ function buildAssetCompositionItems(
     .map((series, index) => ({
       categoryKey: series.categoryKey,
       categoryLabel: series.categoryLabel,
-      amount: series.points.find((point) => point.reportedAt === latestReportedAt)?.currentAmount ?? 0,
-      color: assetCategoryPalette[index % assetCategoryPalette.length] ?? assetCategoryPalette[0]
+      amount:
+        series.points.find((point) => point.reportedAt === latestReportedAt)
+          ?.currentAmount ?? 0,
+      color:
+        assetCategoryPalette[index % assetCategoryPalette.length] ??
+        assetCategoryPalette[0]
     }))
     .filter((item) => item.amount > 0);
 
-  const totalAmount = compositionItems.reduce((sum, item) => sum + item.amount, 0);
+  const totalAmount = compositionItems.reduce(
+    (sum, item) => sum + item.amount,
+    0
+  );
 
   if (totalAmount <= 0) {
     return [];
@@ -330,7 +363,9 @@ function AssetTrendValue({ value }: { value: number }) {
 
   return (
     <span className={`activity-asset-trend activity-asset-trend--${direction}`}>
-      <span className="activity-asset-trend__arrow" aria-hidden="true">{arrow}</span>
+      <span className="activity-asset-trend__arrow" aria-hidden="true">
+        {arrow}
+      </span>
       <span>{formatAssetMagnitude(value)}</span>
     </span>
   );
@@ -397,24 +432,42 @@ function buildRatioData(member: MemberActivityCalendarMember): RatioDatum[] {
     breakdown.abstainDays +
     breakdown.absentDays;
 
-  const toPercent = (value: number): number => (total === 0 ? 0 : Math.round((value / total) * 100));
+  const toPercent = (value: number): number =>
+    total === 0 ? 0 : Math.round((value / total) * 100);
 
   return [
-    { label: "찬성", percent: toPercent(breakdown.yesDays), color: "var(--vote-yes)" },
-    { label: "반대", percent: toPercent(breakdown.noDays), color: "var(--vote-no)" },
-    { label: "기권", percent: toPercent(breakdown.abstainDays), color: "var(--vote-abstain)" },
-    { label: "불참", percent: toPercent(breakdown.absentDays), color: "var(--vote-absent)" }
+    {
+      label: "찬성",
+      percent: toPercent(breakdown.yesDays),
+      color: "var(--vote-yes)"
+    },
+    {
+      label: "반대",
+      percent: toPercent(breakdown.noDays),
+      color: "var(--vote-no)"
+    },
+    {
+      label: "기권",
+      percent: toPercent(breakdown.abstainDays),
+      color: "var(--vote-abstain)"
+    },
+    {
+      label: "불참",
+      percent: toPercent(breakdown.absentDays),
+      color: "var(--vote-absent)"
+    }
   ];
 }
 
 function renderRatioAxisTick({ x = 0, y = 0, payload }: RatioTickProps) {
   const label = payload?.value ?? "";
-  const color = {
-    찬성: "var(--vote-yes)",
-    반대: "var(--vote-no)",
-    기권: "var(--vote-abstain)",
-    불참: "var(--vote-absent)"
-  }[label] ?? "var(--ink-muted)";
+  const color =
+    {
+      찬성: "var(--vote-yes)",
+      반대: "var(--vote-no)",
+      기권: "var(--vote-abstain)",
+      불참: "var(--vote-absent)"
+    }[label] ?? "var(--ink-muted)";
 
   return (
     <text
@@ -557,7 +610,8 @@ function resolveNumericComparison(
   difference: number;
 } {
   const comparableLeft = mode === "absolute" ? Math.abs(leftValue) : leftValue;
-  const comparableRight = mode === "absolute" ? Math.abs(rightValue) : rightValue;
+  const comparableRight =
+    mode === "absolute" ? Math.abs(rightValue) : rightValue;
 
   if (comparableLeft === comparableRight) {
     return {
@@ -567,7 +621,8 @@ function resolveNumericComparison(
     };
   }
 
-  const winnerMember = comparableLeft > comparableRight ? leftMember : rightMember;
+  const winnerMember =
+    comparableLeft > comparableRight ? leftMember : rightMember;
 
   return {
     winner: winnerMember.memberId === leftMember.memberId ? "left" : "right",
@@ -605,8 +660,12 @@ function MemberAssetCompareSection({
   onRetryLeft,
   onRetryRight
 }: MemberAssetCompareSectionProps) {
-  const leftReady = Boolean(leftIndexEntry && leftHistory && leftHistory.series.length > 0);
-  const rightReady = Boolean(rightIndexEntry && rightHistory && rightHistory.series.length > 0);
+  const leftReady = Boolean(
+    leftIndexEntry && leftHistory && leftHistory.series.length > 0
+  );
+  const rightReady = Boolean(
+    rightIndexEntry && rightHistory && rightHistory.series.length > 0
+  );
 
   if (
     !leftIndexEntry &&
@@ -627,20 +686,31 @@ function MemberAssetCompareSection({
   const rightRealEstate = buildRealEstateFocusSummary(
     resolveAssetHistorySnapshot(rightHistory, "familyIncluded")
   );
-  const leftLatestTotal = leftHistory?.latestSummary.currentAmount ?? leftIndexEntry?.latestTotal ?? 0;
-  const rightLatestTotal = rightHistory?.latestSummary.currentAmount ?? rightIndexEntry?.latestTotal ?? 0;
+  const leftLatestTotal =
+    leftHistory?.latestSummary.currentAmount ??
+    leftIndexEntry?.latestTotal ??
+    0;
+  const rightLatestTotal =
+    rightHistory?.latestSummary.currentAmount ??
+    rightIndexEntry?.latestTotal ??
+    0;
   const leftFirstPoint = leftHistory?.series[0] ?? null;
   const rightFirstPoint = rightHistory?.series[0] ?? null;
   const leftTotalDelta =
     leftHistory && leftFirstPoint
       ? leftHistory.latestSummary.currentAmount - leftFirstPoint.currentAmount
-      : leftIndexEntry?.totalDelta ?? 0;
+      : (leftIndexEntry?.totalDelta ?? 0);
   const rightTotalDelta =
     rightHistory && rightFirstPoint
       ? rightHistory.latestSummary.currentAmount - rightFirstPoint.currentAmount
-      : rightIndexEntry?.totalDelta ?? 0;
-  const chartRows = leftReady && rightReady ? buildAssetCompareChartRows(leftHistory, rightHistory) : [];
-  const supportsFamilyGap = Boolean(leftHistory?.selfOnly && rightHistory?.selfOnly);
+      : (rightIndexEntry?.totalDelta ?? 0);
+  const chartRows =
+    leftReady && rightReady
+      ? buildAssetCompareChartRows(leftHistory, rightHistory)
+      : [];
+  const supportsFamilyGap = Boolean(
+    leftHistory?.selfOnly && rightHistory?.selfOnly
+  );
 
   const latestTotalResolution = resolveNumericComparison(
     leftMember,
@@ -661,63 +731,72 @@ function MemberAssetCompareSection({
     rightTotalDelta
   );
   const familyGapResolution = supportsFamilyGap
-    ? resolveNumericComparison(leftMember, rightMember, leftFamilyGap, rightFamilyGap, "absolute")
+    ? resolveNumericComparison(
+        leftMember,
+        rightMember,
+        leftFamilyGap,
+        rightFamilyGap,
+        "absolute"
+      )
     : null;
 
-  const comparisonCards = leftReady && rightReady
-    ? [
-        {
-          winner: latestTotalResolution.winner,
-          badgeText:
-            latestTotalResolution.winner === "tie"
-              ? "동률"
-              : `차이 ${formatAssetMagnitude(latestTotalResolution.difference)}`,
-          summaryText:
-            latestTotalResolution.winner === "tie"
-              ? "최신 총재산이 같습니다."
-              : `${withSubjectParticle(latestTotalResolution.winnerMember?.name ?? "")} 최신 총재산이 ${formatAssetMagnitude(latestTotalResolution.difference)} 더 많습니다.`,
-          detailText: `${leftMember.name} ${formatAssetAmount(leftLatestTotal)} · ${rightMember.name} ${formatAssetAmount(rightLatestTotal)}`
-        },
-        {
-          winner: realEstateResolution.winner,
-          badgeText:
-            realEstateResolution.winner === "tie"
-              ? "동률"
-              : `차이 ${formatAssetMagnitude(realEstateResolution.difference)}`,
-          summaryText:
-            realEstateResolution.winner === "tie"
-              ? "부동산 규모가 같습니다."
-              : `${withSubjectParticle(realEstateResolution.winnerMember?.name ?? "")} 부동산 규모가 ${formatAssetMagnitude(realEstateResolution.difference)} 더 큽니다.`,
-          detailText: `${leftMember.name} ${formatAssetAmount(leftRealEstate?.latestAmount ?? 0)} · ${rightMember.name} ${formatAssetAmount(rightRealEstate?.latestAmount ?? 0)}`
-        },
-        {
-          winner: deltaResolution.winner,
-          badgeText:
-            deltaResolution.winner === "tie"
-              ? "동률"
-              : `차이 ${formatAssetMagnitude(deltaResolution.difference)}`,
-          summaryText:
-            deltaResolution.winner === "tie"
-              ? "22대 누적 증감이 같습니다."
-              : `${withSubjectParticle(deltaResolution.winnerMember?.name ?? "")} 22대 누적 증감폭이 ${formatAssetMagnitude(deltaResolution.difference)} 더 큽니다.`,
-          detailText: `${leftMember.name} ${formatAssetDelta(leftTotalDelta)} · ${rightMember.name} ${formatAssetDelta(rightTotalDelta)}`
-        },
-        ...(familyGapResolution
-          ? [{
-              winner: familyGapResolution.winner,
-              badgeText:
-                familyGapResolution.winner === "tie"
-                  ? "동률"
-                  : `차이 ${formatAssetMagnitude(familyGapResolution.difference)}`,
-              summaryText:
-                familyGapResolution.winner === "tie"
-                  ? "가족 차이가 같습니다."
-                  : `${withSubjectParticle(familyGapResolution.winnerMember?.name ?? "")} 공개 범위 괴리가 ${formatAssetMagnitude(familyGapResolution.difference)} 더 큽니다.`,
-              detailText: `${leftMember.name} ${formatAssetDelta(leftFamilyGap)} · ${rightMember.name} ${formatAssetDelta(rightFamilyGap)}`
-            }]
-          : [])
-      ]
-    : [];
+  const comparisonCards =
+    leftReady && rightReady
+      ? [
+          {
+            winner: latestTotalResolution.winner,
+            badgeText:
+              latestTotalResolution.winner === "tie"
+                ? "동률"
+                : `차이 ${formatAssetMagnitude(latestTotalResolution.difference)}`,
+            summaryText:
+              latestTotalResolution.winner === "tie"
+                ? "최신 총재산이 같습니다."
+                : `${withSubjectParticle(latestTotalResolution.winnerMember?.name ?? "")} 최신 총재산이 ${formatAssetMagnitude(latestTotalResolution.difference)} 더 많습니다.`,
+            detailText: `${leftMember.name} ${formatAssetAmount(leftLatestTotal)} · ${rightMember.name} ${formatAssetAmount(rightLatestTotal)}`
+          },
+          {
+            winner: realEstateResolution.winner,
+            badgeText:
+              realEstateResolution.winner === "tie"
+                ? "동률"
+                : `차이 ${formatAssetMagnitude(realEstateResolution.difference)}`,
+            summaryText:
+              realEstateResolution.winner === "tie"
+                ? "부동산 규모가 같습니다."
+                : `${withSubjectParticle(realEstateResolution.winnerMember?.name ?? "")} 부동산 규모가 ${formatAssetMagnitude(realEstateResolution.difference)} 더 큽니다.`,
+            detailText: `${leftMember.name} ${formatAssetAmount(leftRealEstate?.latestAmount ?? 0)} · ${rightMember.name} ${formatAssetAmount(rightRealEstate?.latestAmount ?? 0)}`
+          },
+          {
+            winner: deltaResolution.winner,
+            badgeText:
+              deltaResolution.winner === "tie"
+                ? "동률"
+                : `차이 ${formatAssetMagnitude(deltaResolution.difference)}`,
+            summaryText:
+              deltaResolution.winner === "tie"
+                ? "22대 누적 증감이 같습니다."
+                : `${withSubjectParticle(deltaResolution.winnerMember?.name ?? "")} 22대 누적 증감폭이 ${formatAssetMagnitude(deltaResolution.difference)} 더 큽니다.`,
+            detailText: `${leftMember.name} ${formatAssetDelta(leftTotalDelta)} · ${rightMember.name} ${formatAssetDelta(rightTotalDelta)}`
+          },
+          ...(familyGapResolution
+            ? [
+                {
+                  winner: familyGapResolution.winner,
+                  badgeText:
+                    familyGapResolution.winner === "tie"
+                      ? "동률"
+                      : `차이 ${formatAssetMagnitude(familyGapResolution.difference)}`,
+                  summaryText:
+                    familyGapResolution.winner === "tie"
+                      ? "가족 차이가 같습니다."
+                      : `${withSubjectParticle(familyGapResolution.winnerMember?.name ?? "")} 공개 범위 괴리가 ${formatAssetMagnitude(familyGapResolution.difference)} 더 큽니다.`,
+                  detailText: `${leftMember.name} ${formatAssetDelta(leftFamilyGap)} · ${rightMember.name} ${formatAssetDelta(rightFamilyGap)}`
+                }
+              ]
+            : [])
+        ]
+      : [];
 
   return (
     <section className="activity-asset-compare" aria-label="재산 비교">
@@ -727,20 +806,30 @@ function MemberAssetCompareSection({
           <h3>재산 공개 기준 비교</h3>
         </div>
         <p>
-          최신 총재산과 부동산, 22대 누적 증감, 가족 포함 여부에 따른 괴리를 함께 봅니다.
+          최신 총재산과 부동산, 22대 누적 증감, 가족 포함 여부에 따른 괴리를
+          함께 봅니다.
         </p>
       </div>
 
       {comparisonCards.length > 0 ? (
-        <section className="activity-compare__summary" aria-label="재산 비교 요약">
+        <section
+          className="activity-compare__summary"
+          aria-label="재산 비교 요약"
+        >
           {comparisonCards.map((metric, index) => (
             <article
               key={`${index}:${metric.summaryText}:${metric.detailText}`}
               className={`activity-compare__summary-card activity-compare__summary-card--${metric.winner}`}
             >
-              <p className="activity-compare__summary-kicker">{metric.badgeText}</p>
-              <p className="activity-compare__summary-copy">{metric.summaryText}</p>
-              <p className="activity-compare__summary-note">{metric.detailText}</p>
+              <p className="activity-compare__summary-kicker">
+                {metric.badgeText}
+              </p>
+              <p className="activity-compare__summary-copy">
+                {metric.summaryText}
+              </p>
+              <p className="activity-compare__summary-note">
+                {metric.detailText}
+              </p>
             </article>
           ))}
         </section>
@@ -791,9 +880,13 @@ function MemberAssetCompareSection({
             </div>
 
             {!entry.indexEntry ? (
-              <p className="activity-drawer__empty">현직 22대 기준 재산 공개 이력이 없습니다.</p>
+              <p className="activity-drawer__empty">
+                현직 22대 기준 재산 공개 이력이 없습니다.
+              </p>
             ) : entry.loading && !entry.history ? (
-              <p className="activity-drawer__empty">재산 공개 이력을 불러오는 중입니다.</p>
+              <p className="activity-drawer__empty">
+                재산 공개 이력을 불러오는 중입니다.
+              </p>
             ) : entry.error ? (
               <div className="activity-drawer__empty">
                 <p>{entry.error}</p>
@@ -804,7 +897,9 @@ function MemberAssetCompareSection({
                 ) : null}
               </div>
             ) : !entry.history ? (
-              <p className="activity-drawer__empty">비교할 재산 공개 이력이 아직 없습니다.</p>
+              <p className="activity-drawer__empty">
+                비교할 재산 공개 이력이 아직 없습니다.
+              </p>
             ) : (
               <dl className="activity-asset-compare__facts">
                 <div>
@@ -819,9 +914,14 @@ function MemberAssetCompareSection({
                 </div>
                 <div>
                   <dt>
-                    <AssetMetricLabel label="부동산" icons={["building", "land"]} />
+                    <AssetMetricLabel
+                      label="부동산"
+                      icons={["building", "land"]}
+                    />
                   </dt>
-                  <dd>{formatAssetAmount(entry.realEstate?.latestAmount ?? 0)}</dd>
+                  <dd>
+                    {formatAssetAmount(entry.realEstate?.latestAmount ?? 0)}
+                  </dd>
                 </div>
                 <div>
                   <dt>가족 차이</dt>
@@ -838,8 +938,14 @@ function MemberAssetCompareSection({
       {chartRows.length > 0 ? (
         <div className="activity-asset-chart">
           <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={chartRows} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
-              <CartesianGrid stroke="rgba(35, 49, 58, 0.08)" strokeDasharray="4 4" />
+            <LineChart
+              data={chartRows}
+              margin={{ top: 8, right: 12, bottom: 0, left: 0 }}
+            >
+              <CartesianGrid
+                stroke="rgba(35, 49, 58, 0.08)"
+                strokeDasharray="4 4"
+              />
               <XAxis
                 dataKey="label"
                 tickLine={false}
@@ -861,7 +967,9 @@ function MemberAssetCompareSection({
                 labelFormatter={(value) => `공개일 ${value}`}
               />
               <Legend
-                formatter={(value) => (value === "leftTotal" ? leftMember.name : rightMember.name)}
+                formatter={(value) =>
+                  value === "leftTotal" ? leftMember.name : rightMember.name
+                }
               />
               <Line
                 type="monotone"
@@ -899,7 +1007,9 @@ function getMemberById(
     return null;
   }
 
-  return assembly.members.find((member) => member.memberId === memberId) ?? null;
+  return (
+    assembly.members.find((member) => member.memberId === memberId) ?? null
+  );
 }
 
 function getCalendarCellLabel(cell: CalendarCell): string {
@@ -994,39 +1104,54 @@ function MemberAssetSection({
   error,
   onRetry
 }: MemberAssetSectionProps) {
-  const [assetScopeMode, setAssetScopeMode] = useState<AssetScopeMode>("familyIncluded");
+  const [assetScopeMode, setAssetScopeMode] =
+    useState<AssetScopeMode>("familyIncluded");
   const activeHistory = resolveAssetHistorySnapshot(history, assetScopeMode);
-  const orderedCategorySeries = sortAssetCategorySeries(activeHistory);
+  const orderedCategorySeries = useMemo(
+    () => sortAssetCategorySeries(activeHistory),
+    [activeHistory]
+  );
   const realEstateFocus = buildRealEstateFocusSummary(activeHistory);
   const familyGapLatest = getFamilyGapLatest(history);
-  const familyIncludedTotal = history?.latestSummary.currentAmount ?? indexEntry?.latestTotal ?? 0;
+  const familyIncludedTotal =
+    history?.latestSummary.currentAmount ?? indexEntry?.latestTotal ?? 0;
   const selfOnlyTotal = history?.selfOnly?.latestSummary.currentAmount ?? null;
   const activeFirstPoint = activeHistory?.series[0] ?? null;
-  const activeLatestTotal = activeHistory?.latestSummary.currentAmount ?? indexEntry?.latestTotal ?? 0;
+  const activeLatestTotal =
+    activeHistory?.latestSummary.currentAmount ?? indexEntry?.latestTotal ?? 0;
   const activeTotalDelta =
     activeHistory && activeFirstPoint
-      ? activeHistory.latestSummary.currentAmount - activeFirstPoint.currentAmount
-      : indexEntry?.totalDelta ?? 0;
-  const activeScopeLabel = assetScopeMode === "selfOnly" ? "본인만" : "가족 포함";
-  const assetCompositionItems = buildAssetCompositionItems(activeHistory, orderedCategorySeries);
-  const defaultCategoryKeys = orderedCategorySeries.slice(0, 4).map((series) => series.categoryKey);
-  const orderedCategorySignature = orderedCategorySeries
-    .map((series) => `${series.categoryKey}:${series.points.length}`)
-    .join("|");
-  const [visibleCategoryKeys, setVisibleCategoryKeys] = useState<string[]>(defaultCategoryKeys);
+      ? activeHistory.latestSummary.currentAmount -
+        activeFirstPoint.currentAmount
+      : (indexEntry?.totalDelta ?? 0);
+  const activeScopeLabel =
+    assetScopeMode === "selfOnly" ? "본인만" : "가족 포함";
+  const assetCompositionItems = buildAssetCompositionItems(
+    activeHistory,
+    orderedCategorySeries
+  );
+  const defaultCategoryKeys = orderedCategorySeries
+    .slice(0, 4)
+    .map((series) => series.categoryKey);
+  const [visibleCategoryKeys, setVisibleCategoryKeys] =
+    useState<string[]>(defaultCategoryKeys);
   const [showAllCategories, setShowAllCategories] = useState(false);
 
   useEffect(() => {
-    const nextDefaultKeys = orderedCategorySeries.slice(0, 4).map((series) => series.categoryKey);
+    const nextDefaultKeys = orderedCategorySeries
+      .slice(0, 4)
+      .map((series) => series.categoryKey);
     setVisibleCategoryKeys((current) => {
       const retained = current.filter((categoryKey) =>
-        orderedCategorySeries.some((series) => series.categoryKey === categoryKey)
+        orderedCategorySeries.some(
+          (series) => series.categoryKey === categoryKey
+        )
       );
 
       return retained.length > 0 ? retained : nextDefaultKeys;
     });
     setShowAllCategories(false);
-  }, [history?.memberId, orderedCategorySignature]);
+  }, [history?.memberId, orderedCategorySeries]);
 
   useEffect(() => {
     setAssetScopeMode("familyIncluded");
@@ -1054,7 +1179,10 @@ function MemberAssetSection({
             <p className="section-label">재산 공개</p>
             <h3>현직 22대 기준 재산 공개 이력이 없습니다</h3>
           </div>
-          <p>현재 선택한 의원에 대해 공개된 재산 변동 문서를 아직 찾지 못했습니다.</p>
+          <p>
+            현재 선택한 의원에 대해 공개된 재산 변동 문서를 아직 찾지
+            못했습니다.
+          </p>
         </div>
       </section>
     );
@@ -1121,8 +1249,8 @@ function MemberAssetSection({
           <h3>22대 국회 재산 변동 흐름</h3>
         </div>
         <p>
-          총재산을 기본선으로 두고, 주요 카테고리 소계를 겹쳐 볼 수 있습니다. 부동산 포커스는
-          건물과 토지만 따로 집계합니다. 화면 표시는 억원입니다.
+          총재산을 기본선으로 두고, 주요 카테고리 소계를 겹쳐 볼 수 있습니다.
+          부동산 포커스는 건물과 토지만 따로 집계합니다. 화면 표시는 억원입니다.
         </p>
       </div>
 
@@ -1142,7 +1270,11 @@ function MemberAssetSection({
             </div>
             <div>
               <dt>본인만</dt>
-              <dd>{selfOnlyTotal == null ? "미공개" : formatAssetAmount(selfOnlyTotal)}</dd>
+              <dd>
+                {selfOnlyTotal == null
+                  ? "미공개"
+                  : formatAssetAmount(selfOnlyTotal)}
+              </dd>
             </div>
             <div>
               <dt>가족 차이</dt>
@@ -1153,20 +1285,29 @@ function MemberAssetSection({
           </dl>
 
           <p className="activity-asset-scope__note">
-            {describeFamilyGap(familyGapLatest ?? 0)} 괴리가 클수록 가족 명의 자산·채무가 총액을 더 크게
-            바꾸므로 추가 확인 포인트가 됩니다.
+            {describeFamilyGap(familyGapLatest ?? 0)} 괴리가 클수록 가족 명의
+            자산·채무가 총액을 더 크게 바꾸므로 추가 확인 포인트가 됩니다.
           </p>
         </div>
       ) : null}
 
       {history?.selfOnly ? (
-        <div className="activity-asset-visual-scope" aria-label="재산 표시 범위">
+        <div
+          className="activity-asset-visual-scope"
+          aria-label="재산 표시 범위"
+        >
           <div className="activity-asset-visual-scope__copy">
             <p className="section-label">표시 기준</p>
             <h4>아래 포커스와 그래프를 {activeScopeLabel} 기준으로 봅니다</h4>
-            <p>선택이 최신 총재산, 부동산 포커스, 카테고리 추이에 함께 반영됩니다.</p>
+            <p>
+              선택이 최신 총재산, 부동산 포커스, 카테고리 추이에 함께
+              반영됩니다.
+            </p>
           </div>
-          <div className="activity-asset-toggle-group" aria-label="재산 공개 범위">
+          <div
+            className="activity-asset-toggle-group"
+            aria-label="재산 공개 범위"
+          >
             <button
               type="button"
               className={
@@ -1193,7 +1334,9 @@ function MemberAssetSection({
         </div>
       ) : null}
 
-      {realEstateFocus && (realEstateFocus.hasExplicitCategory || realEstateFocus.hasMixedCategory) ? (
+      {realEstateFocus &&
+      (realEstateFocus.hasExplicitCategory ||
+        realEstateFocus.hasMixedCategory) ? (
         <div className="activity-asset-focus" aria-label="부동산 포커스">
           <div className="activity-asset-focus__head">
             <div>
@@ -1205,7 +1348,10 @@ function MemberAssetSection({
           <dl className="activity-asset-focus__summary">
             <div>
               <dt>
-                <AssetMetricLabel label="부동산 합계" icons={["building", "land"]} />
+                <AssetMetricLabel
+                  label="부동산 합계"
+                  icons={["building", "land"]}
+                />
               </dt>
               <dd>{formatAssetAmount(realEstateFocus.latestAmount)}</dd>
             </div>
@@ -1251,12 +1397,18 @@ function MemberAssetSection({
               <p className="section-label">재산 구성 비중</p>
               <h4>{activeScopeLabel} 기준 최신 공개 금액</h4>
             </div>
-            <p>0원이 아니고 최신 공개 문서에서 금액이 확인된 카테고리만 비중에 포함합니다.</p>
+            <p>
+              0원이 아니고 최신 공개 문서에서 금액이 확인된 카테고리만 비중에
+              포함합니다.
+            </p>
           </div>
 
           <ol className="activity-asset-composition__list">
             {assetCompositionItems.map((item) => (
-              <li key={item.categoryKey} className="activity-asset-composition__item">
+              <li
+                key={item.categoryKey}
+                className="activity-asset-composition__item"
+              >
                 <div className="activity-asset-composition__item-head">
                   <div className="activity-asset-composition__item-label">
                     <span
@@ -1270,7 +1422,10 @@ function MemberAssetSection({
                     {formatPercent(item.share)}
                   </span>
                 </div>
-                <div className="activity-asset-composition__bar" aria-hidden="true">
+                <div
+                  className="activity-asset-composition__bar"
+                  aria-hidden="true"
+                >
                   <span
                     className="activity-asset-composition__fill"
                     style={{
@@ -1290,8 +1445,14 @@ function MemberAssetSection({
 
       <div className="activity-asset-chart">
         <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={chartRows} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke="rgba(35, 49, 58, 0.08)" strokeDasharray="4 4" />
+          <LineChart
+            data={chartRows}
+            margin={{ top: 8, right: 12, bottom: 0, left: 0 }}
+          >
+            <CartesianGrid
+              stroke="rgba(35, 49, 58, 0.08)"
+              strokeDasharray="4 4"
+            />
             <XAxis
               dataKey="label"
               tickLine={false}
@@ -1307,15 +1468,18 @@ function MemberAssetSection({
             />
             <Tooltip
               formatter={(value, name) => {
-                const amount = Array.isArray(value) ? Number(value[0] ?? 0) : Number(value ?? 0);
+                const amount = Array.isArray(value)
+                  ? Number(value[0] ?? 0)
+                  : Number(value ?? 0);
                 const seriesKey = String(name ?? "");
 
                 return [
                   formatAssetAmount(amount),
                   seriesKey === "total"
                     ? `총재산 (${activeScopeLabel})`
-                    : orderedCategorySeries.find((series) => series.categoryKey === seriesKey)
-                        ?.categoryLabel ?? seriesKey
+                    : (orderedCategorySeries.find(
+                        (series) => series.categoryKey === seriesKey
+                      )?.categoryLabel ?? seriesKey)
                 ] as [string, string];
               }}
               labelFormatter={(value) => `공개일 ${value}`}
@@ -1324,7 +1488,9 @@ function MemberAssetSection({
               formatter={(value) =>
                 value === "total"
                   ? `총재산 (${activeScopeLabel})`
-                  : orderedCategorySeries.find((series) => series.categoryKey === value)?.categoryLabel ?? value
+                  : (orderedCategorySeries.find(
+                      (series) => series.categoryKey === value
+                    )?.categoryLabel ?? value)
               }
             />
             <Line
@@ -1342,7 +1508,9 @@ function MemberAssetSection({
                 type="monotone"
                 dataKey={series.categoryKey}
                 name={series.categoryKey}
-                stroke={assetCategoryPalette[index % assetCategoryPalette.length]}
+                stroke={
+                  assetCategoryPalette[index % assetCategoryPalette.length]
+                }
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 4 }}
@@ -1354,18 +1522,27 @@ function MemberAssetSection({
 
       {orderedCategorySeries.length > 0 ? (
         <div className="activity-asset-toggles">
-          <div className="activity-asset-toggle-group" aria-label="주요 재산 카테고리">
+          <div
+            className="activity-asset-toggle-group"
+            aria-label="주요 재산 카테고리"
+          >
             {orderedCategorySeries.slice(0, 4).map((series) => {
               const isActive = visibleCategoryKeys.includes(series.categoryKey);
               return (
                 <button
                   key={series.categoryKey}
                   type="button"
-                  className={isActive ? "activity-asset-toggle is-active" : "activity-asset-toggle"}
+                  className={
+                    isActive
+                      ? "activity-asset-toggle is-active"
+                      : "activity-asset-toggle"
+                  }
                   onClick={() =>
                     setVisibleCategoryKeys((current) =>
                       current.includes(series.categoryKey)
-                        ? current.filter((value) => value !== series.categoryKey)
+                        ? current.filter(
+                            (value) => value !== series.categoryKey
+                          )
                         : [...current, series.categoryKey]
                     )
                   }
@@ -1383,22 +1560,35 @@ function MemberAssetSection({
                 className="activity-asset-extra-toggle"
                 onClick={() => setShowAllCategories((current) => !current)}
               >
-                {showAllCategories ? "나머지 카테고리 접기" : "나머지 카테고리 보기"}
+                {showAllCategories
+                  ? "나머지 카테고리 접기"
+                  : "나머지 카테고리 보기"}
               </button>
 
               {showAllCategories ? (
-                <div className="activity-asset-toggle-group" aria-label="추가 재산 카테고리">
+                <div
+                  className="activity-asset-toggle-group"
+                  aria-label="추가 재산 카테고리"
+                >
                   {extraSeries.map((series) => {
-                    const isActive = visibleCategoryKeys.includes(series.categoryKey);
+                    const isActive = visibleCategoryKeys.includes(
+                      series.categoryKey
+                    );
                     return (
                       <button
                         key={series.categoryKey}
                         type="button"
-                        className={isActive ? "activity-asset-toggle is-active" : "activity-asset-toggle"}
+                        className={
+                          isActive
+                            ? "activity-asset-toggle is-active"
+                            : "activity-asset-toggle"
+                        }
                         onClick={() =>
                           setVisibleCategoryKeys((current) =>
                             current.includes(series.categoryKey)
-                              ? current.filter((value) => value !== series.categoryKey)
+                              ? current.filter(
+                                  (value) => value !== series.categoryKey
+                                )
                               : [...current, series.categoryKey]
                           )
                         }
@@ -1432,7 +1622,10 @@ function ActivityRatioChart({
       </div>
       <div className="activity-ratio-card__body">
         <div className="activity-ratio-card__chart">
-          <ResponsiveContainer width="100%" height={ACTIVITY_RATIO_CHART_HEIGHT}>
+          <ResponsiveContainer
+            width="100%"
+            height={ACTIVITY_RATIO_CHART_HEIGHT}
+          >
             <RadarChart data={data} outerRadius="72%">
               <PolarGrid stroke="rgba(23, 20, 17, 0.12)" />
               <PolarAngleAxis dataKey="label" tick={renderRatioAxisTick} />
@@ -1485,21 +1678,28 @@ function ActivityCompareRatioChart({
   }));
 
   return (
-    <section className="activity-ratio-card activity-ratio-card--compare" aria-label="비율 비교">
+    <section
+      className="activity-ratio-card activity-ratio-card--compare"
+      aria-label="비율 비교"
+    >
       <div className="activity-ratio-card__header">
         <h4>비율 비교</h4>
         <p>캘린더 날짜 기준 비율</p>
       </div>
       <div className="activity-ratio-compare__legend">
         <div className="activity-ratio-compare__legend-item activity-ratio-compare__legend-item--left">
-          <span className="activity-ratio-compare__legend-kicker">기준 의원</span>
+          <span className="activity-ratio-compare__legend-kicker">
+            기준 의원
+          </span>
           <strong className="activity-ratio-compare__legend-name">
             <i style={{ background: compareRatioColors.leftStroke }} />
             <span>{leftMember.name}</span>
           </strong>
         </div>
         <div className="activity-ratio-compare__legend-item activity-ratio-compare__legend-item--right">
-          <span className="activity-ratio-compare__legend-kicker">비교 의원</span>
+          <span className="activity-ratio-compare__legend-kicker">
+            비교 의원
+          </span>
           <strong className="activity-ratio-compare__legend-name">
             <i style={{ background: compareRatioColors.rightStroke }} />
             <span>{rightMember.name}</span>
@@ -1508,7 +1708,10 @@ function ActivityCompareRatioChart({
       </div>
       <div className="activity-ratio-card__body activity-ratio-card__body--compare">
         <div className="activity-ratio-card__chart">
-          <ResponsiveContainer width="100%" height={ACTIVITY_RATIO_CHART_HEIGHT}>
+          <ResponsiveContainer
+            width="100%"
+            height={ACTIVITY_RATIO_CHART_HEIGHT}
+          >
             <RadarChart data={compareData} outerRadius="72%">
               <PolarGrid stroke="rgba(23, 20, 17, 0.12)" />
               <PolarAngleAxis dataKey="label" tick={renderRatioAxisTick} />
@@ -1535,9 +1738,19 @@ function ActivityCompareRatioChart({
             </RadarChart>
           </ResponsiveContainer>
         </div>
-        <div className="activity-ratio-compare__table" role="table" aria-label="비율 비교 표">
-          <div className="activity-ratio-compare__row activity-ratio-compare__row--head" role="row">
-            <span className="activity-ratio-compare__metric-header" role="columnheader">
+        <div
+          className="activity-ratio-compare__table"
+          role="table"
+          aria-label="비율 비교 표"
+        >
+          <div
+            className="activity-ratio-compare__row activity-ratio-compare__row--head"
+            role="row"
+          >
+            <span
+              className="activity-ratio-compare__metric-header"
+              role="columnheader"
+            >
               항목
             </span>
             <div className="activity-ratio-compare__values activity-ratio-compare__values--head">
@@ -1546,8 +1759,15 @@ function ActivityCompareRatioChart({
             </div>
           </div>
           {compareData.map((item) => (
-            <div key={item.label} className="activity-ratio-compare__row" role="row">
-              <span className="activity-ratio-card__label activity-ratio-compare__metric" role="rowheader">
+            <div
+              key={item.label}
+              className="activity-ratio-compare__row"
+              role="row"
+            >
+              <span
+                className="activity-ratio-card__label activity-ratio-compare__metric"
+                role="rowheader"
+              >
                 <i style={{ background: item.axisColor }} />
                 {item.label}
               </span>
@@ -1595,7 +1815,8 @@ function ActivityVoteRecordSections({
   onRetry: (() => void) | null;
 }) {
   const resolvedRecordCount = Math.max(recordCount, records.length);
-  const isPendingRemoteLoad = resolvedRecordCount > records.length && !loading && !error;
+  const isPendingRemoteLoad =
+    resolvedRecordCount > records.length && !loading && !error;
   const groupedRecordDefinitions: Array<{
     voteCode: MemberActivityVoteRecord["voteCode"];
     label: string;
@@ -1631,11 +1852,16 @@ function ActivityVoteRecordSections({
   }> = groupedRecordDefinitions
     .map((group) => ({
       ...group,
-      previewRecords: group.records.slice(0, INITIAL_VISIBLE_VOTE_RECORDS_PER_GROUP),
+      previewRecords: group.records.slice(
+        0,
+        INITIAL_VISIBLE_VOTE_RECORDS_PER_GROUP
+      ),
       hiddenRecords: group.records.slice(INITIAL_VISIBLE_VOTE_RECORDS_PER_GROUP)
     }))
     .filter((group) => group.records.length > 0);
-  const hasCollapsedGroups = groupedRecords.some((group) => group.hiddenRecords.length > 0);
+  const hasCollapsedGroups = groupedRecords.some(
+    (group) => group.hiddenRecords.length > 0
+  );
 
   if (resolvedRecordCount === 0 && !loading && !error) {
     return null;
@@ -1652,7 +1878,9 @@ function ActivityVoteRecordSections({
         </p>
       </div>
       {loading || isPendingRemoteLoad ? (
-        <p className="activity-drawer__empty">전체 표결 기록을 불러오는 중입니다…</p>
+        <p className="activity-drawer__empty">
+          전체 표결 기록을 불러오는 중입니다…
+        </p>
       ) : null}
       {!loading && !isPendingRemoteLoad && error ? (
         <div className="activity-drawer__empty">
@@ -1664,10 +1892,18 @@ function ActivityVoteRecordSections({
           ) : null}
         </div>
       ) : null}
-      {!loading && !isPendingRemoteLoad && !error && groupedRecords.length === 0 ? (
-        <p className="activity-drawer__empty">표시할 찬성·반대·기권·불참 기록이 없습니다.</p>
+      {!loading &&
+      !isPendingRemoteLoad &&
+      !error &&
+      groupedRecords.length === 0 ? (
+        <p className="activity-drawer__empty">
+          표시할 찬성·반대·기권·불참 기록이 없습니다.
+        </p>
       ) : null}
-      {!loading && !isPendingRemoteLoad && !error && groupedRecords.length > 0 ? (
+      {!loading &&
+      !isPendingRemoteLoad &&
+      !error &&
+      groupedRecords.length > 0 ? (
         <div className="activity-vote-records__groups">
           {groupedRecords.map((group) => (
             <section
@@ -1711,7 +1947,9 @@ function ActivityVoteRecordSections({
                           {content}
                         </a>
                       ) : (
-                        <div className="activity-vote-records__item">{content}</div>
+                        <div className="activity-vote-records__item">
+                          {content}
+                        </div>
                       )}
                     </li>
                   );
@@ -1747,7 +1985,9 @@ function ActivityVoteRecordSections({
                               {content}
                             </a>
                           ) : (
-                            <div className="activity-vote-records__item">{content}</div>
+                            <div className="activity-vote-records__item">
+                              {content}
+                            </div>
                           )}
                         </li>
                       );
@@ -1783,34 +2023,40 @@ function ActivityCommitteeSections({
   const committeeSummaries = (member.committeeSummaries ?? []).filter(
     (summary) => summary.eligibleRollCallCount >= 5
   );
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [expandedSections, setExpandedSections] = useState<
+    Record<string, boolean>
+  >({});
 
   if (committeeSummaries.length === 0) {
     return null;
   }
 
-  const mostResponsiveCommittees = [...committeeSummaries].sort((left, right) => {
-    if (right.participationRate !== left.participationRate) {
-      return right.participationRate - left.participationRate;
-    }
+  const mostResponsiveCommittees = [...committeeSummaries].sort(
+    (left, right) => {
+      if (right.participationRate !== left.participationRate) {
+        return right.participationRate - left.participationRate;
+      }
 
-    if (right.eligibleRollCallCount !== left.eligibleRollCallCount) {
-      return right.eligibleRollCallCount - left.eligibleRollCallCount;
-    }
+      if (right.eligibleRollCallCount !== left.eligibleRollCallCount) {
+        return right.eligibleRollCallCount - left.eligibleRollCallCount;
+      }
 
-    return left.committeeName.localeCompare(right.committeeName, "ko-KR");
-  });
-  const leastResponsiveCommittees = [...committeeSummaries].sort((left, right) => {
-    if (left.participationRate !== right.participationRate) {
-      return left.participationRate - right.participationRate;
+      return left.committeeName.localeCompare(right.committeeName, "ko-KR");
     }
+  );
+  const leastResponsiveCommittees = [...committeeSummaries].sort(
+    (left, right) => {
+      if (left.participationRate !== right.participationRate) {
+        return left.participationRate - right.participationRate;
+      }
 
-    if (right.eligibleRollCallCount !== left.eligibleRollCallCount) {
-      return right.eligibleRollCallCount - left.eligibleRollCallCount;
+      if (right.eligibleRollCallCount !== left.eligibleRollCallCount) {
+        return right.eligibleRollCallCount - left.eligibleRollCallCount;
+      }
+
+      return left.committeeName.localeCompare(right.committeeName, "ko-KR");
     }
-
-    return left.committeeName.localeCompare(right.committeeName, "ko-KR");
-  });
+  );
 
   const sections = [
     {
@@ -1845,7 +2091,10 @@ function ActivityCommitteeSections({
           const visibleSummaries = isExpanded
             ? section.summaries
             : section.summaries.slice(0, INITIAL_VISIBLE_COMMITTEE_COUNT);
-          const hiddenCount = Math.max(section.summaries.length - visibleSummaries.length, 0);
+          const hiddenCount = Math.max(
+            section.summaries.length - visibleSummaries.length,
+            0
+          );
           const listId = `activity-committee-list-${section.id}`;
 
           return (
@@ -1875,7 +2124,9 @@ function ActivityCommitteeSections({
                           <div className="activity-committee-card__title-row">
                             <h6>{summary.committeeName}</h6>
                             {summary.isCurrentCommittee ? (
-                              <span className="activity-committee-card__badge">소속 위원회</span>
+                              <span className="activity-committee-card__badge">
+                                소속 위원회
+                              </span>
                             ) : null}
                           </div>
                           <strong>{`${formatNumber(Math.round(summary.participationRate * 100))}%`}</strong>
@@ -1883,7 +2134,10 @@ function ActivityCommitteeSections({
                         <p className="activity-committee-card__meta">
                           {`참여 ${formatNumber(summary.participatedRollCallCount)} / 대상 ${formatNumber(summary.eligibleRollCallCount)} · 불참 ${formatNumber(summary.absentRollCallCount)}`}
                         </p>
-                        <div className="activity-committee-card__bar" aria-hidden="true">
+                        <div
+                          className="activity-committee-card__bar"
+                          aria-hidden="true"
+                        >
                           <span
                             style={buildCommitteeCompositionStyle(
                               summary.yesCount,
@@ -1913,8 +2167,12 @@ function ActivityCommitteeSections({
                             </summary>
                             <ul className="activity-committee-card__records">
                               {summary.recentVoteRecords.map((record) => {
-                                const recordDateLabel = formatDate(record.voteDatetime);
-                                const detailLabel = formatVoteCodeLabel(record.voteCode);
+                                const recordDateLabel = formatDate(
+                                  record.voteDatetime
+                                );
+                                const detailLabel = formatVoteCodeLabel(
+                                  record.voteCode
+                                );
                                 const recordContent = (
                                   <>
                                     <span className="activity-committee-card__record-copy">
@@ -1930,7 +2188,9 @@ function ActivityCommitteeSections({
                                 );
 
                                 return (
-                                  <li key={`${summary.committeeName}:${record.rollCallId}`}>
+                                  <li
+                                    key={`${summary.committeeName}:${record.rollCallId}`}
+                                  >
                                     {record.officialSourceUrl ? (
                                       <a
                                         href={record.officialSourceUrl}
@@ -2014,7 +2274,10 @@ function ContributionCalendar({
     }
 
     const scrollToLatest = () => {
-      viewport.scrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+      viewport.scrollLeft = Math.max(
+        0,
+        viewport.scrollWidth - viewport.clientWidth
+      );
     };
 
     scrollToLatest();
@@ -2089,7 +2352,11 @@ function ContributionCalendar({
     }
 
     const horizontalDelta =
-      Math.abs(event.deltaX) > 0 ? event.deltaX : Math.abs(event.deltaY) > 0 ? event.deltaY : 0;
+      Math.abs(event.deltaX) > 0
+        ? event.deltaX
+        : Math.abs(event.deltaY) > 0
+          ? event.deltaY
+          : 0;
     if (horizontalDelta === 0) {
       return;
     }
@@ -2100,7 +2367,10 @@ function ContributionCalendar({
 
   return (
     <div className={className}>
-      <div className="contribution-calendar__legend" aria-label="대표 상태 범례">
+      <div
+        className="contribution-calendar__legend"
+        aria-label="대표 상태 범례"
+      >
         <ul className="contribution-calendar__legend-list">
           {[
             { state: "yes", label: "찬성" },
@@ -2119,7 +2389,9 @@ function ContributionCalendar({
           ))}
         </ul>
         <p className="contribution-calendar__legend-note">
-          {compact ? "가로 스크롤로 최근 날짜를 확인합니다." : "좌우로 스크롤해 최근 날짜까지 확인합니다."}
+          {compact
+            ? "가로 스크롤로 최근 날짜를 확인합니다."
+            : "좌우로 스크롤해 최근 날짜까지 확인합니다."}
         </p>
       </div>
       <div
@@ -2140,7 +2412,10 @@ function ContributionCalendar({
             <span className="contribution-calendar__month-spacer" />
             <div className="contribution-calendar__month-track">
               {monthLabels.map((label, index) => (
-                <span key={`${assembly.assemblyNo}:${index}`} className="contribution-calendar__month">
+                <span
+                  key={`${assembly.assemblyNo}:${index}`}
+                  className="contribution-calendar__month"
+                >
                   {label}
                 </span>
               ))}
@@ -2154,7 +2429,10 @@ function ContributionCalendar({
             </div>
             <div className="contribution-calendar__weeks">
               {weeks.map((week, index) => (
-                <div key={`${assembly.assemblyNo}:${index}`} className="contribution-calendar__week">
+                <div
+                  key={`${assembly.assemblyNo}:${index}`}
+                  className="contribution-calendar__week"
+                >
                   {week.days.map((cell, dayIndex) => (
                     <span
                       key={`${assembly.assemblyNo}:${index}:${dayIndex}:${cell.date ?? "empty"}`}
@@ -2204,11 +2482,18 @@ export function ActivityCalendarPage({
   const [shareNotice, setShareNotice] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const hasInitializedSelectedMemberRef = useRef(false);
-  const lastAppliedRouteMemberIdRef = useRef<string | null | undefined>(undefined);
+  const lastAppliedRouteMemberIdRef = useRef<string | null | undefined>(
+    undefined
+  );
 
   const selectedAssembly = activityCalendar?.assembly ?? null;
-  const rankedMembers = selectedAssembly ? rankActivityMembers(selectedAssembly, true) : [];
-  const compareCandidates = rankedMembers.filter((member) => member.memberId !== selectedMemberId);
+  const rankedMembers = useMemo(
+    () => (selectedAssembly ? rankActivityMembers(selectedAssembly, true) : []),
+    [selectedAssembly]
+  );
+  const compareCandidates = rankedMembers.filter(
+    (member) => member.memberId !== selectedMemberId
+  );
   const memberOptions = rankedMembers.map((member) => ({
     id: member.memberId,
     label: `${member.name} · ${member.party}`
@@ -2231,7 +2516,8 @@ export function ActivityCalendarPage({
     }
 
     const routeMemberId =
-      initialMemberId && rankedMembers.some((member) => member.memberId === initialMemberId)
+      initialMemberId &&
+      rankedMembers.some((member) => member.memberId === initialMemberId)
         ? initialMemberId
         : null;
     const routeChanged = routeMemberId !== lastAppliedRouteMemberIdRef.current;
@@ -2274,46 +2560,65 @@ export function ActivityCalendarPage({
   }, [initialMemberId, rankedMembers, selectedAssembly]);
 
   const selectedMember = getMemberById(selectedAssembly, selectedMemberId);
-  const selectedMemberDetail = selectedMember ? memberDetails[selectedMember.memberId] ?? null : null;
+  const selectedMemberDetail = selectedMember
+    ? (memberDetails[selectedMember.memberId] ?? null)
+    : null;
   const selectedMemberDetailError = selectedMember
-    ? memberDetailErrors[selectedMember.memberId] ?? null
+    ? (memberDetailErrors[selectedMember.memberId] ?? null)
     : null;
   const selectedMemberDetailLoading = selectedMember
     ? Boolean(memberDetailLoading[selectedMember.memberId])
     : false;
   const selectedMemberAssetIndex = selectedMember
-    ? memberAssetsIndex?.members.find((entry) => entry.memberId === selectedMember.memberId) ?? null
+    ? (memberAssetsIndex?.members.find(
+        (entry) => entry.memberId === selectedMember.memberId
+      ) ?? null)
     : null;
   const selectedMemberAssetHistory = selectedMember
-    ? memberAssetHistories[selectedMember.memberId] ?? null
+    ? (memberAssetHistories[selectedMember.memberId] ?? null)
     : null;
   const selectedMemberAssetHistoryError = selectedMember
-    ? memberAssetHistoryErrors[selectedMember.memberId] ?? null
+    ? (memberAssetHistoryErrors[selectedMember.memberId] ?? null)
     : null;
   const selectedMemberAssetHistoryLoading = selectedMember
     ? Boolean(memberAssetHistoryLoading[selectedMember.memberId])
     : false;
   const compareMember = getMemberById(selectedAssembly, compareMemberId);
   const compareMemberAssetIndex = compareMember
-    ? memberAssetsIndex?.members.find((entry) => entry.memberId === compareMember.memberId) ?? null
+    ? (memberAssetsIndex?.members.find(
+        (entry) => entry.memberId === compareMember.memberId
+      ) ?? null)
     : null;
   const compareMemberAssetHistory = compareMember
-    ? memberAssetHistories[compareMember.memberId] ?? null
+    ? (memberAssetHistories[compareMember.memberId] ?? null)
     : null;
   const compareMemberAssetHistoryError = compareMember
-    ? memberAssetHistoryErrors[compareMember.memberId] ?? null
+    ? (memberAssetHistoryErrors[compareMember.memberId] ?? null)
     : null;
   const compareMemberAssetHistoryLoading = compareMember
     ? Boolean(memberAssetHistoryLoading[compareMember.memberId])
     : false;
   const comparisonSummary =
     selectedAssembly && selectedMember && compareMember
-      ? buildHeadToHeadSummary(selectedAssembly, selectedMember, compareMember, true)
+      ? buildHeadToHeadSummary(
+          selectedAssembly,
+          selectedMember,
+          compareMember,
+          true
+        )
       : null;
-  const selectedBreakdown = selectedMember ? getMemberDayBreakdown(selectedMember) : null;
-  const compareBreakdown = compareMember ? getMemberDayBreakdown(compareMember) : null;
+  const selectedBreakdown = selectedMember
+    ? getMemberDayBreakdown(selectedMember)
+    : null;
+  const compareBreakdown = compareMember
+    ? getMemberDayBreakdown(compareMember)
+    : null;
   const compareMetrics =
-    selectedMember && compareMember && selectedBreakdown && compareBreakdown && comparisonSummary
+    selectedMember &&
+    compareMember &&
+    selectedBreakdown &&
+    compareBreakdown &&
+    comparisonSummary
       ? [
           buildCompareMetricCard(
             currentRunLabel,
@@ -2384,7 +2689,9 @@ export function ActivityCalendarPage({
     const preferredCompareId =
       initialCompareMemberId &&
       initialCompareMemberId !== selectedMember.memberId &&
-      availableCompareMembers.some((member) => member.memberId === initialCompareMemberId)
+      availableCompareMembers.some(
+        (member) => member.memberId === initialCompareMemberId
+      )
         ? initialCompareMemberId
         : null;
 
@@ -2396,7 +2703,9 @@ export function ActivityCalendarPage({
       if (
         currentCompareId &&
         currentCompareId !== selectedMember.memberId &&
-        availableCompareMembers.some((member) => member.memberId === currentCompareId)
+        availableCompareMembers.some(
+          (member) => member.memberId === currentCompareId
+        )
       ) {
         return currentCompareId;
       }
@@ -2410,7 +2719,11 @@ export function ActivityCalendarPage({
       return;
     }
 
-    if (selectedMemberDetail || selectedMemberDetailLoading || selectedMemberDetailError) {
+    if (
+      selectedMemberDetail ||
+      selectedMemberDetailLoading ||
+      selectedMemberDetailError
+    ) {
       return;
     }
 
@@ -2504,7 +2817,10 @@ export function ActivityCalendarPage({
       const title = `${selectedMember.name} 활동 캘린더`;
       const text = `${selectedAssembly.label} 활동 캘린더 링크입니다.`;
 
-      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      if (
+        typeof navigator !== "undefined" &&
+        typeof navigator.share === "function"
+      ) {
         await navigator.share({
           title,
           text,
@@ -2583,12 +2899,20 @@ export function ActivityCalendarPage({
           </p>
         ) : null}
 
-        <div className="activity-drawer__tabs" role="tablist" aria-label="활동 분석 보기">
+        <div
+          className="activity-drawer__tabs"
+          role="tablist"
+          aria-label="활동 분석 보기"
+        >
           <button
             type="button"
             role="tab"
             aria-selected={activeView === "single"}
-            className={activeView === "single" ? "activity-drawer__tab is-active" : "activity-drawer__tab"}
+            className={
+              activeView === "single"
+                ? "activity-drawer__tab is-active"
+                : "activity-drawer__tab"
+            }
             onClick={() => setActiveView("single")}
           >
             개인 분석
@@ -2597,7 +2921,11 @@ export function ActivityCalendarPage({
             type="button"
             role="tab"
             aria-selected={activeView === "compare"}
-            className={activeView === "compare" ? "activity-drawer__tab is-active" : "activity-drawer__tab"}
+            className={
+              activeView === "compare"
+                ? "activity-drawer__tab is-active"
+                : "activity-drawer__tab"
+            }
             onClick={() => setActiveView("compare")}
           >
             VS 비교
@@ -2616,14 +2944,17 @@ export function ActivityCalendarPage({
           />
         </div>
         <p className="activity-drawer__toolbar-hint">
-          입력값을 지우고 다른 이름이나 정당을 입력하면 기준 의원을 바꿀 수 있습니다.
+          입력값을 지우고 다른 이름이나 정당을 입력하면 기준 의원을 바꿀 수
+          있습니다.
         </p>
 
         {shareError ? <p className="error-banner">{shareError}</p> : null}
         {shareNotice ? <p className="info-banner">{shareNotice}</p> : null}
 
         {loading ? (
-          <p className="activity-drawer__empty">활동 캘린더 데이터를 불러오는 중입니다…</p>
+          <p className="activity-drawer__empty">
+            활동 캘린더 데이터를 불러오는 중입니다…
+          </p>
         ) : null}
 
         {!loading && error ? (
@@ -2636,13 +2967,17 @@ export function ActivityCalendarPage({
         ) : null}
 
         {!loading && !error && !selectedAssembly ? (
-          <p className="activity-drawer__empty">활동 캘린더 데이터가 아직 발행되지 않았습니다.</p>
+          <p className="activity-drawer__empty">
+            활동 캘린더 데이터가 아직 발행되지 않았습니다.
+          </p>
         ) : null}
 
         {!loading && !error && selectedAssembly ? (
           <div className="activity-drawer__content">
             <div className="activity-drawer__main activity-drawer__main--full">
-              {activeView === "single" && selectedMember && selectedBreakdown ? (
+              {activeView === "single" &&
+              selectedMember &&
+              selectedBreakdown ? (
                 <>
                   <div className="activity-drawer__member-header">
                     <div className="activity-drawer__member-primary">
@@ -2651,16 +2986,22 @@ export function ActivityCalendarPage({
                           name={selectedMember.name}
                           party={selectedMember.party}
                           photoUrl={selectedMember.photoUrl}
-                          calendarHref={buildCalendarHref({ memberId: selectedMember.memberId })}
+                          calendarHref={buildCalendarHref({
+                            memberId: selectedMember.memberId
+                          })}
                           size="large"
                         />
                         <div className="activity-page__member-actions">
-                          <ExternalSiteLink url={selectedMember.officialExternalUrl} />
+                          <ExternalSiteLink
+                            url={selectedMember.officialExternalUrl}
+                          />
                           <button
                             type="button"
                             className="activity-page__action-button activity-page__share"
                             onClick={handleShare}
-                            disabled={isSharing || !selectedAssembly || !selectedMember}
+                            disabled={
+                              isSharing || !selectedAssembly || !selectedMember
+                            }
                             aria-label={isSharing ? "링크 준비 중" : "공유하기"}
                             title={isSharing ? "링크 준비 중" : "공유하기"}
                           >
@@ -2674,7 +3015,9 @@ export function ActivityCalendarPage({
                                 strokeWidth="1.7"
                               />
                             </svg>
-                            <span>{isSharing ? "링크 준비 중" : "공유하기"}</span>
+                            <span>
+                              {isSharing ? "링크 준비 중" : "공유하기"}
+                            </span>
                           </button>
                         </div>
                       </div>
@@ -2686,21 +3029,28 @@ export function ActivityCalendarPage({
                           <strong>현재 소속 위원회</strong>
                           {selectedMember.committeeMemberships?.length ? (
                             <div className="activity-drawer__committee-chips">
-                              {selectedMember.committeeMemberships.map((committeeName) => (
-                                <span
-                                  key={`${selectedMember.memberId}:${committeeName}`}
-                                  className="activity-drawer__committee-chip"
-                                >
-                                  {committeeName}
-                                </span>
-                              ))}
+                              {selectedMember.committeeMemberships.map(
+                                (committeeName) => (
+                                  <span
+                                    key={`${selectedMember.memberId}:${committeeName}`}
+                                    className="activity-drawer__committee-chip"
+                                  >
+                                    {committeeName}
+                                  </span>
+                                )
+                              )}
                             </div>
                           ) : (
-                            <p className="activity-drawer__committee-fallback">위원회 소속 미확인</p>
+                            <p className="activity-drawer__committee-fallback">
+                              위원회 소속 미확인
+                            </p>
                           )}
                         </div>
                         {selectedMember.homeCommitteeAlerts?.length ? (
-                          <div className="activity-drawer__committee-alerts" aria-label="소속 위원회 주의">
+                          <div
+                            className="activity-drawer__committee-alerts"
+                            aria-label="소속 위원회 주의"
+                          >
                             {selectedMember.homeCommitteeAlerts.map((alert) => (
                               <div
                                 key={`${selectedMember.memberId}:${alert.committeeName}`}
@@ -2723,11 +3073,15 @@ export function ActivityCalendarPage({
                     <dl className="activity-drawer__summary">
                       <div>
                         <dt>{currentRunLabel}</dt>
-                        <dd>{formatNumber(getCurrentStreak(selectedMember, true))}</dd>
+                        <dd>
+                          {formatNumber(getCurrentStreak(selectedMember, true))}
+                        </dd>
                       </div>
                       <div>
                         <dt>{longestRunLabel}</dt>
-                        <dd>{formatNumber(getLongestStreak(selectedMember, true))}</dd>
+                        <dd>
+                          {formatNumber(getLongestStreak(selectedMember, true))}
+                        </dd>
                       </div>
                       <div>
                         <dt>반대한 날</dt>
@@ -2739,17 +3093,24 @@ export function ActivityCalendarPage({
                       </div>
                     </dl>
                   </div>
-                  <section className="activity-drawer__calendar-card" aria-label="활동 캘린더 요약">
+                  <section
+                    className="activity-drawer__calendar-card"
+                    aria-label="활동 캘린더 요약"
+                  >
                     <div className="activity-drawer__section-head">
                       <div>
                         <p className="section-label">대표 상태 캘린더</p>
                         <h3>최근 표결 날짜 흐름</h3>
                       </div>
                       <p>
-                        최근 표결일을 하루 단위로 묶고, 같은 날 여러 표결이 있으면 대표 상태만 남겨 비교합니다.
+                        최근 표결일을 하루 단위로 묶고, 같은 날 여러 표결이
+                        있으면 대표 상태만 남겨 비교합니다.
                       </p>
                     </div>
-                    <ContributionCalendar assembly={selectedAssembly} member={selectedMember} />
+                    <ContributionCalendar
+                      assembly={selectedAssembly}
+                      member={selectedMember}
+                    />
                   </section>
                   <ActivityRatioChart member={selectedMember} />
                   <MemberAssetSection
@@ -2766,7 +3127,11 @@ export function ActivityCalendarPage({
                   />
                   <ActivityCommitteeSections member={selectedMember} />
                   <ActivityVoteRecordSections
-                    records={selectedMemberDetail?.voteRecords ?? selectedMember.voteRecords ?? []}
+                    records={
+                      selectedMemberDetail?.voteRecords ??
+                      selectedMember.voteRecords ??
+                      []
+                    }
                     recordCount={selectedMember.voteRecordCount}
                     loading={selectedMemberDetailLoading}
                     error={selectedMemberDetailError}
@@ -2802,15 +3167,24 @@ export function ActivityCalendarPage({
 
                   {compareMember ? (
                     <>
-                      <section className="activity-compare__summary" aria-label="비교 요약">
+                      <section
+                        className="activity-compare__summary"
+                        aria-label="비교 요약"
+                      >
                         {compareMetrics.map((metric, index) => (
                           <article
                             key={`${index}:${metric.summaryText}:${metric.detailText}`}
                             className={`activity-compare__summary-card activity-compare__summary-card--${metric.winner}`}
                           >
-                            <p className="activity-compare__summary-kicker">{metric.badgeText}</p>
-                            <p className="activity-compare__summary-copy">{metric.summaryText}</p>
-                            <p className="activity-compare__summary-note">{metric.detailText}</p>
+                            <p className="activity-compare__summary-kicker">
+                              {metric.badgeText}
+                            </p>
+                            <p className="activity-compare__summary-copy">
+                              {metric.summaryText}
+                            </p>
+                            <p className="activity-compare__summary-note">
+                              {metric.detailText}
+                            </p>
                           </article>
                         ))}
                       </section>
@@ -2821,9 +3195,13 @@ export function ActivityCalendarPage({
                             name={selectedMember.name}
                             party={selectedMember.party}
                             photoUrl={selectedMember.photoUrl}
-                            calendarHref={buildCalendarHref({ memberId: selectedMember.memberId })}
+                            calendarHref={buildCalendarHref({
+                              memberId: selectedMember.memberId
+                            })}
                           />
-                          <ExternalSiteLink url={selectedMember.officialExternalUrl} />
+                          <ExternalSiteLink
+                            url={selectedMember.officialExternalUrl}
+                          />
                           <ContributionCalendar
                             assembly={selectedAssembly}
                             member={selectedMember}
@@ -2835,9 +3213,13 @@ export function ActivityCalendarPage({
                             name={compareMember.name}
                             party={compareMember.party}
                             photoUrl={compareMember.photoUrl}
-                            calendarHref={buildCalendarHref({ memberId: compareMember.memberId })}
+                            calendarHref={buildCalendarHref({
+                              memberId: compareMember.memberId
+                            })}
                           />
-                          <ExternalSiteLink url={compareMember.officialExternalUrl} />
+                          <ExternalSiteLink
+                            url={compareMember.officialExternalUrl}
+                          />
                           <ContributionCalendar
                             assembly={selectedAssembly}
                             member={compareMember}
@@ -2861,25 +3243,31 @@ export function ActivityCalendarPage({
                         rightLoading={compareMemberAssetHistoryLoading}
                         leftError={selectedMemberAssetHistoryError}
                         rightError={compareMemberAssetHistoryError}
-                        onRetryLeft={() => onRetryMemberAssetHistory(selectedMember)}
-                        onRetryRight={() => onRetryMemberAssetHistory(compareMember)}
+                        onRetryLeft={() =>
+                          onRetryMemberAssetHistory(selectedMember)
+                        }
+                        onRetryRight={() =>
+                          onRetryMemberAssetHistory(compareMember)
+                        }
                       />
                     </>
                   ) : (
-                    <p className="activity-drawer__empty">같은 대수 안에서 비교할 의원을 선택해 주세요.</p>
+                    <p className="activity-drawer__empty">
+                      같은 대수 안에서 비교할 의원을 선택해 주세요.
+                    </p>
                   )}
                 </div>
               ) : null}
 
               {!selectedMember ? (
-                <p className="activity-drawer__empty">표시할 의원을 선택해 주세요.</p>
+                <p className="activity-drawer__empty">
+                  표시할 의원을 선택해 주세요.
+                </p>
               ) : null}
             </div>
           </div>
         ) : null}
-
       </section>
-
     </section>
   );
 }

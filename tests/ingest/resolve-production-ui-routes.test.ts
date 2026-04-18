@@ -59,7 +59,10 @@ describe("pickVerificationMembers", () => {
       }
     );
 
-    expect(selectedMembers.map((member) => member.memberId)).toEqual(["M002", "M003"]);
+    expect(selectedMembers.map((member) => member.memberId)).toEqual([
+      "M002",
+      "M003"
+    ]);
   });
 });
 
@@ -84,7 +87,10 @@ describe("resolveProductionUiRoutes", () => {
         );
       }
 
-      if (url === "https://data.example.test/exports/member_activity_calendar.json") {
+      if (
+        url ===
+        "https://data.example.test/exports/member_activity_calendar.json"
+      ) {
         return new Response(
           JSON.stringify({
             assembly: {
@@ -93,19 +99,22 @@ describe("resolveProductionUiRoutes", () => {
                   memberId: "M002",
                   name: "Bora",
                   party: "Alpha",
-                  voteRecordsPath: "exports/member_activity_calendar_members/M002.json"
+                  voteRecordsPath:
+                    "exports/member_activity_calendar_members/M002.json"
                 },
                 {
                   memberId: "M001",
                   name: "Ara",
                   party: "Alpha",
-                  voteRecordsPath: "exports/member_activity_calendar_members/M001.json"
+                  voteRecordsPath:
+                    "exports/member_activity_calendar_members/M001.json"
                 },
                 {
                   memberId: "M003",
                   name: "Duri",
                   party: "Beta",
-                  voteRecordsPath: "exports/member_activity_calendar_members/M003.json"
+                  voteRecordsPath:
+                    "exports/member_activity_calendar_members/M003.json"
                 }
               ]
             }

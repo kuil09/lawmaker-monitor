@@ -1,8 +1,9 @@
 /// <reference lib="webworker" />
 
+import { buildStaticHexCells } from "../lib/hex-cells.js";
+
 import type { ConstituencyBoundaryTopology } from "../lib/constituency-map.js";
 import type { CachedHexCell, StaticHexTimings } from "../lib/hex-cells.js";
-import { buildStaticHexCells } from "../lib/hex-cells.js";
 
 type HexCellsWorkerInput = {
   type: "COMPUTE_STATIC";

@@ -35,7 +35,9 @@ describe("document mirror helpers", () => {
     );
 
     expect(documentId).toContain("2026-02-23");
-    expect(slugifySegment("Committee Minutes / Session #1")).toBe("committee-minutes-session-1");
+    expect(slugifySegment("Committee Minutes / Session #1")).toBe(
+      "committee-minutes-session-1"
+    );
 
     const paths = buildDocumentPaths({
       sourceId: "assembly-public-documents",
@@ -49,7 +51,9 @@ describe("document mirror helpers", () => {
       `raw/documents/assembly-public-documents/2026/02/23/${documentId}`
     );
     expect(paths.latestRelativePath.endsWith("/latest.pdf")).toBe(true);
-    expect(paths.versionRelativePath).toContain("/versions/2026-03-22T00-30-00-000Z.pdf");
+    expect(paths.versionRelativePath).toContain(
+      "/versions/2026-03-22T00-30-00-000Z.pdf"
+    );
   });
 
   it("treats only older documents as mirror targets", () => {
@@ -115,12 +119,16 @@ describe("document mirror helpers", () => {
   });
 
   it("formats cutoff dates in the configured time zone", () => {
-    const date = dateInTimeZone("Asia/Seoul", new Date("2026-03-21T15:10:00.000Z"));
+    const date = dateInTimeZone(
+      "Asia/Seoul",
+      new Date("2026-03-21T15:10:00.000Z")
+    );
     expect(date).toBe("2026-03-22");
   });
 
   it("prefers document and download identifiers over shared source pages", () => {
-    const sharedSourceUrl = "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700";
+    const sharedSourceUrl =
+      "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700";
     const lookup = {
       byDocumentId: new Map([
         [
@@ -213,7 +221,8 @@ describe("document mirror helpers", () => {
 
     expect(
       selectExistingMirroredMetadata(lookup, {
-        sourceUrl: "https://record.assembly.go.kr/assembly/viewer/minutes/download/pdf.do?id=123"
+        sourceUrl:
+          "https://record.assembly.go.kr/assembly/viewer/minutes/download/pdf.do?id=123"
       })
     ).toBeUndefined();
   });

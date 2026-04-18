@@ -1,23 +1,29 @@
-import type { LatestVoteItem } from "@lawmaker-monitor/schemas";
-
+import { StatusBadge } from "./StatusBadge.js";
 import { buildCalendarHref } from "../lib/calendar-route.js";
 import {
   formatDate,
   formatSourceStatusLabel,
   formatVoteVisibilityLabel
 } from "../lib/format.js";
-import { StatusBadge } from "./StatusBadge.js";
+
+import type { LatestVoteItem } from "@lawmaker-monitor/schemas";
 
 type VoteCardProps = {
   item: LatestVoteItem;
 };
 
 export function VoteCard({ item }: VoteCardProps) {
-  const voteTotal = item.counts.yes + item.counts.no + item.counts.abstain + item.counts.absent;
-  const noVotes = item.highlightedVotes.filter((vote) => vote.voteCode === "no");
-  const abstainVotes = item.highlightedVotes.filter((vote) => vote.voteCode === "abstain");
+  const voteTotal =
+    item.counts.yes + item.counts.no + item.counts.abstain + item.counts.absent;
+  const noVotes = item.highlightedVotes.filter(
+    (vote) => vote.voteCode === "no"
+  );
+  const abstainVotes = item.highlightedVotes.filter(
+    (vote) => vote.voteCode === "abstain"
+  );
   const absentVotes = item.absentVotes;
-  const flaggedVoteCount = item.counts.no + item.counts.abstain + item.counts.absent;
+  const flaggedVoteCount =
+    item.counts.no + item.counts.abstain + item.counts.absent;
   const combinedTitle = item.committeeName
     ? `${item.committeeName} · ${item.billName}`
     : item.billName;
@@ -27,9 +33,12 @@ export function VoteCard({ item }: VoteCardProps) {
       : "공개된 반대·기권·불참 내역이 없습니다.";
   const showProvisional = item.sourceStatus !== "confirmed";
   const showVisibility = item.voteVisibility !== "recorded";
-  const hasAnyFlaggedVotes = item.counts.no > 0 || item.counts.abstain > 0 || item.counts.absent > 0;
+  const hasAnyFlaggedVotes =
+    item.counts.no > 0 || item.counts.abstain > 0 || item.counts.absent > 0;
   const showUnavailableAbsentNote =
-    item.absentListStatus === "unavailable" && item.counts.absent > 0 && absentVotes.length === 0;
+    item.absentListStatus === "unavailable" &&
+    item.counts.absent > 0 &&
+    absentVotes.length === 0;
 
   function renderVoteGroup(
     title: string,
@@ -68,7 +77,9 @@ export function VoteCard({ item }: VoteCardProps) {
                     {vote.memberName}
                   </a>
                 ) : (
-                  <span className="vote-card__member-name">{vote.memberName}</span>
+                  <span className="vote-card__member-name">
+                    {vote.memberName}
+                  </span>
                 )}
                 <span className="vote-card__member-party">{vote.party}</span>
               </li>
@@ -134,19 +145,27 @@ export function VoteCard({ item }: VoteCardProps) {
       <div className="vote-card__mini-bar" aria-hidden="true">
         <span
           className="vote-card__mini-bar-segment vote-card__mini-bar-segment--yes"
-          style={{ width: `${voteTotal > 0 ? (item.counts.yes / voteTotal) * 100 : 0}%` }}
+          style={{
+            width: `${voteTotal > 0 ? (item.counts.yes / voteTotal) * 100 : 0}%`
+          }}
         />
         <span
           className="vote-card__mini-bar-segment vote-card__mini-bar-segment--no"
-          style={{ width: `${voteTotal > 0 ? (item.counts.no / voteTotal) * 100 : 0}%` }}
+          style={{
+            width: `${voteTotal > 0 ? (item.counts.no / voteTotal) * 100 : 0}%`
+          }}
         />
         <span
           className="vote-card__mini-bar-segment vote-card__mini-bar-segment--abstain"
-          style={{ width: `${voteTotal > 0 ? (item.counts.abstain / voteTotal) * 100 : 0}%` }}
+          style={{
+            width: `${voteTotal > 0 ? (item.counts.abstain / voteTotal) * 100 : 0}%`
+          }}
         />
         <span
           className="vote-card__mini-bar-segment vote-card__mini-bar-segment--absent"
-          style={{ width: `${voteTotal > 0 ? (item.counts.absent / voteTotal) * 100 : 0}%` }}
+          style={{
+            width: `${voteTotal > 0 ? (item.counts.absent / voteTotal) * 100 : 0}%`
+          }}
         />
       </div>
 

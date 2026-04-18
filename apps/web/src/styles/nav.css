@@ -1,15 +1,19 @@
-/* ─── Global Navigation ─────────────────────────────────────────── */
+@layer navigation {
+  /* ─── Global Navigation ─────────────────────────────────────────── */
 
-.global-nav {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  border-top: 3px solid var(--accent);
-  border-bottom: 1px solid var(--border);
-  background: rgba(244, 245, 247, 0.97);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.03);
+  .global-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-top: 3px solid var(--accent);
+    border-bottom: 1px solid var(--border);
+    background: rgba(244, 245, 247, 0.97);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow:
+      0 1px 0 rgba(0, 0, 0, 0.04),
+      0 4px 16px rgba(0, 0, 0, 0.03);
+  }
 }
 
 .global-nav__inner {
@@ -82,7 +86,9 @@
   text-decoration: none;
   padding: 0.32rem 0.65rem;
   border-radius: var(--radius-pill);
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 
 .global-nav__link:hover {

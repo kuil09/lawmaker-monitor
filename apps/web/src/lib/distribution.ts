@@ -1,12 +1,12 @@
+import { getYesCount } from "./accountability.js";
+import { getMemberAttendanceSummary } from "./member-activity.js";
+
 import type {
   AccountabilitySummaryExport,
   AccountabilitySummaryItem,
   MemberActivityCalendarExport,
   MemberActivityCalendarMember
 } from "@lawmaker-monitor/schemas";
-
-import { getYesCount } from "./accountability.js";
-import { getMemberAttendanceSummary } from "./member-activity.js";
 
 export type DistributionMemberPoint = {
   memberId: string;
@@ -118,7 +118,9 @@ function roundUpToStep(value: number): number {
   return Math.ceil(value / CHART_DOMAIN_STEP) * CHART_DOMAIN_STEP;
 }
 
-export function buildDistributionChartDomain(values: number[]): [number, number] {
+export function buildDistributionChartDomain(
+  values: number[]
+): [number, number] {
   const finiteValues = values.filter((value) => Number.isFinite(value));
   if (finiteValues.length === 0) {
     return CHART_DOMAIN_FALLBACK;
@@ -129,20 +131,34 @@ export function buildDistributionChartDomain(values: number[]): [number, number]
   const rawSpan = maxValue - minValue;
   const padding = Math.max(rawSpan * 0.14, MIN_CHART_DOMAIN_PADDING);
 
-  let lowerBound = roundDownToStep(Math.max(CHART_DOMAIN_FALLBACK[0], minValue - padding));
-  let upperBound = roundUpToStep(Math.min(CHART_DOMAIN_FALLBACK[1], maxValue + padding));
+  let lowerBound = roundDownToStep(
+    Math.max(CHART_DOMAIN_FALLBACK[0], minValue - padding)
+  );
+  let upperBound = roundUpToStep(
+    Math.min(CHART_DOMAIN_FALLBACK[1], maxValue + padding)
+  );
 
   if (upperBound - lowerBound < MIN_CHART_DOMAIN_SPAN) {
     const midpoint = (minValue + maxValue) / 2;
-    lowerBound = roundDownToStep(Math.max(CHART_DOMAIN_FALLBACK[0], midpoint - MIN_CHART_DOMAIN_SPAN / 2));
-    upperBound = roundUpToStep(Math.min(CHART_DOMAIN_FALLBACK[1], midpoint + MIN_CHART_DOMAIN_SPAN / 2));
+    lowerBound = roundDownToStep(
+      Math.max(CHART_DOMAIN_FALLBACK[0], midpoint - MIN_CHART_DOMAIN_SPAN / 2)
+    );
+    upperBound = roundUpToStep(
+      Math.min(CHART_DOMAIN_FALLBACK[1], midpoint + MIN_CHART_DOMAIN_SPAN / 2)
+    );
   }
 
   if (upperBound - lowerBound < MIN_CHART_DOMAIN_SPAN) {
     if (lowerBound <= CHART_DOMAIN_FALLBACK[0]) {
-      upperBound = Math.min(CHART_DOMAIN_FALLBACK[1], lowerBound + MIN_CHART_DOMAIN_SPAN);
+      upperBound = Math.min(
+        CHART_DOMAIN_FALLBACK[1],
+        lowerBound + MIN_CHART_DOMAIN_SPAN
+      );
     } else if (upperBound >= CHART_DOMAIN_FALLBACK[1]) {
-      lowerBound = Math.max(CHART_DOMAIN_FALLBACK[0], upperBound - MIN_CHART_DOMAIN_SPAN);
+      lowerBound = Math.max(
+        CHART_DOMAIN_FALLBACK[0],
+        upperBound - MIN_CHART_DOMAIN_SPAN
+      );
     }
   }
 
@@ -152,7 +168,9 @@ export function buildDistributionChartDomain(values: number[]): [number, number]
 export function isDistributionBehaviorFilter(
   value: string | null | undefined
 ): value is DistributionBehaviorFilter {
-  return DISTRIBUTION_BEHAVIOR_DEFINITIONS.some((definition) => definition.key === value);
+  return DISTRIBUTION_BEHAVIOR_DEFINITIONS.some(
+    (definition) => definition.key === value
+  );
 }
 
 export function matchesDistributionBehavior(
@@ -173,7 +191,9 @@ export function filterDistributionMembersByBehavior(
     return members;
   }
 
-  return members.filter((member) => matchesDistributionBehavior(member, filter));
+  return members.filter((member) =>
+    matchesDistributionBehavior(member, filter)
+  );
 }
 
 export function buildDistributionBehaviorSummaries(
@@ -222,7 +242,10 @@ export function buildDistributionMembers(
           noCount: item.noCount,
           abstainCount: item.abstainCount,
           absentVoteCount: item.absentCount,
-          yesRate: item.totalRecordedVotes > 0 ? yesCount / item.totalRecordedVotes : 0,
+          yesRate:
+            item.totalRecordedVotes > 0
+              ? yesCount / item.totalRecordedVotes
+              : 0,
           noRate: item.noRate,
           abstainRate: item.abstainRate,
           absentRate: item.absentRate,
@@ -237,9 +260,11 @@ export function buildDistributionMembers(
           absentDayCount: activityMember.absentDays,
           negativeDayCount: activityMember.negativeDays,
           currentNegativeStreak: activityMember.currentNegativeStreak,
-          currentNegativeOrAbsentStreak: activityMember.currentNegativeOrAbsentStreak,
+          currentNegativeOrAbsentStreak:
+            activityMember.currentNegativeOrAbsentStreak,
           longestNegativeStreak: activityMember.longestNegativeStreak,
-          longestNegativeOrAbsentStreak: activityMember.longestNegativeOrAbsentStreak,
+          longestNegativeOrAbsentStreak:
+            activityMember.longestNegativeOrAbsentStreak,
           committeeMemberships: activityMember.committeeMemberships,
           committeeCount: activityMember.committeeMemberships.length,
           activity: activityMember,
@@ -256,8 +281,14 @@ export function buildDistributionMembers(
         return left.attendanceRate - right.attendanceRate;
       }
 
-      if (right.currentNegativeOrAbsentStreak !== left.currentNegativeOrAbsentStreak) {
-        return right.currentNegativeOrAbsentStreak - left.currentNegativeOrAbsentStreak;
+      if (
+        right.currentNegativeOrAbsentStreak !==
+        left.currentNegativeOrAbsentStreak
+      ) {
+        return (
+          right.currentNegativeOrAbsentStreak -
+          left.currentNegativeOrAbsentStreak
+        );
       }
 
       if (right.totalRecordedVotes !== left.totalRecordedVotes) {

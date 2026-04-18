@@ -30,6 +30,12 @@ jobs:
         env:
           VITE_DATA_REPO_BASE_URL: http://127.0.0.1:4174
 
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run format check
+        run: npm run format:check
+
       - name: Run test suite
         run: npm test
 

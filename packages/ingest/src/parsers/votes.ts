@@ -1,12 +1,3 @@
-import type {
-  MemberRecord,
-  MeetingRecord,
-  RollCallRecord,
-  SourceRecord,
-  VoteFactRecord
-} from "@lawmaker-monitor/schemas";
-import type { RawSnapshotEntry } from "../raw-snapshot.js";
-
 import {
   ensureUrl,
   parseXmlDocument,
@@ -29,12 +20,21 @@ import {
   normalizeVoteCode,
   normalizeVoteVisibility
 } from "./helpers.js";
+
+import type { RawSnapshotEntry } from "../raw-snapshot.js";
 import type {
   AgendaRecord,
   LiveSignal,
   OfficialVoteParseOptions,
   SourceContext
 } from "./types.js";
+import type {
+  MemberRecord,
+  MeetingRecord,
+  RollCallRecord,
+  SourceRecord,
+  VoteFactRecord
+} from "@lawmaker-monitor/schemas";
 
 type OfficialVoteParseResult = {
   members: MemberRecord[];
@@ -47,7 +47,9 @@ type AgendaContext = SourceContext;
 type MeetingContext = SourceContext;
 
 function createCurrentMemberResolver(currentMembers: MemberRecord[] = []) {
-  const membersById = new Map(currentMembers.map((member) => [member.memberId, member]));
+  const membersById = new Map(
+    currentMembers.map((member) => [member.memberId, member])
+  );
   const membersByNormalizedName = new Map<string, MemberRecord[]>();
 
   for (const member of currentMembers) {
@@ -62,7 +64,11 @@ function createCurrentMemberResolver(currentMembers: MemberRecord[] = []) {
   }
 
   return {
-    resolve(memberId: string | null, memberName: string | null, party: string | null): MemberRecord | undefined {
+    resolve(
+      memberId: string | null,
+      memberName: string | null,
+      party: string | null
+    ): MemberRecord | undefined {
       if (memberId) {
         return membersById.get(memberId);
       }
@@ -80,7 +86,8 @@ function createCurrentMemberResolver(currentMembers: MemberRecord[] = []) {
       const normalizedParty = normalizeComparableText(party);
       if (normalizedParty) {
         const partyMatches = candidates.filter(
-          (candidate) => normalizeComparableText(candidate.party) === normalizedParty
+          (candidate) =>
+            normalizeComparableText(candidate.party) === normalizedParty
         );
 
         if (partyMatches.length === 1) {
@@ -104,34 +111,70 @@ export function parseOfficialVoteXml(
   const rollCallsById = new Map<string, RollCallRecord>();
   const membersById = new Map<string, MemberRecord>();
   const voteFacts: VoteFactRecord[] = [];
-  const currentMemberResolver = createCurrentMemberResolver(options.currentMembers);
+  const currentMemberResolver = createCurrentMemberResolver(
+    options.currentMembers
+  );
 
   for (const row of rows) {
     const assemblyNo = normalizeAssemblyNo(row);
-    const rawBillNo = pickFirst(row, ["BILL_NO", "billNo", "agendaId", "AGENDA_ID"]);
-    const rawMemberName = pickFirst(row, ["HG_NM", "hgNm", "MEMBER_NAME", "memberName"]);
+    const rawBillNo = pickFirst(row, [
+      "BILL_NO",
+      "billNo",
+      "agendaId",
+      "AGENDA_ID"
+    ]);
+    const rawMemberName = pickFirst(row, [
+      "HG_NM",
+      "hgNm",
+      "MEMBER_NAME",
+      "memberName"
+    ]);
 
-    if (assemblyNo <= 0 || rawBillNo === "의안번호" || rawMemberName === "의원") {
+    if (
+      assemblyNo <= 0 ||
+      rawBillNo === "의안번호" ||
+      rawMemberName === "의원"
+    ) {
       continue;
     }
 
     const sessionNo = extractFirstNumber(
-      pickFirst(row, ["SESSION_CD", "sessionCd", "MEETINGSESSION", "meetingSession"])
+      pickFirst(row, [
+        "SESSION_CD",
+        "sessionCd",
+        "MEETINGSESSION",
+        "meetingSession"
+      ])
     );
     const meetingNo = extractFirstNumber(
-      pickFirst(row, ["CURRENTS_CD", "currentsCd", "CHA", "cha", "CONFER_NUM", "conferNum"])
+      pickFirst(row, [
+        "CURRENTS_CD",
+        "currentsCd",
+        "CHA",
+        "cha",
+        "CONFER_NUM",
+        "conferNum"
+      ])
     );
     const rawVoteDatetime =
-      pickFirst(row, ["VOTE_DATE", "voteDate", "voteDatetime", "VOTE_DATETIME", "RGS_PROC_DT"]) ??
-      context.retrievedAt;
-    const meetingDate = normalizeDate(rawVoteDatetime) ?? normalizeDate(context.retrievedAt);
+      pickFirst(row, [
+        "VOTE_DATE",
+        "voteDate",
+        "voteDatetime",
+        "VOTE_DATETIME",
+        "RGS_PROC_DT"
+      ]) ?? context.retrievedAt;
+    const meetingDate =
+      normalizeDate(rawVoteDatetime) ?? normalizeDate(context.retrievedAt);
     const voteDatetime = readString(rawVoteDatetime) ?? context.retrievedAt;
     const meetingId =
       pickFirst(row, ["meetingId", "MEETING_ID", "CONF_ID", "confId"]) ??
       buildMeetingId({ assemblyNo, sessionNo, meetingNo, meetingDate });
     const billId =
       pickFirst(row, ["BILL_ID", "billId"]) ??
-      extractBillIdFromUrl(pickFirst(row, ["BILL_URL", "billUrl", "BILL_NAME_URL", "billNameUrl"]));
+      extractBillIdFromUrl(
+        pickFirst(row, ["BILL_URL", "billUrl", "BILL_NAME_URL", "billNameUrl"])
+      );
     const agendaId =
       rawBillNo ??
       pickFirst(row, ["agendaId", "AGENDA_ID", "SUB_NUM", "subNum"]) ??
@@ -141,8 +184,14 @@ export function parseOfficialVoteXml(
       `${meetingId}:${billId ?? agendaId ?? "unknown-bill"}`;
 
     const rawMemberId =
-      pickFirst(row, ["MONA_CD", "monaCd", "MEMBER_NO", "memberNo", "MEMBER_ID", "memberId"]) ??
-      null;
+      pickFirst(row, [
+        "MONA_CD",
+        "monaCd",
+        "MEMBER_NO",
+        "memberNo",
+        "MEMBER_ID",
+        "memberId"
+      ]) ?? null;
     const rawParty =
       pickFirst(row, ["POLY_NM", "polyNm", "party", "PARTY"]) ?? null;
     const matchedCurrentMember = currentMemberResolver.resolve(
@@ -165,7 +214,13 @@ export function parseOfficialVoteXml(
 
     const sourceStatus = normalizeSourceStatus(row);
     const officialSourceUrl = ensureUrl(
-      pickFirst(row, ["BILL_URL", "billUrl", "BILL_NAME_URL", "billNameUrl", "officialSourceUrl"]),
+      pickFirst(row, [
+        "BILL_URL",
+        "billUrl",
+        "BILL_NAME_URL",
+        "billNameUrl",
+        "officialSourceUrl"
+      ]),
       context.sourceUrl
     );
     const sourceHash = sha256(`${sourceRecord.contentSha256}:${rollCallId}`);
@@ -178,8 +233,14 @@ export function parseOfficialVoteXml(
         agendaId,
         billId,
         billName:
-          pickFirst(row, ["BILL_NAME", "billName", "LAW_TITLE", "lawTitle", "SUB_NAME", "subName"]) ??
-          "Unknown bill",
+          pickFirst(row, [
+            "BILL_NAME",
+            "billName",
+            "LAW_TITLE",
+            "lawTitle",
+            "SUB_NAME",
+            "subName"
+          ]) ?? "Unknown bill",
         committeeName: pickFirst(row, [
           "CURR_COMMITTEE",
           "currCommittee",
@@ -190,14 +251,24 @@ export function parseOfficialVoteXml(
         voteVisibility,
         sourceStatus,
         officialSourceUrl,
-        summary: pickFirst(row, ["LAW_TITLE", "lawTitle", "summary", "SUMMARY"]),
+        summary: pickFirst(row, [
+          "LAW_TITLE",
+          "lawTitle",
+          "summary",
+          "SUMMARY"
+        ]),
         snapshotId: context.snapshotId,
         sourceHash
       });
     }
 
     if (memberId && memberName && !membersById.has(memberId)) {
-      const district = pickFirst(row, ["ORIG_NM", "origNm", "district", "DISTRICT"]);
+      const district = pickFirst(row, [
+        "ORIG_NM",
+        "origNm",
+        "district",
+        "DISTRICT"
+      ]);
       membersById.set(memberId, {
         memberId,
         name: memberName,
@@ -209,8 +280,9 @@ export function parseOfficialVoteXml(
         officialExternalUrl: null,
         isCurrentMember: false,
         proportionalFlag:
-          readBoolean(row.proportionalFlag ?? row.PROPORTIONAL_FLAG ?? row.reeleGbnNm) ??
-          district === "비례대표",
+          readBoolean(
+            row.proportionalFlag ?? row.PROPORTIONAL_FLAG ?? row.reeleGbnNm
+          ) ?? district === "비례대표",
         assemblyNo
       });
     }
@@ -223,7 +295,13 @@ export function parseOfficialVoteXml(
       voteCode: normalizeVoteCode(row),
       publishedAt:
         readString(
-          pickFirst(row, ["publishedAt", "PUBLISHED_AT", "VOTE_DATE", "voteDate", "registerDate"])
+          pickFirst(row, [
+            "publishedAt",
+            "PUBLISHED_AT",
+            "VOTE_DATE",
+            "voteDate",
+            "registerDate"
+          ])
         ) ?? context.retrievedAt,
       retrievedAt: context.retrievedAt,
       sourceHash
@@ -273,11 +351,22 @@ export function parseAgendaXml(
   for (const row of rows) {
     const assemblyNo = normalizeAssemblyNo(row);
     const meetingDate = normalizeDate(
-      pickFirst(row, ["RGS_PROC_DT", "rgsProcDt", "RGS_PRESENT_DT", "rgsPresentDt"])
+      pickFirst(row, [
+        "RGS_PROC_DT",
+        "rgsProcDt",
+        "RGS_PRESENT_DT",
+        "rgsPresentDt"
+      ])
     );
     const billId = pickFirst(row, ["BILL_ID", "billId"]);
-    const agendaId = pickFirst(row, ["BILL_NO", "billNo", "SUB_NUM", "subNum"]) ?? billId;
-    const billName = pickFirst(row, ["BILL_NAME", "billName", "BILL_NM", "billNm"]);
+    const agendaId =
+      pickFirst(row, ["BILL_NO", "billNo", "SUB_NUM", "subNum"]) ?? billId;
+    const billName = pickFirst(row, [
+      "BILL_NAME",
+      "billName",
+      "BILL_NM",
+      "billNm"
+    ]);
 
     if (!billName) {
       continue;
@@ -323,10 +412,19 @@ export function parseMeetingXml(
   const meetings = rows
     .map((row) => {
       const assemblyNo = normalizeAssemblyNo(row);
-      const sessionNo = extractFirstNumber(pickFirst(row, ["MEETINGSESSION", "meetingSession"]));
-      const meetingNo = extractFirstNumber(pickFirst(row, ["CHA", "cha", "CONFER_NUM", "conferNum"]));
+      const sessionNo = extractFirstNumber(
+        pickFirst(row, ["MEETINGSESSION", "meetingSession"])
+      );
+      const meetingNo = extractFirstNumber(
+        pickFirst(row, ["CHA", "cha", "CONFER_NUM", "conferNum"])
+      );
       const meetingDate = normalizeDate(
-        pickFirst(row, ["MEETTING_DATE", "meetingDate", "CONF_DATE", "confDate"])
+        pickFirst(row, [
+          "MEETTING_DATE",
+          "meetingDate",
+          "CONF_DATE",
+          "confDate"
+        ])
       );
       const title = pickFirst(row, ["TITLE", "title"]);
 
@@ -335,8 +433,15 @@ export function parseMeetingXml(
       }
 
       const meeting: MeetingRecord = {
-        meetingId: buildMeetingId({ assemblyNo, sessionNo, meetingNo, meetingDate }),
-        meetingType: title.includes("본회의") ? "Plenary Session" : "Plenary Meeting",
+        meetingId: buildMeetingId({
+          assemblyNo,
+          sessionNo,
+          meetingNo,
+          meetingDate
+        }),
+        meetingType: title.includes("본회의")
+          ? "Plenary Session"
+          : "Plenary Meeting",
         sessionNo,
         meetingNo,
         meetingDate,
@@ -357,15 +462,23 @@ export function parseLiveSignalXml(xml: string): LiveSignal | null {
   const parsed = parseXmlDocument(xml);
   const rows = findItems(parsed);
 
-  const liveRow = rows.find((row) => readBoolean(row.LBRD_STAT ?? row.lbrdStat) === true) ?? rows[0];
+  const liveRow =
+    rows.find((row) => readBoolean(row.LBRD_STAT ?? row.lbrdStat) === true) ??
+    rows[0];
   if (!liveRow) {
     return null;
   }
 
-  const liveStatus = pickFirst(liveRow, ["LBRD_STAT", "lbrdStat"])?.toLowerCase();
+  const liveStatus = pickFirst(liveRow, [
+    "LBRD_STAT",
+    "lbrdStat"
+  ])?.toLowerCase();
   const isLive =
     readBoolean(liveRow.LBRD_STAT ?? liveRow.lbrdStat) ??
-    Boolean(liveStatus && ["개의", "live", "on", "진행"].some((token) => liveStatus.includes(token)));
+    Boolean(
+      liveStatus &&
+      ["개의", "live", "on", "진행"].some((token) => liveStatus.includes(token))
+    );
   const title = pickFirst(liveRow, ["CONF_NM", "confNm"]);
   const committeeName = pickFirst(liveRow, ["CMIT_NM", "cmitNm"]);
 

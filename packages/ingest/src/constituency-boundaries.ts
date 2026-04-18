@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
+import { sha256Buffer } from "./utils.js";
+
 import type {
   ConstituencyBoundaryExport,
   ConstituencyBoundaryFeature,
@@ -13,12 +15,7 @@ import type {
   GeoJsonPolygon
 } from "@lawmaker-monitor/schemas";
 
-import { sha256Buffer } from "./utils.js";
-
 const require = createRequire(import.meta.url);
-const iconv = require("iconv-lite") as {
-  decode(input: Buffer, encoding: string): string;
-};
 const wkx = require("wkx") as {
   Geometry: {
     parse(input: Buffer): {
@@ -137,7 +134,8 @@ type DongGeometryRecord = {
 
 export const CONSTITUENCY_LAW_PAGE_URL =
   "https://www.law.go.kr/lsBylInfoPLinkR.do?lsiSeq=284577&lsNm=%EA%B3%B5%EC%A7%81%EC%84%A0%EA%B1%B0%EB%B2%95&bylNo=0001&bylBrNo=00&bylCls=BE&bylEfYd=20260319&bylEfYdYn=Y";
-export const CONSTITUENCY_LAW_DOWNLOAD_URL = "https://www.law.go.kr/LSW/lsBylTextDownLoad.do";
+export const CONSTITUENCY_LAW_DOWNLOAD_URL =
+  "https://www.law.go.kr/LSW/lsBylTextDownLoad.do";
 export const CONSTITUENCY_LAW_DOWNLOAD_BODY = new URLSearchParams({
   bylSeq: "18012299",
   title: "[별표 1] 국회의원지역선거구구역표 (지역구 : 254)",
@@ -145,52 +143,139 @@ export const CONSTITUENCY_LAW_DOWNLOAD_BODY = new URLSearchParams({
 }).toString();
 export const CONSTITUENCY_LAW_EFFECTIVE_DATE = "2026-03-19";
 
-export const SGIS_BOUNDARY_DATA_PAGE_URL = "https://www.data.go.kr/data/15129688/fileData.do";
+export const SGIS_BOUNDARY_DATA_PAGE_URL =
+  "https://www.data.go.kr/data/15129688/fileData.do";
 export const SGIS_BOUNDARY_DOWNLOAD_URL =
   "https://www.data.go.kr/cmm/cmm/fileDownload.do?atchFileId=FILE_000000003601705&fileDetailSn=1&insertDataPrcus=N";
 
-export const NGII_SIGUNGU_DATA_PAGE_URL = "https://www.data.go.kr/data/15123131/fileData.do";
+export const NGII_SIGUNGU_DATA_PAGE_URL =
+  "https://www.data.go.kr/data/15123131/fileData.do";
 export const NGII_SIGUNGU_DOWNLOAD_URL =
   "https://www.data.go.kr/cmm/cmm/fileDownload.do?atchFileId=FILE_000000002819519&fileDetailSn=1&insertDataPrcus=N";
 
-export const NGII_EMD_DATA_PAGE_URL = "https://www.data.go.kr/data/15123128/fileData.do";
+export const NGII_EMD_DATA_PAGE_URL =
+  "https://www.data.go.kr/data/15123128/fileData.do";
 export const NGII_EMD_DOWNLOAD_URL =
   "https://www.data.go.kr/cmm/cmm/fileDownload.do?atchFileId=FILE_000000002819529&fileDetailSn=1&insertDataPrcus=N";
 
 const DEFAULT_FETCH_TIMEOUT_MS = 120_000;
 
 const PROVINCES: ProvinceInfo[] = [
-  { officialCode: "11", sgisCode: "11", fullName: "서울특별시", shortName: "서울" },
-  { officialCode: "26", sgisCode: "21", fullName: "부산광역시", shortName: "부산" },
-  { officialCode: "27", sgisCode: "22", fullName: "대구광역시", shortName: "대구" },
-  { officialCode: "28", sgisCode: "23", fullName: "인천광역시", shortName: "인천" },
-  { officialCode: "29", sgisCode: "24", fullName: "광주광역시", shortName: "광주" },
-  { officialCode: "30", sgisCode: "25", fullName: "대전광역시", shortName: "대전" },
-  { officialCode: "31", sgisCode: "26", fullName: "울산광역시", shortName: "울산" },
-  { officialCode: "36", sgisCode: "29", fullName: "세종특별자치시", shortName: "세종" },
+  {
+    officialCode: "11",
+    sgisCode: "11",
+    fullName: "서울특별시",
+    shortName: "서울"
+  },
+  {
+    officialCode: "26",
+    sgisCode: "21",
+    fullName: "부산광역시",
+    shortName: "부산"
+  },
+  {
+    officialCode: "27",
+    sgisCode: "22",
+    fullName: "대구광역시",
+    shortName: "대구"
+  },
+  {
+    officialCode: "28",
+    sgisCode: "23",
+    fullName: "인천광역시",
+    shortName: "인천"
+  },
+  {
+    officialCode: "29",
+    sgisCode: "24",
+    fullName: "광주광역시",
+    shortName: "광주"
+  },
+  {
+    officialCode: "30",
+    sgisCode: "25",
+    fullName: "대전광역시",
+    shortName: "대전"
+  },
+  {
+    officialCode: "31",
+    sgisCode: "26",
+    fullName: "울산광역시",
+    shortName: "울산"
+  },
+  {
+    officialCode: "36",
+    sgisCode: "29",
+    fullName: "세종특별자치시",
+    shortName: "세종"
+  },
   { officialCode: "41", sgisCode: "31", fullName: "경기도", shortName: "경기" },
-  { officialCode: "42", sgisCode: "32", fullName: "강원특별자치도", shortName: "강원" },
-  { officialCode: "43", sgisCode: "33", fullName: "충청북도", shortName: "충북" },
-  { officialCode: "44", sgisCode: "34", fullName: "충청남도", shortName: "충남" },
-  { officialCode: "45", sgisCode: "35", fullName: "전북특별자치도", shortName: "전북" },
-  { officialCode: "46", sgisCode: "36", fullName: "전라남도", shortName: "전남" },
-  { officialCode: "47", sgisCode: "37", fullName: "경상북도", shortName: "경북" },
-  { officialCode: "48", sgisCode: "38", fullName: "경상남도", shortName: "경남" },
-  { officialCode: "50", sgisCode: "39", fullName: "제주특별자치도", shortName: "제주" }
+  {
+    officialCode: "42",
+    sgisCode: "32",
+    fullName: "강원특별자치도",
+    shortName: "강원"
+  },
+  {
+    officialCode: "43",
+    sgisCode: "33",
+    fullName: "충청북도",
+    shortName: "충북"
+  },
+  {
+    officialCode: "44",
+    sgisCode: "34",
+    fullName: "충청남도",
+    shortName: "충남"
+  },
+  {
+    officialCode: "45",
+    sgisCode: "35",
+    fullName: "전북특별자치도",
+    shortName: "전북"
+  },
+  {
+    officialCode: "46",
+    sgisCode: "36",
+    fullName: "전라남도",
+    shortName: "전남"
+  },
+  {
+    officialCode: "47",
+    sgisCode: "37",
+    fullName: "경상북도",
+    shortName: "경북"
+  },
+  {
+    officialCode: "48",
+    sgisCode: "38",
+    fullName: "경상남도",
+    shortName: "경남"
+  },
+  {
+    officialCode: "50",
+    sgisCode: "39",
+    fullName: "제주특별자치도",
+    shortName: "제주"
+  }
 ];
 
-const provinceByOfficialCode = new Map(PROVINCES.map((item) => [item.officialCode, item] as const));
-const provinceBySgisCode = new Map(PROVINCES.map((item) => [item.sgisCode, item] as const));
-const provinceByFullName = new Map(PROVINCES.map((item) => [item.fullName, item] as const));
+const provinceByOfficialCode = new Map(
+  PROVINCES.map((item) => [item.officialCode, item] as const)
+);
+const provinceBySgisCode = new Map(
+  PROVINCES.map((item) => [item.sgisCode, item] as const)
+);
+const provinceByFullName = new Map(
+  PROVINCES.map((item) => [item.fullName, item] as const)
+);
 
 function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
 function normalizeAdministrativeNameKey(value: string): string {
-  return normalizeWhitespace(value)
-    .replace(/\s+/g, "")
-    .replace(/[ㆍ?]/g, "·");
+  return normalizeWhitespace(value).replace(/\s+/g, "").replace(/[ㆍ?]/g, "·");
 }
 
 function normalizeLawCell(value: string): string {
@@ -207,8 +292,12 @@ function stripOrdinalMarker(value: string): string {
 
 function buildAdministrativeNameMatchKeys(value: string): string[] {
   const exact = normalizeAdministrativeNameKey(value);
-  const collapsed = normalizeAdministrativeNameKey(collapseDuplicateOrdinalMarker(value));
-  const stripped = normalizeAdministrativeNameKey(stripOrdinalMarker(collapseDuplicateOrdinalMarker(value)));
+  const collapsed = normalizeAdministrativeNameKey(
+    collapseDuplicateOrdinalMarker(value)
+  );
+  const stripped = normalizeAdministrativeNameKey(
+    stripOrdinalMarker(collapseDuplicateOrdinalMarker(value))
+  );
   return [...new Set([exact, collapsed, stripped])];
 }
 
@@ -220,14 +309,20 @@ function buildCollapsedSubdivisionKey(value: string): string | null {
   return normalizeAdministrativeNameKey(value.replace(/\d+(?=[동리])/, ""));
 }
 
-function buildMemberDistrictLabel(province: ProvinceInfo, districtName: string): string {
+function buildMemberDistrictLabel(
+  province: ProvinceInfo,
+  districtName: string
+): string {
   const shortenedDistrictName = districtName
     .replace(/특별자치시/g, "시")
     .replace(/특별자치도/g, "도");
   return `${province.shortName} ${shortenedDistrictName}`;
 }
 
-function buildDistrictAliases(province: ProvinceInfo, districtName: string): string[] {
+function buildDistrictAliases(
+  province: ProvinceInfo,
+  districtName: string
+): string[] {
   const shortenedDistrictName = districtName
     .replace(/특별자치시/g, "시")
     .replace(/특별자치도/g, "도");
@@ -245,7 +340,9 @@ function buildDistrictAliases(province: ProvinceInfo, districtName: string): str
 }
 
 function parseLawLineCells(line: string): string[] {
-  const cells = [...line.matchAll(/│([^│]*)/g)].map((match) => normalizeLawCell(match[1] ?? ""));
+  const cells = [...line.matchAll(/│([^│]*)/g)].map((match) =>
+    normalizeLawCell(match[1] ?? "")
+  );
   if (cells.at(-1) === "") {
     return cells.slice(0, -1);
   }
@@ -264,7 +361,9 @@ function joinLawFragments(fragments: string[]): string {
   }, "");
 }
 
-export function parseConstituencyLawText(text: string): ConstituencyLawRecord[] {
+export function parseConstituencyLawText(
+  text: string
+): ConstituencyLawRecord[] {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const records: ConstituencyLawRecord[] = [];
   let currentProvince: ProvinceInfo | null = null;
@@ -325,7 +424,11 @@ export function parseConstituencyLawText(text: string): ConstituencyLawRecord[] 
       continue;
     }
 
-    if (currentDistrictName && !currentDistrictName.endsWith("선거구") && left.endsWith("선거구")) {
+    if (
+      currentDistrictName &&
+      !currentDistrictName.endsWith("선거구") &&
+      left.endsWith("선거구")
+    ) {
       currentDistrictName = `${currentDistrictName}${left}`;
       if (right) {
         currentAreaFragments.push(right);
@@ -336,7 +439,9 @@ export function parseConstituencyLawText(text: string): ConstituencyLawRecord[] 
     if (left) {
       pushCurrent();
       if (!currentProvince) {
-        throw new Error(`Could not resolve province header before district row "${left}".`);
+        throw new Error(
+          `Could not resolve province header before district row "${left}".`
+        );
       }
       currentDistrictName = left;
       currentAreaFragments = right ? [right] : [];
@@ -351,13 +456,17 @@ export function parseConstituencyLawText(text: string): ConstituencyLawRecord[] 
   pushCurrent();
 
   if (records.length === 0) {
-    throw new Error("Failed to parse any constituency rows from the official law text.");
+    throw new Error(
+      "Failed to parse any constituency rows from the official law text."
+    );
   }
 
   return records;
 }
 
-function listOuterRings(geometry: GeoJsonGeometry): Array<Array<[number, number]>> {
+function listOuterRings(
+  geometry: GeoJsonGeometry
+): Array<Array<[number, number]>> {
   if (geometry.type === "Polygon") {
     const outer = geometry.coordinates[0] ?? [];
     return [outer];
@@ -368,7 +477,9 @@ function listOuterRings(geometry: GeoJsonGeometry): Array<Array<[number, number]
     .filter((ring): ring is Array<[number, number]> => ring.length > 0);
 }
 
-function computeRingBBox(ring: Array<[number, number]>): [number, number, number, number] {
+function computeRingBBox(
+  ring: Array<[number, number]>
+): [number, number, number, number] {
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
@@ -384,7 +495,9 @@ function computeRingBBox(ring: Array<[number, number]>): [number, number, number
   return [minX, minY, maxX, maxY];
 }
 
-function computeGeometryBBox(geometry: GeoJsonGeometry): [number, number, number, number] {
+function computeGeometryBBox(
+  geometry: GeoJsonGeometry
+): [number, number, number, number] {
   const rings = listOuterRings(geometry);
   const initial: [number, number, number, number] = [
     Number.POSITIVE_INFINITY,
@@ -402,77 +515,6 @@ function computeGeometryBBox(geometry: GeoJsonGeometry): [number, number, number
       Math.max(bbox[3], maxY)
     ];
   }, initial);
-}
-
-function buildProbePoints(geometry: GeoJsonGeometry): Array<[number, number]> {
-  const rings = listOuterRings(geometry);
-  const ringArea = (ring: Array<[number, number]>): number => {
-    const [minX, minY, maxX, maxY] = computeRingBBox(ring);
-    return Math.max(0, maxX - minX) * Math.max(0, maxY - minY);
-  };
-  const largestRing =
-    rings
-      .slice()
-      .sort((left, right) => ringArea(right) - ringArea(left))[0] ??
-    [];
-  const bbox = computeGeometryBBox(geometry);
-  const bboxCenter: [number, number] = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2];
-  const coordinateAverage: [number, number] =
-    largestRing.length > 0
-      ? [
-          largestRing.reduce((sum, point) => sum + point[0], 0) / largestRing.length,
-          largestRing.reduce((sum, point) => sum + point[1], 0) / largestRing.length
-        ]
-      : bboxCenter;
-  const firstPoint = largestRing[0] ?? bboxCenter;
-  const edgeMidpoints = largestRing.slice(0, 12).map((point, index) => {
-    const next = largestRing[(index + 1) % largestRing.length] ?? point;
-    return [(point[0] + next[0]) / 2, (point[1] + next[1]) / 2] as [number, number];
-  });
-
-  return [bboxCenter, coordinateAverage, firstPoint, ...edgeMidpoints];
-}
-
-function bboxContainsPoint(
-  bbox: [number, number, number, number],
-  point: [number, number]
-): boolean {
-  return point[0] >= bbox[0] && point[0] <= bbox[2] && point[1] >= bbox[1] && point[1] <= bbox[3];
-}
-
-function pointInRing(point: [number, number], ring: Array<[number, number]>): boolean {
-  let inside = false;
-
-  for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index, index += 1) {
-    const [x1, y1] = ring[index] ?? [0, 0];
-    const [x2, y2] = ring[previous] ?? [0, 0];
-    const intersects =
-      (y1 > point[1]) !== (y2 > point[1]) &&
-      point[0] < ((x2 - x1) * (point[1] - y1)) / ((y2 - y1) || Number.EPSILON) + x1;
-    if (intersects) {
-      inside = !inside;
-    }
-  }
-
-  return inside;
-}
-
-function pointInGeometry(point: [number, number], geometry: GeoJsonGeometry): boolean {
-  if (geometry.type === "Polygon") {
-    const [outerRing, ...holes] = geometry.coordinates;
-    if (!outerRing || !pointInRing(point, outerRing)) {
-      return false;
-    }
-    return !holes.some((ring) => pointInRing(point, ring));
-  }
-
-  return geometry.coordinates.some((polygon) => {
-    const [outerRing, ...holes] = polygon;
-    if (!outerRing || !pointInRing(point, outerRing)) {
-      return false;
-    }
-    return !holes.some((ring) => pointInRing(point, ring));
-  });
 }
 
 function findProvinceBySigunguCode(sigunguCode: string): ProvinceInfo {
@@ -496,7 +538,13 @@ async function extractSgisShapefile(args: {
 
   try {
     await writeFile(zipPath, args.zipBuffer);
-    await execFile("unzip", ["-j", zipPath, `*${args.basename}.*`, "-d", tempRoot]);
+    await execFile("unzip", [
+      "-j",
+      zipPath,
+      `*${args.basename}.*`,
+      "-d",
+      tempRoot
+    ]);
 
     const [shp, dbf, cpg] = await Promise.all([
       readFile(join(tempRoot, `${args.basename}.shp`)),
@@ -524,12 +572,16 @@ async function readSgisFeatureCollection(args: {
   });
 }
 
-function parseSgisSigunguRecords(collection: GeoJsonFeatureCollection): SigunguGeometryRecord[] {
+function parseSgisSigunguRecords(
+  collection: GeoJsonFeatureCollection
+): SigunguGeometryRecord[] {
   return collection.features.map((feature) => {
     const sigunguCode = String(feature.properties.SIGUNGU_CD ?? "").trim();
     const sigunguName = String(feature.properties.SIGUNGU_NM ?? "").trim();
     if (!sigunguCode || !sigunguName) {
-      throw new Error("SGIS sigungu shapefile is missing SIGUNGU_CD or SIGUNGU_NM.");
+      throw new Error(
+        "SGIS sigungu shapefile is missing SIGUNGU_CD or SIGUNGU_NM."
+      );
     }
     return {
       sigunguCode,
@@ -540,7 +592,9 @@ function parseSgisSigunguRecords(collection: GeoJsonFeatureCollection): SigunguG
   });
 }
 
-function parseSgisDongRecords(collection: GeoJsonFeatureCollection): DongGeometryRecord[] {
+function parseSgisDongRecords(
+  collection: GeoJsonFeatureCollection
+): DongGeometryRecord[] {
   return collection.features.map((feature) => {
     const emdCode = String(feature.properties.ADM_CD ?? "").trim();
     const emdName = String(feature.properties.ADM_NM ?? "").trim();
@@ -553,26 +607,6 @@ function parseSgisDongRecords(collection: GeoJsonFeatureCollection): DongGeometr
       geometry: feature.geometry
     };
   });
-}
-
-function assignDongToSigungu(args: {
-  dong: DongGeometryRecord;
-  sigunguRecords: SigunguGeometryRecord[];
-}): SigunguGeometryRecord {
-  const probePoints = buildProbePoints(args.dong.geometry);
-
-  for (const point of probePoints) {
-    const bboxCandidates = args.sigunguRecords.filter((record) => bboxContainsPoint(record.bbox, point));
-    const matches = bboxCandidates.filter((record) => pointInGeometry(point, record.geometry));
-    if (matches.length === 1) {
-      const match = matches[0];
-      if (match) {
-        return match;
-      }
-    }
-  }
-
-  throw new Error(`Could not assign administrative dong ${args.dong.emdCode} to a sigungu geometry.`);
 }
 
 async function loadSgisBoundaryBundle(args: {
@@ -608,18 +642,22 @@ async function loadSgisBoundaryBundle(args: {
     download: args.download
   });
 
-  const sigunguRecords = parseSgisSigunguRecords(sigunguCollection).filter((record) =>
-    provinceBySgisCode.has(record.sigunguCode.slice(0, 2))
+  const sigunguRecords = parseSgisSigunguRecords(sigunguCollection).filter(
+    (record) => provinceBySgisCode.has(record.sigunguCode.slice(0, 2))
   );
   const dongRecords = parseSgisDongRecords(dongCollection);
-  const sigunguByCode = new Map(sigunguRecords.map((record) => [record.sigunguCode, record] as const));
+  const sigunguByCode = new Map(
+    sigunguRecords.map((record) => [record.sigunguCode, record] as const)
+  );
   const indexedEmdRecords: IndexedEmdRecord[] = [];
 
   for (const dong of dongRecords) {
     const sigunguCode = dong.emdCode.slice(0, 5);
     const sigungu = sigunguByCode.get(sigunguCode);
     if (!sigungu) {
-      throw new Error(`Missing SGIS sigungu lookup for administrative dong ${dong.emdCode}.`);
+      throw new Error(
+        `Missing SGIS sigungu lookup for administrative dong ${dong.emdCode}.`
+      );
     }
 
     const province = findProvinceBySigunguCode(sigungu.sigunguCode);
@@ -636,7 +674,9 @@ async function loadSgisBoundaryBundle(args: {
   }
 
   if (indexedEmdRecords.length === 0) {
-    throw new Error("Failed to assign any SGIS administrative dong features to South Korea sigungu shapes.");
+    throw new Error(
+      "Failed to assign any SGIS administrative dong features to South Korea sigungu shapes."
+    );
   }
 
   return {
@@ -692,7 +732,9 @@ function parseWkbHexGeometry(hex: string): GeoJsonGeometry {
     type?: string;
   } & Partial<GeoJsonGeometry>;
   if (geometry.type !== "Polygon" && geometry.type !== "MultiPolygon") {
-    throw new Error(`Unsupported geometry type "${geometry.type}" in NGII 읍면동 data.`);
+    throw new Error(
+      `Unsupported geometry type "${geometry.type}" in NGII 읍면동 data.`
+    );
   }
   return geometry as GeoJsonGeometry;
 }
@@ -740,7 +782,9 @@ function buildIndexedEmdRecords(args: {
     const province = provinceByOfficialCode.get(record.emdCode.slice(0, 2));
     const sigungu = sigunguByAnyCode.get(record.sigunguCode);
     if (!province) {
-      throw new Error(`Unknown province code "${record.emdCode.slice(0, 2)}" for ${record.emdCode}.`);
+      throw new Error(
+        `Unknown province code "${record.emdCode.slice(0, 2)}" for ${record.emdCode}.`
+      );
     }
     if (!sigungu) {
       throw new Error(`Missing sigungu lookup for 읍면동 ${record.emdCode}.`);
@@ -755,7 +799,9 @@ function buildIndexedEmdRecords(args: {
   });
 }
 
-function buildSigunguIndex(records: IndexedEmdRecord[]): Map<string, IndexedEmdRecord[]> {
+function buildSigunguIndex(
+  records: IndexedEmdRecord[]
+): Map<string, IndexedEmdRecord[]> {
   const index = new Map<string, IndexedEmdRecord[]>();
 
   for (const record of records) {
@@ -798,7 +844,8 @@ function resolveEmdRecord(args: {
 
   for (const matchKey of matchKeys) {
     const matches = candidates.filter(
-      (candidate) => normalizeAdministrativeNameKey(candidate.emdName) === matchKey
+      (candidate) =>
+        normalizeAdministrativeNameKey(candidate.emdName) === matchKey
     );
 
     if (matches.length === 1) {
@@ -825,12 +872,14 @@ function listProvinceSigunguNames(args: {
   sigunguIndex: Map<string, IndexedEmdRecord[]>;
 }): string[] {
   const prefix = `${args.provinceShortName}|`;
-  return [...new Set(
-    [...args.sigunguIndex.entries()]
-      .filter(([key]) => key.startsWith(prefix))
-      .map(([, records]) => records[0]?.sigunguName ?? "")
-      .filter(Boolean)
-  )];
+  return [
+    ...new Set(
+      [...args.sigunguIndex.entries()]
+        .filter(([key]) => key.startsWith(prefix))
+        .map(([, records]) => records[0]?.sigunguName ?? "")
+        .filter(Boolean)
+    )
+  ];
 }
 
 function resolveSigunguPrefixFromToken(args: {
@@ -850,7 +899,9 @@ function inferDefaultSigunguName(args: {
 }): string | null {
   const districtKeys = [
     args.record.districtName,
-    args.record.districtName.replace(/특별자치시/g, "시").replace(/특별자치도/g, "도")
+    args.record.districtName
+      .replace(/특별자치시/g, "시")
+      .replace(/특별자치도/g, "도")
   ].map((item) => normalizeAdministrativeNameKey(item));
   const provinceSigunguNames = listProvinceSigunguNames({
     provinceShortName: args.record.provinceShortName,
@@ -864,7 +915,8 @@ function inferDefaultSigunguName(args: {
     )
     .sort(
       (left, right) =>
-        normalizeAdministrativeNameKey(right).length - normalizeAdministrativeNameKey(left).length
+        normalizeAdministrativeNameKey(right).length -
+        normalizeAdministrativeNameKey(left).length
     );
 
   if (matches.length === 0 && provinceSigunguNames.length === 1) {
@@ -926,7 +978,9 @@ function resolveLawRecordToEmdRecords(args: {
     }
 
     if (!currentSigunguName) {
-      throw new Error(`Area token "${token}" in ${args.record.lawDistrictName} did not declare a sigungu context.`);
+      throw new Error(
+        `Area token "${token}" in ${args.record.lawDistrictName} did not declare a sigungu context.`
+      );
     }
 
     const item = resolveEmdRecord({
@@ -938,7 +992,9 @@ function resolveLawRecordToEmdRecords(args: {
     selections.set(item.emdCode, item);
   }
 
-  return [...selections.values()].sort((left, right) => left.emdCode.localeCompare(right.emdCode));
+  return [...selections.values()].sort((left, right) =>
+    left.emdCode.localeCompare(right.emdCode)
+  );
 }
 
 function buildTopology(records: IndexedEmdRecord[]): {
@@ -962,7 +1018,9 @@ function buildTopology(records: IndexedEmdRecord[]): {
   });
   const object = topology.objects.emd;
   if (!object || object.type !== "GeometryCollection") {
-    throw new Error("Failed to construct a TopoJSON geometry collection for 읍면동 boundaries.");
+    throw new Error(
+      "Failed to construct a TopoJSON geometry collection for 읍면동 boundaries."
+    );
   }
 
   const geometryByEmdCode = new Map<string, TopologyGeometry>();
@@ -974,7 +1032,9 @@ function buildTopology(records: IndexedEmdRecord[]): {
           ? geometry.properties.emdCode
           : "";
     if (!emdCode) {
-      throw new Error("Encountered a TopoJSON geometry without an 읍면동 code.");
+      throw new Error(
+        "Encountered a TopoJSON geometry without an 읍면동 code."
+      );
     }
     geometryByEmdCode.set(emdCode, geometry);
   }
@@ -995,7 +1055,9 @@ function buildConstituencyFeatures(args: {
   return args.lawRecords.map((record) => {
     const province = provinceByFullName.get(record.provinceName);
     if (!province) {
-      throw new Error(`Unknown province name "${record.provinceName}" in law parser output.`);
+      throw new Error(
+        `Unknown province name "${record.provinceName}" in law parser output.`
+      );
     }
 
     const emdRecords = resolveLawRecordToEmdRecords({
@@ -1005,18 +1067,28 @@ function buildConstituencyFeatures(args: {
     const topologyGeometries = emdRecords.map((item) => {
       const geometry = geometryByEmdCode.get(item.emdCode);
       if (!geometry) {
-        throw new Error(`Missing TopoJSON geometry for 읍면동 ${item.emdCode}.`);
+        throw new Error(
+          `Missing TopoJSON geometry for 읍면동 ${item.emdCode}.`
+        );
       }
       return geometry;
     });
     const geometry = topojsonClient.merge(topology, topologyGeometries);
-    const memberDistrictLabel = buildMemberDistrictLabel(province, record.districtName);
-    const memberDistrictKey = normalizeAdministrativeNameKey(memberDistrictLabel);
-    const sigunguCodes = [...new Set(emdRecords.map((item) => item.sigunguCode))].sort();
-    const officialSigunguCodes = [...new Set(emdRecords.map((item) => item.officialSigunguCode))].sort();
-    const sigunguNames = [...new Set(emdRecords.map((item) => item.sigunguName))].sort((left, right) =>
-      left.localeCompare(right, "ko")
+    const memberDistrictLabel = buildMemberDistrictLabel(
+      province,
+      record.districtName
     );
+    const memberDistrictKey =
+      normalizeAdministrativeNameKey(memberDistrictLabel);
+    const sigunguCodes = [
+      ...new Set(emdRecords.map((item) => item.sigunguCode))
+    ].sort();
+    const officialSigunguCodes = [
+      ...new Set(emdRecords.map((item) => item.officialSigunguCode))
+    ].sort();
+    const sigunguNames = [
+      ...new Set(emdRecords.map((item) => item.sigunguName))
+    ].sort((left, right) => left.localeCompare(right, "ko"));
     const emdCodes = emdRecords.map((item) => item.emdCode);
     const emdNames = emdRecords.map((item) => item.emdName);
 
@@ -1032,7 +1104,8 @@ function buildConstituencyFeatures(args: {
         provinceShortName: province.shortName,
         areaText: record.areaText,
         aliases: buildDistrictAliases(province, record.districtName),
-        sigunguCodes: officialSigunguCodes.length > 0 ? officialSigunguCodes : sigunguCodes,
+        sigunguCodes:
+          officialSigunguCodes.length > 0 ? officialSigunguCodes : sigunguCodes,
         sigunguNames,
         emdCodes,
         emdNames
@@ -1123,7 +1196,10 @@ async function fetchBufferWithTimeout(
   timeoutMs: number
 ): Promise<DownloadedSource> {
   const controller = new AbortController();
-  const timeoutHandle = setTimeout(() => controller.abort(), Math.max(1, timeoutMs));
+  const timeoutHandle = setTimeout(
+    () => controller.abort(),
+    Math.max(1, timeoutMs)
+  );
   const retrievedAt = new Date().toISOString();
 
   try {
@@ -1133,7 +1209,9 @@ async function fetchBufferWithTimeout(
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Failed to fetch ${url}: ${response.status} ${response.statusText}`
+      );
     }
 
     return {
@@ -1151,10 +1229,6 @@ async function fetchBufferWithTimeout(
   } finally {
     clearTimeout(timeoutHandle);
   }
-}
-
-function decodeCp949Csv(buffer: Buffer): string {
-  return iconv.decode(buffer, "cp949");
 }
 
 function buildSource(args: {

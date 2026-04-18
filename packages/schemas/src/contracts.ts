@@ -54,18 +54,20 @@ export const latestVoteItemSchema = z.object({
       voteCode: voteCodeSchema
     })
   ),
-  absentVotes: z.array(
-    z.object({
-      memberId: nonEmptyString.nullable().optional(),
-      memberName: nonEmptyString,
-      party: nonEmptyString,
-      photoUrl: nonEmptyString.url().nullable().optional(),
-      officialProfileUrl: nonEmptyString.url().nullable().optional(),
-      officialExternalUrl: nonEmptyString.url().nullable().optional(),
-      profile: memberPublicProfileSchema.optional(),
-      voteCode: voteCodeSchema
-    })
-  ).default([]),
+  absentVotes: z
+    .array(
+      z.object({
+        memberId: nonEmptyString.nullable().optional(),
+        memberName: nonEmptyString,
+        party: nonEmptyString,
+        photoUrl: nonEmptyString.url().nullable().optional(),
+        officialProfileUrl: nonEmptyString.url().nullable().optional(),
+        officialExternalUrl: nonEmptyString.url().nullable().optional(),
+        profile: memberPublicProfileSchema.optional(),
+        voteCode: voteCodeSchema
+      })
+    )
+    .default([]),
   absentListStatus: z.enum(["verified", "unavailable"]).optional(),
   officialTally: officialTallySchema.optional(),
   summary: nonEmptyString.nullable().optional(),
@@ -190,38 +192,44 @@ export const memberActivityHomeCommitteeAlertSchema = z.object({
   message: nonEmptyString
 });
 
-const memberActivityCalendarMemberBaseSchema = z.object({
-  memberId: nonEmptyString,
-  name: nonEmptyString,
-  party: nonEmptyString,
-  photoUrl: nonEmptyString.url().nullable().optional(),
-  officialProfileUrl: nonEmptyString.url().nullable().optional(),
-  officialExternalUrl: nonEmptyString.url().nullable().optional(),
-  profile: memberPublicProfileSchema.optional(),
-  currentNegativeStreak: z.number().int().nonnegative(),
-  currentNegativeOrAbsentStreak: z.number().int().nonnegative(),
-  longestNegativeStreak: z.number().int().nonnegative(),
-  longestNegativeOrAbsentStreak: z.number().int().nonnegative(),
-  negativeDays: z.number().int().nonnegative(),
-  absentDays: z.number().int().nonnegative(),
-  committeeMemberships: z.array(nonEmptyString).default([]),
-  committeeSummaries: z.array(memberActivityCommitteeSummarySchema).default([]),
-  homeCommitteeAlerts: z.array(memberActivityHomeCommitteeAlertSchema).default([]),
-  currentNegativeOrMissingStreak: z.number().int().nonnegative().optional(),
-  longestNegativeOrMissingStreak: z.number().int().nonnegative().optional(),
-  missingDays: z.number().int().nonnegative().optional(),
-  dayStates: z.array(memberActivityDayStateSchema),
-  voteRecordCount: z.number().int().nonnegative(),
-  voteRecordsPath: nonEmptyString,
-  voteRecords: z.array(memberActivityVoteRecordSchema).default([])
-}).transform(
-  ({
-    currentNegativeOrMissingStreak: _legacyCurrentNegativeOrMissingStreak,
-    longestNegativeOrMissingStreak: _legacyLongestNegativeOrMissingStreak,
-    missingDays: _legacyMissingDays,
-    ...member
-  }) => member
-);
+const memberActivityCalendarMemberBaseSchema = z
+  .object({
+    memberId: nonEmptyString,
+    name: nonEmptyString,
+    party: nonEmptyString,
+    photoUrl: nonEmptyString.url().nullable().optional(),
+    officialProfileUrl: nonEmptyString.url().nullable().optional(),
+    officialExternalUrl: nonEmptyString.url().nullable().optional(),
+    profile: memberPublicProfileSchema.optional(),
+    currentNegativeStreak: z.number().int().nonnegative(),
+    currentNegativeOrAbsentStreak: z.number().int().nonnegative(),
+    longestNegativeStreak: z.number().int().nonnegative(),
+    longestNegativeOrAbsentStreak: z.number().int().nonnegative(),
+    negativeDays: z.number().int().nonnegative(),
+    absentDays: z.number().int().nonnegative(),
+    committeeMemberships: z.array(nonEmptyString).default([]),
+    committeeSummaries: z
+      .array(memberActivityCommitteeSummarySchema)
+      .default([]),
+    homeCommitteeAlerts: z
+      .array(memberActivityHomeCommitteeAlertSchema)
+      .default([]),
+    currentNegativeOrMissingStreak: z.number().int().nonnegative().optional(),
+    longestNegativeOrMissingStreak: z.number().int().nonnegative().optional(),
+    missingDays: z.number().int().nonnegative().optional(),
+    dayStates: z.array(memberActivityDayStateSchema),
+    voteRecordCount: z.number().int().nonnegative(),
+    voteRecordsPath: nonEmptyString,
+    voteRecords: z.array(memberActivityVoteRecordSchema).default([])
+  })
+  .transform(
+    ({
+      currentNegativeOrMissingStreak: _legacyCurrentNegativeOrMissingStreak,
+      longestNegativeOrMissingStreak: _legacyLongestNegativeOrMissingStreak,
+      missingDays: _legacyMissingDays,
+      ...member
+    }) => member
+  );
 
 export const memberActivityCalendarMemberSchema = z.preprocess((input) => {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -229,19 +237,26 @@ export const memberActivityCalendarMemberSchema = z.preprocess((input) => {
   }
 
   const record = input as Record<string, unknown>;
-  const memberId = typeof record.memberId === "string" ? record.memberId.trim() : "";
-  const voteRecords = Array.isArray(record.voteRecords) ? record.voteRecords : [];
+  const memberId =
+    typeof record.memberId === "string" ? record.memberId.trim() : "";
+  const voteRecords = Array.isArray(record.voteRecords)
+    ? record.voteRecords
+    : [];
   return {
     ...record,
     currentNegativeOrAbsentStreak:
-      record.currentNegativeOrAbsentStreak ?? record.currentNegativeOrMissingStreak,
+      record.currentNegativeOrAbsentStreak ??
+      record.currentNegativeOrMissingStreak,
     longestNegativeOrAbsentStreak:
-      record.longestNegativeOrAbsentStreak ?? record.longestNegativeOrMissingStreak,
+      record.longestNegativeOrAbsentStreak ??
+      record.longestNegativeOrMissingStreak,
     absentDays: record.absentDays ?? record.missingDays,
     voteRecordCount: record.voteRecordCount ?? voteRecords.length,
     voteRecordsPath:
       record.voteRecordsPath ??
-      (memberId ? `exports/member_activity_calendar_members/${memberId}.json` : record.voteRecordsPath)
+      (memberId
+        ? `exports/member_activity_calendar_members/${memberId}.json`
+        : record.voteRecordsPath)
   };
 }, memberActivityCalendarMemberBaseSchema);
 
@@ -540,7 +555,8 @@ export const publishBundleSchema = z.object({
   latestVotes: latestVotesExportSchema,
   accountabilitySummary: accountabilitySummaryExportSchema,
   accountabilityTrends: accountabilityTrendsExportSchema.optional(),
-  constituencyBoundariesIndex: constituencyBoundariesIndexExportSchema.optional(),
+  constituencyBoundariesIndex:
+    constituencyBoundariesIndexExportSchema.optional(),
   hexmapStaticIndex: hexmapStaticIndexExportSchema.optional(),
   memberActivityCalendar: memberActivityCalendarExportSchema,
   memberActivityCalendarMemberDetails: z
@@ -555,33 +571,75 @@ export type DatasetFile = z.infer<typeof datasetFileSchema>;
 export type CurrentAssembly = z.infer<typeof currentAssemblySchema>;
 export type LatestVoteItem = z.infer<typeof latestVoteItemSchema>;
 export type LatestVotesExport = z.infer<typeof latestVotesExportSchema>;
-export type AccountabilitySummaryItem = z.infer<typeof accountabilitySummaryItemSchema>;
-export type AccountabilitySummaryExport = z.infer<typeof accountabilitySummaryExportSchema>;
-export type WeeklyAssemblyTrendPoint = z.infer<typeof weeklyAssemblyTrendPointSchema>;
-export type AccountabilityMoverWindow = z.infer<typeof accountabilityMoverWindowSchema>;
-export type AccountabilityTrendsExport = z.infer<typeof accountabilityTrendsExportSchema>;
-export type MemberActivityDayState = z.infer<typeof memberActivityDayStateSchema>;
-export type MemberActivityVoteRecord = z.infer<typeof memberActivityVoteRecordSchema>;
-export type MemberActivityCalendarMember = z.infer<typeof memberActivityCalendarMemberSchema>;
-export type MemberActivityCalendarAssembly = z.infer<typeof memberActivityCalendarAssemblySchema>;
-export type MemberActivityCalendarExport = z.infer<typeof memberActivityCalendarExportSchema>;
+export type AccountabilitySummaryItem = z.infer<
+  typeof accountabilitySummaryItemSchema
+>;
+export type AccountabilitySummaryExport = z.infer<
+  typeof accountabilitySummaryExportSchema
+>;
+export type WeeklyAssemblyTrendPoint = z.infer<
+  typeof weeklyAssemblyTrendPointSchema
+>;
+export type AccountabilityMoverWindow = z.infer<
+  typeof accountabilityMoverWindowSchema
+>;
+export type AccountabilityTrendsExport = z.infer<
+  typeof accountabilityTrendsExportSchema
+>;
+export type MemberActivityDayState = z.infer<
+  typeof memberActivityDayStateSchema
+>;
+export type MemberActivityVoteRecord = z.infer<
+  typeof memberActivityVoteRecordSchema
+>;
+export type MemberActivityCalendarMember = z.infer<
+  typeof memberActivityCalendarMemberSchema
+>;
+export type MemberActivityCalendarAssembly = z.infer<
+  typeof memberActivityCalendarAssemblySchema
+>;
+export type MemberActivityCalendarExport = z.infer<
+  typeof memberActivityCalendarExportSchema
+>;
 export type MemberActivityCalendarMemberDetailExport = z.infer<
   typeof memberActivityCalendarMemberDetailExportSchema
 >;
-export type MemberAssetLatestSummary = z.infer<typeof memberAssetLatestSummarySchema>;
-export type MemberAssetSeriesPoint = z.infer<typeof memberAssetSeriesPointSchema>;
-export type MemberAssetCategoryPoint = z.infer<typeof memberAssetCategoryPointSchema>;
-export type MemberAssetCategorySeries = z.infer<typeof memberAssetCategorySeriesSchema>;
-export type MemberAssetScopedHistory = z.infer<typeof memberAssetScopedHistorySchema>;
+export type MemberAssetLatestSummary = z.infer<
+  typeof memberAssetLatestSummarySchema
+>;
+export type MemberAssetSeriesPoint = z.infer<
+  typeof memberAssetSeriesPointSchema
+>;
+export type MemberAssetCategoryPoint = z.infer<
+  typeof memberAssetCategoryPointSchema
+>;
+export type MemberAssetCategorySeries = z.infer<
+  typeof memberAssetCategorySeriesSchema
+>;
+export type MemberAssetScopedHistory = z.infer<
+  typeof memberAssetScopedHistorySchema
+>;
 export type MemberAssetsIndexItem = z.infer<typeof memberAssetsIndexItemSchema>;
-export type MemberAssetsIndexExport = z.infer<typeof memberAssetsIndexExportSchema>;
-export type MemberAssetsHistoryExport = z.infer<typeof memberAssetsHistoryExportSchema>;
+export type MemberAssetsIndexExport = z.infer<
+  typeof memberAssetsIndexExportSchema
+>;
+export type MemberAssetsHistoryExport = z.infer<
+  typeof memberAssetsHistoryExportSchema
+>;
 export type GeoJsonPolygon = z.infer<typeof geoJsonPolygonSchema>;
 export type GeoJsonMultiPolygon = z.infer<typeof geoJsonMultiPolygonSchema>;
-export type ConstituencyBoundarySource = z.infer<typeof constituencyBoundarySourceSchema>;
-export type ConstituencyBoundaryProperties = z.infer<typeof constituencyBoundaryPropertiesSchema>;
-export type ConstituencyBoundaryFeature = z.infer<typeof constituencyBoundaryFeatureSchema>;
-export type ConstituencyBoundaryExport = z.infer<typeof constituencyBoundaryExportSchema>;
+export type ConstituencyBoundarySource = z.infer<
+  typeof constituencyBoundarySourceSchema
+>;
+export type ConstituencyBoundaryProperties = z.infer<
+  typeof constituencyBoundaryPropertiesSchema
+>;
+export type ConstituencyBoundaryFeature = z.infer<
+  typeof constituencyBoundaryFeatureSchema
+>;
+export type ConstituencyBoundaryExport = z.infer<
+  typeof constituencyBoundaryExportSchema
+>;
 export type ConstituencyBoundariesIndexProvince = z.infer<
   typeof constituencyBoundariesIndexProvinceSchema
 >;
@@ -590,8 +648,14 @@ export type ConstituencyBoundariesIndexExport = z.infer<
 >;
 export type HexmapStaticDistrict = z.infer<typeof hexmapStaticDistrictSchema>;
 export type HexmapStaticCell = z.infer<typeof hexmapStaticCellSchema>;
-export type HexmapStaticIndexProvince = z.infer<typeof hexmapStaticIndexProvinceSchema>;
-export type HexmapStaticIndexExport = z.infer<typeof hexmapStaticIndexExportSchema>;
-export type HexmapStaticProvinceArtifact = z.infer<typeof hexmapStaticProvinceArtifactSchema>;
+export type HexmapStaticIndexProvince = z.infer<
+  typeof hexmapStaticIndexProvinceSchema
+>;
+export type HexmapStaticIndexExport = z.infer<
+  typeof hexmapStaticIndexExportSchema
+>;
+export type HexmapStaticProvinceArtifact = z.infer<
+  typeof hexmapStaticProvinceArtifactSchema
+>;
 export type Manifest = z.infer<typeof manifestSchema>;
 export type PublishBundle = z.infer<typeof publishBundleSchema>;

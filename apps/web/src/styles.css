@@ -1,27 +1,31 @@
-:root {
-  font-family: "SUIT Variable", "Pretendard Variable", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-  color: #171411;
-  background: #f4f1eb;
-  line-height: 1.55;
-  font-weight: 400;
-  text-rendering: optimizeLegibility;
-  --page: #f4f1eb;
-  --panel: #fbf9f4;
-  --panel-muted: #f7f4ee;
-  --border: #d8d1c7;
-  --border-strong: #c9c0b4;
-  --ink: #171411;
-  --ink-muted: #6b635b;
-  --accent: #982d22;
-  --accent-soft: #f2e1dc;
-  --amber: #a47a46;
-  --amber-soft: #f3ece2;
-  --olive: #657045;
-  --calendar-yes: #2f8f4e;
-  --vote-yes: var(--calendar-yes);
-  --vote-no: #9f2d20;
-  --vote-abstain: #c4872f;
-  --vote-absent: #8f8880;
+@layer page {
+  :root {
+    font-family:
+      "SUIT Variable", "Pretendard Variable", "Apple SD Gothic Neo",
+      "Noto Sans KR", sans-serif;
+    color: #171411;
+    background: #f4f1eb;
+    line-height: 1.55;
+    font-weight: 400;
+    text-rendering: optimizeLegibility;
+    --page: #f4f1eb;
+    --panel: #fbf9f4;
+    --panel-muted: #f7f4ee;
+    --border: #d8d1c7;
+    --border-strong: #c9c0b4;
+    --ink: #171411;
+    --ink-muted: #6b635b;
+    --accent: #982d22;
+    --accent-soft: #f2e1dc;
+    --amber: #a47a46;
+    --amber-soft: #f3ece2;
+    --olive: #657045;
+    --calendar-yes: #2f8f4e;
+    --vote-yes: var(--calendar-yes);
+    --vote-no: #9f2d20;
+    --vote-abstain: #c4872f;
+    --vote-absent: #8f8880;
+  }
 }
 
 * {
@@ -237,7 +241,11 @@ summary:focus-visible {
 
 .search-panel__explore {
   align-content: start;
-  background: linear-gradient(180deg, rgba(242, 225, 220, 0.72), rgba(255, 255, 255, 0.92));
+  background: linear-gradient(
+    180deg,
+    rgba(242, 225, 220, 0.72),
+    rgba(255, 255, 255, 0.92)
+  );
 }
 
 .search-panel__explore h3 {
@@ -959,8 +967,12 @@ summary:focus-visible {
   min-height: 15rem;
   border: 1px solid var(--border);
   border-radius: 16px;
-  background:
-    linear-gradient(90deg, rgba(23, 20, 17, 0.04), rgba(255, 255, 255, 0.76), rgba(23, 20, 17, 0.04));
+  background: linear-gradient(
+    90deg,
+    rgba(23, 20, 17, 0.04),
+    rgba(255, 255, 255, 0.76),
+    rgba(23, 20, 17, 0.04)
+  );
   background-size: 220% 100%;
   animation: placeholder-shift 1.4s ease infinite;
 }
@@ -2158,7 +2170,8 @@ summary:focus-visible {
   align-items: center;
   justify-content: center;
   padding: 0.22rem 0.56rem;
-  border: 1px solid color-mix(in srgb, var(--activity-vote-records-accent) 18%, var(--border));
+  border: 1px solid
+    color-mix(in srgb, var(--activity-vote-records-accent) 18%, var(--border));
   border-radius: 999px;
   background: color-mix(in srgb, var(--activity-vote-records-accent) 9%, #fff);
   color: var(--activity-vote-records-accent);
@@ -2179,15 +2192,24 @@ summary:focus-visible {
   display: grid;
   gap: 0.22rem;
   padding: 0.75rem 0.8rem;
-  border: 1px solid color-mix(in srgb, var(--activity-vote-records-accent) 16%, var(--border));
+  border: 1px solid
+    color-mix(in srgb, var(--activity-vote-records-accent) 16%, var(--border));
   border-radius: 12px;
-  background: color-mix(in srgb, var(--activity-vote-records-accent) 8%, var(--panel-muted));
+  background: color-mix(
+    in srgb,
+    var(--activity-vote-records-accent) 8%,
+    var(--panel-muted)
+  );
   color: inherit;
   text-decoration: none;
 }
 
 .activity-vote-records__item:hover {
-  border-color: color-mix(in srgb, var(--activity-vote-records-accent) 36%, var(--border));
+  border-color: color-mix(
+    in srgb,
+    var(--activity-vote-records-accent) 36%,
+    var(--border)
+  );
 }
 
 .activity-vote-records__item strong {
@@ -2213,7 +2235,8 @@ summary:focus-visible {
   gap: 0.65rem;
   min-height: 2.75rem;
   padding: 0.7rem 0.78rem;
-  border: 1px solid color-mix(in srgb, var(--activity-vote-records-accent) 18%, var(--border));
+  border: 1px solid
+    color-mix(in srgb, var(--activity-vote-records-accent) 18%, var(--border));
   border-radius: 12px;
   background: color-mix(in srgb, var(--activity-vote-records-accent) 9%, #fff);
   color: var(--activity-vote-records-accent);
@@ -2235,7 +2258,8 @@ summary:focus-visible {
   flex: 0 0 auto;
 }
 
-.activity-vote-records__details[open] .activity-vote-records__details-toggle::after {
+.activity-vote-records__details[open]
+  .activity-vote-records__details-toggle::after {
   content: "접기";
 }
 

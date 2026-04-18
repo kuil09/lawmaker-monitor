@@ -3,7 +3,13 @@ import type {
   MemberActivityCalendarMember
 } from "@lawmaker-monitor/schemas";
 
-export type CalendarDisplayState = "empty" | "yes" | "no" | "abstain" | "absent" | "unknown";
+export type CalendarDisplayState =
+  | "empty"
+  | "yes"
+  | "no"
+  | "abstain"
+  | "absent"
+  | "unknown";
 
 export type CalendarCell = {
   date: string | null;
@@ -47,7 +53,9 @@ export type MemberAttendanceSummary = MemberDayBreakdown & {
 };
 
 function parseDateKey(dateKey: string): Date {
-  const [yearValue, monthValue, dayValue] = dateKey.split("-").map((value) => Number(value));
+  const [yearValue, monthValue, dayValue] = dateKey
+    .split("-")
+    .map((value) => Number(value));
   const year = Number.isFinite(yearValue) ? Number(yearValue) : 1970;
   const month = Number.isFinite(monthValue) ? Number(monthValue) : 1;
   const day = Number.isFinite(dayValue) ? Number(dayValue) : 1;
@@ -65,7 +73,10 @@ function addDays(date: Date, amount: number): Date {
   return new Date(date.getTime() + amount * 24 * 60 * 60 * 1000);
 }
 
-function matchesQuery(member: MemberActivityCalendarMember, query: string): boolean {
+function matchesQuery(
+  member: MemberActivityCalendarMember,
+  query: string
+): boolean {
   if (!query) {
     return true;
   }
@@ -81,11 +92,14 @@ function matchesQuery(member: MemberActivityCalendarMember, query: string): bool
   );
 }
 
-export function getMemberDayBreakdown(member: MemberActivityCalendarMember): MemberDayBreakdown {
+export function getMemberDayBreakdown(
+  member: MemberActivityCalendarMember
+): MemberDayBreakdown {
   return {
     yesDays: member.dayStates.filter((day) => day.state === "yes").length,
     noDays: member.dayStates.filter((day) => day.state === "no").length,
-    abstainDays: member.dayStates.filter((day) => day.state === "abstain").length,
+    abstainDays: member.dayStates.filter((day) => day.state === "abstain")
+      .length,
     absentDays: member.dayStates.filter((day) => day.state === "absent").length
   };
 }
@@ -109,14 +123,18 @@ export function getCurrentStreak(
   member: MemberActivityCalendarMember,
   includeAbsent: boolean
 ): number {
-  return includeAbsent ? member.currentNegativeOrAbsentStreak : member.currentNegativeStreak;
+  return includeAbsent
+    ? member.currentNegativeOrAbsentStreak
+    : member.currentNegativeStreak;
 }
 
 export function getLongestStreak(
   member: MemberActivityCalendarMember,
   includeAbsent: boolean
 ): number {
-  return includeAbsent ? member.longestNegativeOrAbsentStreak : member.longestNegativeStreak;
+  return includeAbsent
+    ? member.longestNegativeOrAbsentStreak
+    : member.longestNegativeStreak;
 }
 
 export function rankActivityMembers(
@@ -153,7 +171,9 @@ export function buildCalendarWeeks(
     return [];
   }
 
-  const stateByDate = new Map(member.dayStates.map((dayState) => [dayState.date, dayState]));
+  const stateByDate = new Map(
+    member.dayStates.map((dayState) => [dayState.date, dayState])
+  );
   const calendarStart = parseDateKey(assembly.startDate);
   const calendarEnd = parseDateKey(assembly.endDate);
   let gridStart = calendarStart;
@@ -236,7 +256,9 @@ export function buildMonthLabels(weeks: CalendarWeek[]): string[] {
   let previousLabel = "";
 
   return weeks.map((week, index) => {
-    const firstOfMonth = week.days.find((day) => day.date?.endsWith("-01"))?.date;
+    const firstOfMonth = week.days.find((day) =>
+      day.date?.endsWith("-01")
+    )?.date;
     const currentLabel =
       index === 0
         ? week.label
@@ -244,7 +266,7 @@ export function buildMonthLabels(weeks: CalendarWeek[]): string[] {
           ? `${Number(firstOfMonth.slice(5, 7))}월`
           : week.label && week.label !== previousLabel
             ? week.label
-          : "";
+            : "";
     if (!currentLabel || currentLabel === previousLabel) {
       return "";
     }
@@ -258,7 +280,9 @@ export function buildStateByDate(
   _assembly: MemberActivityCalendarAssembly,
   member: MemberActivityCalendarMember
 ): Map<string, CalendarComparableState> {
-  return new Map(member.dayStates.map((dayState) => [dayState.date, dayState.state]));
+  return new Map(
+    member.dayStates.map((dayState) => [dayState.date, dayState.state])
+  );
 }
 
 export function buildHeadToHeadSummary(

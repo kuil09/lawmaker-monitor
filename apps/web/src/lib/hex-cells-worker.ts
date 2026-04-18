@@ -82,7 +82,9 @@ export function getSharedHexCellsWorkerClient(): HexCellsWorkerClient {
   return sharedHexCellsWorkerClient;
 }
 
-export function setSharedHexCellsWorkerClientForTests(client: HexCellsWorkerClient | null): void {
+export function setSharedHexCellsWorkerClientForTests(
+  client: HexCellsWorkerClient | null
+): void {
   sharedHexCellsWorkerClient = client;
 }
 

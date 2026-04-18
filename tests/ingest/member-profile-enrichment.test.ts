@@ -4,7 +4,9 @@ import { enrichMembersWithMemberProfileAll } from "../../packages/ingest/src/mem
 import type { MemberRecord } from "../../packages/schemas/src/index.js";
 import type { MemberProfileAllRecord } from "../../packages/ingest/src/parsers.js";
 
-function memberFixture(args: Partial<MemberRecord> & Pick<MemberRecord, "memberId" | "name">): MemberRecord {
+function memberFixture(
+  args: Partial<MemberRecord> & Pick<MemberRecord, "memberId" | "name">
+): MemberRecord {
   return {
     memberId: args.memberId,
     name: args.name,
