@@ -1,12 +1,16 @@
+import {
+  getMetricCount,
+  getMetricRate,
+  rankAccountabilityItems
+} from "./accountability.js";
+
+import type { AccountabilityMetric } from "./accountability.js";
 import type {
   AccountabilitySummaryItem,
   AccountabilityMoverWindow,
   AccountabilityTrendsExport,
   LatestVoteItem
 } from "@lawmaker-monitor/schemas";
-
-import type { AccountabilityMetric } from "./accountability.js";
-import { getMetricCount, getMetricRate, rankAccountabilityItems } from "./accountability.js";
 
 export type MemberChartDatum = {
   memberId: string;
@@ -139,7 +143,10 @@ export function buildMemberChartData(
     }));
 }
 
-export function buildPartyChartData(items: AccountabilitySummaryItem[], limit = 8): PartyChartDatum[] {
+export function buildPartyChartData(
+  items: AccountabilitySummaryItem[],
+  limit = 8
+): PartyChartDatum[] {
   const parties = new Map<string, PartyChartDatum>();
 
   for (const item of items) {
@@ -157,9 +164,12 @@ export function buildPartyChartData(items: AccountabilitySummaryItem[], limit = 
     current.abstainCount += item.abstainCount;
     current.absentCount += item.absentCount;
     current.totalRecordedVotes += item.totalRecordedVotes;
-    current.combinedCount = current.noCount + current.abstainCount + current.absentCount;
+    current.combinedCount =
+      current.noCount + current.abstainCount + current.absentCount;
     current.combinedRate =
-      current.totalRecordedVotes > 0 ? current.combinedCount / current.totalRecordedVotes : 0;
+      current.totalRecordedVotes > 0
+        ? current.combinedCount / current.totalRecordedVotes
+        : 0;
 
     parties.set(item.party, current);
   }
@@ -179,7 +189,10 @@ export function buildPartyChartData(items: AccountabilitySummaryItem[], limit = 
     .slice(0, limit);
 }
 
-export function buildRecentVoteChartData(items: LatestVoteItem[], limit = 8): RecentVoteChartDatum[] {
+export function buildRecentVoteChartData(
+  items: LatestVoteItem[],
+  limit = 8
+): RecentVoteChartDatum[] {
   return items.slice(0, limit).map((item) => ({
     rollCallId: item.rollCallId,
     billName: item.billName,
@@ -216,7 +229,8 @@ export function buildWeeklyTrendChartData(
       eligibleVoteCount: week.eligibleVoteCount,
       negativeRate:
         week.eligibleVoteCount > 0
-          ? (week.noCount + week.abstainCount + week.absentCount) / week.eligibleVoteCount
+          ? (week.noCount + week.abstainCount + week.absentCount) /
+            week.eligibleVoteCount
           : 0
     };
   });
@@ -235,8 +249,14 @@ export function buildMoverChartData(
     .map((mover) => {
       const previousCount = getMoverMetricCount(mover, metric, "previous");
       const currentCount = getMoverMetricCount(mover, metric, "current");
-      const previousEligibleCount = getMoverWindowEligibleCount(mover, "previous");
-      const currentEligibleCount = getMoverWindowEligibleCount(mover, "current");
+      const previousEligibleCount = getMoverWindowEligibleCount(
+        mover,
+        "previous"
+      );
+      const currentEligibleCount = getMoverWindowEligibleCount(
+        mover,
+        "current"
+      );
 
       return {
         memberId: mover.memberId,
@@ -247,8 +267,10 @@ export function buildMoverChartData(
         previousCount,
         currentCount,
         delta: currentCount - previousCount,
-        previousRate: previousEligibleCount > 0 ? previousCount / previousEligibleCount : 0,
-        currentRate: currentEligibleCount > 0 ? currentCount / currentEligibleCount : 0
+        previousRate:
+          previousEligibleCount > 0 ? previousCount / previousEligibleCount : 0,
+        currentRate:
+          currentEligibleCount > 0 ? currentCount / currentEligibleCount : 0
       };
     })
     .filter((mover) => mover.delta > 0)

@@ -33,14 +33,17 @@ function getTenureCandidates(
   tenure: MemberTenureRecord
 ): MemberRecord[] {
   const exactMatches = currentMembers.filter(
-    (member) => member.memberId === tenure.memberId && member.assemblyNo === tenure.assemblyNo
+    (member) =>
+      member.memberId === tenure.memberId &&
+      member.assemblyNo === tenure.assemblyNo
   );
   if (exactMatches.length > 0) {
     return exactMatches;
   }
 
   return currentMembers.filter(
-    (member) => member.name === tenure.name && member.assemblyNo === tenure.assemblyNo
+    (member) =>
+      member.name === tenure.name && member.assemblyNo === tenure.assemblyNo
   );
 }
 
@@ -83,7 +86,11 @@ export function buildMemberTenureIndex(args: {
 export function getEligibleRollCallIdsByMember(args: {
   members: MemberRecord[];
   assemblyNo: number;
-  rollCalls: Array<{ rollCallId: string; voteDatetime: string; assemblyNo: number }>;
+  rollCalls: Array<{
+    rollCallId: string;
+    voteDatetime: string;
+    assemblyNo: number;
+  }>;
   tenureIndex: MemberTenureIndex;
 }): Map<string, Set<string>> {
   const eligibleRollCallsByMember = new Map<string, Set<string>>();
@@ -146,7 +153,9 @@ export function assertCurrentMembersHaveTenure(args: {
   assemblyNo: number;
   tenureIndex: MemberTenureIndex;
 }): void {
-  const missingMembers = getCurrentMembersMissingTenure(args).map((member) => member.name);
+  const missingMembers = getCurrentMembersMissingTenure(args).map(
+    (member) => member.name
+  );
 
   if (missingMembers.length > 0) {
     throw new Error(
@@ -161,6 +170,9 @@ export function getCurrentMembersMissingTenure(args: {
   tenureIndex: MemberTenureIndex;
 }): MemberRecord[] {
   return args.members
-    .filter((member) => member.assemblyNo === args.assemblyNo && member.isCurrentMember)
-    .filter((member) => !(args.tenureIndex.get(member.memberId)?.length));
+    .filter(
+      (member) =>
+        member.assemblyNo === args.assemblyNo && member.isCurrentMember
+    )
+    .filter((member) => !args.tenureIndex.get(member.memberId)?.length);
 }

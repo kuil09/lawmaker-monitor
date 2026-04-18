@@ -1,3 +1,4 @@
+import type { AgendaRecord, LiveSignal } from "./parsers.js";
 import type {
   MeetingRecord,
   MemberProfile,
@@ -6,8 +7,6 @@ import type {
   RollCallRecord,
   SourceRecord
 } from "@lawmaker-monitor/schemas";
-
-import type { AgendaRecord, LiveSignal } from "./parsers.js";
 
 type NormalizeInput = {
   members: NormalizedBundle["members"];
@@ -73,7 +72,7 @@ function mergeMembers(members: MemberRecord[]): MemberRecord[] {
   for (const member of members) {
     const targetKey = merged.has(member.memberId)
       ? member.memberId
-      : findFallbackMemberKey(merged, member) ?? member.memberId;
+      : (findFallbackMemberKey(merged, member) ?? member.memberId);
     const existing = merged.get(targetKey);
     if (!existing) {
       merged.set(targetKey, member);
@@ -88,11 +87,16 @@ function mergeMembers(members: MemberRecord[]): MemberRecord[] {
       party: member.party || existing.party,
       district: member.district ?? existing.district ?? null,
       committeeMemberships: [
-        ...new Set([...(existing.committeeMemberships ?? []), ...(member.committeeMemberships ?? [])])
+        ...new Set([
+          ...(existing.committeeMemberships ?? []),
+          ...(member.committeeMemberships ?? [])
+        ])
       ],
       photoUrl: member.photoUrl ?? existing.photoUrl ?? null,
-      officialProfileUrl: member.officialProfileUrl ?? existing.officialProfileUrl ?? null,
-      officialExternalUrl: member.officialExternalUrl ?? existing.officialExternalUrl ?? null,
+      officialProfileUrl:
+        member.officialProfileUrl ?? existing.officialProfileUrl ?? null,
+      officialExternalUrl:
+        member.officialExternalUrl ?? existing.officialExternalUrl ?? null,
       profile: mergeMemberProfile(existing.profile, member.profile),
       isCurrentMember: existing.isCurrentMember || member.isCurrentMember,
       proportionalFlag: member.proportionalFlag ?? existing.proportionalFlag,
@@ -103,7 +107,10 @@ function mergeMembers(members: MemberRecord[]): MemberRecord[] {
   return [...merged.values()];
 }
 
-function mergeUniqueStrings(left: string[] = [], right: string[] = []): string[] {
+function mergeUniqueStrings(
+  left: string[] = [],
+  right: string[] = []
+): string[] {
   return [...new Set([...left, ...right].filter(Boolean))];
 }
 
@@ -121,14 +128,21 @@ function mergeMemberProfile(
     birthType: incoming?.birthType ?? existing?.birthType ?? null,
     birthDate: incoming?.birthDate ?? existing?.birthDate ?? null,
     roleName: incoming?.roleName ?? existing?.roleName ?? null,
-    reelectionLabel: incoming?.reelectionLabel ?? existing?.reelectionLabel ?? null,
+    reelectionLabel:
+      incoming?.reelectionLabel ?? existing?.reelectionLabel ?? null,
     electedAssembliesLabel:
-      incoming?.electedAssembliesLabel ?? existing?.electedAssembliesLabel ?? null,
+      incoming?.electedAssembliesLabel ??
+      existing?.electedAssembliesLabel ??
+      null,
     gender: incoming?.gender ?? existing?.gender ?? null,
     representativeCommitteeName:
-      incoming?.representativeCommitteeName ?? existing?.representativeCommitteeName ?? null,
+      incoming?.representativeCommitteeName ??
+      existing?.representativeCommitteeName ??
+      null,
     affiliatedCommitteeName:
-      incoming?.affiliatedCommitteeName ?? existing?.affiliatedCommitteeName ?? null,
+      incoming?.affiliatedCommitteeName ??
+      existing?.affiliatedCommitteeName ??
+      null,
     briefHistory: incoming?.briefHistory ?? existing?.briefHistory ?? null,
     officeRoom: incoming?.officeRoom ?? existing?.officeRoom ?? null,
     officePhone: incoming?.officePhone ?? existing?.officePhone ?? null,
@@ -138,17 +152,26 @@ function mergeMemberProfile(
       existing?.chiefSecretaryNames,
       incoming?.chiefSecretaryNames
     ),
-    secretaryNames: mergeUniqueStrings(existing?.secretaryNames, incoming?.secretaryNames)
+    secretaryNames: mergeUniqueStrings(
+      existing?.secretaryNames,
+      incoming?.secretaryNames
+    )
   };
 }
 
-function mergeRollCalls(rollCalls: RollCallRecord[], agendas: AgendaRecord[]): RollCallRecord[] {
+function mergeRollCalls(
+  rollCalls: RollCallRecord[],
+  agendas: AgendaRecord[]
+): RollCallRecord[] {
   const agendasByMeetingAgenda = new Map<string, AgendaRecord>();
   const agendasByBillId = new Map<string, AgendaRecord>();
 
   for (const agenda of agendas) {
     if (agenda.meetingId && agenda.agendaId) {
-      agendasByMeetingAgenda.set(`${agenda.meetingId}:${agenda.agendaId}`, agenda);
+      agendasByMeetingAgenda.set(
+        `${agenda.meetingId}:${agenda.agendaId}`,
+        agenda
+      );
     }
 
     if (agenda.billId) {
@@ -160,7 +183,9 @@ function mergeRollCalls(rollCalls: RollCallRecord[], agendas: AgendaRecord[]): R
     const agenda =
       (rollCall.billId ? agendasByBillId.get(rollCall.billId) : undefined) ??
       (rollCall.agendaId
-        ? agendasByMeetingAgenda.get(`${rollCall.meetingId}:${rollCall.agendaId}`)
+        ? agendasByMeetingAgenda.get(
+            `${rollCall.meetingId}:${rollCall.agendaId}`
+          )
         : undefined);
 
     if (!agenda) {
@@ -170,23 +195,35 @@ function mergeRollCalls(rollCalls: RollCallRecord[], agendas: AgendaRecord[]): R
     return {
       ...rollCall,
       billId: rollCall.billId ?? agenda.billId,
-      billName: rollCall.billName === "Unknown bill" ? agenda.billName : rollCall.billName,
+      billName:
+        rollCall.billName === "Unknown bill"
+          ? agenda.billName
+          : rollCall.billName,
       committeeName: rollCall.committeeName ?? agenda.committeeName,
       summary: rollCall.summary ?? agenda.summary
     };
   });
 }
 
-function mergeMeetings(meetings: MeetingRecord[], liveSignal?: LiveSignal | null): MeetingRecord[] {
+function mergeMeetings(
+  meetings: MeetingRecord[],
+  liveSignal?: LiveSignal | null
+): MeetingRecord[] {
   const deduped = uniqueBy(meetings, (meeting) => meeting.meetingId);
   if (!liveSignal || !liveSignal.isLive) {
     return deduped;
   }
 
   const matchByTitle = liveSignal.title
-    ? deduped.find((meeting) => liveSignal.title?.includes(String(meeting.sessionNo)) || liveSignal.title?.includes(String(meeting.meetingNo)))
+    ? deduped.find(
+        (meeting) =>
+          liveSignal.title?.includes(String(meeting.sessionNo)) ||
+          liveSignal.title?.includes(String(meeting.meetingNo))
+      )
     : undefined;
-  const fallback = [...deduped].sort((left, right) => right.meetingDate.localeCompare(left.meetingDate))[0];
+  const fallback = [...deduped].sort((left, right) =>
+    right.meetingDate.localeCompare(left.meetingDate)
+  )[0];
   const targetMeetingId = matchByTitle?.meetingId ?? fallback?.meetingId;
 
   return deduped.map((meeting) =>
@@ -200,13 +237,21 @@ function mergeMeetings(meetings: MeetingRecord[], liveSignal?: LiveSignal | null
 }
 
 function mergeSources(sources: SourceRecord[]): SourceRecord[] {
-  return uniqueBy(sources, (source) => `${source.sourceUrl}:${source.contentSha256}`);
+  return uniqueBy(
+    sources,
+    (source) => `${source.sourceUrl}:${source.contentSha256}`
+  );
 }
 
-export function createNormalizedBundle(input: NormalizeInput): NormalizedBundle {
+export function createNormalizedBundle(
+  input: NormalizeInput
+): NormalizedBundle {
   return {
     members: mergeMembers(input.members),
-    rollCalls: uniqueBy(mergeRollCalls(input.rollCalls, input.agendas), (rollCall) => rollCall.rollCallId),
+    rollCalls: uniqueBy(
+      mergeRollCalls(input.rollCalls, input.agendas),
+      (rollCall) => rollCall.rollCallId
+    ),
     voteFacts: uniqueBy(
       input.voteFacts,
       (voteFact) =>

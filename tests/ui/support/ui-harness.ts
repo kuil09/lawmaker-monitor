@@ -1,10 +1,21 @@
 import { existsSync } from "node:fs";
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import {
+  createServer,
+  type IncomingMessage,
+  type Server,
+  type ServerResponse
+} from "node:http";
 import { fileURLToPath } from "node:url";
 import { extname, resolve } from "node:path";
 
-import { chromium, type Browser, type BrowserContext, type Locator, type Page } from "playwright";
+import {
+  chromium,
+  type Browser,
+  type BrowserContext,
+  type Locator,
+  type Page
+} from "playwright";
 
 export const appPort = 4173;
 export const dataPort = 4174;
@@ -102,7 +113,10 @@ async function fileExists(filePath: string): Promise<boolean> {
   }
 }
 
-async function serveFile(response: ServerResponse, filePath: string): Promise<void> {
+async function serveFile(
+  response: ServerResponse,
+  filePath: string
+): Promise<void> {
   const body = await readFile(filePath);
   response.statusCode = 200;
   response.setHeader("Content-Type", getContentType(filePath));
@@ -112,7 +126,10 @@ async function serveFile(response: ServerResponse, filePath: string): Promise<vo
 function createListener(
   handler: (request: IncomingMessage, response: ServerResponse) => Promise<void>
 ) {
-  return async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
+  return async (
+    request: IncomingMessage,
+    response: ServerResponse
+  ): Promise<void> => {
     try {
       await handler(request, response);
     } catch (error) {
@@ -138,7 +155,10 @@ function startServer(
   });
 }
 
-async function handleAppRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
+async function handleAppRequest(
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
   const requestUrl = new URL(request.url ?? "/", appUrl);
   const pathname = decodeURIComponent(requestUrl.pathname);
   const filePath =
@@ -154,7 +174,10 @@ async function handleAppRequest(request: IncomingMessage, response: ServerRespon
   await serveFile(response, resolve(appDistDir, "index.html"));
 }
 
-async function handleDataRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
+async function handleDataRequest(
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
   const requestUrl = new URL(request.url ?? "/", dataUrl);
   const pathname = decodeURIComponent(requestUrl.pathname);
   const overridePath = fixtureOverrides.get(pathname);
@@ -216,7 +239,10 @@ export async function ensureScreenshotRoot(): Promise<void> {
   await mkdir(screenshotRoot, { recursive: true });
 }
 
-export async function startUiServers(): Promise<{ appServer: Server; dataServer: Server }> {
+export async function startUiServers(): Promise<{
+  appServer: Server;
+  dataServer: Server;
+}> {
   const [appServer, dataServer] = await Promise.all([
     startServer(appPort, handleAppRequest),
     startServer(dataPort, handleDataRequest)
@@ -309,7 +335,10 @@ export async function createBrowserSession(
   return { context, page, issues };
 }
 
-export async function saveScreenshot(page: Page, relativePath: string): Promise<string> {
+export async function saveScreenshot(
+  page: Page,
+  relativePath: string
+): Promise<string> {
   const outputPath = resolve(screenshotRoot, relativePath);
   await mkdir(resolve(outputPath, ".."), { recursive: true });
   await page.screenshot({
@@ -334,5 +363,9 @@ export async function saveLocatorScreenshot(
 export async function writeScenarioManifest(
   entries: Array<{ viewport: string; scenario: string; screenshot: string }>
 ): Promise<void> {
-  await writeFile(resolve(screenshotRoot, "manifest.json"), `${JSON.stringify(entries, null, 2)}\n`, "utf8");
+  await writeFile(
+    resolve(screenshotRoot, "manifest.json"),
+    `${JSON.stringify(entries, null, 2)}\n`,
+    "utf8"
+  );
 }

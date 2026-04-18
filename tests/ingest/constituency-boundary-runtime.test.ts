@@ -25,13 +25,15 @@ function polygon(
   east: number,
   north: number
 ): Array<Array<[number, number]>> {
-  return [[
-    [west, south],
-    [east, south],
-    [east, north],
-    [west, north],
-    [west, south]
-  ]];
+  return [
+    [
+      [west, south],
+      [east, south],
+      [east, north],
+      [west, north],
+      [west, south]
+    ]
+  ];
 }
 
 function createBoundaryExport(): ConstituencyBoundaryExport {
@@ -157,7 +159,9 @@ describe("constituency boundary runtime artifacts", () => {
       generatedAt: "2026-03-28T08:00:00.000Z",
       snapshotId: "snapshot-22"
     });
-    const index = validateConstituencyBoundariesIndexExport(runtimeArtifacts.index);
+    const index = validateConstituencyBoundariesIndexExport(
+      runtimeArtifacts.index
+    );
 
     expect(index.provinces).toEqual([
       {
@@ -175,7 +179,9 @@ describe("constituency boundary runtime artifacts", () => {
         checksumSha256: runtimeArtifacts.shards[1]?.checksumSha256
       }
     ]);
-    expect(JSON.parse(runtimeArtifacts.shards[1]?.content ?? "{}")).toMatchObject({
+    expect(
+      JSON.parse(runtimeArtifacts.shards[1]?.content ?? "{}")
+    ).toMatchObject({
       type: "Topology",
       objects: {
         constituencies: {
@@ -265,10 +271,15 @@ describe("constituency boundary runtime artifacts", () => {
     });
 
     expect(() =>
-      assertPublishedJsonFileSize(CONSTITUENCY_BOUNDARIES_INDEX_PATH, runtimeArtifacts.indexJson)
+      assertPublishedJsonFileSize(
+        CONSTITUENCY_BOUNDARIES_INDEX_PATH,
+        runtimeArtifacts.indexJson
+      )
     ).not.toThrow();
     for (const shard of runtimeArtifacts.shards) {
-      expect(() => assertPublishedJsonFileSize(shard.path, shard.content)).not.toThrow();
+      expect(() =>
+        assertPublishedJsonFileSize(shard.path, shard.content)
+      ).not.toThrow();
     }
   });
 });

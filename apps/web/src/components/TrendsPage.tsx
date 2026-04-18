@@ -1,6 +1,6 @@
-import type { AccountabilityTrendsExport } from "@lawmaker-monitor/schemas";
-
 import { VisualizationOverview } from "./VisualizationOverview.js";
+
+import type { AccountabilityTrendsExport } from "@lawmaker-monitor/schemas";
 
 type TrendsPageProps = {
   accountabilityTrends: AccountabilityTrendsExport | null;

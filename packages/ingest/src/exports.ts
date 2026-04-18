@@ -1,3 +1,10 @@
+import {
+  getEligibleRollCallIdsByMember,
+  getEligibleVotingDatesByMember,
+  type MemberTenureIndex
+} from "./tenure.js";
+import { sha256 } from "./utils.js";
+
 import type {
   AccountabilitySummaryExport,
   AccountabilityTrendsExport,
@@ -13,13 +20,6 @@ import type {
   NormalizedBundle,
   VoteCode
 } from "@lawmaker-monitor/schemas";
-
-import { sha256 } from "./utils.js";
-import {
-  getEligibleRollCallIdsByMember,
-  getEligibleVotingDatesByMember,
-  type MemberTenureIndex
-} from "./tenure.js";
 
 type BuildArtifactsInput = {
   bundle: NormalizedBundle;
@@ -55,7 +55,10 @@ type ExportBuildOptions = {
 };
 
 type PublicVoteCode = Exclude<VoteCode, "absent">;
-type MemberCentricVoteCode = Extract<VoteCode, "yes" | "no" | "abstain" | "absent">;
+type MemberCentricVoteCode = Extract<
+  VoteCode,
+  "yes" | "no" | "abstain" | "absent"
+>;
 type VoteHighlight = {
   memberId: string | null;
   memberName: string;
@@ -129,8 +132,15 @@ type RollCallVoteResolution = {
   missingEligibleMemberIds: Set<string>;
 };
 
-const highlightVoteOrder: PublicVoteCode[] = ["abstain", "no", "yes", "invalid", "unknown"];
-export const MEMBER_ACTIVITY_MEMBER_DETAILS_DIR = "exports/member_activity_calendar_members";
+const highlightVoteOrder: PublicVoteCode[] = [
+  "abstain",
+  "no",
+  "yes",
+  "invalid",
+  "unknown"
+];
+export const MEMBER_ACTIVITY_MEMBER_DETAILS_DIR =
+  "exports/member_activity_calendar_members";
 export const MAX_PUBLISHED_JSON_BYTES = 95 * 1024 * 1024;
 
 type MemberActivityCalendarArtifacts = {
@@ -138,7 +148,9 @@ type MemberActivityCalendarArtifacts = {
   memberDetails: MemberActivityCalendarMemberDetailExport[];
 };
 
-export function buildMemberActivityCalendarMemberDetailPath(memberId: string): string {
+export function buildMemberActivityCalendarMemberDetailPath(
+  memberId: string
+): string {
   return `${MEMBER_ACTIVITY_MEMBER_DETAILS_DIR}/${memberId}.json`;
 }
 
@@ -156,7 +168,8 @@ export function assertPublishedJsonFileSize(
     return;
   }
 
-  const toMegabytes = (value: number): string => (value / (1024 * 1024)).toFixed(2);
+  const toMegabytes = (value: number): string =>
+    (value / (1024 * 1024)).toFixed(2);
   throw new Error(
     `${path} is ${toMegabytes(contentBytes)} MB, exceeding the ${toMegabytes(maxBytes)} MB publish limit.`
   );
@@ -166,7 +179,9 @@ function toPublicVoteCode(voteCode: VoteCode): PublicVoteCode {
   return voteCode === "absent" ? "abstain" : voteCode;
 }
 
-function sortRollCallsByLatest(items: NormalizedBundle["rollCalls"]): NormalizedBundle["rollCalls"] {
+function sortRollCallsByLatest(
+  items: NormalizedBundle["rollCalls"]
+): NormalizedBundle["rollCalls"] {
   return [...items].sort((left, right) => {
     const leftValue = left.voteDatetime;
     const rightValue = right.voteDatetime;
@@ -213,14 +228,22 @@ function getWeekStartKey(value: string): string {
   return formatUtcDateKey(date);
 }
 
-function buildRecentWeekRanges(votingDates: string[], limit: number): WeekRange[] {
+function buildRecentWeekRanges(
+  votingDates: string[],
+  limit: number
+): WeekRange[] {
   if (votingDates.length === 0) {
     return [];
   }
 
-  const latestWeekStart = getWeekStartKey(votingDates[votingDates.length - 1] ?? votingDates[0] ?? "");
+  const latestWeekStart = getWeekStartKey(
+    votingDates[votingDates.length - 1] ?? votingDates[0] ?? ""
+  );
   return Array.from({ length: limit }, (_, index) => {
-    const weekStart = addDaysToDateKey(latestWeekStart, (index - (limit - 1)) * 7);
+    const weekStart = addDaysToDateKey(
+      latestWeekStart,
+      (index - (limit - 1)) * 7
+    );
     return {
       weekStart,
       weekEnd: addDaysToDateKey(weekStart, 6)
@@ -273,12 +296,16 @@ function createWindowVoteCounts(): WindowVoteCounts {
   };
 }
 
-function normalizeCommitteeName(value: string | null | undefined): string | null {
+function normalizeCommitteeName(
+  value: string | null | undefined
+): string | null {
   const normalized = value?.replace(/\s+/g, " ").trim();
   return normalized ? normalized : null;
 }
 
-function countExplicitVotes(votes: NormalizedBundle["voteFacts"]): LatestVoteCounts {
+function countExplicitVotes(
+  votes: NormalizedBundle["voteFacts"]
+): LatestVoteCounts {
   const counts = createLatestVoteCounts();
 
   for (const vote of votes) {
@@ -300,7 +327,8 @@ function resolveRollCallVoteCounts(args: {
 }): RollCallVoteResolution {
   const explicitCounts = countExplicitVotes(args.votes);
   const canDeriveAbsences =
-    args.rollCall.voteVisibility === "recorded" || args.rollCall.voteVisibility === "named";
+    args.rollCall.voteVisibility === "recorded" ||
+    args.rollCall.voteVisibility === "named";
   const recordedVoteMemberIds = new Set(
     args.votes
       .map((vote) => vote.memberId)
@@ -320,7 +348,10 @@ function resolveRollCallVoteCounts(args: {
       : []
   );
   const rowPresentCount =
-    explicitCounts.yes + explicitCounts.no + explicitCounts.abstain + explicitCounts.invalid;
+    explicitCounts.yes +
+    explicitCounts.no +
+    explicitCounts.abstain +
+    explicitCounts.invalid;
   const officialTally = args.rollCall.officialTally;
   const officialAbsentCount = officialTally
     ? Math.max(officialTally.registeredCount - officialTally.presentCount, 0)
@@ -335,7 +366,8 @@ function resolveRollCallVoteCounts(args: {
         0
       );
       const presentMatches = rowPresentCount === officialTally.presentCount;
-      const missingMatches = missingEligibleMemberIds.size === expectedDerivedAbsentCount;
+      const missingMatches =
+        missingEligibleMemberIds.size === expectedDerivedAbsentCount;
       if (presentMatches && missingMatches) {
         absentListStatus = "verified";
         verifiedDerivedAbsentMemberIds = new Set(missingEligibleMemberIds);
@@ -343,7 +375,8 @@ function resolveRollCallVoteCounts(args: {
         absentListStatus = "unavailable";
       }
     } else {
-      absentListStatus = missingEligibleMemberIds.size === 0 ? "verified" : "unavailable";
+      absentListStatus =
+        missingEligibleMemberIds.size === 0 ? "verified" : "unavailable";
     }
   }
 
@@ -371,7 +404,10 @@ function resolveRollCallVoteCounts(args: {
   };
 }
 
-function accumulateVoteCounts(target: WindowVoteCounts, voteCode?: VoteCode): void {
+function accumulateVoteCounts(
+  target: WindowVoteCounts,
+  voteCode?: VoteCode
+): void {
   target.eligibleCount += 1;
 
   if (voteCode === "no") {
@@ -390,39 +426,50 @@ function accumulateVoteCounts(target: WindowVoteCounts, voteCode?: VoteCode): vo
 }
 
 function resolveCalendarState(bucket: DayBucket): CalendarState {
-  const rankedStates: Array<{ state: CalendarState; count: number; priority: number }> = [
+  const rankedStates: Array<{
+    state: CalendarState;
+    count: number;
+    priority: number;
+  }> = [
     { state: "absent", count: bucket.absentCount, priority: 4 },
     { state: "no", count: bucket.noCount, priority: 3 },
     { state: "abstain", count: bucket.abstainCount, priority: 2 },
     { state: "yes", count: bucket.yesCount, priority: 1 }
   ];
-  const bestMatch = rankedStates.reduce<{ state: CalendarState; count: number; priority: number } | null>(
-    (currentBest, candidate) => {
-      if (candidate.count === 0) {
-        return currentBest;
-      }
-
-      if (!currentBest) {
-        return candidate;
-      }
-
-      if (candidate.count > currentBest.count) {
-        return candidate;
-      }
-
-      if (candidate.count === currentBest.count && candidate.priority > currentBest.priority) {
-        return candidate;
-      }
-
+  const bestMatch = rankedStates.reduce<{
+    state: CalendarState;
+    count: number;
+    priority: number;
+  } | null>((currentBest, candidate) => {
+    if (candidate.count === 0) {
       return currentBest;
-    },
-    null
-  );
+    }
+
+    if (!currentBest) {
+      return candidate;
+    }
+
+    if (candidate.count > currentBest.count) {
+      return candidate;
+    }
+
+    if (
+      candidate.count === currentBest.count &&
+      candidate.priority > currentBest.priority
+    ) {
+      return candidate;
+    }
+
+    return currentBest;
+  }, null);
 
   return bestMatch?.state ?? "unknown";
 }
 
-function isNegativeState(state: CalendarState, includeAbsent: boolean): boolean {
+function isNegativeState(
+  state: CalendarState,
+  includeAbsent: boolean
+): boolean {
   if (state === "no" || state === "abstain") {
     return true;
   }
@@ -434,7 +481,10 @@ function isNegativeState(state: CalendarState, includeAbsent: boolean): boolean 
   return false;
 }
 
-function calculateCurrentStreak(states: CalendarState[], includeAbsent: boolean): number {
+function calculateCurrentStreak(
+  states: CalendarState[],
+  includeAbsent: boolean
+): number {
   let streak = 0;
 
   for (let index = states.length - 1; index >= 0; index -= 1) {
@@ -448,7 +498,10 @@ function calculateCurrentStreak(states: CalendarState[], includeAbsent: boolean)
   return streak;
 }
 
-function calculateLongestStreak(states: CalendarState[], includeAbsent: boolean): number {
+function calculateLongestStreak(
+  states: CalendarState[],
+  includeAbsent: boolean
+): number {
   let longest = 0;
   let current = 0;
 
@@ -493,7 +546,10 @@ function resolvePublicAssembly(bundle: NormalizedBundle): {
   };
 }
 
-function buildCurrentAssemblyMembers(bundle: NormalizedBundle, assemblyNo: number) {
+function buildCurrentAssemblyMembers(
+  bundle: NormalizedBundle,
+  assemblyNo: number
+) {
   return bundle.members.filter(
     (member) => member.assemblyNo === assemblyNo && member.isCurrentMember
   );
@@ -527,7 +583,10 @@ function createVoteCodeLookup(
       continue;
     }
 
-    lookup.set(`${voteFact.rollCallId}:${voteFact.memberId}`, voteFact.voteCode);
+    lookup.set(
+      `${voteFact.rollCallId}:${voteFact.memberId}`,
+      voteFact.voteCode
+    );
   }
 
   return lookup;
@@ -552,7 +611,9 @@ function resolveMemberCentricVoteCode(args: {
   memberId: string;
   voteCodeLookup: Map<string, VoteCode>;
 }): MemberCentricVoteCode {
-  const explicitVoteCode = args.voteCodeLookup.get(`${args.rollCallId}:${args.memberId}`);
+  const explicitVoteCode = args.voteCodeLookup.get(
+    `${args.rollCallId}:${args.memberId}`
+  );
 
   if (
     explicitVoteCode === "yes" ||
@@ -563,39 +624,6 @@ function resolveMemberCentricVoteCode(args: {
   }
 
   return "absent";
-}
-
-function buildVerifiedAbsentMemberIdsByRollCall(args: {
-  currentMembers: NormalizedBundle["members"];
-  eligibleRollCalls: NormalizedBundle["rollCalls"];
-  voteFacts: NormalizedBundle["voteFacts"];
-  eligibleRollCallIdsByMember?: Map<string, Set<string>>;
-}): Map<string, Set<string>> {
-  const verifiedAbsentByRollCall = new Map<string, Set<string>>();
-
-  for (const rollCall of args.eligibleRollCalls) {
-    const votes = args.voteFacts.filter((voteFact) => voteFact.rollCallId === rollCall.rollCallId);
-    const eligibleCurrentMembers = getEligibleCurrentMembersForRollCall({
-      currentMembers: args.currentMembers,
-      eligibleRollCallIdsByMember: args.eligibleRollCallIdsByMember,
-      rollCallId: rollCall.rollCallId
-    });
-    const resolution = resolveRollCallVoteCounts({
-      rollCall,
-      votes,
-      eligibleCurrentMembers
-    });
-
-    verifiedAbsentByRollCall.set(
-      rollCall.rollCallId,
-      new Set([
-        ...resolution.explicitAbsentMemberIds,
-        ...resolution.verifiedDerivedAbsentMemberIds
-      ])
-    );
-  }
-
-  return verifiedAbsentByRollCall;
 }
 
 function buildMemberVoteRecordsByMember(args: {
@@ -611,7 +639,8 @@ function buildMemberVoteRecordsByMember(args: {
 
   for (const member of args.currentMembers) {
     const eligibleRollCallIds =
-      args.eligibleRollCallIdsByMember?.get(member.memberId) ?? allAssemblyRollCallIds;
+      args.eligibleRollCallIdsByMember?.get(member.memberId) ??
+      allAssemblyRollCallIds;
     const currentRecords: MemberVoteRecord[] = [];
 
     for (const rollCall of args.assemblyRollCalls) {
@@ -637,7 +666,9 @@ function buildMemberVoteRecordsByMember(args: {
   }
 
   for (const records of recordsByMember.values()) {
-    records.sort((left, right) => right.voteDatetime.localeCompare(left.voteDatetime));
+    records.sort((left, right) =>
+      right.voteDatetime.localeCompare(left.voteDatetime)
+    );
   }
 
   return recordsByMember;
@@ -658,7 +689,10 @@ function buildCommitteeSummariesByMember(args: {
       new Set(args.assemblyRollCalls.map((rollCall) => rollCall.rollCallId));
     const summaryByCommittee = new Map<
       string,
-      Omit<CommitteeSummary, "participationRate" | "isCurrentCommittee" | "recentVoteRecords">
+      Omit<
+        CommitteeSummary,
+        "participationRate" | "isCurrentCommittee" | "recentVoteRecords"
+      >
     >();
 
     for (const rollCall of args.assemblyRollCalls) {
@@ -706,9 +740,12 @@ function buildCommitteeSummariesByMember(args: {
     const currentCommittees = new Set(
       (member.committeeMemberships ?? [])
         .map((committeeName) => normalizeCommitteeName(committeeName))
-        .filter((committeeName): committeeName is string => Boolean(committeeName))
+        .filter((committeeName): committeeName is string =>
+          Boolean(committeeName)
+        )
     );
-    const voteRecords = args.memberVoteRecordsByMember.get(member.memberId) ?? [];
+    const voteRecords =
+      args.memberVoteRecordsByMember.get(member.memberId) ?? [];
     const summaries = [...summaryByCommittee.values()]
       .map((summary) => ({
         ...summary,
@@ -720,7 +757,8 @@ function buildCommitteeSummariesByMember(args: {
         recentVoteRecords: voteRecords
           .filter(
             (record) =>
-              normalizeCommitteeName(record.committeeName) === summary.committeeName
+              normalizeCommitteeName(record.committeeName) ===
+              summary.committeeName
           )
           .slice(0, 3)
       }))
@@ -739,7 +777,9 @@ function buildCommitteeSummariesByMember(args: {
   return summariesByMember;
 }
 
-function buildHomeCommitteeAlerts(summaries: CommitteeSummary[]): HomeCommitteeAlert[] {
+function buildHomeCommitteeAlerts(
+  summaries: CommitteeSummary[]
+): HomeCommitteeAlert[] {
   return summaries
     .filter(
       (summary) =>
@@ -779,7 +819,9 @@ function toPublicMemberProfile(
   };
 }
 
-function buildPublicMemberMetadata(member: NormalizedBundle["members"][number] | undefined): {
+function buildPublicMemberMetadata(
+  member: NormalizedBundle["members"][number] | undefined
+): {
   photoUrl: string | null;
   officialProfileUrl: string | null;
   officialExternalUrl: string | null;
@@ -803,7 +845,9 @@ export function buildLatestVotesExport(
   options: ExportBuildOptions = {}
 ): LatestVotesExport {
   const { assemblyNo, assemblyLabel } = resolvePublicAssembly(bundle);
-  const membersById = new Map(bundle.members.map((member) => [member.memberId, member]));
+  const membersById = new Map(
+    bundle.members.map((member) => [member.memberId, member])
+  );
   const currentMembers = buildCurrentAssemblyMembers(bundle, assemblyNo);
   const eligibleRollCallIdsByMember = options.tenureIndex
     ? getEligibleRollCallIdsByMember({
@@ -815,12 +859,16 @@ export function buildLatestVotesExport(
     : null;
 
   const items = sortRollCallsByLatest(bundle.rollCalls).map((rollCall) => {
-    const votes = bundle.voteFacts.filter((voteFact) => voteFact.rollCallId === rollCall.rollCallId);
+    const votes = bundle.voteFacts.filter(
+      (voteFact) => voteFact.rollCallId === rollCall.rollCallId
+    );
     const eligibleCurrentMembers =
-      rollCall.voteVisibility === "recorded" || rollCall.voteVisibility === "named"
+      rollCall.voteVisibility === "recorded" ||
+      rollCall.voteVisibility === "named"
         ? getEligibleCurrentMembersForRollCall({
             currentMembers,
-            eligibleRollCallIdsByMember: eligibleRollCallIdsByMember ?? undefined,
+            eligibleRollCallIdsByMember:
+              eligibleRollCallIdsByMember ?? undefined,
             rollCallId: rollCall.rollCallId
           })
         : [];
@@ -831,7 +879,10 @@ export function buildLatestVotesExport(
     });
 
     const highlightedVotes = votes
-      .map((vote) => ({ ...vote, publicVoteCode: toPublicVoteCode(vote.voteCode) }))
+      .map((vote) => ({
+        ...vote,
+        publicVoteCode: toPublicVoteCode(vote.voteCode)
+      }))
       .filter((vote) => vote.voteCode === "no" || vote.voteCode === "abstain")
       .sort(
         (left, right) =>
@@ -839,10 +890,13 @@ export function buildLatestVotesExport(
           highlightVoteOrder.indexOf(right.publicVoteCode)
       )
       .map((vote) => {
-        const member = vote.memberId ? membersById.get(vote.memberId) : undefined;
+        const member = vote.memberId
+          ? membersById.get(vote.memberId)
+          : undefined;
         return {
           memberId: vote.memberId ?? null,
-          memberName: member?.name ?? vote.memberName ?? vote.memberId ?? "이름 미상",
+          memberName:
+            member?.name ?? vote.memberName ?? vote.memberId ?? "이름 미상",
           party: member?.party ?? vote.party ?? "정당 미상",
           ...buildLeanLatestVoteMemberMetadata(),
           voteCode: vote.publicVoteCode
@@ -852,17 +906,22 @@ export function buildLatestVotesExport(
     const recordedAbsentVotes: VoteHighlight[] = votes
       .filter((vote) => vote.voteCode === "absent")
       .map((vote) => {
-        const member = vote.memberId ? membersById.get(vote.memberId) : undefined;
+        const member = vote.memberId
+          ? membersById.get(vote.memberId)
+          : undefined;
         return {
           memberId: vote.memberId ?? null,
-          memberName: member?.name ?? vote.memberName ?? vote.memberId ?? "이름 미상",
+          memberName:
+            member?.name ?? vote.memberName ?? vote.memberId ?? "이름 미상",
           party: member?.party ?? vote.party ?? "정당 미상",
           ...buildLeanLatestVoteMemberMetadata(),
           voteCode: "absent" as const
         };
       });
     const derivedAbsentVotes: VoteHighlight[] = eligibleCurrentMembers
-      .filter((member) => resolution.verifiedDerivedAbsentMemberIds.has(member.memberId))
+      .filter((member) =>
+        resolution.verifiedDerivedAbsentMemberIds.has(member.memberId)
+      )
       .map((member) => ({
         memberId: member.memberId,
         memberName: member.name,
@@ -870,13 +929,15 @@ export function buildLatestVotesExport(
         ...buildLeanLatestVoteMemberMetadata(),
         voteCode: "absent" as const
       }));
-    const absentVotes = [...recordedAbsentVotes, ...derivedAbsentVotes].sort((left, right) =>
-      left.memberName.localeCompare(right.memberName, "ko-KR")
+    const absentVotes = [...recordedAbsentVotes, ...derivedAbsentVotes].sort(
+      (left, right) => left.memberName.localeCompare(right.memberName, "ko-KR")
     );
 
-    const updatedAt = votes
-      .map((vote) => vote.publishedAt || vote.retrievedAt)
-      .sort((left, right) => right.localeCompare(left))[0] ?? rollCall.voteDatetime;
+    const updatedAt =
+      votes
+        .map((vote) => vote.publishedAt || vote.retrievedAt)
+        .sort((left, right) => right.localeCompare(left))[0] ??
+      rollCall.voteDatetime;
 
     return {
       rollCallId: rollCall.rollCallId,
@@ -900,7 +961,8 @@ export function buildLatestVotesExport(
     };
   });
 
-  const snapshotId = items[0]?.snapshotId ?? bundle.rollCalls[0]?.snapshotId ?? "unknown";
+  const snapshotId =
+    items[0]?.snapshotId ?? bundle.rollCalls[0]?.snapshotId ?? "unknown";
 
   return {
     generatedAt: new Date().toISOString(),
@@ -917,11 +979,14 @@ export function buildAccountabilitySummaryExport(
 ): AccountabilitySummaryExport {
   const { assemblyNo, assemblyLabel } = resolvePublicAssembly(bundle);
   const currentMembers = buildCurrentAssemblyMembers(bundle, assemblyNo);
-  const currentMemberIds = new Set(currentMembers.map((member) => member.memberId));
+  const currentMemberIds = new Set(
+    currentMembers.map((member) => member.memberId)
+  );
   const eligibleRollCalls = bundle.rollCalls.filter(
     (rollCall) =>
       rollCall.assemblyNo === assemblyNo &&
-      (rollCall.voteVisibility === "recorded" || rollCall.voteVisibility === "named")
+      (rollCall.voteVisibility === "recorded" ||
+        rollCall.voteVisibility === "named")
   );
   const eligibleRollCallIdsByMember = options.tenureIndex
     ? getEligibleRollCallIdsByMember({
@@ -934,7 +999,10 @@ export function buildAccountabilitySummaryExport(
   const allEligibleRollCallIds = new Set(
     eligibleRollCalls.map((rollCall) => rollCall.rollCallId)
   );
-  const voteCodeLookup = createVoteCodeLookup(bundle.voteFacts, allEligibleRollCallIds);
+  const voteCodeLookup = createVoteCodeLookup(
+    bundle.voteFacts,
+    allEligibleRollCallIds
+  );
   const latestVoteAtByMember = new Map<string, string>();
 
   for (const voteFact of bundle.voteFacts) {
@@ -948,13 +1016,18 @@ export function buildAccountabilitySummaryExport(
 
     if (
       eligibleRollCallIdsByMember &&
-      !eligibleRollCallIdsByMember.get(voteFact.memberId)?.has(voteFact.rollCallId)
+      !eligibleRollCallIdsByMember
+        .get(voteFact.memberId)
+        ?.has(voteFact.rollCallId)
     ) {
       continue;
     }
 
     const currentLatest = latestVoteAtByMember.get(voteFact.memberId);
-    if (!currentLatest || voteFact.publishedAt.localeCompare(currentLatest) > 0) {
+    if (
+      !currentLatest ||
+      voteFact.publishedAt.localeCompare(currentLatest) > 0
+    ) {
       latestVoteAtByMember.set(voteFact.memberId, voteFact.publishedAt);
     }
   }
@@ -1012,8 +1085,10 @@ export function buildAccountabilitySummaryExport(
         item.absentCount > 0
     )
     .sort((left, right) => {
-      const rightNegativeCount = right.noCount + right.abstainCount + right.absentCount;
-      const leftNegativeCount = left.noCount + left.abstainCount + left.absentCount;
+      const rightNegativeCount =
+        right.noCount + right.abstainCount + right.absentCount;
+      const leftNegativeCount =
+        left.noCount + left.abstainCount + left.absentCount;
       if (rightNegativeCount !== leftNegativeCount) {
         return rightNegativeCount - leftNegativeCount;
       }
@@ -1030,7 +1105,8 @@ export function buildAccountabilitySummaryExport(
         return right.abstainCount - left.abstainCount;
       }
 
-      const rightNegativeRate = right.noRate + right.abstainRate + right.absentRate;
+      const rightNegativeRate =
+        right.noRate + right.abstainRate + right.absentRate;
       const leftNegativeRate = left.noRate + left.abstainRate + left.absentRate;
       if (rightNegativeRate !== leftNegativeRate) {
         return rightNegativeRate - leftNegativeRate;
@@ -1059,10 +1135,16 @@ export function buildAccountabilityTrendsExport(
   const eligibleRollCalls = bundle.rollCalls.filter(
     (rollCall) =>
       rollCall.assemblyNo === assemblyNo &&
-      (rollCall.voteVisibility === "recorded" || rollCall.voteVisibility === "named")
+      (rollCall.voteVisibility === "recorded" ||
+        rollCall.voteVisibility === "named")
   );
-  const votingDates = [...new Set(eligibleRollCalls.map((rollCall) => toKoreanDateKey(rollCall.voteDatetime)))]
-    .sort(compareDateKeys);
+  const votingDates = [
+    ...new Set(
+      eligibleRollCalls.map((rollCall) =>
+        toKoreanDateKey(rollCall.voteDatetime)
+      )
+    )
+  ].sort(compareDateKeys);
   const weekRanges = buildRecentWeekRanges(votingDates, 12);
   const weekByStart = new Map(
     weekRanges.map((range) => [
@@ -1085,11 +1167,20 @@ export function buildAccountabilityTrendsExport(
         tenureIndex: options.tenureIndex
       })
     : null;
-  const eligibleRollCallIds = new Set(eligibleRollCalls.map((rollCall) => rollCall.rollCallId));
-  const voteCodeLookup = createVoteCodeLookup(bundle.voteFacts, eligibleRollCallIds);
+  const eligibleRollCallIds = new Set(
+    eligibleRollCalls.map((rollCall) => rollCall.rollCallId)
+  );
+  const voteCodeLookup = createVoteCodeLookup(
+    bundle.voteFacts,
+    eligibleRollCallIds
+  );
   const relevantWeeks = weekRanges.slice(-8);
-  const previousWindowStarts = new Set(relevantWeeks.slice(0, 4).map((range) => range.weekStart));
-  const currentWindowStarts = new Set(relevantWeeks.slice(4).map((range) => range.weekStart));
+  const previousWindowStarts = new Set(
+    relevantWeeks.slice(0, 4).map((range) => range.weekStart)
+  );
+  const currentWindowStarts = new Set(
+    relevantWeeks.slice(4).map((range) => range.weekStart)
+  );
   const moversByMember = new Map(
     currentMembers.map((member) => [
       member.memberId,
@@ -1155,14 +1246,17 @@ export function buildAccountabilityTrendsExport(
     snapshotId,
     assemblyNo,
     assemblyLabel,
-    weeks: weekRanges.map((range) => weekByStart.get(range.weekStart) ?? {
-      ...range,
-      yesCount: 0,
-      noCount: 0,
-      abstainCount: 0,
-      absentCount: 0,
-      eligibleVoteCount: 0
-    }),
+    weeks: weekRanges.map(
+      (range) =>
+        weekByStart.get(range.weekStart) ?? {
+          ...range,
+          yesCount: 0,
+          noCount: 0,
+          abstainCount: 0,
+          absentCount: 0,
+          eligibleVoteCount: 0
+        }
+    ),
     movers: currentMembers
       .map((member) => {
         const mover = moversByMember.get(member.memberId);
@@ -1187,7 +1281,8 @@ export function buildAccountabilityTrendsExport(
       })
       .filter(
         (member) =>
-          member.previousWindowEligibleCount > 0 || member.currentWindowEligibleCount > 0
+          member.previousWindowEligibleCount > 0 ||
+          member.currentWindowEligibleCount > 0
       )
   };
 }
@@ -1198,14 +1293,27 @@ export function buildMemberActivityCalendarArtifacts(
 ): MemberActivityCalendarArtifacts {
   const { assemblyNo, assemblyLabel } = resolvePublicAssembly(bundle);
   const eligibleRollCalls = bundle.rollCalls.filter(
-    (rollCall) => rollCall.voteVisibility === "recorded" || rollCall.voteVisibility === "named"
+    (rollCall) =>
+      rollCall.voteVisibility === "recorded" ||
+      rollCall.voteVisibility === "named"
   );
-  const assemblyRollCalls = eligibleRollCalls.filter((rollCall) => rollCall.assemblyNo === assemblyNo);
-  const votingDates = [...new Set(assemblyRollCalls.map((rollCall) => toKoreanDateKey(rollCall.voteDatetime)))]
-    .sort(compareDateKeys);
+  const assemblyRollCalls = eligibleRollCalls.filter(
+    (rollCall) => rollCall.assemblyNo === assemblyNo
+  );
+  const votingDates = [
+    ...new Set(
+      assemblyRollCalls.map((rollCall) =>
+        toKoreanDateKey(rollCall.voteDatetime)
+      )
+    )
+  ].sort(compareDateKeys);
   const currentMembers = buildCurrentAssemblyMembers(bundle, assemblyNo);
-  const membersById = new Map(currentMembers.map((member) => [member.memberId, member]));
-  const assemblyRollCallIds = new Set(assemblyRollCalls.map((rollCall) => rollCall.rollCallId));
+  const membersById = new Map(
+    currentMembers.map((member) => [member.memberId, member])
+  );
+  const assemblyRollCallIds = new Set(
+    assemblyRollCalls.map((rollCall) => rollCall.rollCallId)
+  );
   const eligibleDatesByMember = options.tenureIndex
     ? getEligibleVotingDatesByMember({
         members: bundle.members,
@@ -1222,7 +1330,10 @@ export function buildMemberActivityCalendarArtifacts(
         tenureIndex: options.tenureIndex
       })
     : null;
-  const voteCodeLookup = createVoteCodeLookup(bundle.voteFacts, assemblyRollCallIds);
+  const voteCodeLookup = createVoteCodeLookup(
+    bundle.voteFacts,
+    assemblyRollCallIds
+  );
   const memberVoteRecordsByMember = buildMemberVoteRecordsByMember({
     currentMembers,
     assemblyRollCalls,
@@ -1267,7 +1378,8 @@ export function buildMemberActivityCalendarArtifacts(
   const memberDetails: MemberActivityCalendarMemberDetailExport[] = [];
   const members = [...membersById.values()]
     .map((member) => {
-      const dayBuckets = bucketsByMember.get(member.memberId) ?? new Map<string, DayBucket>();
+      const dayBuckets =
+        bucketsByMember.get(member.memberId) ?? new Map<string, DayBucket>();
       const voteRecords = memberVoteRecordsByMember.get(member.memberId) ?? [];
       const dayStates = [...dayBuckets.entries()]
         .sort(([left], [right]) => compareDateKeys(left, right))
@@ -1287,15 +1399,21 @@ export function buildMemberActivityCalendarArtifacts(
           state: resolveCalendarState(bucket)
         }));
 
-      const eligibleDates = eligibleDatesByMember?.get(member.memberId) ?? new Set(votingDates);
+      const eligibleDates =
+        eligibleDatesByMember?.get(member.memberId) ?? new Set(votingDates);
       const normalizedDayStates = dayStates;
-      const stateByDate = new Map(normalizedDayStates.map((dayState) => [dayState.date, dayState.state]));
+      const stateByDate = new Map(
+        normalizedDayStates.map((dayState) => [dayState.date, dayState.state])
+      );
       const sequence = [...eligibleDates]
         .sort(compareDateKeys)
         .map((date) => stateByDate.get(date) ?? "absent");
-      const negativeDays = sequence.filter((state) => state === "no" || state === "abstain").length;
+      const negativeDays = sequence.filter(
+        (state) => state === "no" || state === "abstain"
+      ).length;
       const absentDays = sequence.filter((state) => state === "absent").length;
-      const committeeSummaries = committeeSummariesByMember.get(member.memberId) ?? [];
+      const committeeSummaries =
+        committeeSummariesByMember.get(member.memberId) ?? [];
       memberDetails.push({
         generatedAt,
         snapshotId,
@@ -1321,7 +1439,9 @@ export function buildMemberActivityCalendarArtifacts(
         homeCommitteeAlerts: buildHomeCommitteeAlerts(committeeSummaries),
         dayStates: normalizedDayStates,
         voteRecordCount: voteRecords.length,
-        voteRecordsPath: buildMemberActivityCalendarMemberDetailPath(member.memberId),
+        voteRecordsPath: buildMemberActivityCalendarMemberDetailPath(
+          member.memberId
+        ),
         voteRecords: []
       };
     })
@@ -1361,7 +1481,8 @@ export function buildMemberActivityCalendarExport(
   bundle: NormalizedBundle,
   options: ExportBuildOptions = {}
 ): MemberActivityCalendarExport {
-  return buildMemberActivityCalendarArtifacts(bundle, options).memberActivityCalendar;
+  return buildMemberActivityCalendarArtifacts(bundle, options)
+    .memberActivityCalendar;
 }
 
 export function buildMemberActivityCalendarMemberDetailExports(
@@ -1391,14 +1512,21 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
     sources: toNdjson(bundle.sources)
   };
 
-  const createDatasetFile = (path: string, content: string, rowCount?: number) => ({
+  const createDatasetFile = (
+    path: string,
+    content: string,
+    rowCount?: number
+  ) => ({
     path,
     url: new URL(path, `${dataRepoBaseUrl.replace(/\/$/, "")}/`).toString(),
     checksumSha256: sha256(content),
     rowCount
   });
-  const createPublishedExportFile = (path: string, payload: unknown, rowCount?: number) =>
-    createDatasetFile(path, serializePublishedJson(payload), rowCount);
+  const createPublishedExportFile = (
+    path: string,
+    payload: unknown,
+    rowCount?: number
+  ) => createDatasetFile(path, serializePublishedJson(payload), rowCount);
 
   return {
     schemaVersion: "v1",
@@ -1407,11 +1535,31 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
     dataRepoBaseUrl,
     currentAssembly,
     datasets: {
-      members: createDatasetFile("curated/members.parquet", normalizedPayloads.members, bundle.members.length),
-      rollCalls: createDatasetFile("curated/roll_calls.parquet", normalizedPayloads.rollCalls, bundle.rollCalls.length),
-      voteFacts: createDatasetFile("curated/vote_facts.parquet", normalizedPayloads.voteFacts, bundle.voteFacts.length),
-      meetings: createDatasetFile("curated/meetings.parquet", normalizedPayloads.meetings, bundle.meetings.length),
-      sources: createDatasetFile("curated/sources.parquet", normalizedPayloads.sources, bundle.sources.length),
+      members: createDatasetFile(
+        "curated/members.parquet",
+        normalizedPayloads.members,
+        bundle.members.length
+      ),
+      rollCalls: createDatasetFile(
+        "curated/roll_calls.parquet",
+        normalizedPayloads.rollCalls,
+        bundle.rollCalls.length
+      ),
+      voteFacts: createDatasetFile(
+        "curated/vote_facts.parquet",
+        normalizedPayloads.voteFacts,
+        bundle.voteFacts.length
+      ),
+      meetings: createDatasetFile(
+        "curated/meetings.parquet",
+        normalizedPayloads.meetings,
+        bundle.meetings.length
+      ),
+      sources: createDatasetFile(
+        "curated/sources.parquet",
+        normalizedPayloads.sources,
+        bundle.sources.length
+      ),
       ...(input.assetDisclosuresDataset
         ? {
             assetDisclosures: createDatasetFile(

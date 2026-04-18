@@ -19,11 +19,13 @@ The GeoJSON file is a feature collection of current National Assembly constituen
 ## Official Sources
 
 1. Public law source
+
 - Page: `https://www.law.go.kr/lsBylInfoPLinkR.do?lsiSeq=284577&lsNm=%EA%B3%B5%EC%A7%81%EC%84%A0%EA%B1%B0%EB%B2%95&bylNo=0001&bylBrNo=00&bylCls=BE&bylEfYd=20260319&bylEfYdYn=Y`
 - Download endpoint: `https://www.law.go.kr/LSW/lsBylTextDownLoad.do`
 - Request body: `bylSeq=18012299&title=%5B%EB%B3%84%ED%91%9C+1%5D+%EA%B5%AD%ED%9A%8C%EC%9D%98%EC%9B%90%EC%A7%80%EC%97%AD%EC%84%A0%EA%B1%B0%EA%B5%AC%EA%B5%AC%EC%97%AD%ED%91%9C+%28%EC%A7%80%EC%97%AD%EA%B5%AC+%3A+254%29&mode=0`
 
 2. Official SGIS admin boundary bundle
+
 - data page: `https://www.data.go.kr/data/15129688/fileData.do`
 - direct download: `https://www.data.go.kr/cmm/cmm/fileDownload.do?atchFileId=FILE_000000003601705&fileDetailSn=1&insertDataPrcus=N`
 - consumed layers:

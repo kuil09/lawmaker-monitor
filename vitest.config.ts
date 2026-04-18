@@ -4,7 +4,10 @@ import { resolve } from "node:path";
 export default defineConfig({
   resolve: {
     alias: {
-      "@lawmaker-monitor/schemas": resolve(__dirname, "./packages/schemas/src/index.ts")
+      "@lawmaker-monitor/schemas": resolve(
+        __dirname,
+        "./packages/schemas/src/index.ts"
+      )
     }
   },
   test: {

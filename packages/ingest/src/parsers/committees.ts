@@ -4,6 +4,7 @@ import {
   findItems,
   normalizeOptionalUrl
 } from "./helpers.js";
+
 import type {
   BillVoteSummaryRecord,
   CommitteeOverviewRecord,
@@ -35,7 +36,9 @@ export function parseCommitteeRosterXml(xml: string): CommitteeRosterRecord[] {
     .filter((row): row is CommitteeRosterRecord => Boolean(row));
 }
 
-export function parseCommitteeOverviewXml(xml: string): CommitteeOverviewRecord[] {
+export function parseCommitteeOverviewXml(
+  xml: string
+): CommitteeOverviewRecord[] {
   const parsed = parseXmlDocument(xml);
   const rows = findItems(parsed);
 
@@ -53,9 +56,12 @@ export function parseCommitteeOverviewXml(xml: string): CommitteeOverviewRecord[
     records.push({
       committeeName,
       committeeType: pickFirst(row, ["CMT_DIV_NM", "cmtDivNm"]) ?? null,
-      memberLimit: memberLimitRaw === undefined ? null : toNumber(memberLimitRaw),
+      memberLimit:
+        memberLimitRaw === undefined ? null : toNumber(memberLimitRaw),
       currentMemberCount:
-        currentMemberCountRaw === undefined ? null : toNumber(currentMemberCountRaw)
+        currentMemberCountRaw === undefined
+          ? null
+          : toNumber(currentMemberCountRaw)
     });
   }
 
@@ -104,7 +110,8 @@ export function parseBillVoteSummaryXml(xml: string): BillVoteSummaryRecord[] {
         billId,
         billNo,
         billName,
-        committeeName: pickFirst(row, ["CURR_COMMITTEE", "currCommittee"]) ?? null,
+        committeeName:
+          pickFirst(row, ["CURR_COMMITTEE", "currCommittee"]) ?? null,
         officialSourceUrl,
         officialTally: {
           registeredCount,

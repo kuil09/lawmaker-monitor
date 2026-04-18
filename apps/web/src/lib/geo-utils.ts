@@ -1,13 +1,17 @@
 import proj4 from "proj4";
 import { feature } from "topojson-client";
 
-import type { GeoJsonMultiPolygon, GeoJsonPolygon } from "@lawmaker-monitor/schemas";
-
-import type { ConstituencyBoundaryTopology } from "./constituency-map.js";
 import { normalizeConstituencyLookupKey } from "./constituency-map.js";
 
+import type { ConstituencyBoundaryTopology } from "./constituency-map.js";
+import type {
+  GeoJsonMultiPolygon,
+  GeoJsonPolygon
+} from "@lawmaker-monitor/schemas";
+
 // Korean TM projection (EPSG:5179) -> WGS84 (EPSG:4326)
-const KOREAN_TM = "+proj=tmerc +lat_0=38 +lon_0=127.5 +k=0.9996 +x_0=1000000 +y_0=2000000 +ellps=GRS80 +units=m +no_defs";
+const KOREAN_TM =
+  "+proj=tmerc +lat_0=38 +lon_0=127.5 +k=0.9996 +x_0=1000000 +y_0=2000000 +ellps=GRS80 +units=m +no_defs";
 const WGS84 = "+proj=longlat +datum=WGS84 +no_defs";
 
 function toWgs84(x: number, y: number): [number, number] {
@@ -56,24 +60,33 @@ function reprojectRing(ring: number[][], step = 20): number[][] {
     return normalizeRing(result);
   }
 
-  return normalizeRing(ring.flatMap((point) => {
-    const [x, y] = point ?? [];
-    if (x === undefined || y === undefined) return [];
-    return [toWgs84(x, y)];
-  }));
+  return normalizeRing(
+    ring.flatMap((point) => {
+      const [x, y] = point ?? [];
+      if (x === undefined || y === undefined) return [];
+      return [toWgs84(x, y)];
+    })
+  );
 }
 
-function reprojectGeometry(geometry: { type: string; coordinates: unknown }, step = 20): { type: string; coordinates: unknown } {
+function reprojectGeometry(
+  geometry: { type: string; coordinates: unknown },
+  step = 20
+): { type: string; coordinates: unknown } {
   if (geometry.type === "Polygon") {
     return {
       type: "Polygon",
-      coordinates: (geometry.coordinates as number[][][]).map(ring => reprojectRing(ring, step))
+      coordinates: (geometry.coordinates as number[][][]).map((ring) =>
+        reprojectRing(ring, step)
+      )
     };
   }
   if (geometry.type === "MultiPolygon") {
     return {
       type: "MultiPolygon",
-      coordinates: (geometry.coordinates as number[][][][]).map(poly => poly.map(ring => reprojectRing(ring, step)))
+      coordinates: (geometry.coordinates as number[][][][]).map((poly) =>
+        poly.map((ring) => reprojectRing(ring, step))
+      )
     };
   }
   return geometry;
@@ -88,11 +101,11 @@ export type ExtrudedFeature = {
   };
 };
 
-export function extractReprojectedFeatures(topology: ConstituencyBoundaryTopology, step = 20): ExtrudedFeature[] {
-  const collection = feature(
-    topology,
-    topology.objects.constituencies
-  ) as {
+export function extractReprojectedFeatures(
+  topology: ConstituencyBoundaryTopology,
+  step = 20
+): ExtrudedFeature[] {
+  const collection = feature(topology, topology.objects.constituencies) as {
     type: "FeatureCollection";
     features: Array<{
       type: "Feature";
@@ -101,11 +114,14 @@ export function extractReprojectedFeatures(topology: ConstituencyBoundaryTopolog
     }>;
   };
 
-  return collection.features.map(f => {
-    const label = (f.properties.memberDistrictLabel as string | undefined) ?? "";
+  return collection.features.map((f) => {
+    const label =
+      (f.properties.memberDistrictLabel as string | undefined) ?? "";
     return {
       type: "Feature" as const,
-      geometry: reprojectGeometry(f.geometry, step) as GeoJsonPolygon | GeoJsonMultiPolygon,
+      geometry: reprojectGeometry(f.geometry, step) as
+        | GeoJsonPolygon
+        | GeoJsonMultiPolygon,
       properties: {
         districtKey: normalizeConstituencyLookupKey(label),
         label
@@ -123,7 +139,9 @@ export type MemberGeoPoint = {
 
 // Approximate a visual centroid from sampled outer-ring vertices.
 function computeCentroid(ring: number[][], step = 50): [number, number] {
-  let sumLng = 0, sumLat = 0, count = 0;
+  let sumLng = 0,
+    sumLat = 0,
+    count = 0;
   for (let i = 0; i < ring.length; i += step) {
     const point = ring[i];
     const [x, y] = point ?? [];
@@ -158,13 +176,13 @@ export type H3BgCell = {
 };
 
 export const PARTY_COLORS: Record<string, [number, number, number, number]> = {
-  "더불어민주당": [30,  100, 210, 230],
-  "국민의힘":     [220,  50,  32, 230],
-  "조국혁신당":   [0,   170, 120, 230],
-  "개혁신당":     [230, 120,   0, 230],
-  "진보당":       [170,   0,  50, 230],
-  "기본소득당":   [100,  60, 180, 230],
-  "사회민주당":   [80,  160,  80, 230],
+  더불어민주당: [30, 100, 210, 230],
+  국민의힘: [220, 50, 32, 230],
+  조국혁신당: [0, 170, 120, 230],
+  개혁신당: [230, 120, 0, 230],
+  진보당: [170, 0, 50, 230],
+  기본소득당: [100, 60, 180, 230],
+  사회민주당: [80, 160, 80, 230]
 };
 
 export function getPartyColor(party: string): [number, number, number, number] {
@@ -197,7 +215,9 @@ export function getMetricModulatedColor(
   }
 }
 
-export function createLogNormalizer(values: readonly number[]): (raw: number) => number {
+export function createLogNormalizer(
+  values: readonly number[]
+): (raw: number) => number {
   if (values.length === 0) return () => 0;
 
   let min = Infinity;
@@ -217,11 +237,15 @@ export function createLogNormalizer(values: readonly number[]): (raw: number) =>
 
 // Select H3 resolution from feature span. Step=20 reduced features are sufficient here.
 export function getDetailRes(features: ExtrudedFeature[]): number {
-  let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
+  let minLng = 180,
+    maxLng = -180,
+    minLat = 90,
+    maxLat = -90;
   for (const f of features) {
-    const polys = f.geometry.type === "Polygon"
-      ? [(f.geometry.coordinates as number[][][])]
-      : (f.geometry.coordinates as number[][][][]);
+    const polys =
+      f.geometry.type === "Polygon"
+        ? [f.geometry.coordinates as number[][][]]
+        : (f.geometry.coordinates as number[][][][]);
     for (const poly of polys) {
       for (const ring of poly) {
         for (const point of ring) {
@@ -241,11 +265,10 @@ export function getDetailRes(features: ExtrudedFeature[]): number {
   return 8;
 }
 
-export function extractCentroids(topology: ConstituencyBoundaryTopology): MemberGeoPoint[] {
-  const collection = feature(
-    topology,
-    topology.objects.constituencies
-  ) as {
+export function extractCentroids(
+  topology: ConstituencyBoundaryTopology
+): MemberGeoPoint[] {
+  const collection = feature(topology, topology.objects.constituencies) as {
     type: "FeatureCollection";
     features: Array<{
       type: "Feature";
@@ -254,8 +277,9 @@ export function extractCentroids(topology: ConstituencyBoundaryTopology): Member
     }>;
   };
 
-  return collection.features.flatMap(f => {
-    const label = (f.properties.memberDistrictLabel as string | undefined) ?? "";
+  return collection.features.flatMap((f) => {
+    const label =
+      (f.properties.memberDistrictLabel as string | undefined) ?? "";
     if (!label) return [];
 
     let ring: number[][];
@@ -268,24 +292,23 @@ export function extractCentroids(topology: ConstituencyBoundaryTopology): Member
       const polys = f.geometry.coordinates as number[][][][];
       const firstRing = polys[0]?.[0];
       if (!firstRing) return [];
-      ring = polys.reduce(
-        (best, poly) => {
-          const candidate = poly[0];
-          if (!candidate) return best;
-          return candidate.length > best.length ? candidate : best;
-        },
-        firstRing
-      );
+      ring = polys.reduce((best, poly) => {
+        const candidate = poly[0];
+        if (!candidate) return best;
+        return candidate.length > best.length ? candidate : best;
+      }, firstRing);
     } else {
       return [];
     }
 
     const [longitude, latitude] = computeCentroid(ring);
-    return [{
-      longitude,
-      latitude,
-      districtKey: normalizeConstituencyLookupKey(label),
-      label
-    }];
+    return [
+      {
+        longitude,
+        latitude,
+        districtKey: normalizeConstituencyLookupKey(label),
+        label
+      }
+    ];
   });
 }

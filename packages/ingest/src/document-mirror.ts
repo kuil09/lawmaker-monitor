@@ -104,7 +104,9 @@ export function normalizeDocumentDate(value: string): string | null {
     return null;
   }
 
-  const match = compact.match(/(20\d{2})[.\-/년\s]+(\d{1,2})[.\-/월\s]+(\d{1,2})/);
+  const match = compact.match(
+    /(20\d{2})[.\-/년\s]+(\d{1,2})[.\-/월\s]+(\d{1,2})/
+  );
   if (!match) {
     return null;
   }
@@ -130,11 +132,16 @@ export function dateInTimeZone(timeZone: string, now = new Date()): string {
   return formatter.format(now);
 }
 
-export function isPastDocumentDate(documentDate: string, cutoffDate: string): boolean {
+export function isPastDocumentDate(
+  documentDate: string,
+  cutoffDate: string
+): boolean {
   return documentDate < cutoffDate;
 }
 
-function extensionFromContentDisposition(contentDisposition?: string): string | null {
+function extensionFromContentDisposition(
+  contentDisposition?: string
+): string | null {
   if (!contentDisposition) {
     return null;
   }
@@ -158,13 +165,17 @@ export function detectFileExtension(
 ): string {
   const pathname = new URL(url).pathname.toLowerCase();
   const contentTypeValue = (contentType ?? "").toLowerCase();
-  const dispositionExtension = extensionFromContentDisposition(contentDisposition);
+  const dispositionExtension =
+    extensionFromContentDisposition(contentDisposition);
 
   if (dispositionExtension) {
     return dispositionExtension;
   }
 
-  if (pathname.endsWith(".pdf") || contentTypeValue.includes("application/pdf")) {
+  if (
+    pathname.endsWith(".pdf") ||
+    contentTypeValue.includes("application/pdf")
+  ) {
     return "pdf";
   }
 
@@ -204,7 +215,11 @@ export function detectFileExtension(
   return "bin";
 }
 
-export function buildDocumentId(title: string, sourceUrl: string, publishedDate: string): string {
+export function buildDocumentId(
+  title: string,
+  sourceUrl: string,
+  publishedDate: string
+): string {
   const slug = slugifySegment(title) || "document";
   const shortHash = sha256(`${publishedDate}:${sourceUrl}`).slice(0, 10);
   return `${publishedDate}-${slug}-${shortHash}`;
@@ -213,7 +228,9 @@ export function buildDocumentId(title: string, sourceUrl: string, publishedDate:
 export function buildDocumentPaths(input: BuildPathInput): DocumentPathSet {
   const [year, month, day] = input.publishedDate.split("-");
   if (!year || !month || !day) {
-    throw new Error(`Invalid published date for mirrored document: ${input.publishedDate}`);
+    throw new Error(
+      `Invalid published date for mirrored document: ${input.publishedDate}`
+    );
   }
 
   const versionStamp = input.retrievedAt.replace(/[:.]/g, "-");
@@ -230,12 +247,21 @@ export function buildDocumentPaths(input: BuildPathInput): DocumentPathSet {
   return {
     relativeDirectory,
     metadataRelativePath: join(relativeDirectory, "metadata.json"),
-    latestRelativePath: join(relativeDirectory, `latest.${input.fileExtension}`),
-    versionRelativePath: join(relativeDirectory, "versions", `${versionStamp}.${input.fileExtension}`)
+    latestRelativePath: join(
+      relativeDirectory,
+      `latest.${input.fileExtension}`
+    ),
+    versionRelativePath: join(
+      relativeDirectory,
+      "versions",
+      `${versionStamp}.${input.fileExtension}`
+    )
   };
 }
 
-export function toIndexItem(metadata: MirroredDocumentMetadata): MirroredDocumentIndexItem {
+export function toIndexItem(
+  metadata: MirroredDocumentMetadata
+): MirroredDocumentIndexItem {
   return {
     documentId: metadata.documentId,
     sourceId: metadata.sourceId,

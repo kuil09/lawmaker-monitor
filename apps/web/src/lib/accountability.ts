@@ -4,14 +4,25 @@ export type AccountabilityMetric = "combined" | "absent" | "abstain" | "no";
 export type LeaderboardMetric = "yes" | "no" | "abstain" | "absent";
 
 export function getYesCount(item: AccountabilitySummaryItem): number {
-  return Math.max(0, item.totalRecordedVotes - item.noCount - item.abstainCount - item.absentCount);
+  return Math.max(
+    0,
+    item.totalRecordedVotes -
+      item.noCount -
+      item.abstainCount -
+      item.absentCount
+  );
 }
 
 export function getYesRate(item: AccountabilitySummaryItem): number {
-  return item.totalRecordedVotes > 0 ? getYesCount(item) / item.totalRecordedVotes : 0;
+  return item.totalRecordedVotes > 0
+    ? getYesCount(item) / item.totalRecordedVotes
+    : 0;
 }
 
-export function getMetricCount(item: AccountabilitySummaryItem, metric: AccountabilityMetric): number {
+export function getMetricCount(
+  item: AccountabilitySummaryItem,
+  metric: AccountabilityMetric
+): number {
   switch (metric) {
     case "combined":
       return item.noCount + item.abstainCount + item.absentCount;
@@ -56,7 +67,10 @@ export function getLeaderboardMetricRate(
   }
 }
 
-export function getMetricRate(item: AccountabilitySummaryItem, metric: AccountabilityMetric): number {
+export function getMetricRate(
+  item: AccountabilitySummaryItem,
+  metric: AccountabilityMetric
+): number {
   switch (metric) {
     case "combined":
       return item.noRate + item.abstainRate + item.absentRate;
@@ -94,7 +108,9 @@ export function rankAccountabilityItems(
   });
 }
 
-export function rankSupportItems(items: AccountabilitySummaryItem[]): AccountabilitySummaryItem[] {
+export function rankSupportItems(
+  items: AccountabilitySummaryItem[]
+): AccountabilitySummaryItem[] {
   return rankLeaderboardItems(items, "yes");
 }
 

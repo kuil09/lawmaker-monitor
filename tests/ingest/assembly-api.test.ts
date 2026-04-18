@@ -67,13 +67,27 @@ describe("assembly api request builder", () => {
   it("uses canonical official endpoint defaults without env-based path overrides", () => {
     const config = resolveAssemblyApiConfig();
 
-    expect(config.endpoints.memberInfoPath).toBe("/portal/openapi/nwvrqwxyaytdsfvhu");
-    expect(config.endpoints.memberProfileAllPath).toBe("/portal/openapi/ALLNAMEMBER");
-    expect(config.endpoints.memberHistoryPath).toBe("/portal/openapi/nexgtxtmaamffofof");
-    expect(config.endpoints.committeeOverviewPath).toBe("/portal/openapi/nxrvzonlafugpqjuh");
-    expect(config.endpoints.committeeRosterPath).toBe("/portal/openapi/nktulghcadyhmiqxi");
-    expect(config.endpoints.billVoteSummaryPath).toBe("/portal/openapi/ncocpgfiaoituanbr");
-    expect(config.endpoints.votesPath).toBe("/portal/openapi/nojepdqqaweusdfbi");
+    expect(config.endpoints.memberInfoPath).toBe(
+      "/portal/openapi/nwvrqwxyaytdsfvhu"
+    );
+    expect(config.endpoints.memberProfileAllPath).toBe(
+      "/portal/openapi/ALLNAMEMBER"
+    );
+    expect(config.endpoints.memberHistoryPath).toBe(
+      "/portal/openapi/nexgtxtmaamffofof"
+    );
+    expect(config.endpoints.committeeOverviewPath).toBe(
+      "/portal/openapi/nxrvzonlafugpqjuh"
+    );
+    expect(config.endpoints.committeeRosterPath).toBe(
+      "/portal/openapi/nktulghcadyhmiqxi"
+    );
+    expect(config.endpoints.billVoteSummaryPath).toBe(
+      "/portal/openapi/ncocpgfiaoituanbr"
+    );
+    expect(config.endpoints.votesPath).toBe(
+      "/portal/openapi/nojepdqqaweusdfbi"
+    );
   });
 
   it("builds member history requests for bulk paging and direct MONA_CD lookup", () => {

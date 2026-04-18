@@ -26,7 +26,9 @@ function findMatchingOption(
   }
 
   const exactLabelMatch =
-    options.find((option) => option.label.toLocaleLowerCase("ko-KR") === normalizedQuery) ?? null;
+    options.find(
+      (option) => option.label.toLocaleLowerCase("ko-KR") === normalizedQuery
+    ) ?? null;
 
   if (exactLabelMatch) {
     return exactLabelMatch;
@@ -54,7 +56,9 @@ function findExactOption(
   }
 
   return (
-    options.find((option) => option.label.toLocaleLowerCase("ko-KR") === normalizedQuery) ?? null
+    options.find(
+      (option) => option.label.toLocaleLowerCase("ko-KR") === normalizedQuery
+    ) ?? null
   );
 }
 
@@ -91,7 +95,11 @@ export function MemberSearchField({
   }, [isEditing, query, selectedOption]);
 
   return (
-    <label className={className ? `member-search-field ${className}` : "member-search-field"}>
+    <label
+      className={
+        className ? `member-search-field ${className}` : "member-search-field"
+      }
+    >
       <span className="member-search-field__label">{label}</span>
       <div className="member-search-field__control">
         <input

@@ -12,13 +12,16 @@ import {
 import { validateConstituencyBoundaryExport } from "../validation.js";
 
 async function main(): Promise<void> {
-  const repositoryRoot = resolve(fileURLToPath(new URL("../../../../", import.meta.url)));
+  const repositoryRoot = resolve(
+    fileURLToPath(new URL("../../../../", import.meta.url))
+  );
   const outputDir = resolve(
     repositoryRoot,
     process.env.OUTPUT_DIR ?? "artifacts/constituency-boundaries/current"
   );
   const generatedAt = process.env.GENERATED_AT ?? new Date().toISOString();
-  const timeoutMs = Number.parseInt(process.env.FETCH_TIMEOUT_MS ?? "", 10) || 120_000;
+  const timeoutMs =
+    Number.parseInt(process.env.FETCH_TIMEOUT_MS ?? "", 10) || 120_000;
 
   const inputs = await fetchOfficialConstituencyBoundaryInputs({
     timeoutMs
@@ -42,7 +45,10 @@ async function main(): Promise<void> {
   await mkdir(outputDir, { recursive: true });
 
   await Promise.all([
-    writeFile(join(outputDir, "constituency_boundaries.geojson"), boundaryExportJson),
+    writeFile(
+      join(outputDir, "constituency_boundaries.geojson"),
+      boundaryExportJson
+    ),
     writeFile(
       join(outputDir, "source_manifest.json"),
       JSON.stringify(
@@ -69,6 +75,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  process.stderr.write(`${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
+  process.stderr.write(
+    `${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`
+  );
   process.exitCode = 1;
 });

@@ -1,12 +1,18 @@
-.activity-page {
-  margin-top: 0.8rem;
+@layer feature {
+  .activity-page {
+    margin-top: 0.8rem;
+  }
 }
 
 .activity-page__masthead {
   position: relative;
   padding: 1.45rem 1.4rem;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, transparent), rgba(255, 255, 255, 0.74)),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent) 14%, transparent),
+      rgba(255, 255, 255, 0.74)
+    ),
     rgba(255, 255, 255, 0.76);
 }
 
@@ -16,7 +22,12 @@
   inset: 0 auto auto 0;
   width: 100%;
   height: 0.2rem;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 70%, transparent), rgba(67, 101, 123, 0.4), transparent 78%);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 70%, transparent),
+    rgba(67, 101, 123, 0.4),
+    transparent 78%
+  );
   pointer-events: none;
 }
 
@@ -92,8 +103,11 @@
   padding: 1rem;
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 22px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(238, 240, 244, 0.92));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.6),
+    rgba(238, 240, 244, 0.92)
+  );
 }
 
 .activity-drawer__toolbar > .activity-drawer__field {
@@ -118,8 +132,11 @@
   padding: 1rem;
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(238, 240, 244, 0.92));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.88),
+    rgba(238, 240, 244, 0.92)
+  );
   box-shadow: var(--shadow-soft);
 }
 
@@ -252,8 +269,11 @@
   padding: 1rem;
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(238, 240, 244, 0.92));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.88),
+    rgba(238, 240, 244, 0.92)
+  );
   box-shadow: var(--shadow-soft);
 }
 
@@ -285,8 +305,11 @@
   padding: 1rem;
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 250, 245, 0.92), rgba(240, 243, 246, 0.96));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 250, 245, 0.92),
+    rgba(240, 243, 246, 0.96)
+  );
   box-shadow: var(--shadow-soft);
 }
 
@@ -347,8 +370,11 @@
   padding: 0.95rem 1rem;
   border-radius: 20px;
   border: 1px solid rgba(151, 45, 32, 0.16);
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(255, 244, 238, 0.92));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.82),
+    rgba(255, 244, 238, 0.92)
+  );
 }
 
 .activity-asset-visual-scope__copy {
@@ -641,8 +667,11 @@
   padding: 1rem;
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 250, 245, 0.92), rgba(240, 243, 246, 0.96));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 250, 245, 0.92),
+    rgba(240, 243, 246, 0.96)
+  );
   box-shadow: var(--shadow-soft);
 }
 
@@ -768,8 +797,11 @@
 
 .contribution-calendar__month-spacer,
 .contribution-calendar__weekdays {
-  background:
-    linear-gradient(180deg, rgba(238, 240, 244, 0.95), rgba(238, 240, 244, 0.82));
+  background: linear-gradient(
+    180deg,
+    rgba(238, 240, 244, 0.95),
+    rgba(238, 240, 244, 0.82)
+  );
 }
 
 .contribution-calendar__cell {
@@ -782,8 +814,11 @@
   padding: 1rem 1.05rem;
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(238, 240, 244, 0.9));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.88),
+    rgba(238, 240, 244, 0.9)
+  );
   box-shadow: var(--shadow-soft);
 }
 
@@ -953,8 +988,10 @@
   flex: 0 0 auto;
 }
 
-.activity-vote-records__details[open] .activity-vote-records__details-toggle::after,
-.activity-committee-card__details[open] .activity-committee-card__details-toggle::after {
+.activity-vote-records__details[open]
+  .activity-vote-records__details-toggle::after,
+.activity-committee-card__details[open]
+  .activity-committee-card__details-toggle::after {
   content: "접기";
 }
 
@@ -1004,16 +1041,28 @@
 
 .activity-compare__summary-card--left {
   border-color: color-mix(in srgb, var(--accent) 18%, transparent);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, transparent), rgba(255, 255, 255, 0.94));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 8%, transparent),
+    rgba(255, 255, 255, 0.94)
+  );
 }
 
 .activity-compare__summary-card--right {
   border-color: rgba(67, 101, 123, 0.2);
-  background: linear-gradient(180deg, rgba(67, 101, 123, 0.08), rgba(255, 255, 255, 0.94));
+  background: linear-gradient(
+    180deg,
+    rgba(67, 101, 123, 0.08),
+    rgba(255, 255, 255, 0.94)
+  );
 }
 
 .activity-compare__summary-card--tie {
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.94));
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.05),
+    rgba(255, 255, 255, 0.94)
+  );
 }
 
 .activity-compare__summary-kicker {
@@ -1034,8 +1083,11 @@
   padding: 1rem;
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(238, 240, 244, 0.92));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.88),
+    rgba(238, 240, 244, 0.92)
+  );
   box-shadow: var(--shadow-soft);
 }
 

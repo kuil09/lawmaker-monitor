@@ -6,15 +6,10 @@
     "outDir": "./dist/types",
     "baseUrl": ".",
     "paths": {
-      "@lawmaker-monitor/schemas": [
-        "../../packages/schemas/src/index.ts"
-      ]
+      "@lawmaker-monitor/schemas": ["../../packages/schemas/src/index.ts"]
     }
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx"
-  ],
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
   "references": [
     {
       "path": "../../packages/schemas/tsconfig.json"

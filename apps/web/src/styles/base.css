@@ -1,9 +1,19 @@
-html,
-body {
-  background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 8%, transparent), transparent 28%),
-    radial-gradient(circle at top right, rgba(99, 102, 241, 0.06), transparent 24%),
-    linear-gradient(180deg, #eef0f4 0%, #f2f3f6 18%, #f6f7f9 100%);
+@layer base {
+  html,
+  body {
+    background:
+      radial-gradient(
+        circle at top left,
+        color-mix(in srgb, var(--accent) 8%, transparent),
+        transparent 28%
+      ),
+      radial-gradient(
+        circle at top right,
+        rgba(99, 102, 241, 0.06),
+        transparent 24%
+      ),
+      linear-gradient(180deg, #eef0f4 0%, #f2f3f6 18%, #f6f7f9 100%);
+  }
 }
 
 body {
@@ -184,7 +194,11 @@ input:focus-visible {
 
 .member-identity__avatar--fallback {
   color: var(--accent-strong);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, white), rgba(255, 255, 255, 0.95));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 12%, white),
+    rgba(255, 255, 255, 0.95)
+  );
 }
 
 .chart-card__eyebrow {

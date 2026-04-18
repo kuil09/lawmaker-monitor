@@ -28,7 +28,9 @@ describe("member photo optimization", () => {
       getOptimizedMemberPhotoUrl(
         "https://www.assembly.go.kr/static/portal/img/openassm/MRS4949T.jpg"
       )
-    ).toBe("https://www.assembly.go.kr/static/portal/img/openassm/MRS4949T.jpg");
+    ).toBe(
+      "https://www.assembly.go.kr/static/portal/img/openassm/MRS4949T.jpg"
+    );
     expect(getOptimizedMemberPhotoUrl("https://example.test/member.jpg")).toBe(
       "https://example.test/member.jpg"
     );

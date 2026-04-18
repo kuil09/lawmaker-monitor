@@ -1,6 +1,12 @@
 import type React from "react";
 
-type GlobalNavRoute = "home" | "calendar" | "distribution" | "votes" | "trends" | "map";
+type GlobalNavRoute =
+  | "home"
+  | "calendar"
+  | "distribution"
+  | "votes"
+  | "trends"
+  | "map";
 
 type GlobalNavProps = {
   route: GlobalNavRoute;
@@ -10,13 +16,22 @@ type GlobalNavProps = {
   onNavigate?: (route: "votes" | "trends" | "map") => void;
 };
 
-export function GlobalNav({ route, assemblyLabel, memberName, onHome, onNavigate }: GlobalNavProps) {
+export function GlobalNav({
+  route,
+  assemblyLabel,
+  memberName,
+  onHome,
+  onNavigate
+}: GlobalNavProps) {
   function handleHomeClick(event: React.MouseEvent) {
     event.preventDefault();
     onHome?.();
   }
 
-  function handleNavClick(event: React.MouseEvent, target: "votes" | "trends" | "map") {
+  function handleNavClick(
+    event: React.MouseEvent,
+    target: "votes" | "trends" | "map"
+  ) {
     event.preventDefault();
     onNavigate?.(target);
   }
@@ -48,7 +63,9 @@ export function GlobalNav({ route, assemblyLabel, memberName, onHome, onNavigate
 
         {route !== "home" && currentPageLabel ? (
           <>
-            <span className="global-nav__sep" aria-hidden="true">›</span>
+            <span className="global-nav__sep" aria-hidden="true">
+              ›
+            </span>
             <span className="global-nav__crumb-current" aria-current="page">
               {currentPageLabel}
             </span>

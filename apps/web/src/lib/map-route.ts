@@ -12,7 +12,9 @@ export type ParsedMapRoute = {
   metric: MapMetric;
 };
 
-export function isMapMetric(value: string | null | undefined): value is MapMetric {
+export function isMapMetric(
+  value: string | null | undefined
+): value is MapMetric {
   return (
     value === "absence" ||
     value === "negative" ||
@@ -22,7 +24,8 @@ export function isMapMetric(value: string | null | undefined): value is MapMetri
 }
 
 export function parseMapRoute(input: URLSearchParams | string): ParsedMapRoute {
-  const params = input instanceof URLSearchParams ? input : new URLSearchParams(input);
+  const params =
+    input instanceof URLSearchParams ? input : new URLSearchParams(input);
   const rawMetric = params.get("metric");
 
   return {

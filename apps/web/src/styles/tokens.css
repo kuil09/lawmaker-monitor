@@ -1,40 +1,46 @@
-:root {
-  color-scheme: light;
-  --font-display: "SUIT Variable", "Pretendard Variable", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-  --font-sans: "SUIT Variable", "Pretendard Variable", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-  --canvas: #f4f5f7;
-  --canvas-strong: #e8e9ed;
-  --surface: rgba(255, 255, 255, 0.82);
-  --surface-strong: #ffffff;
-  --surface-raised: #ffffff;
-  --surface-accent: #eef0f4;
-  --text: #18181b;
-  --text-muted: #71717a;
-  --accent: #4f46e5;
-  --accent-strong: #3730a3;
-  --positive: #2f7652;
-  --negative: #8d2e24;
-  --warning: #a46d28;
-  --neutral: #71717a;
-  --border: rgba(0, 0, 0, 0.08);
-  --border-strong: rgba(0, 0, 0, 0.14);
-  --shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.06);
-  --shadow-card: 0 24px 60px rgba(0, 0, 0, 0.07);
-  --radius-panel: 24px;
-  --radius-card: 20px;
-  --radius-pill: 999px;
-  --page: var(--canvas);
-  --panel: var(--surface);
-  --panel-muted: var(--surface-accent);
-  --ink: var(--text);
-  --ink-muted: var(--text-muted);
-  --accent-soft: color-mix(in srgb, var(--accent) 10%, white);
-  --amber: var(--warning);
-  --amber-soft: color-mix(in srgb, var(--warning) 14%, white);
-  --olive: var(--positive);
-  --calendar-yes: var(--positive);
-  --vote-yes: var(--positive);
-  --vote-no: var(--negative);
-  --vote-abstain: var(--warning);
-  --vote-absent: var(--neutral);
+@layer tokens {
+  :root {
+    color-scheme: light;
+    --font-display:
+      "SUIT Variable", "Pretendard Variable", "Apple SD Gothic Neo",
+      "Noto Sans KR", sans-serif;
+    --font-sans:
+      "SUIT Variable", "Pretendard Variable", "Apple SD Gothic Neo",
+      "Noto Sans KR", sans-serif;
+    --canvas: #f4f5f7;
+    --canvas-strong: #e8e9ed;
+    --surface: rgba(255, 255, 255, 0.82);
+    --surface-strong: #ffffff;
+    --surface-raised: #ffffff;
+    --surface-accent: #eef0f4;
+    --text: #18181b;
+    --text-muted: #71717a;
+    --accent: #4f46e5;
+    --accent-strong: #3730a3;
+    --positive: #2f7652;
+    --negative: #8d2e24;
+    --warning: #a46d28;
+    --neutral: #71717a;
+    --border: rgba(0, 0, 0, 0.08);
+    --border-strong: rgba(0, 0, 0, 0.14);
+    --shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.06);
+    --shadow-card: 0 24px 60px rgba(0, 0, 0, 0.07);
+    --radius-panel: 24px;
+    --radius-card: 20px;
+    --radius-pill: 999px;
+    --page: var(--canvas);
+    --panel: var(--surface);
+    --panel-muted: var(--surface-accent);
+    --ink: var(--text);
+    --ink-muted: var(--text-muted);
+    --accent-soft: color-mix(in srgb, var(--accent) 10%, white);
+    --amber: var(--warning);
+    --amber-soft: color-mix(in srgb, var(--warning) 14%, white);
+    --olive: var(--positive);
+    --calendar-yes: var(--positive);
+    --vote-yes: var(--positive);
+    --vote-no: var(--negative);
+    --vote-abstain: var(--warning);
+    --vote-absent: var(--neutral);
+  }
 }

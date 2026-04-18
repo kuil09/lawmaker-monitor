@@ -1,9 +1,11 @@
 import { resolve as resolvePath } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const DEFAULT_APP_BASE_URL = process.env.APP_BASE_URL ?? "https://kuil09.github.io/lawmaker-monitor/";
+const DEFAULT_APP_BASE_URL =
+  process.env.APP_BASE_URL ?? "https://kuil09.github.io/lawmaker-monitor/";
 const DEFAULT_DATA_REPO_BASE_URL =
-  process.env.DATA_REPO_BASE_URL ?? "https://kuil09.github.io/lawmaker-monitor-data/";
+  process.env.DATA_REPO_BASE_URL ??
+  "https://kuil09.github.io/lawmaker-monitor-data/";
 
 function normalizeBaseUrl(value) {
   return value.endsWith("/") ? value : `${value}/`;
@@ -36,15 +38,15 @@ async function urlExists(fetchImpl, url) {
 }
 
 export function compareVerificationMembers(left, right) {
-  return left.name.localeCompare(right.name, "ko-KR") || left.memberId.localeCompare(right.memberId);
+  return (
+    left.name.localeCompare(right.name, "ko-KR") ||
+    left.memberId.localeCompare(right.memberId)
+  );
 }
 
 export async function pickVerificationMembers(
   members,
-  {
-    dataRepoBaseUrl,
-    fetchImpl = globalThis.fetch
-  } = {}
+  { dataRepoBaseUrl, fetchImpl = globalThis.fetch } = {}
 ) {
   if (!dataRepoBaseUrl) {
     throw new Error("dataRepoBaseUrl is required.");
@@ -133,15 +135,26 @@ export async function resolveProductionUiRoutes({
 } = {}) {
   const normalizedAppBaseUrl = normalizeBaseUrl(appBaseUrl);
   const normalizedDataRepoBaseUrl = normalizeBaseUrl(dataRepoBaseUrl);
-  const manifestUrl = new URL("manifests/latest.json", normalizedDataRepoBaseUrl).toString();
+  const manifestUrl = new URL(
+    "manifests/latest.json",
+    normalizedDataRepoBaseUrl
+  ).toString();
   const manifest = await fetchJson(fetchImpl, manifestUrl);
-  const calendarPath = manifest?.exports?.memberActivityCalendar?.path ?? "exports/member_activity_calendar.json";
-  const calendarUrl = new URL(calendarPath, normalizedDataRepoBaseUrl).toString();
+  const calendarPath =
+    manifest?.exports?.memberActivityCalendar?.path ??
+    "exports/member_activity_calendar.json";
+  const calendarUrl = new URL(
+    calendarPath,
+    normalizedDataRepoBaseUrl
+  ).toString();
   const calendar = await fetchJson(fetchImpl, calendarUrl);
-  const selectedMembers = await pickVerificationMembers(calendar?.assembly?.members ?? [], {
-    dataRepoBaseUrl: normalizedDataRepoBaseUrl,
-    fetchImpl
-  });
+  const selectedMembers = await pickVerificationMembers(
+    calendar?.assembly?.members ?? [],
+    {
+      dataRepoBaseUrl: normalizedDataRepoBaseUrl,
+      fetchImpl
+    }
+  );
 
   return buildVerificationRoutes({
     appBaseUrl: normalizedAppBaseUrl,
@@ -154,7 +167,9 @@ export async function resolveProductionUiRoutes({
   });
 }
 
-const cliEntryUrl = process.argv[1] ? pathToFileURL(resolvePath(process.argv[1])).href : null;
+const cliEntryUrl = process.argv[1]
+  ? pathToFileURL(resolvePath(process.argv[1])).href
+  : null;
 
 if (cliEntryUrl && import.meta.url === cliEntryUrl) {
   const output = await resolveProductionUiRoutes();

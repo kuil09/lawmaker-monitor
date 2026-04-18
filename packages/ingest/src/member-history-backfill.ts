@@ -1,10 +1,10 @@
-import type { MemberRecord } from "@lawmaker-monitor/schemas";
-
 import {
   buildMemberTenureIndex,
   getCurrentMembersMissingTenure,
   type MemberTenureRecord
 } from "./tenure.js";
+
+import type { MemberRecord } from "@lawmaker-monitor/schemas";
 
 export type MissingCurrentMemberTenure = {
   memberId: string;
@@ -16,7 +16,9 @@ export type MemberHistorySupplementalTarget = MissingCurrentMemberTenure & {
   metadata: Record<string, string>;
 };
 
-export function buildMemberHistorySupplementalRelativePath(memberId: string): string {
+export function buildMemberHistorySupplementalRelativePath(
+  memberId: string
+): string {
   const normalized = memberId.replace(/[^A-Za-z0-9._-]/g, "_");
   return `official/member_history/by-member/${normalized}.xml`;
 }

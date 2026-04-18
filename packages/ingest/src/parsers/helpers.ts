@@ -1,18 +1,12 @@
+import { asArray, pickFirst, readString, sha256 } from "../utils.js";
+
+import type { SourceContext } from "./types.js";
 import type {
   SourceRecord,
   SourceStatus,
   VoteCode,
   VoteVisibility
 } from "@lawmaker-monitor/schemas";
-
-import {
-  asArray,
-  pickFirst,
-  readBoolean,
-  readString,
-  sha256
-} from "../utils.js";
-import type { SourceContext } from "./types.js";
 
 export function normalizeCommitteeMemberships(value: string): string[] {
   const normalized = value
@@ -64,7 +58,9 @@ export function findItems(root: unknown): Record<string, unknown>[] {
   if ("item" in node) {
     return asArray(node.item).filter(
       (candidate): candidate is Record<string, unknown> =>
-        !!candidate && typeof candidate === "object" && !Array.isArray(candidate)
+        !!candidate &&
+        typeof candidate === "object" &&
+        !Array.isArray(candidate)
     );
   }
 
@@ -75,7 +71,9 @@ export function findItems(root: unknown): Record<string, unknown>[] {
   if ("row" in node) {
     return asArray(node.row).filter(
       (candidate): candidate is Record<string, unknown> =>
-        !!candidate && typeof candidate === "object" && !Array.isArray(candidate)
+        !!candidate &&
+        typeof candidate === "object" &&
+        !Array.isArray(candidate)
     );
   }
 
@@ -116,7 +114,9 @@ export function normalizeDate(value: unknown): string | undefined {
     return `${year}-${month}-${day}`;
   }
 
-  const isoLike = normalized.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[T ].*)?$/);
+  const isoLike = normalized.match(
+    /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[T ].*)?$/
+  );
   if (isoLike) {
     const year = isoLike[1];
     const month = isoLike[2];
@@ -151,7 +151,9 @@ export function normalizeDate(value: unknown): string | undefined {
     };
     const month = monthMap[monthToken.toLowerCase()];
     const year =
-      yearToken.length === 2 ? `20${yearToken.padStart(2, "0")}` : yearToken.padStart(4, "0");
+      yearToken.length === 2
+        ? `20${yearToken.padStart(2, "0")}`
+        : yearToken.padStart(4, "0");
 
     if (month) {
       return `${year}-${month}-${day.padStart(2, "0")}`;
@@ -199,7 +201,9 @@ export function buildMeetingId(args: {
   return `plenary-${args.assemblyNo || 0}-${args.sessionNo || 0}-${args.meetingNo || 0}-${dateToken}`;
 }
 
-export function normalizeVoteVisibility(record: Record<string, unknown>): VoteVisibility {
+export function normalizeVoteVisibility(
+  record: Record<string, unknown>
+): VoteVisibility {
   const raw = pickFirst(record, [
     "voteVisibility",
     "VOTE_VISIBILITY",
@@ -233,7 +237,9 @@ export function normalizeVoteVisibility(record: Record<string, unknown>): VoteVi
   return "unknown";
 }
 
-export function extractBillIdFromUrl(value: string | undefined): string | undefined {
+export function extractBillIdFromUrl(
+  value: string | undefined
+): string | undefined {
   if (!value) {
     return undefined;
   }
@@ -259,7 +265,9 @@ export function normalizeOptionalUrl(value: unknown): string | null {
   }
 }
 
-export function normalizeUrlAgainstAssemblyOrigin(value: unknown): string | null {
+export function normalizeUrlAgainstAssemblyOrigin(
+  value: unknown
+): string | null {
   const normalized = readString(value);
   if (!normalized) {
     return null;
@@ -350,12 +358,17 @@ export function normalizeAssemblyLabel(value: string): string {
   return normalized.includes("국회") ? normalized : `${normalized} 국회`;
 }
 
-export function extractAssemblyNumbers(value: string | null | undefined): number[] {
+export function extractAssemblyNumbers(
+  value: string | null | undefined
+): number[] {
   const normalized = value ?? "";
-  return [...new Set((normalized.match(/\d{1,2}/g) ?? [])
-    .map((token) => Number.parseInt(token, 10))
-    .filter((token) => Number.isFinite(token) && token > 0))]
-    .sort((left, right) => left - right);
+  return [
+    ...new Set(
+      (normalized.match(/\d{1,2}/g) ?? [])
+        .map((token) => Number.parseInt(token, 10))
+        .filter((token) => Number.isFinite(token) && token > 0)
+    )
+  ].sort((left, right) => left - right);
 }
 
 export function normalizeNullableText(value: unknown): string | null {
@@ -393,15 +406,19 @@ export function normalizeNameList(value: unknown): string[] {
     return [];
   }
 
-  return [...new Set(
-    normalized
-      .split(/\n|,|\/|·/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-  )];
+  return [
+    ...new Set(
+      normalized
+        .split(/\n|,|\/|·/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  ];
 }
 
-export function normalizeSourceStatus(record: Record<string, unknown>): SourceStatus {
+export function normalizeSourceStatus(
+  record: Record<string, unknown>
+): SourceStatus {
   const raw = pickFirst(record, [
     "sourceStatus",
     "SOURCE_STATUS",
@@ -439,7 +456,9 @@ export function normalizeVoteCode(record: Record<string, unknown>): VoteCode {
     return "unknown";
   }
 
-  if (["yes", "찬성", "approve", "agree"].some((token) => raw.includes(token))) {
+  if (
+    ["yes", "찬성", "approve", "agree"].some((token) => raw.includes(token))
+  ) {
     return "yes";
   }
 
@@ -462,21 +481,35 @@ export function normalizeVoteCode(record: Record<string, unknown>): VoteCode {
   return "unknown";
 }
 
-export function normalizeComparableText(value: string | null | undefined): string {
+export function normalizeComparableText(
+  value: string | null | undefined
+): string {
   return value?.replace(/\s+/g, " ").trim() ?? "";
 }
 
-export function buildAgendaSummary(record: Record<string, unknown>): string | undefined {
+export function buildAgendaSummary(
+  record: Record<string, unknown>
+): string | undefined {
   const parts = [
     pickFirst(record, ["PROC_RESULT_CD", "procResultCd"]),
     pickFirst(record, ["BILL_KIND", "billKind"]),
-    normalizeDate(pickFirst(record, ["RGS_PROC_DT", "rgsProcDt", "RGS_PRESENT_DT", "rgsPresentDt"]))
+    normalizeDate(
+      pickFirst(record, [
+        "RGS_PROC_DT",
+        "rgsProcDt",
+        "RGS_PRESENT_DT",
+        "rgsPresentDt"
+      ])
+    )
   ].filter((value): value is string => Boolean(value));
 
   return parts.length > 0 ? parts.join(" · ") : undefined;
 }
 
-export function createSourceRecord(context: SourceContext, raw: string): SourceRecord {
+export function createSourceRecord(
+  context: SourceContext,
+  raw: string
+): SourceRecord {
   return {
     sourceUrl: context.sourceUrl,
     sourceSystem: new URL(context.sourceUrl).hostname,

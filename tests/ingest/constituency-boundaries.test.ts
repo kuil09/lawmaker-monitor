@@ -157,10 +157,21 @@ describe("constituency boundary builder", () => {
 
     expect(jongno?.properties.memberDistrictLabel).toBe("서울 종로구");
     expect(jongno?.properties.aliases).toContain("서울 종로구");
-    expect(jungSeongdongGap?.properties.memberDistrictKey).toBe("서울중구성동구갑");
-    expect(jungSeongdongGap?.properties.sigunguNames).toEqual(["성동구", "중구"]);
-    expect(jungSeongdongGap?.properties.emdNames).toEqual(["소공동", "왕십리2동", "행당1동"]);
-    expect(["Polygon", "MultiPolygon"]).toContain(jungSeongdongGap?.geometry.type);
+    expect(jungSeongdongGap?.properties.memberDistrictKey).toBe(
+      "서울중구성동구갑"
+    );
+    expect(jungSeongdongGap?.properties.sigunguNames).toEqual([
+      "성동구",
+      "중구"
+    ]);
+    expect(jungSeongdongGap?.properties.emdNames).toEqual([
+      "소공동",
+      "왕십리2동",
+      "행당1동"
+    ]);
+    expect(["Polygon", "MultiPolygon"]).toContain(
+      jungSeongdongGap?.geometry.type
+    );
   });
 
   it("accepts duplicated and ordinal law suffixes when SGIS names omit the marker", () => {
@@ -225,7 +236,10 @@ describe("constituency boundary builder", () => {
     );
 
     expect(payload.features).toHaveLength(1);
-    expect(payload.features[0]?.properties.emdNames).toEqual(["홍제1동", "홍제2동"]);
+    expect(payload.features[0]?.properties.emdNames).toEqual([
+      "홍제1동",
+      "홍제2동"
+    ]);
   });
 
   it("collapses historical numeric subdivisions into a merged administrative dong when SGIS only has the merged name", () => {
@@ -320,7 +334,8 @@ describe("constituency boundary builder", () => {
         provinceShortName: "경기",
         lawDistrictName: "수원시무선거구",
         districtName: "수원시무",
-        areaText: "수원시 권선구 세류2동, 곡선동, 수원시 영통구 영통2동, 망포1동"
+        areaText:
+          "수원시 권선구 세류2동, 곡선동, 수원시 영통구 영통2동, 망포1동"
       },
       {
         provinceName: "강원특별자치도",

@@ -2,17 +2,21 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+
+import { propertyDisclosureOverrides } from "./property-disclosure-overrides.js";
+import { mapWithConcurrency, readJsonFile, sha256 } from "./utils.js";
+
+import type {
+  MirroredDocumentIndex,
+  MirroredDocumentMetadata
+} from "./document-mirror.js";
+import type { MemberTenureIndex, MemberTenurePeriod } from "./tenure.js";
 import type {
   MemberAssetsHistoryExport,
   MemberAssetsIndexExport,
   MemberRecord
 } from "@lawmaker-monitor/schemas";
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
-
-import type { MirroredDocumentIndex, MirroredDocumentMetadata } from "./document-mirror.js";
-import type { MemberTenureIndex, MemberTenurePeriod } from "./tenure.js";
-import { propertyDisclosureOverrides } from "./property-disclosure-overrides.js";
-import { mapWithConcurrency, readJsonFile, sha256 } from "./utils.js";
 
 type PdfTextToken = {
   str: string;
@@ -148,14 +152,17 @@ type BuildPropertyDisclosureArtifactsInput = {
   tenureIndex: MemberTenureIndex;
 };
 
-const DEFAULT_PROPERTY_DOCUMENT_INDEX_PATH = "raw/index/assembly_property_document_index.json";
+const DEFAULT_PROPERTY_DOCUMENT_INDEX_PATH =
+  "raw/index/assembly_property_document_index.json";
 const DEFAULT_PROPERTY_SOURCE_ID = "assembly-property-disclosures";
 const PROPERTY_DISCLOSURE_MEMBER_HISTORY_DIR = "exports/member_assets_history";
 const realEstateCategoryLabels = new Set(["건물", "토지"]);
 const PROPERTY_DISCLOSURE_SECTION_LABEL = "국회의원";
 const PROPERTY_DISCLOSURE_START_DATE = "2024-05-30";
 const require = createRequire(import.meta.url);
-const pdfjsDistRoot = dirname(dirname(dirname(require.resolve("pdfjs-dist/legacy/build/pdf.mjs"))));
+const pdfjsDistRoot = dirname(
+  dirname(dirname(require.resolve("pdfjs-dist/legacy/build/pdf.mjs")))
+);
 
 const relationTokens = [
   "본인",
@@ -273,7 +280,9 @@ function isHeaderNoise(value: string): boolean {
 }
 
 function isRelationLine(value: string): boolean {
-  return relationTokens.some((token) => value.startsWith(`${token} `) || value === token);
+  return relationTokens.some(
+    (token) => value.startsWith(`${token} `) || value === token
+  );
 }
 
 function extractIssueNo(title: string): string | null {
@@ -285,7 +294,10 @@ function buildMemberAssetsHistoryPath(memberId: string): string {
   return `${PROPERTY_DISCLOSURE_MEMBER_HISTORY_DIR}/${memberId}.json`;
 }
 
-function isWithinTenure(reportedAt: string, periods: MemberTenurePeriod[]): boolean {
+function isWithinTenure(
+  reportedAt: string,
+  periods: MemberTenurePeriod[]
+): boolean {
   return periods.some((period) => {
     if (reportedAt.localeCompare(period.startDate) < 0) {
       return false;
@@ -313,7 +325,10 @@ function resolvePropertyDisclosureOverride(args: {
       return false;
     }
 
-    if (override.effectiveDate !== undefined && override.effectiveDate !== args.reportedAt) {
+    if (
+      override.effectiveDate !== undefined &&
+      override.effectiveDate !== args.reportedAt
+    ) {
       return false;
     }
 
@@ -359,7 +374,10 @@ function buildAmountTail(input: string): ParsedAmountTail | null {
   const currentAmount = amountValues[3] ?? 0;
 
   return {
-    detailText: tokens.slice(0, cursor + 1).join(" ").trim(),
+    detailText: tokens
+      .slice(0, cursor + 1)
+      .join(" ")
+      .trim(),
     previousAmount,
     increaseAmount,
     decreaseAmount,
@@ -368,7 +386,10 @@ function buildAmountTail(input: string): ParsedAmountTail | null {
   };
 }
 
-function parseCategoryLine(lines: string[], startIndex: number): {
+function parseCategoryLine(
+  lines: string[],
+  startIndex: number
+): {
   consumed: number;
   categoryLabel: string;
   previousAmount: number;
@@ -384,7 +405,9 @@ function parseCategoryLine(lines: string[], startIndex: number): {
     if (combined.startsWith("▶") && parsed) {
       return {
         consumed: cursor - startIndex + 1,
-        categoryLabel: normalizeCategoryLabel(parsed.detailText.replace(/^▶\s*/, "")),
+        categoryLabel: normalizeCategoryLabel(
+          parsed.detailText.replace(/^▶\s*/, "")
+        ),
         previousAmount: parsed.previousAmount,
         increaseAmount: parsed.increaseAmount,
         decreaseAmount: parsed.decreaseAmount,
@@ -416,7 +439,10 @@ function parseCategoryLine(lines: string[], startIndex: number): {
   };
 }
 
-export function parsePropertyDisclosureSummary(lines: string[], startIndex: number): {
+export function parsePropertyDisclosureSummary(
+  lines: string[],
+  startIndex: number
+): {
   consumed: number;
   previousAmount: number;
   increaseAmount: number;
@@ -432,14 +458,22 @@ export function parsePropertyDisclosureSummary(lines: string[], startIndex: numb
   const nextNextLine = normalizeWhitespace(lines[startIndex + 2] ?? "");
   const candidates = [
     { text: currentLine, consumed: 1 },
-    { text: normalizeWhitespace(`${currentLine} ${nextLine}`), consumed: nextLine ? 2 : 1 },
-    { text: normalizeWhitespace(`${previousLine} ${currentLine}`), consumed: 1 },
+    {
+      text: normalizeWhitespace(`${currentLine} ${nextLine}`),
+      consumed: nextLine ? 2 : 1
+    },
+    {
+      text: normalizeWhitespace(`${previousLine} ${currentLine}`),
+      consumed: 1
+    },
     {
       text: normalizeWhitespace(`${previousLine} ${currentLine} ${nextLine}`),
       consumed: nextLine ? 2 : 1
     },
     {
-      text: normalizeWhitespace(`${previousLine} ${currentLine} ${nextLine} ${nextNextLine}`),
+      text: normalizeWhitespace(
+        `${previousLine} ${currentLine} ${nextLine} ${nextNextLine}`
+      ),
       consumed: nextNextLine ? 3 : nextLine ? 2 : 1
     }
   ].filter((candidate) => candidate.text.length > 0);
@@ -486,7 +520,11 @@ function splitCategoryItems(lines: string[]): string[] {
   let current = "";
 
   for (const line of lines.map(normalizeWhitespace).filter(Boolean)) {
-    if (isHeaderNoise(line) || line.startsWith("총 계") || line.startsWith("▶")) {
+    if (
+      isHeaderNoise(line) ||
+      line.startsWith("총 계") ||
+      line.startsWith("▶")
+    ) {
       continue;
     }
 
@@ -529,20 +567,26 @@ function splitDetailFields(input: {
   const rawDetailText = normalizeWhitespace(input.detailText);
   const relation =
     relationTokens.find(
-      (token) => rawDetailText === token || rawDetailText.startsWith(`${token} `)
+      (token) =>
+        rawDetailText === token || rawDetailText.startsWith(`${token} `)
     ) ?? null;
   const withoutRelation = relation
     ? rawDetailText.slice(relation.length).trim()
     : rawDetailText;
-  const locationPrefix = locationPrefixes.find((prefix) => withoutRelation.includes(prefix)) ?? null;
-  const locationIndex = locationPrefix ? withoutRelation.indexOf(locationPrefix) : -1;
+  const locationPrefix =
+    locationPrefixes.find((prefix) => withoutRelation.includes(prefix)) ?? null;
+  const locationIndex = locationPrefix
+    ? withoutRelation.indexOf(locationPrefix)
+    : -1;
   const assetTypeLabel =
     locationIndex > 0
       ? withoutRelation.slice(0, locationIndex).trim() || null
       : withoutRelation || null;
 
   const locationText =
-    locationIndex >= 0 ? withoutRelation.slice(locationIndex).trim() || null : null;
+    locationIndex >= 0
+      ? withoutRelation.slice(locationIndex).trim() || null
+      : null;
   const measureMatch =
     rawDetailText.match(/(\d[\d,.]*㎡(?:\s*중\s*\d[\d,.]*㎡)?)/g)?.join(", ") ??
     rawDetailText.match(/배기량\([^)]+\)/)?.[0] ??
@@ -559,8 +603,13 @@ function splitDetailFields(input: {
   };
 }
 
-function resolveCategorySortKey(categoryLabel: string, fallbackOrder: number): string {
-  const primaryIndex = primaryCategoryOrder.findIndex((value) => value === categoryLabel);
+function resolveCategorySortKey(
+  categoryLabel: string,
+  fallbackOrder: number
+): string {
+  const primaryIndex = primaryCategoryOrder.findIndex(
+    (value) => value === categoryLabel
+  );
   if (primaryIndex >= 0) {
     return `${String(primaryIndex).padStart(2, "0")}:${fallbackOrder}`;
   }
@@ -614,11 +663,17 @@ async function extractPdfLines(pdfPath: string): Promise<PdfLine[]> {
         continue;
       }
 
-      currentLine.items.push({ text: token.text, x: token.x, width: token.width });
+      currentLine.items.push({
+        text: token.text,
+        x: token.x,
+        width: token.width
+      });
     }
 
     for (const pageLine of pageLines) {
-      const sortedItems = [...pageLine.items].sort((left, right) => left.x - right.x);
+      const sortedItems = [...pageLine.items].sort(
+        (left, right) => left.x - right.x
+      );
       let text = "";
       let lastEndX: number | null = null;
 
@@ -642,24 +697,32 @@ async function extractPdfLines(pdfPath: string): Promise<PdfLine[]> {
   }
 
   if (lines.length === 0) {
-    throw new Error(`Property disclosure PDF has no extractable text layer: ${pdfPath}`);
+    throw new Error(
+      `Property disclosure PDF has no extractable text layer: ${pdfPath}`
+    );
   }
 
   return lines;
 }
 
 export function extractLawmakerLines(lines: PdfLine[]): PdfLine[] {
-  const startIndex = lines.findIndex((line) => line.text.includes("1. 국회의원"));
+  const startIndex = lines.findIndex((line) =>
+    line.text.includes("1. 국회의원")
+  );
   if (startIndex < 0) {
     return [];
   }
 
   const sectionLines = lines.slice(startIndex + 1);
-  const endIndex = sectionLines.findIndex((line) => /^2\.\s+\S/.test(line.text));
+  const endIndex = sectionLines.findIndex((line) =>
+    /^2\.\s+\S/.test(line.text)
+  );
   return endIndex >= 0 ? sectionLines.slice(0, endIndex) : sectionLines;
 }
 
-function splitDisclosureRecordBlocks(lines: PdfLine[]): ParsedDisclosureRecordBlock[] {
+function splitDisclosureRecordBlocks(
+  lines: PdfLine[]
+): ParsedDisclosureRecordBlock[] {
   const blocks: ParsedDisclosureRecordBlock[] = [];
   let current: ParsedDisclosureRecordBlock | null = null;
 
@@ -668,7 +731,9 @@ function splitDisclosureRecordBlocks(lines: PdfLine[]): ParsedDisclosureRecordBl
       continue;
     }
 
-    const headerMatch = line.text.match(/(?:소속\s+국회\s+)?직위\s+(.+?)\s+성명\s+([가-힣]{2,10})$/);
+    const headerMatch = line.text.match(
+      /(?:소속\s+국회\s+)?직위\s+(.+?)\s+성명\s+([가-힣]{2,10})$/
+    );
     if (headerMatch) {
       if (current) {
         blocks.push(current);
@@ -705,7 +770,10 @@ function buildMappedMember(args: {
   fileSeq: number;
   reportedAt: string;
   tenureIndex: MemberTenureIndex;
-}): { memberId: string | null; mappingStatus: "matched" | "override" | "unmatched" } {
+}): {
+  memberId: string | null;
+  mappingStatus: "matched" | "override" | "unmatched";
+} {
   const overrideMemberId = resolvePropertyDisclosureOverride({
     disclosureName: args.recordName,
     fileSeq: args.fileSeq,
@@ -721,7 +789,10 @@ function buildMappedMember(args: {
   const exactMatches = args.currentMembers.filter(
     (member) =>
       member.name === args.recordName &&
-      isWithinTenure(args.reportedAt, args.tenureIndex.get(member.memberId) ?? [])
+      isWithinTenure(
+        args.reportedAt,
+        args.tenureIndex.get(member.memberId) ?? []
+      )
   );
 
   if (exactMatches.length > 1) {
@@ -755,8 +826,12 @@ function buildMemberPublicProfile(member: MemberRecord): {
   return {
     name: member.name,
     party: member.party,
-    ...(member.district !== undefined ? { district: member.district ?? null } : {}),
-    ...(member.photoUrl !== undefined ? { photoUrl: member.photoUrl ?? null } : {}),
+    ...(member.district !== undefined
+      ? { district: member.district ?? null }
+      : {}),
+    ...(member.photoUrl !== undefined
+      ? { photoUrl: member.photoUrl ?? null }
+      : {}),
     ...(member.officialProfileUrl !== undefined
       ? { officialProfileUrl: member.officialProfileUrl ?? null }
       : {}),
@@ -802,17 +877,15 @@ async function parseMirroredPropertyDisclosure(args: {
   for (const block of blocks) {
     let categoryOrder = 0;
     const categoryBlocks: ParsedCategoryBlock[] = [];
-    let summary:
-      | {
-          previousAmount: number;
-          increaseAmount: number;
-          decreaseAmount: number;
-          currentAmount: number;
-          deltaAmount: number;
-          valueChangeAmount: number;
-          rawSummaryText: string;
-        }
-      | null = null;
+    let summary: {
+      previousAmount: number;
+      increaseAmount: number;
+      decreaseAmount: number;
+      currentAmount: number;
+      deltaAmount: number;
+      valueChangeAmount: number;
+      rawSummaryText: string;
+    } | null = null;
 
     for (let index = 0; index < block.lines.length; index += 1) {
       const line = block.lines[index] ?? "";
@@ -827,7 +900,10 @@ async function parseMirroredPropertyDisclosure(args: {
       }
 
       if (line.startsWith("총 계")) {
-        const parsedSummary = parsePropertyDisclosureSummary(block.lines, index);
+        const parsedSummary = parsePropertyDisclosureSummary(
+          block.lines,
+          index
+        );
         if (!parsedSummary) {
           throw new Error(
             `Could not parse total summary for ${block.disclosureName} in fileSeq ${args.propertyFile.fileSeq}.`
@@ -965,9 +1041,14 @@ async function parseMirroredPropertyDisclosure(args: {
   return { records, categories, items };
 }
 
-function buildPropertyDisclosureFileRecord(metadata: MirroredDocumentMetadata): PropertyDisclosureFileRecord | null {
+function buildPropertyDisclosureFileRecord(
+  metadata: MirroredDocumentMetadata
+): PropertyDisclosureFileRecord | null {
   const fileSeqRaw = metadata.sourceMetadata?.fileSeq;
-  const infId = typeof metadata.sourceMetadata?.infId === "string" ? metadata.sourceMetadata.infId : null;
+  const infId =
+    typeof metadata.sourceMetadata?.infId === "string"
+      ? metadata.sourceMetadata.infId
+      : null;
   const infSeqRaw = metadata.sourceMetadata?.infSeq;
   const reportedAt =
     typeof metadata.sourceMetadata?.ftCrDttm === "string"
@@ -976,9 +1057,14 @@ function buildPropertyDisclosureFileRecord(metadata: MirroredDocumentMetadata): 
   const fileExt =
     typeof metadata.sourceMetadata?.fileExt === "string"
       ? metadata.sourceMetadata.fileExt
-      : metadata.latestRelativePath.split(".").at(-1) ?? "pdf";
+      : (metadata.latestRelativePath.split(".").at(-1) ?? "pdf");
 
-  if (typeof fileSeqRaw !== "number" || !infId || typeof infSeqRaw !== "number" || !reportedAt) {
+  if (
+    typeof fileSeqRaw !== "number" ||
+    !infId ||
+    typeof infSeqRaw !== "number" ||
+    !reportedAt
+  ) {
     return null;
   }
 
@@ -1009,7 +1095,9 @@ function buildPropertyDisclosureFileRecord(metadata: MirroredDocumentMetadata): 
   };
 }
 
-function assertNoDuplicateDisclosureRecords(records: PropertyDisclosureRecord[]): void {
+function assertNoDuplicateDisclosureRecords(
+  records: PropertyDisclosureRecord[]
+): void {
   const seen = new Map<string, PropertyDisclosureRecord>();
 
   for (const record of records) {
@@ -1027,8 +1115,10 @@ function assertNoDuplicateDisclosureRecords(records: PropertyDisclosureRecord[])
 }
 
 type MemberAssetSeriesPointRecord = MemberAssetsHistoryExport["series"][number];
-type MemberAssetCategorySeriesRecord = MemberAssetsHistoryExport["categorySeries"][number];
-type MemberAssetCategoryPointRecord = MemberAssetCategorySeriesRecord["points"][number];
+type MemberAssetCategorySeriesRecord =
+  MemberAssetsHistoryExport["categorySeries"][number];
+type MemberAssetCategoryPointRecord =
+  MemberAssetCategorySeriesRecord["points"][number];
 
 function isDebtCategoryLabel(categoryLabel: string): boolean {
   return categoryLabel === "채무";
@@ -1074,11 +1164,15 @@ function buildCategorySeries(
     .map((series) => ({
       categoryKey: series.categoryKey,
       categoryLabel: series.categoryLabel,
-      points: series.points.sort((left, right) => left.reportedAt.localeCompare(right.reportedAt))
+      points: series.points.sort((left, right) =>
+        left.reportedAt.localeCompare(right.reportedAt)
+      )
     }));
 }
 
-function buildLatestSummary(point: MemberAssetSeriesPointRecord): MemberAssetsHistoryExport["latestSummary"] {
+function buildLatestSummary(
+  point: MemberAssetSeriesPointRecord
+): MemberAssetsHistoryExport["latestSummary"] {
   return {
     reportedAt: point.reportedAt,
     issueNo: point.issueNo,
@@ -1102,13 +1196,17 @@ function buildLatestRealEstateTotal(
 
     return (
       sum +
-      (category.points.find((point) => point.reportedAt === reportedAt)?.currentAmount ?? 0)
+      (category.points.find((point) => point.reportedAt === reportedAt)
+        ?.currentAmount ?? 0)
     );
   }, 0);
 }
 
 function buildSelfOnlyScopedHistory(args: {
-  categoriesByDisclosureCategoryId: Map<string, PropertyDisclosureCategoryRecord>;
+  categoriesByDisclosureCategoryId: Map<
+    string,
+    PropertyDisclosureCategoryRecord
+  >;
   itemsByRecordId: Map<string, PropertyDisclosureItemRecord[]>;
   sortedRecords: Array<PropertyDisclosureRecord & { memberId: string }>;
 }): MemberAssetsHistoryExport["selfOnly"] {
@@ -1121,9 +1219,9 @@ function buildSelfOnlyScopedHistory(args: {
   }> = [];
 
   for (const record of args.sortedRecords) {
-    const selfOnlyItems = (args.itemsByRecordId.get(record.disclosureRecordId) ?? []).filter(
-      (item) => item.relation === "본인"
-    );
+    const selfOnlyItems = (
+      args.itemsByRecordId.get(record.disclosureRecordId) ?? []
+    ).filter((item) => item.relation === "본인");
     const categoryTotals = new Map<
       string,
       {
@@ -1143,7 +1241,9 @@ function buildSelfOnlyScopedHistory(args: {
     let currentAmount = 0;
 
     for (const item of selfOnlyItems) {
-      const category = args.categoriesByDisclosureCategoryId.get(item.disclosureCategoryId);
+      const category = args.categoriesByDisclosureCategoryId.get(
+        item.disclosureCategoryId
+      );
       if (!category) {
         continue;
       }
@@ -1231,10 +1331,14 @@ function buildMemberAssetExports(args: {
   );
   const currentRecords = args.records
     .filter((record) => record.memberId && record.mappingStatus !== "unmatched")
-    .filter((record): record is PropertyDisclosureRecord & { memberId: string } =>
-      Boolean(record.memberId && currentMembersById.has(record.memberId))
+    .filter(
+      (record): record is PropertyDisclosureRecord & { memberId: string } =>
+        Boolean(record.memberId && currentMembersById.has(record.memberId))
     );
-  const categoriesByRecordId = new Map<string, PropertyDisclosureCategoryRecord[]>();
+  const categoriesByRecordId = new Map<
+    string,
+    PropertyDisclosureCategoryRecord[]
+  >();
 
   for (const category of args.categories) {
     const bucket = categoriesByRecordId.get(category.disclosureRecordId) ?? [];
@@ -1242,7 +1346,9 @@ function buildMemberAssetExports(args: {
     categoriesByRecordId.set(category.disclosureRecordId, bucket);
   }
   const categoriesByDisclosureCategoryId = new Map(
-    args.categories.map((category) => [category.disclosureCategoryId, category] as const)
+    args.categories.map(
+      (category) => [category.disclosureCategoryId, category] as const
+    )
   );
   const itemsByRecordId = new Map<string, PropertyDisclosureItemRecord[]>();
   for (const item of args.items) {
@@ -1251,7 +1357,10 @@ function buildMemberAssetExports(args: {
     itemsByRecordId.set(item.disclosureRecordId, bucket);
   }
 
-  const recordsByMemberId = new Map<string, Array<PropertyDisclosureRecord & { memberId: string }>>();
+  const recordsByMemberId = new Map<
+    string,
+    Array<PropertyDisclosureRecord & { memberId: string }>
+  >();
   for (const record of currentRecords) {
     const bucket = recordsByMemberId.get(record.memberId) ?? [];
     bucket.push(record);
@@ -1282,19 +1391,21 @@ function buildMemberAssetExports(args: {
 
       const categorySeries = buildCategorySeries(
         sortedRecords.flatMap((record) =>
-          (categoriesByRecordId.get(record.disclosureRecordId) ?? []).map((category) => ({
-            categoryKey: category.categoryKey,
-            categoryLabel: category.categoryLabel,
-            categoryOrder: category.categoryOrder,
-            point: {
-              reportedAt: record.reportedAt,
-              issueNo: record.issueNo,
-              previousAmount: category.previousAmount,
-              increaseAmount: category.increaseAmount,
-              decreaseAmount: category.decreaseAmount,
-              currentAmount: category.currentAmount
-            }
-          }))
+          (categoriesByRecordId.get(record.disclosureRecordId) ?? []).map(
+            (category) => ({
+              categoryKey: category.categoryKey,
+              categoryLabel: category.categoryLabel,
+              categoryOrder: category.categoryOrder,
+              point: {
+                reportedAt: record.reportedAt,
+                issueNo: record.issueNo,
+                previousAmount: category.previousAmount,
+                increaseAmount: category.increaseAmount,
+                decreaseAmount: category.decreaseAmount,
+                currentAmount: category.currentAmount
+              }
+            })
+          )
         )
       );
       const latestSummary = buildLatestSummary({
@@ -1340,7 +1451,10 @@ function buildMemberAssetExports(args: {
         firstDisclosureDate: firstRecord.reportedAt,
         latestDisclosureDate: latestRecord.reportedAt,
         latestTotal: latestRecord.currentAmount,
-        latestRealEstateTotal: buildLatestRealEstateTotal(categorySeries, latestRecord.reportedAt),
+        latestRealEstateTotal: buildLatestRealEstateTotal(
+          categorySeries,
+          latestRecord.reportedAt
+        ),
         totalDelta: latestRecord.currentAmount - firstRecord.currentAmount,
         historyPath: buildMemberAssetsHistoryPath(memberId),
         latestSummary
@@ -1357,7 +1471,9 @@ function buildMemberAssetExports(args: {
       assemblyLabel: args.assemblyLabel,
       members
     },
-    memberAssetsHistory: histories.sort((left, right) => left.memberId.localeCompare(right.memberId))
+    memberAssetsHistory: histories.sort((left, right) =>
+      left.memberId.localeCompare(right.memberId)
+    )
   };
 }
 
@@ -1399,9 +1515,8 @@ export async function buildPropertyDisclosureArtifacts(
         null
       )
     )
-  ).filter(
-    (metadata): metadata is MirroredDocumentMetadata =>
-      Boolean(metadata && metadata.sourceId === propertySourceId)
+  ).filter((metadata): metadata is MirroredDocumentMetadata =>
+    Boolean(metadata && metadata.sourceId === propertySourceId)
   );
   const propertyFiles = mirroredMetadata
     .map(buildPropertyDisclosureFileRecord)
@@ -1430,22 +1545,26 @@ export async function buildPropertyDisclosureArtifacts(
     mirroredMetadata.map((metadata) => [metadata.documentId, metadata] as const)
   );
 
-  const parsedPayloads = await mapWithConcurrency(propertyFiles, 2, async (propertyFile) => {
-    const metadata = metadataByDocumentId.get(propertyFile.sourceDocumentId);
-    if (!metadata) {
-      throw new Error(
-        `Could not resolve mirrored metadata for property disclosure fileSeq ${propertyFile.fileSeq}.`
-      );
-    }
+  const parsedPayloads = await mapWithConcurrency(
+    propertyFiles,
+    2,
+    async (propertyFile) => {
+      const metadata = metadataByDocumentId.get(propertyFile.sourceDocumentId);
+      if (!metadata) {
+        throw new Error(
+          `Could not resolve mirrored metadata for property disclosure fileSeq ${propertyFile.fileSeq}.`
+        );
+      }
 
-    return parseMirroredPropertyDisclosure({
-      currentMembers: input.currentMembers,
-      metadata,
-      propertyFile,
-      tenureIndex: input.tenureIndex,
-      dataRepoDir: input.dataRepoDir
-    });
-  });
+      return parseMirroredPropertyDisclosure({
+        currentMembers: input.currentMembers,
+        metadata,
+        propertyFile,
+        tenureIndex: input.tenureIndex,
+        dataRepoDir: input.dataRepoDir
+      });
+    }
+  );
 
   const records = parsedPayloads.flatMap((payload) => payload.records);
   const categories = parsedPayloads.flatMap((payload) => payload.categories);
@@ -1471,4 +1590,8 @@ export async function buildPropertyDisclosureArtifacts(
   };
 }
 
-export { DEFAULT_PROPERTY_DOCUMENT_INDEX_PATH, DEFAULT_PROPERTY_SOURCE_ID, PROPERTY_DISCLOSURE_MEMBER_HISTORY_DIR };
+export {
+  DEFAULT_PROPERTY_DOCUMENT_INDEX_PATH,
+  DEFAULT_PROPERTY_SOURCE_ID,
+  PROPERTY_DISCLOSURE_MEMBER_HISTORY_DIR
+};

@@ -58,7 +58,9 @@ const fixturesDir = resolve(process.cwd(), "tests/fixtures");
 describe("data pipeline contracts", () => {
   it("discovers a raw snapshot manifest and builds normalized outputs from it", async () => {
     const snapshot = await resolveRawSnapshot(fixturesDir);
-    const scheduleEntry = snapshot.manifest.entries.find((entry) => entry.kind === "plenary_schedule");
+    const scheduleEntry = snapshot.manifest.entries.find(
+      (entry) => entry.kind === "plenary_schedule"
+    );
     const memberInfoEntries = snapshot.manifest.entries.filter(
       (entry) => entry.kind === "member_info"
     );
@@ -77,7 +79,9 @@ describe("data pipeline contracts", () => {
     const billVoteSummaryEntries = snapshot.manifest.entries.filter(
       (entry) => entry.kind === "bill_vote_summary"
     );
-    const liveEntry = snapshot.manifest.entries.find((entry) => entry.kind === "live");
+    const liveEntry = snapshot.manifest.entries.find(
+      (entry) => entry.kind === "live"
+    );
     const agendaEntries = snapshot.manifest.entries.filter((entry) =>
       [
         "plenary_bills_law",
@@ -86,8 +90,12 @@ describe("data pipeline contracts", () => {
         "plenary_bills_other"
       ].includes(entry.kind)
     );
-    const voteEntries = snapshot.manifest.entries.filter((entry) => entry.kind === "vote_detail");
-    const minutesEntry = snapshot.manifest.entries.find((entry) => entry.kind === "plenary_minutes");
+    const voteEntries = snapshot.manifest.entries.filter(
+      (entry) => entry.kind === "vote_detail"
+    );
+    const minutesEntry = snapshot.manifest.entries.find(
+      (entry) => entry.kind === "plenary_minutes"
+    );
 
     expect(snapshot.snapshotId).toBe("fixture-snapshot-20260322-114500");
     expect(memberInfoEntries.length).toBeGreaterThan(0);
@@ -113,10 +121,18 @@ describe("data pipeline contracts", () => {
       readFileSync(join(snapshot.rawDir, entry.relativePath), "utf8")
     );
     const memberHistoryRows = memberHistoryEntries.flatMap((entry) =>
-      parseMemberHistoryXml(readFileSync(join(snapshot.rawDir, entry.relativePath), "utf8"))
+      parseMemberHistoryXml(
+        readFileSync(join(snapshot.rawDir, entry.relativePath), "utf8")
+      )
     );
-    const scheduleXml = readFileSync(join(snapshot.rawDir, scheduleEntry!.relativePath), "utf8");
-    const liveXml = readFileSync(join(snapshot.rawDir, liveEntry!.relativePath), "utf8");
+    const scheduleXml = readFileSync(
+      join(snapshot.rawDir, scheduleEntry!.relativePath),
+      "utf8"
+    );
+    const liveXml = readFileSync(
+      join(snapshot.rawDir, liveEntry!.relativePath),
+      "utf8"
+    );
     const minutesXml = minutesEntry
       ? readFileSync(join(snapshot.rawDir, minutesEntry.relativePath), "utf8")
       : null;
@@ -127,20 +143,30 @@ describe("data pipeline contracts", () => {
       snapshotId: snapshot.snapshotId
     });
 
-    const agendas = agendaEntries.flatMap((entry) =>
-      parseAgendaXml(readFileSync(join(snapshot.rawDir, entry.relativePath), "utf8"), {
-        sourceUrl: entry.sourceUrl,
-        retrievedAt: entry.retrievedAt,
-        snapshotId: snapshot.snapshotId
-      }).agendas
+    const agendas = agendaEntries.flatMap(
+      (entry) =>
+        parseAgendaXml(
+          readFileSync(join(snapshot.rawDir, entry.relativePath), "utf8"),
+          {
+            sourceUrl: entry.sourceUrl,
+            retrievedAt: entry.retrievedAt,
+            snapshotId: snapshot.snapshotId
+          }
+        ).agendas
     );
 
-    const memberInfoResults = memberInfoXmls.map((xml) => parseMemberInfoXml(xml));
+    const memberInfoResults = memberInfoXmls.map((xml) =>
+      parseMemberInfoXml(xml)
+    );
     const memberProfileAllResults = memberProfileAllXmls.map((xml) =>
       parseMemberProfileAllXml(xml)
     );
-    const memberInfoMembers = memberInfoResults.flatMap((result) => result.members);
-    const memberProfileAllRecords = memberProfileAllResults.flatMap((result) => result.profiles);
+    const memberInfoMembers = memberInfoResults.flatMap(
+      (result) => result.members
+    );
+    const memberProfileAllRecords = memberProfileAllResults.flatMap(
+      (result) => result.profiles
+    );
     const committeeOverviewRows = committeeOverviewXmls.flatMap((xml) =>
       parseCommitteeOverviewXml(xml)
     );
@@ -152,15 +178,19 @@ describe("data pipeline contracts", () => {
     );
     const committeeMembershipsByMemberId = new Map<string, string[]>();
     for (const row of committeeRosterRows) {
-      const memberships = committeeMembershipsByMemberId.get(row.memberId) ?? [];
+      const memberships =
+        committeeMembershipsByMemberId.get(row.memberId) ?? [];
       memberships.push(row.committeeName);
-      committeeMembershipsByMemberId.set(row.memberId, [...new Set(memberships)]);
+      committeeMembershipsByMemberId.set(row.memberId, [
+        ...new Set(memberships)
+      ]);
     }
     const officialMembers = enrichMembersWithMemberProfileAll({
       members: memberInfoMembers.map((member) => ({
         ...member,
         committeeMemberships:
-          committeeMembershipsByMemberId.get(member.memberId) ?? member.committeeMemberships
+          committeeMembershipsByMemberId.get(member.memberId) ??
+          member.committeeMemberships
       })),
       profiles: memberProfileAllRecords
     }).members;
@@ -190,12 +220,16 @@ describe("data pipeline contracts", () => {
 
     const bundle = validateNormalizedBundle(
       createNormalizedBundle({
-        members: [...votes.flatMap((result) => result.members), ...officialMembers],
+        members: [
+          ...votes.flatMap((result) => result.members),
+          ...officialMembers
+        ],
         rollCalls: votes.flatMap((result) =>
           result.rollCalls.map((rollCall) => ({
             ...rollCall,
             officialTally: rollCall.billId
-              ? officialTalliesByBillId.get(rollCall.billId) ?? rollCall.officialTally
+              ? (officialTalliesByBillId.get(rollCall.billId) ??
+                rollCall.officialTally)
               : rollCall.officialTally
           }))
         ),
@@ -288,8 +322,12 @@ describe("data pipeline contracts", () => {
       expect.arrayContaining([
         expect.objectContaining({
           memberId: "M001",
-          committeeMemberships: ["과학기술정보방송통신위원회", "예산결산특별위원회"],
-          photoUrl: "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m001.jpg",
+          committeeMemberships: [
+            "과학기술정보방송통신위원회",
+            "예산결산특별위원회"
+          ],
+          photoUrl:
+            "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m001.jpg",
           profile: expect.objectContaining({
             nameEnglish: "KIM ARA",
             officePhone: "02-784-0001",
@@ -305,15 +343,19 @@ describe("data pipeline contracts", () => {
       assemblyNo: 22
     });
 
-    const latestVotes = validateLatestVotesExport(buildLatestVotesExport(bundle, { tenureIndex }));
+    const latestVotes = validateLatestVotesExport(
+      buildLatestVotesExport(bundle, { tenureIndex })
+    );
     const accountabilitySummary = validateAccountabilitySummaryExport(
       buildAccountabilitySummaryExport(bundle, { tenureIndex })
     );
     const accountabilityTrends = validateAccountabilityTrendsExport(
       buildAccountabilityTrendsExport(bundle, { tenureIndex })
     );
-    const { memberActivityCalendar: builtMemberActivityCalendar, memberDetails } =
-      buildMemberActivityCalendarArtifacts(bundle, { tenureIndex });
+    const {
+      memberActivityCalendar: builtMemberActivityCalendar,
+      memberDetails
+    } = buildMemberActivityCalendarArtifacts(bundle, { tenureIndex });
     const memberActivityCalendar = validateMemberActivityCalendarExport(
       builtMemberActivityCalendar
     );
@@ -336,15 +378,23 @@ describe("data pipeline contracts", () => {
       })
     );
 
-    expect(latestVotes.items[0]?.rollCallId).toBe("plenary-22-418-14-20260322:PRC_B2C3D4E5F6G7");
-    expect(latestVotes.items[0]?.counts).toMatchObject({ yes: 1, no: 1, abstain: 0, absent: 1 });
+    expect(latestVotes.items[0]?.rollCallId).toBe(
+      "plenary-22-418-14-20260322:PRC_B2C3D4E5F6G7"
+    );
+    expect(latestVotes.items[0]?.counts).toMatchObject({
+      yes: 1,
+      no: 1,
+      abstain: 0,
+      absent: 1
+    });
     expect(latestVotes.items[0]?.absentListStatus).toBe("verified");
     expect(latestVotes.items[0]?.highlightedVotes[0]?.voteCode).toBe("no");
     expect(latestVotes.items[0]?.absentVotes[0]?.voteCode).toBe("absent");
     expect(accountabilitySummary.items[0]).toMatchObject({
       memberId: "M002",
       assemblyNo: 22,
-      photoUrl: "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m002.jpg",
+      photoUrl:
+        "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m002.jpg",
       officialProfileUrl: "https://www.assembly.go.kr/members/22nd/PARKMIN",
       profile: {
         nameHanja: "朴敏",
@@ -356,9 +406,13 @@ describe("data pipeline contracts", () => {
       absentCount: 1,
       totalRecordedVotes: 2
     });
-    expect(accountabilitySummary.items[0]?.profile).not.toHaveProperty("officePhone");
+    expect(accountabilitySummary.items[0]?.profile).not.toHaveProperty(
+      "officePhone"
+    );
     expect(accountabilitySummary.items[0]?.profile).not.toHaveProperty("email");
-    expect(accountabilitySummary.items[0]?.profile).not.toHaveProperty("aideNames");
+    expect(accountabilitySummary.items[0]?.profile).not.toHaveProperty(
+      "aideNames"
+    );
     expect(latestVotes.items[0]?.highlightedVotes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -367,8 +421,12 @@ describe("data pipeline contracts", () => {
         })
       ])
     );
-    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty("officialProfileUrl");
-    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty("profile");
+    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty(
+      "officialProfileUrl"
+    );
+    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty(
+      "profile"
+    );
     expect(latestVotes).toMatchObject({
       assemblyNo: 22,
       assemblyLabel: "제22대 국회"
@@ -400,7 +458,9 @@ describe("data pipeline contracts", () => {
     });
     expect(memberActivityCalendar.assembly.label).toBe("제22대 국회");
     expect(
-      memberActivityCalendar.assembly.members.find((member) => member.memberId === "M002")
+      memberActivityCalendar.assembly.members.find(
+        (member) => member.memberId === "M002"
+      )
     ).toMatchObject({
       memberId: "M002",
       profile: {
@@ -424,7 +484,9 @@ describe("data pipeline contracts", () => {
         })
       ]
     });
-    expect(validatedMemberDetails.find((detail) => detail.memberId === "M002")).toMatchObject({
+    expect(
+      validatedMemberDetails.find((detail) => detail.memberId === "M002")
+    ).toMatchObject({
       memberId: "M002",
       voteRecords: expect.arrayContaining([
         expect.objectContaining({
@@ -440,20 +502,28 @@ describe("data pipeline contracts", () => {
       label: "제22대 국회",
       unitCd: "100022"
     });
-    expect(manifest.datasets.voteFacts.url).toContain("curated/vote_facts.parquet");
+    expect(manifest.datasets.voteFacts.url).toContain(
+      "curated/vote_facts.parquet"
+    );
     expect(manifest.exports.latestVotes.path).toBe("exports/latest_votes.json");
     expect(manifest.exports.latestVotes.checksumSha256).toBe(
       sha256(serializePublishedJson(latestVotes))
     );
-    expect(manifest.exports.accountabilitySummary.path).toBe("exports/accountability_summary.json");
+    expect(manifest.exports.accountabilitySummary.path).toBe(
+      "exports/accountability_summary.json"
+    );
     expect(manifest.exports.accountabilitySummary.checksumSha256).toBe(
       sha256(serializePublishedJson(accountabilitySummary))
     );
-    expect(manifest.exports.accountabilityTrends?.path).toBe("exports/accountability_trends.json");
+    expect(manifest.exports.accountabilityTrends?.path).toBe(
+      "exports/accountability_trends.json"
+    );
     expect(manifest.exports.accountabilityTrends?.checksumSha256).toBe(
       sha256(serializePublishedJson(accountabilityTrends))
     );
-    expect(manifest.exports.memberActivityCalendar?.path).toBe("exports/member_activity_calendar.json");
+    expect(manifest.exports.memberActivityCalendar?.path).toBe(
+      "exports/member_activity_calendar.json"
+    );
     expect(manifest.exports.memberActivityCalendar?.checksumSha256).toBe(
       sha256(serializePublishedJson(memberActivityCalendar))
     );
@@ -464,48 +534,95 @@ describe("data pipeline contracts", () => {
       readFileSync(resolve(fixturesDir, "contracts/latest_votes.json"), "utf8")
     );
     const accountabilitySummaryFixture = JSON.parse(
-      readFileSync(resolve(fixturesDir, "contracts/accountability_summary.json"), "utf8")
+      readFileSync(
+        resolve(fixturesDir, "contracts/accountability_summary.json"),
+        "utf8"
+      )
     );
     const manifestFixture = JSON.parse(
       readFileSync(resolve(fixturesDir, "contracts/manifest.json"), "utf8")
     );
     const accountabilityTrendsFixture = JSON.parse(
-      readFileSync(resolve(fixturesDir, "contracts/accountability_trends.json"), "utf8")
+      readFileSync(
+        resolve(fixturesDir, "contracts/accountability_trends.json"),
+        "utf8"
+      )
     );
     const memberActivityCalendarFixture = JSON.parse(
-      readFileSync(resolve(fixturesDir, "contracts/member_activity_calendar.json"), "utf8")
+      readFileSync(
+        resolve(fixturesDir, "contracts/member_activity_calendar.json"),
+        "utf8"
+      )
     );
     const memberActivityCalendarMemberDetailFixture = JSON.parse(
       readFileSync(
-        resolve(fixturesDir, "contracts/member_activity_calendar_members/M002.json"),
+        resolve(
+          fixturesDir,
+          "contracts/member_activity_calendar_members/M002.json"
+        ),
         "utf8"
       )
     );
     const memberAssetsIndexFixture = JSON.parse(
-      readFileSync(resolve(fixturesDir, "contracts/member_assets_index.json"), "utf8")
+      readFileSync(
+        resolve(fixturesDir, "contracts/member_assets_index.json"),
+        "utf8"
+      )
     );
     const memberAssetsHistoryFixture = JSON.parse(
-      readFileSync(resolve(fixturesDir, "contracts/member_assets_history/M001.json"), "utf8")
+      readFileSync(
+        resolve(fixturesDir, "contracts/member_assets_history/M001.json"),
+        "utf8"
+      )
     );
     const summaryMemberWithoutEmbeddedRecords = {
       ...memberActivityCalendarFixture.assembly.members[0],
       voteRecords: undefined
     };
 
-    expect(latestVotesExportSchema.parse(latestVotesFixture).assemblyNo).toBe(22);
-    expect(latestVotesExportSchema.parse(latestVotesFixture).items).toHaveLength(2);
-    expect(accountabilitySummaryExportSchema.parse(accountabilitySummaryFixture).assemblyNo).toBe(22);
-    expect(accountabilitySummaryExportSchema.parse(accountabilitySummaryFixture).items).toHaveLength(3);
-    expect(accountabilityTrendsExportSchema.parse(accountabilityTrendsFixture).weeks).toHaveLength(12);
-    expect(accountabilityTrendsExportSchema.parse(accountabilityTrendsFixture).movers).toHaveLength(3);
-    expect(manifestSchema.parse(manifestFixture).datasets.members.rowCount).toBe(3);
-    expect(manifestSchema.parse(manifestFixture).currentAssembly.assemblyNo).toBe(22);
-    expect(manifestSchema.parse(manifestFixture).exports.memberAssetsIndex?.rowCount).toBe(2);
-    expect(memberAssetsIndexExportSchema.parse(memberAssetsIndexFixture).members).toHaveLength(2);
-    expect(memberAssetsHistoryExportSchema.parse(memberAssetsHistoryFixture).series).toHaveLength(2);
-    expect(memberActivityCalendarExportSchema.parse(memberActivityCalendarFixture).assembly.assemblyNo).toBe(22);
+    expect(latestVotesExportSchema.parse(latestVotesFixture).assemblyNo).toBe(
+      22
+    );
     expect(
-      memberActivityCalendarMemberSchema.parse(summaryMemberWithoutEmbeddedRecords)
+      latestVotesExportSchema.parse(latestVotesFixture).items
+    ).toHaveLength(2);
+    expect(
+      accountabilitySummaryExportSchema.parse(accountabilitySummaryFixture)
+        .assemblyNo
+    ).toBe(22);
+    expect(
+      accountabilitySummaryExportSchema.parse(accountabilitySummaryFixture)
+        .items
+    ).toHaveLength(3);
+    expect(
+      accountabilityTrendsExportSchema.parse(accountabilityTrendsFixture).weeks
+    ).toHaveLength(12);
+    expect(
+      accountabilityTrendsExportSchema.parse(accountabilityTrendsFixture).movers
+    ).toHaveLength(3);
+    expect(
+      manifestSchema.parse(manifestFixture).datasets.members.rowCount
+    ).toBe(3);
+    expect(
+      manifestSchema.parse(manifestFixture).currentAssembly.assemblyNo
+    ).toBe(22);
+    expect(
+      manifestSchema.parse(manifestFixture).exports.memberAssetsIndex?.rowCount
+    ).toBe(2);
+    expect(
+      memberAssetsIndexExportSchema.parse(memberAssetsIndexFixture).members
+    ).toHaveLength(2);
+    expect(
+      memberAssetsHistoryExportSchema.parse(memberAssetsHistoryFixture).series
+    ).toHaveLength(2);
+    expect(
+      memberActivityCalendarExportSchema.parse(memberActivityCalendarFixture)
+        .assembly.assemblyNo
+    ).toBe(22);
+    expect(
+      memberActivityCalendarMemberSchema.parse(
+        summaryMemberWithoutEmbeddedRecords
+      )
     ).toMatchObject({
       memberId: "M002",
       voteRecords: [],
@@ -513,10 +630,14 @@ describe("data pipeline contracts", () => {
       voteRecordsPath: "exports/member_activity_calendar_members/M002.json"
     });
     expect(
-      memberActivityCalendarMemberDetailExportSchema.parse(memberActivityCalendarMemberDetailFixture)
+      memberActivityCalendarMemberDetailExportSchema.parse(
+        memberActivityCalendarMemberDetailFixture
+      )
     ).toMatchObject({
       memberId: "M002",
-      voteRecords: expect.arrayContaining([expect.objectContaining({ voteCode: "yes" })])
+      voteRecords: expect.arrayContaining([
+        expect.objectContaining({ voteCode: "yes" })
+      ])
     });
   });
 
@@ -572,7 +693,8 @@ describe("data pipeline contracts", () => {
     );
 
     const memberActivityCalendar = buildMemberActivityCalendarExport(bundle);
-    const memberDetails = buildMemberActivityCalendarMemberDetailExports(bundle);
+    const memberDetails =
+      buildMemberActivityCalendarMemberDetailExports(bundle);
 
     expect(memberActivityCalendar.assembly.members[0]).toMatchObject({
       memberId: "M001",
@@ -588,10 +710,20 @@ describe("data pipeline contracts", () => {
   });
 
   it("fails early when a published JSON export exceeds the size guard", () => {
-    expect(() => assertPublishedJsonFileSize("exports/member_activity_calendar.json", "12345", 4)).toThrow(
-      /publish limit/
-    );
-    expect(() => assertPublishedJsonFileSize("exports/member_activity_calendar.json", "1234", 4)).not.toThrow();
+    expect(() =>
+      assertPublishedJsonFileSize(
+        "exports/member_activity_calendar.json",
+        "12345",
+        4
+      )
+    ).toThrow(/publish limit/);
+    expect(() =>
+      assertPublishedJsonFileSize(
+        "exports/member_activity_calendar.json",
+        "1234",
+        4
+      )
+    ).not.toThrow();
   });
 
   it("serializes latest votes exports as minified published JSON", () => {
@@ -604,7 +736,9 @@ describe("data pipeline contracts", () => {
 
     expect(serialized).toBe(JSON.stringify(latestVotesFixture));
     expect(serialized).not.toContain("\n");
-    expect(Buffer.byteLength(serialized)).toBeLessThan(Buffer.byteLength(latestVotesFixtureRaw));
+    expect(Buffer.byteLength(serialized)).toBeLessThan(
+      Buffer.byteLength(latestVotesFixtureRaw)
+    );
     expect(() =>
       assertPublishedJsonFileSize(
         "exports/latest_votes.json",
@@ -699,10 +833,18 @@ describe("data pipeline contracts", () => {
       party: "미래개혁당",
       voteCode: "no"
     });
-    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty("photoUrl");
-    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty("officialProfileUrl");
-    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty("officialExternalUrl");
-    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty("profile");
+    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty(
+      "photoUrl"
+    );
+    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty(
+      "officialProfileUrl"
+    );
+    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty(
+      "officialExternalUrl"
+    );
+    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty(
+      "profile"
+    );
   });
 
   it("merges member directory metadata onto vote-derived members when ids differ", () => {
@@ -726,8 +868,10 @@ describe("data pipeline contracts", () => {
             name: "고동진",
             party: "국민의힘",
             district: "서울 강남구병",
-            photoUrl: "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/8e0621184727401ea5537cbeb1557776.jpg",
-            officialProfileUrl: "https://www.assembly.go.kr/members/22nd/KOHDONGJIN",
+            photoUrl:
+              "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/8e0621184727401ea5537cbeb1557776.jpg",
+            officialProfileUrl:
+              "https://www.assembly.go.kr/members/22nd/KOHDONGJIN",
             officialExternalUrl: null,
             isCurrentMember: true,
             proportionalFlag: false,
@@ -746,7 +890,8 @@ describe("data pipeline contracts", () => {
             voteDatetime: "2026-03-20 15:51:26.0",
             voteVisibility: "recorded",
             sourceStatus: "confirmed",
-            officialSourceUrl: "http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_X",
+            officialSourceUrl:
+              "http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_X",
             summary: "원안가결 · 법률안 · 2026-03-20",
             snapshotId: "snapshot-test",
             sourceHash: "source-hash"
@@ -773,13 +918,16 @@ describe("data pipeline contracts", () => {
 
     expect(accountabilitySummary.items[0]).toMatchObject({
       memberId: "고동진",
-      photoUrl: "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/8e0621184727401ea5537cbeb1557776.jpg",
+      photoUrl:
+        "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/8e0621184727401ea5537cbeb1557776.jpg",
       officialProfileUrl: "https://www.assembly.go.kr/members/22nd/KOHDONGJIN"
     });
     expect(latestVotes.items[0]?.highlightedVotes[0]).toMatchObject({
       memberId: "고동진"
     });
-    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty("officialProfileUrl");
+    expect(latestVotes.items[0]?.highlightedVotes[0]).not.toHaveProperty(
+      "officialProfileUrl"
+    );
   });
 
   it("keeps all flagged member names in latest votes without truncating after twelve", () => {
@@ -811,7 +959,8 @@ describe("data pipeline contracts", () => {
             voteDatetime: "2026-03-20 15:51:26.0",
             voteVisibility: "recorded",
             sourceStatus: "confirmed",
-            officialSourceUrl: "http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_LONG",
+            officialSourceUrl:
+              "http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_LONG",
             summary: "원안가결 · 법률안 · 2026-03-20",
             snapshotId: "snapshot-test",
             sourceHash: "source-hash"
@@ -857,7 +1006,8 @@ describe("data pipeline contracts", () => {
             voteDatetime: "2026-03-20 15:51:26.0",
             voteVisibility: "secret",
             sourceStatus: "confirmed",
-            officialSourceUrl: "http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_PARTIAL",
+            officialSourceUrl:
+              "http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_PARTIAL",
             summary: "원안가결 · 법률안 · 2026-03-20",
             snapshotId: "snapshot-test",
             sourceHash: "source-hash"
@@ -1017,15 +1167,25 @@ describe("data pipeline contracts", () => {
       ["M001", [{ startDate: "2024-05-30", endDate: "2028-05-29" }]],
       ["M002", [{ startDate: "2026-03-21", endDate: "2028-05-29" }]]
     ]);
-    const accountabilitySummary = buildAccountabilitySummaryExport(bundle, { tenureIndex });
-    const memberActivityCalendar = buildMemberActivityCalendarExport(bundle, { tenureIndex });
+    const accountabilitySummary = buildAccountabilitySummaryExport(bundle, {
+      tenureIndex
+    });
+    const memberActivityCalendar = buildMemberActivityCalendarExport(bundle, {
+      tenureIndex
+    });
 
-    expect(accountabilitySummary.items.find((item) => item.memberId === "M002")).toMatchObject({
+    expect(
+      accountabilitySummary.items.find((item) => item.memberId === "M002")
+    ).toMatchObject({
       totalRecordedVotes: 1,
       abstainCount: 1,
       absentCount: 0
     });
-    expect(memberActivityCalendar.assembly.members.find((member) => member.memberId === "M002")).toMatchObject({
+    expect(
+      memberActivityCalendar.assembly.members.find(
+        (member) => member.memberId === "M002"
+      )
+    ).toMatchObject({
       absentDays: 0,
       negativeDays: 1
     });
@@ -1110,15 +1270,21 @@ describe("data pipeline contracts", () => {
       ["M001", [{ startDate: "2024-05-30", endDate: "2028-05-29" }]]
     ]);
 
-    const accountabilitySummary = buildAccountabilitySummaryExport(bundle, { tenureIndex });
-    const memberActivityCalendar = buildMemberActivityCalendarExport(bundle, { tenureIndex });
+    const accountabilitySummary = buildAccountabilitySummaryExport(bundle, {
+      tenureIndex
+    });
+    const memberActivityCalendar = buildMemberActivityCalendarExport(bundle, {
+      tenureIndex
+    });
 
     expect(accountabilitySummary.items[0]).toMatchObject({
       totalRecordedVotes: 2,
       noCount: 1,
       absentCount: 1
     });
-    expect(memberActivityCalendar.assembly.members[0]?.committeeSummaries).toEqual(
+    expect(
+      memberActivityCalendar.assembly.members[0]?.committeeSummaries
+    ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           committeeName: "법제사법위원회",
@@ -1251,9 +1417,15 @@ describe("data pipeline contracts", () => {
     ]);
 
     const latestVotes = buildLatestVotesExport(bundle, { tenureIndex });
-    const accountabilitySummary = buildAccountabilitySummaryExport(bundle, { tenureIndex });
-    const accountabilityTrends = buildAccountabilityTrendsExport(bundle, { tenureIndex });
-    const memberActivityCalendar = buildMemberActivityCalendarExport(bundle, { tenureIndex });
+    const accountabilitySummary = buildAccountabilitySummaryExport(bundle, {
+      tenureIndex
+    });
+    const accountabilityTrends = buildAccountabilityTrendsExport(bundle, {
+      tenureIndex
+    });
+    const memberActivityCalendar = buildMemberActivityCalendarExport(bundle, {
+      tenureIndex
+    });
 
     expect(latestVotes.items[0]).toMatchObject({
       absentListStatus: "unavailable",
@@ -1265,23 +1437,35 @@ describe("data pipeline contracts", () => {
       },
       absentVotes: []
     });
-    expect(accountabilitySummary.items.find((item) => item.memberId === "M003")).toMatchObject({
+    expect(
+      accountabilitySummary.items.find((item) => item.memberId === "M003")
+    ).toMatchObject({
       totalRecordedVotes: 1,
       absentCount: 1
     });
-    expect(accountabilitySummary.items.find((item) => item.memberId === "M004")).toMatchObject({
+    expect(
+      accountabilitySummary.items.find((item) => item.memberId === "M004")
+    ).toMatchObject({
       totalRecordedVotes: 1,
       absentCount: 1
     });
-    expect(accountabilityTrends.movers.find((member) => member.memberId === "M003")).toMatchObject({
+    expect(
+      accountabilityTrends.movers.find((member) => member.memberId === "M003")
+    ).toMatchObject({
       currentWindowEligibleCount: 1,
       currentWindowAbsentCount: 1
     });
-    expect(accountabilityTrends.movers.find((member) => member.memberId === "M004")).toMatchObject({
+    expect(
+      accountabilityTrends.movers.find((member) => member.memberId === "M004")
+    ).toMatchObject({
       currentWindowEligibleCount: 1,
       currentWindowAbsentCount: 1
     });
-    expect(memberActivityCalendar.assembly.members.find((member) => member.memberId === "M003")).toMatchObject({
+    expect(
+      memberActivityCalendar.assembly.members.find(
+        (member) => member.memberId === "M003"
+      )
+    ).toMatchObject({
       absentDays: 1,
       dayStates: [
         expect.objectContaining({
@@ -1292,7 +1476,11 @@ describe("data pipeline contracts", () => {
         })
       ]
     });
-    expect(memberActivityCalendar.assembly.members.find((member) => member.memberId === "M004")).toMatchObject({
+    expect(
+      memberActivityCalendar.assembly.members.find(
+        (member) => member.memberId === "M004"
+      )
+    ).toMatchObject({
       absentDays: 1
     });
   });
@@ -1382,7 +1570,9 @@ describe("data pipeline contracts", () => {
       })
     );
 
-    expect(() => buildLatestVotesExport(bundle)).toThrow("Public exports must contain exactly one Assembly.");
+    expect(() => buildLatestVotesExport(bundle)).toThrow(
+      "Public exports must contain exactly one Assembly."
+    );
     expect(() => buildAccountabilitySummaryExport(bundle)).toThrow(
       "Public exports must contain exactly one Assembly."
     );
@@ -1537,6 +1727,8 @@ describe("data pipeline contracts", () => {
     expect(accountabilitySummary.items).toHaveLength(1);
     expect(accountabilitySummary.items[0]?.memberId).toBe("CURRENT-1");
     expect(memberActivityCalendar.assembly.members).toHaveLength(1);
-    expect(memberActivityCalendar.assembly.members[0]?.memberId).toBe("CURRENT-1");
+    expect(memberActivityCalendar.assembly.members[0]?.memberId).toBe(
+      "CURRENT-1"
+    );
   });
 });

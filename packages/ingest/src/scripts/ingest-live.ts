@@ -9,6 +9,7 @@ import {
   type AssemblyApiConfig,
   resolveAssemblyApiConfig
 } from "../assembly-api.js";
+import { assertRawSnapshotManifestSourcePolicy } from "../assembly-source-registry.js";
 import {
   buildMemberHistorySupplementalTargets,
   findMissingCurrentMemberTenures
@@ -23,7 +24,6 @@ import {
   parseMeetingXml,
   type CurrentAssemblyContext
 } from "../parsers.js";
-import { assertRawSnapshotManifestSourcePolicy } from "../assembly-source-registry.js";
 import {
   type RawSnapshotEntry,
   type RawSnapshotEntryKind,
@@ -110,7 +110,10 @@ function sanitizeAssemblyRequestParams(
   );
 }
 
-function sanitizeAssemblyRequestUrl(config: AssemblyApiConfig, requestUrl: string): string {
+function sanitizeAssemblyRequestUrl(
+  config: AssemblyApiConfig,
+  requestUrl: string
+): string {
   const url = new URL(requestUrl);
   url.searchParams.delete(config.apiKeyParamName);
   return url.toString();
@@ -145,7 +148,11 @@ async function fetchAndStoreTarget(args: {
   fetchPolicy: FetchPolicy;
   target: FetchTarget;
 }): Promise<{ body: string; entry: RawSnapshotEntry }> {
-  const request = buildAssemblyRequest(args.config, args.target.path, args.target.params);
+  const request = buildAssemblyRequest(
+    args.config,
+    args.target.path,
+    args.target.params
+  );
   const retrievedAt = new Date().toISOString();
   const body = await fetchText(
     {
@@ -202,7 +209,9 @@ async function fetchAndStoreBillVoteSummary(args: {
     outputDir: args.outputDir,
     snapshotId: args.snapshotId,
     kind: "bill_vote_summary",
-    endpointCode: endpointCodeFromPath(args.config.endpoints.billVoteSummaryPath),
+    endpointCode: endpointCodeFromPath(
+      args.config.endpoints.billVoteSummaryPath
+    ),
     relativePath: args.relativePath,
     sourceUrl: sanitizeAssemblyRequestUrl(args.config, request.url),
     requestParams: sanitizeAssemblyRequestParams(args.config, request.params),
@@ -220,15 +229,19 @@ function resolveCurrentAssemblyContext(args: {
 }): CurrentAssemblyContext {
   const memberAssembly = args.memberAssembly;
   if (!memberAssembly) {
-    throw new Error("Failed to detect the latest Assembly from the official member info feed.");
+    throw new Error(
+      "Failed to detect the latest Assembly from the official member info feed."
+    );
   }
 
-  const matchingUnitCds = [...new Set(
-    args.tenures
-      .filter((record) => record.assemblyNo === memberAssembly.assemblyNo)
-      .map((record) => record.unitCd)
-      .filter((value): value is string => Boolean(value))
-  )];
+  const matchingUnitCds = [
+    ...new Set(
+      args.tenures
+        .filter((record) => record.assemblyNo === memberAssembly.assemblyNo)
+        .map((record) => record.unitCd)
+        .filter((value): value is string => Boolean(value))
+    )
+  ];
 
   if (matchingUnitCds.length === 0) {
     throw new Error(
@@ -334,7 +347,9 @@ async function main(): Promise<void> {
     retries: config.fetchRetries,
     backoffMs: FETCH_RETRY_BACKOFF_MS
   };
-  const repositoryRoot = resolve(fileURLToPath(new URL("../../../../", import.meta.url)));
+  const repositoryRoot = resolve(
+    fileURLToPath(new URL("../../../../", import.meta.url))
+  );
   const outputDir = resolvePathFromRoot(
     repositoryRoot,
     process.env.OUTPUT_DIR ?? join(repositoryRoot, "artifacts/ingest")
@@ -344,8 +359,12 @@ async function main(): Promise<void> {
   const manifestEntries: RawSnapshotEntry[] = [];
   let expectedMemberInfoRows: number | null = null;
   let fetchedMemberInfoRows = 0;
-  const parsedMemberInfoMembers: ReturnType<typeof parseMemberInfoXml>["members"] = [];
-  let detectedMemberAssembly: ReturnType<typeof parseMemberInfoXml>["currentAssembly"] = null;
+  const parsedMemberInfoMembers: ReturnType<
+    typeof parseMemberInfoXml
+  >["members"] = [];
+  let detectedMemberAssembly: ReturnType<
+    typeof parseMemberInfoXml
+  >["currentAssembly"] = null;
 
   for (let page = 1; page <= MAX_GENERIC_PAGES; page += 1) {
     const result = await fetchAndStoreTarget({
@@ -388,7 +407,10 @@ async function main(): Promise<void> {
       break;
     }
 
-    if (expectedMemberInfoRows !== null && fetchedMemberInfoRows >= expectedMemberInfoRows) {
+    if (
+      expectedMemberInfoRows !== null &&
+      fetchedMemberInfoRows >= expectedMemberInfoRows
+    ) {
       break;
     }
   }
@@ -404,7 +426,9 @@ async function main(): Promise<void> {
 
   let expectedMemberProfileAllRows: number | null = null;
   let fetchedMemberProfileAllRows = 0;
-  const parsedMemberProfileAllProfiles: ReturnType<typeof parseMemberProfileAllXml>["profiles"] = [];
+  const parsedMemberProfileAllProfiles: ReturnType<
+    typeof parseMemberProfileAllXml
+  >["profiles"] = [];
 
   for (let page = 1; page <= MAX_GENERIC_PAGES; page += 1) {
     const result = await fetchAndStoreTarget({
@@ -414,7 +438,9 @@ async function main(): Promise<void> {
       fetchPolicy,
       target: {
         kind: "member_profile_all",
-        endpointCode: endpointCodeFromPath(config.endpoints.memberProfileAllPath),
+        endpointCode: endpointCodeFromPath(
+          config.endpoints.memberProfileAllPath
+        ),
         path: config.endpoints.memberProfileAllPath,
         relativePath: `official/member_profile_all/page-${page}.xml`,
         params: {
@@ -457,7 +483,8 @@ async function main(): Promise<void> {
     );
   }
 
-  const memberHistoryResults: Array<{ body: string; entry: RawSnapshotEntry }> = [];
+  const memberHistoryResults: Array<{ body: string; entry: RawSnapshotEntry }> =
+    [];
   let expectedMemberHistoryRows: number | null = null;
   let fetchedMemberHistoryRows = 0;
 
@@ -488,7 +515,10 @@ async function main(): Promise<void> {
       break;
     }
 
-    if (expectedMemberHistoryRows !== null && fetchedMemberHistoryRows >= expectedMemberHistoryRows) {
+    if (
+      expectedMemberHistoryRows !== null &&
+      fetchedMemberHistoryRows >= expectedMemberHistoryRows
+    ) {
       break;
     }
   }
@@ -546,16 +576,19 @@ async function main(): Promise<void> {
       }
     }
   );
-  const successfulSupplementalHistoryResults = supplementalHistoryResults.filter(
-    (
-      result
-    ): result is {
-      body: string;
-      entry: RawSnapshotEntry;
-    } => result !== null
-  );
+  const successfulSupplementalHistoryResults =
+    supplementalHistoryResults.filter(
+      (
+        result
+      ): result is {
+        body: string;
+        entry: RawSnapshotEntry;
+      } => result !== null
+    );
 
-  manifestEntries.push(...successfulSupplementalHistoryResults.map((result) => result.entry));
+  manifestEntries.push(
+    ...successfulSupplementalHistoryResults.map((result) => result.entry)
+  );
   parsedMemberHistory = [
     ...parsedMemberHistory,
     ...successfulSupplementalHistoryResults.flatMap((result) =>
@@ -581,7 +614,9 @@ async function main(): Promise<void> {
     members: parsedMemberInfoMembers,
     profiles: parsedMemberProfileAllProfiles
   });
-  const photoReadyMembers = enrichment.members.filter((member) => member.photoUrl);
+  const photoReadyMembers = enrichment.members.filter(
+    (member) => member.photoUrl
+  );
 
   if (enrichment.issues.length > 0) {
     const missingProfileMatches = enrichment.issues.filter(
@@ -589,7 +624,8 @@ async function main(): Promise<void> {
     ).length;
     const duplicateMatches = enrichment.issues.filter(
       (issue) =>
-        issue.reason === "duplicate_profile_match" || issue.reason === "duplicate_member_match"
+        issue.reason === "duplicate_profile_match" ||
+        issue.reason === "duplicate_member_match"
     ).length;
     const unmatchedProfiles = enrichment.issues.filter(
       (issue) => issue.reason === "unmatched_profile_record"
@@ -608,7 +644,9 @@ async function main(): Promise<void> {
   for (const target of [
     {
       kind: "committee_overview" as const,
-      endpointCode: endpointCodeFromPath(config.endpoints.committeeOverviewPath),
+      endpointCode: endpointCodeFromPath(
+        config.endpoints.committeeOverviewPath
+      ),
       path: config.endpoints.committeeOverviewPath,
       relativePathPrefix: "official/committee_overview"
     },
@@ -677,13 +715,15 @@ async function main(): Promise<void> {
     }
   };
 
-  const { body: scheduleXml, entry: scheduleEntry } = await fetchAndStoreTarget({
-    config,
-    outputDir,
-    snapshotId,
-    fetchPolicy,
-    target: scheduleTarget
-  });
+  const { body: scheduleXml, entry: scheduleEntry } = await fetchAndStoreTarget(
+    {
+      config,
+      outputDir,
+      snapshotId,
+      fetchPolicy,
+      target: scheduleTarget
+    }
+  );
   manifestEntries.push(scheduleEntry);
 
   const billTargets: FetchTarget[] = [
@@ -696,21 +736,27 @@ async function main(): Promise<void> {
     },
     {
       kind: "plenary_bills_budget",
-      endpointCode: endpointCodeFromPath(config.endpoints.plenaryBudgetBillsPath),
+      endpointCode: endpointCodeFromPath(
+        config.endpoints.plenaryBudgetBillsPath
+      ),
       path: config.endpoints.plenaryBudgetBillsPath,
       relativePath: "official/plenary_bills_budget.xml",
       params: { AGE: String(currentAssembly.assemblyNo) }
     },
     {
       kind: "plenary_bills_settlement",
-      endpointCode: endpointCodeFromPath(config.endpoints.plenarySettlementBillsPath),
+      endpointCode: endpointCodeFromPath(
+        config.endpoints.plenarySettlementBillsPath
+      ),
       path: config.endpoints.plenarySettlementBillsPath,
       relativePath: "official/plenary_bills_settlement.xml",
       params: { AGE: String(currentAssembly.assemblyNo) }
     },
     {
       kind: "plenary_bills_other",
-      endpointCode: endpointCodeFromPath(config.endpoints.plenaryOtherBillsPath),
+      endpointCode: endpointCodeFromPath(
+        config.endpoints.plenaryOtherBillsPath
+      ),
       path: config.endpoints.plenaryOtherBillsPath,
       relativePath: "official/plenary_bills_other.xml",
       params: { AGE: String(currentAssembly.assemblyNo) }
@@ -778,7 +824,10 @@ async function main(): Promise<void> {
     );
   }
 
-  const verifiedBillRefs = sortedBillRefs as Array<{ billNo: string; billId: string }>;
+  const verifiedBillRefs = sortedBillRefs as Array<{
+    billNo: string;
+    billId: string;
+  }>;
   const voteResults = await mapWithConcurrency(
     verifiedBillRefs,
     config.voteDetailConcurrency,
@@ -820,7 +869,10 @@ async function main(): Promise<void> {
         );
         const rollCalls = [
           ...new Map(
-            parsedVote.rollCalls.map((rollCall) => [rollCall.rollCallId, rollCall])
+            parsedVote.rollCalls.map((rollCall) => [
+              rollCall.rollCallId,
+              rollCall
+            ])
           ).values()
         ];
 
@@ -840,7 +892,8 @@ async function main(): Promise<void> {
   );
 
   const successfulVoteResults = voteResults.filter(
-    (result): result is NonNullable<(typeof voteResults)[number]> => result !== null
+    (result): result is NonNullable<(typeof voteResults)[number]> =>
+      result !== null
   );
   manifestEntries.push(...successfulVoteResults.map((result) => result.entry));
 

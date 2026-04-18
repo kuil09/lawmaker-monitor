@@ -31,7 +31,10 @@ const rawFixtureSnapshotDir = resolve(
   process.cwd(),
   "tests/fixtures/raw/fixture-snapshot-20260322-114500"
 );
-const propertyMirrorDir = resolve(process.cwd(), "tests/fixtures/property_mirror");
+const propertyMirrorDir = resolve(
+  process.cwd(),
+  "tests/fixtures/property_mirror"
+);
 const xmlOfficialDir = resolve(rawFixtureSnapshotDir, "official");
 
 let tempDirs: string[] = [];
@@ -86,13 +89,15 @@ function createBoundaryExport(): ConstituencyBoundaryExport {
         },
         geometry: {
           type: "Polygon",
-          coordinates: [[
-            [126.98, 37.55],
-            [127.04, 37.55],
-            [127.04, 37.61],
-            [126.98, 37.61],
-            [126.98, 37.55]
-          ]]
+          coordinates: [
+            [
+              [126.98, 37.55],
+              [127.04, 37.55],
+              [127.04, 37.61],
+              [126.98, 37.61],
+              [126.98, 37.55]
+            ]
+          ]
         }
       },
       {
@@ -114,13 +119,15 @@ function createBoundaryExport(): ConstituencyBoundaryExport {
         },
         geometry: {
           type: "Polygon",
-          coordinates: [[
-            [129.08, 35.09],
-            [129.15, 35.09],
-            [129.15, 35.14],
-            [129.08, 35.14],
-            [129.08, 35.09]
-          ]]
+          coordinates: [
+            [
+              [129.08, 35.09],
+              [129.15, 35.09],
+              [129.15, 35.14],
+              [129.08, 35.14],
+              [129.08, 35.09]
+            ]
+          ]
         }
       }
     ]
@@ -190,11 +197,12 @@ describe("property member context", () => {
       "M002",
       "M003"
     ]);
-    expect(context.currentMembers.find((member) => member.memberId === "M001"))
-      .toMatchObject({
-        name: "김아라",
-        officialExternalUrl: "https://blog.example.kr/kim-ara"
-      });
+    expect(
+      context.currentMembers.find((member) => member.memberId === "M001")
+    ).toMatchObject({
+      name: "김아라",
+      officialExternalUrl: "https://blog.example.kr/kim-ara"
+    });
     expect(context.tenureIndex.get("M001")).toEqual([
       {
         startDate: "2024-05-30",
@@ -204,23 +212,37 @@ describe("property member context", () => {
   });
 
   it("reuses the same row normalization path for XML and JSON member context payloads", () => {
-    const memberInfoXml = readFileSync(resolve(xmlOfficialDir, "member_info/page-1.xml"), "utf8");
-    const memberHistoryXml = readFileSync(resolve(xmlOfficialDir, "member_history/page-1.xml"), "utf8");
+    const memberInfoXml = readFileSync(
+      resolve(xmlOfficialDir, "member_info/page-1.xml"),
+      "utf8"
+    );
+    const memberHistoryXml = readFileSync(
+      resolve(xmlOfficialDir, "member_history/page-1.xml"),
+      "utf8"
+    );
     const memberInfoJson = JSON.parse(
       readFileSync(
-        resolve(propertyMirrorDir, "raw/official/property_member_context/member_info.json"),
+        resolve(
+          propertyMirrorDir,
+          "raw/official/property_member_context/member_info.json"
+        ),
         "utf8"
       )
     );
     const memberHistoryJson = JSON.parse(
       readFileSync(
-        resolve(propertyMirrorDir, "raw/official/property_member_context/member_history.json"),
+        resolve(
+          propertyMirrorDir,
+          "raw/official/property_member_context/member_history.json"
+        ),
         "utf8"
       )
     );
 
     expect(
-      parseMemberInfoRows(extractOfficialOpenApiJsonRows(memberInfoJson, "nwvrqwxyaytdsfvhu"))
+      parseMemberInfoRows(
+        extractOfficialOpenApiJsonRows(memberInfoJson, "nwvrqwxyaytdsfvhu")
+      )
     ).toEqual(parseMemberInfoXml(memberInfoXml));
     expect(
       parseMemberHistoryRows(
@@ -235,7 +257,10 @@ describe("property member context", () => {
 
     await cp(propertyMirrorDir, dataRepoDir, { recursive: true });
     await writeFile(
-      join(dataRepoDir, "raw/official/property_member_context/member_info.json"),
+      join(
+        dataRepoDir,
+        "raw/official/property_member_context/member_info.json"
+      ),
       JSON.stringify(
         {
           nwvrqwxyaytdsfvhu: [
@@ -263,7 +288,10 @@ describe("property member context", () => {
 
     await cp(propertyMirrorDir, dataRepoDir, { recursive: true });
     await writeFile(
-      join(dataRepoDir, "raw/official/property_member_context/member_history.json"),
+      join(
+        dataRepoDir,
+        "raw/official/property_member_context/member_history.json"
+      ),
       JSON.stringify(
         {
           nexgtxtmaamffofof: [
@@ -305,13 +333,19 @@ describe("property member context", () => {
 
     const memberInfoPayload = JSON.parse(
       readFileSync(
-        resolve(propertyMirrorDir, "raw/official/property_member_context/member_info.json"),
+        resolve(
+          propertyMirrorDir,
+          "raw/official/property_member_context/member_info.json"
+        ),
         "utf8"
       )
     );
     const memberHistoryPayload = JSON.parse(
       readFileSync(
-        resolve(propertyMirrorDir, "raw/official/property_member_context/member_history.json"),
+        resolve(
+          propertyMirrorDir,
+          "raw/official/property_member_context/member_history.json"
+        ),
         "utf8"
       )
     );
@@ -361,9 +395,14 @@ describe("property member context", () => {
     expect(manifest.memberHistory.requestParams).not.toHaveProperty("KEY");
 
     const manifestOnDisk = JSON.parse(
-      await readFile(join(publishedDataDir, DEFAULT_PROPERTY_MEMBER_CONTEXT_MANIFEST_PATH), "utf8")
+      await readFile(
+        join(publishedDataDir, DEFAULT_PROPERTY_MEMBER_CONTEXT_MANIFEST_PATH),
+        "utf8"
+      )
     );
-    expect(manifestOnDisk.memberInfoPath).toBe("raw/official/property_member_context/member_info.json");
+    expect(manifestOnDisk.memberInfoPath).toBe(
+      "raw/official/property_member_context/member_info.json"
+    );
     expect(manifestOnDisk.memberHistoryPath).toBe(
       "raw/official/property_member_context/member_history.json"
     );
@@ -403,36 +442,61 @@ describe("property member context", () => {
     });
 
     const memberAssetsIndex = memberAssetsIndexExportSchema.parse(
-      JSON.parse(await readFile(join(workspace.outputDir, "exports/member_assets_index.json"), "utf8"))
+      JSON.parse(
+        await readFile(
+          join(workspace.outputDir, "exports/member_assets_index.json"),
+          "utf8"
+        )
+      )
     );
     const hexmapStaticIndex = hexmapStaticIndexExportSchema.parse(
-      JSON.parse(await readFile(join(workspace.outputDir, "exports/hexmap_static/index.json"), "utf8"))
+      JSON.parse(
+        await readFile(
+          join(workspace.outputDir, "exports/hexmap_static/index.json"),
+          "utf8"
+        )
+      )
     );
     const seoulHexmapStaticProvince = hexmapStaticProvinceArtifactSchema.parse(
       JSON.parse(
         await readFile(
-          join(workspace.outputDir, "exports/hexmap_static/provinces/서울.json"),
+          join(
+            workspace.outputDir,
+            "exports/hexmap_static/provinces/서울.json"
+          ),
           "utf8"
         )
       )
     );
     const manifest = manifestSchema.parse(
-      JSON.parse(await readFile(join(workspace.outputDir, "manifests/latest.json"), "utf8"))
+      JSON.parse(
+        await readFile(
+          join(workspace.outputDir, "manifests/latest.json"),
+          "utf8"
+        )
+      )
     );
-    const kimAra = memberAssetsIndex.members.find((member) => member.memberId === "M001");
+    const kimAra = memberAssetsIndex.members.find(
+      (member) => member.memberId === "M001"
+    );
 
     expect(kimAra?.officialExternalUrl).toBe("https://blog.example.kr/kim-ara");
     expect(hexmapStaticIndex.provinces).toHaveLength(2);
     expect(seoulHexmapStaticProvince.districts).toHaveLength(1);
     expect(seoulHexmapStaticProvince.cells.length).toBeGreaterThan(0);
-    expect(manifest.exports.hexmapStaticIndex?.path).toBe("exports/hexmap_static/index.json");
+    expect(manifest.exports.hexmapStaticIndex?.path).toBe(
+      "exports/hexmap_static/index.json"
+    );
   });
 
   it("build-data fails explicitly when the property member context manifest is missing", async () => {
     const workspace = await createBuildWorkspace();
 
     await rm(
-      join(workspace.dataRepoDir, DEFAULT_PROPERTY_MEMBER_CONTEXT_MANIFEST_PATH),
+      join(
+        workspace.dataRepoDir,
+        DEFAULT_PROPERTY_MEMBER_CONTEXT_MANIFEST_PATH
+      ),
       { force: true }
     );
 

@@ -138,7 +138,10 @@
         "memberId": "M001",
         "name": "김아라",
         "party": "미래개혁당",
-        "committeeMemberships": ["과학기술정보방송통신위원회", "예산결산특별위원회"],
+        "committeeMemberships": [
+          "과학기술정보방송통신위원회",
+          "예산결산특별위원회"
+        ],
         "photoUrl": "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m001.jpg",
         "officialProfileUrl": "https://www.assembly.go.kr/members/22nd/KIMARA",
         "officialExternalUrl": "https://blog.example.kr/kim-ara",

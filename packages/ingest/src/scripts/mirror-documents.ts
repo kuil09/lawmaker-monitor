@@ -2,14 +2,14 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { chromium, request, type APIRequestContext, type Locator, type Page } from "playwright";
+import {
+  chromium,
+  request,
+  type APIRequestContext,
+  type Locator,
+  type Page
+} from "playwright";
 
-import type {
-  DocumentMirrorState,
-  MirroredDocumentIndex,
-  MirroredDocumentMetadata,
-  MirroredDocumentMetadataLookups
-} from "../document-mirror.js";
 import {
   buildDocumentId,
   buildDocumentPaths,
@@ -30,7 +30,17 @@ import {
   writeJsonFile
 } from "../utils.js";
 
-type MirrorMode = "generic" | "assembly_minutes_search" | "assembly_file_service";
+import type {
+  DocumentMirrorState,
+  MirroredDocumentIndex,
+  MirroredDocumentMetadata,
+  MirroredDocumentMetadataLookups
+} from "../document-mirror.js";
+
+type MirrorMode =
+  | "generic"
+  | "assembly_minutes_search"
+  | "assembly_file_service";
 
 type MirrorConfig = {
   mode: MirrorMode;
@@ -181,7 +191,9 @@ function compactDate(date: string): string {
 }
 
 function shiftIsoDate(date: string, days: number): string {
-  const [year, month, day] = date.split("-").map((part) => Number.parseInt(part, 10));
+  const [year, month, day] = date
+    .split("-")
+    .map((part) => Number.parseInt(part, 10));
   if (!year || !month || !day) {
     throw new Error(`Invalid ISO date: ${date}`);
   }
@@ -211,35 +223,53 @@ export function resolveMirrorDataRepoDir(
 }
 
 function loadConfig(): MirrorConfig {
-  const repositoryRoot = resolve(fileURLToPath(new URL("../../../../", import.meta.url)));
+  const repositoryRoot = resolve(
+    fileURLToPath(new URL("../../../../", import.meta.url))
+  );
   const startUrl = readRequiredEnv("MIRROR_START_URL");
-  const configuredMode = process.env.MIRROR_MODE?.trim() as MirrorMode | undefined;
-  const serviceInfId = process.env.MIRROR_SERVICE_INF_ID?.trim() || parseServiceInfId(startUrl);
+  const configuredMode = process.env.MIRROR_MODE?.trim() as
+    | MirrorMode
+    | undefined;
+  const serviceInfId =
+    process.env.MIRROR_SERVICE_INF_ID?.trim() || parseServiceInfId(startUrl);
 
   return {
     mode:
       configuredMode ??
-      (startUrl.includes("/mnts/minutes/search.do") ? "assembly_minutes_search" : "generic"),
-    sourceId: process.env.MIRROR_SOURCE_ID?.trim() || "assembly-public-documents",
+      (startUrl.includes("/mnts/minutes/search.do")
+        ? "assembly_minutes_search"
+        : "generic"),
+    sourceId:
+      process.env.MIRROR_SOURCE_ID?.trim() || "assembly-public-documents",
     startUrl,
     readySelector: process.env.MIRROR_READY_SELECTOR?.trim(),
-    rowSelector: process.env.MIRROR_ROW_SELECTOR?.trim() || ".sch_rslt .rslt_list > li.list",
-    titleSelector: process.env.MIRROR_TITLE_SELECTOR?.trim() || ".con .ellipsis a",
+    rowSelector:
+      process.env.MIRROR_ROW_SELECTOR?.trim() ||
+      ".sch_rslt .rslt_list > li.list",
+    titleSelector:
+      process.env.MIRROR_TITLE_SELECTOR?.trim() || ".con .ellipsis a",
     linkSelector:
       process.env.MIRROR_LINK_SELECTOR?.trim() ||
       ".btn_list a[href*='/viewer/minutes/download/pdf.do'], .btn_list a[href*='/viewer/minutes/download/hwp.do'], .btn_list a[href*='/viewer/minutes/download/img.do'], .con .ellipsis a",
     linkAttribute: process.env.MIRROR_LINK_ATTRIBUTE?.trim() || "href",
     dateSelector: process.env.MIRROR_DATE_SELECTOR?.trim() || ".std .date",
-    nextSelector: process.env.MIRROR_NEXT_SELECTOR?.trim() || ".page_nav a.next:not([disabled])",
+    nextSelector:
+      process.env.MIRROR_NEXT_SELECTOR?.trim() ||
+      ".page_nav a.next:not([disabled])",
     maxPages: readPositiveInteger("MIRROR_MAX_PAGES", 25),
     maxDownloads: readPositiveInteger("MIRROR_MAX_DOWNLOADS", 80),
     pageDelayMs: readPositiveInteger("MIRROR_PAGE_DELAY_MS", 1000),
     timeoutMs: readPositiveInteger("MIRROR_TIMEOUT_MS", 20_000),
     timeZone: process.env.MIRROR_TIME_ZONE?.trim() || "Asia/Seoul",
-    dataRepoDir: resolveMirrorDataRepoDir(repositoryRoot, process.env.DATA_REPO_DIR),
-    indexPath: process.env.MIRROR_INDEX_PATH?.trim() || "raw/index/document_index.json",
+    dataRepoDir: resolveMirrorDataRepoDir(
+      repositoryRoot,
+      process.env.DATA_REPO_DIR
+    ),
+    indexPath:
+      process.env.MIRROR_INDEX_PATH?.trim() || "raw/index/document_index.json",
     statePath:
-      process.env.MIRROR_STATE_PATH?.trim() || "manifests/document_mirror_state.json",
+      process.env.MIRROR_STATE_PATH?.trim() ||
+      "manifests/document_mirror_state.json",
     userAgent:
       process.env.MIRROR_USER_AGENT?.trim() ||
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -261,7 +291,10 @@ async function locatorText(locator: Locator): Promise<string | undefined> {
   }
 }
 
-async function locatorAttribute(locator: Locator, attribute: string): Promise<string | undefined> {
+async function locatorAttribute(
+  locator: Locator,
+  attribute: string
+): Promise<string | undefined> {
   try {
     return readString(await locator.getAttribute(attribute));
   } catch {
@@ -269,7 +302,10 @@ async function locatorAttribute(locator: Locator, attribute: string): Promise<st
   }
 }
 
-async function collectCandidates(page: Page, config: MirrorConfig): Promise<MirrorCandidate[]> {
+async function collectCandidates(
+  page: Page,
+  config: MirrorConfig
+): Promise<MirrorCandidate[]> {
   const rows = page.locator(config.rowSelector);
   const rowCount = await rows.count();
   if (rowCount === 0) {
@@ -309,13 +345,19 @@ async function collectCandidates(page: Page, config: MirrorConfig): Promise<Mirr
   return candidates;
 }
 
-async function hashVisibleRows(page: Page, rowSelector: string): Promise<string> {
+async function hashVisibleRows(
+  page: Page,
+  rowSelector: string
+): Promise<string> {
   const rows = page.locator(rowSelector);
   const texts = await rows.allInnerTexts();
   return sha256(texts.join("\n"));
 }
 
-async function goToNextPage(page: Page, config: MirrorConfig): Promise<boolean> {
+async function goToNextPage(
+  page: Page,
+  config: MirrorConfig
+): Promise<boolean> {
   if (!config.nextSelector) {
     return false;
   }
@@ -379,20 +421,16 @@ function appendFormValue(map: FormValueMap, key: string, value: string): void {
 }
 
 function cloneFormValues(source: FormValueMap): FormValueMap {
-  return new Map([...source.entries()].map(([key, values]) => [key, [...values]]));
+  return new Map(
+    [...source.entries()].map(([key, values]) => [key, [...values]])
+  );
 }
 
-function setFormValues(map: FormValueMap, key: string, values: string[]): void {
-  const normalizedValues = values.map((value) => value.trim());
-  if (normalizedValues.length === 0) {
-    map.delete(key);
-    return;
-  }
-
-  map.set(key, normalizedValues);
-}
-
-function setSingleFormValue(map: FormValueMap, key: string, value: string | undefined): void {
+function setSingleFormValue(
+  map: FormValueMap,
+  key: string,
+  value: string | undefined
+): void {
   if (value === undefined) {
     map.delete(key);
     return;
@@ -465,8 +503,7 @@ export function buildAssemblySearchWindows(
       );
       const overlapsRecent = windows.some(
         (window) =>
-          cursor >= window.startDate &&
-          backfillEndDate <= window.endDate
+          cursor >= window.startDate && backfillEndDate <= window.endDate
       );
 
       if (!overlapsRecent) {
@@ -487,7 +524,10 @@ export function buildAssemblySearchWindows(
 
   const uniqueWindows = new Map<string, SearchWindow>();
   for (const window of windows) {
-    uniqueWindows.set(`${window.label}:${window.startDate}:${window.endDate}`, window);
+    uniqueWindows.set(
+      `${window.label}:${window.startDate}:${window.endDate}`,
+      window
+    );
   }
 
   return [...uniqueWindows.values()];
@@ -500,14 +540,20 @@ export function resolveNextBackfillCursorDate(args: {
   windows: SearchWindow[];
 }): string | null {
   const yesterday = shiftIsoDate(args.cutoffDate, -1);
-  const latestBackfillWindow = args.windows.filter((window) => window.label === "backfill").at(-1);
+  const latestBackfillWindow = args.windows
+    .filter((window) => window.label === "backfill")
+    .at(-1);
 
   if (latestBackfillWindow) {
     return shiftIsoDate(latestBackfillWindow.endDate, 1);
   }
 
-  return args.existingState?.nextBackfillCursorDate ??
-    (args.config.backfillStartDate <= yesterday ? args.config.backfillStartDate : null);
+  return (
+    args.existingState?.nextBackfillCursorDate ??
+    (args.config.backfillStartDate <= yesterday
+      ? args.config.backfillStartDate
+      : null)
+  );
 }
 
 function toNumber(value: unknown): number {
@@ -528,7 +574,9 @@ function normalizeCompactAssemblyDate(value: unknown): string | null {
   return normalizeDocumentDate(text);
 }
 
-export function buildAssemblyFileServiceSourceSnapshot(items: AssemblyFileServiceItem[]): {
+export function buildAssemblyFileServiceSourceSnapshot(
+  items: AssemblyFileServiceItem[]
+): {
   count: number;
   sha256: string;
 } {
@@ -537,7 +585,10 @@ export function buildAssemblyFileServiceSourceSnapshot(items: AssemblyFileServic
       cvtFileSize: readString(item.cvtFileSize) ?? "",
       fileExt: readString(item.fileExt) ?? "",
       fileSeq: toNumber(item.fileSeq),
-      ftCrDttm: normalizeCompactAssemblyDate(item.ftCrDttm) ?? readString(item.ftCrDttm) ?? "",
+      ftCrDttm:
+        normalizeCompactAssemblyDate(item.ftCrDttm) ??
+        readString(item.ftCrDttm) ??
+        "",
       infId: readString(item.infId) ?? "",
       infSeq: toNumber(item.infSeq),
       viewFileNm: readString(item.viewFileNm) ?? ""
@@ -570,8 +621,8 @@ export function shouldSkipAssemblyFileServiceRefresh(args: {
 }): boolean {
   return Boolean(
     !args.hasBackfillWindow &&
-      args.existingState?.sourceSnapshotSha256 === args.sourceSnapshotSha256 &&
-      args.existingState?.sourceSnapshotCount === args.sourceSnapshotCount
+    args.existingState?.sourceSnapshotSha256 === args.sourceSnapshotSha256 &&
+    args.existingState?.sourceSnapshotCount === args.sourceSnapshotCount
   );
 }
 
@@ -715,7 +766,11 @@ function collectAssemblyCandidatesFromResponse(
   for (const key of assemblyMinuteRecordKeys) {
     const record = response[key];
     for (const item of record?.resultList ?? []) {
-      const candidate = buildAssemblyMinutesCandidate(item, config, discoveredFromUrl);
+      const candidate = buildAssemblyMinutesCandidate(
+        item,
+        config,
+        discoveredFromUrl
+      );
       if (candidate) {
         candidates.push(candidate);
       }
@@ -729,7 +784,11 @@ function collectAssemblyCandidatesFromResponse(
   for (const key of assemblyAppendixRecordKeys) {
     const record = response[key];
     for (const item of record?.resultList ?? []) {
-      const candidate = buildAssemblyAppendixCandidate(item, config, discoveredFromUrl);
+      const candidate = buildAssemblyAppendixCandidate(
+        item,
+        config,
+        discoveredFromUrl
+      );
       if (candidate) {
         candidates.push(candidate);
       }
@@ -787,7 +846,11 @@ function buildAssemblyMinutesParams(
 
   setSingleFormValue(formValues, "startDate", compactDate(window.startDate));
   setSingleFormValue(formValues, "endDate", compactDate(window.endDate));
-  setSingleFormValue(formValues, "collection", "record1,record2,record3,record4,record5,record6,record7");
+  setSingleFormValue(
+    formValues,
+    "collection",
+    "record1,record2,record3,record4,record5,record6,record7"
+  );
   setSingleFormValue(formValues, "CLASS_CD", "1,2,3,4,5,6,7");
   setSingleFormValue(formValues, "query", "");
   setSingleFormValue(formValues, "SPK_NM", "");
@@ -852,7 +915,10 @@ async function collectAssemblyCandidates(
     discoveredCandidates += minutesCandidates.length;
     candidates.push(...minutesCandidates);
 
-    const minutePages = Math.min(responsePageCount(minutesFirst, false), config.maxPages);
+    const minutePages = Math.min(
+      responsePageCount(minutesFirst, false),
+      config.maxPages
+    );
     for (let pageNumber = 2; pageNumber <= minutePages; pageNumber += 1) {
       const response = await postAssemblySearch(
         api,
@@ -888,7 +954,10 @@ async function collectAssemblyCandidates(
       discoveredCandidates += appendixCandidates.length;
       candidates.push(...appendixCandidates);
 
-      const appendixPages = Math.min(responsePageCount(appendixFirst, true), config.maxPages);
+      const appendixPages = Math.min(
+        responsePageCount(appendixFirst, true),
+        config.maxPages
+      );
       for (let pageNumber = 2; pageNumber <= appendixPages; pageNumber += 1) {
         const response = await postAssemblySearch(
           api,
@@ -913,8 +982,10 @@ async function collectAssemblyCandidates(
     candidates,
     pagesVisited,
     discoveredCandidates,
-    recentWindowStartDate: windows.find((window) => window.label === "recent")?.startDate,
-    recentWindowEndDate: windows.find((window) => window.label === "recent")?.endDate,
+    recentWindowStartDate: windows.find((window) => window.label === "recent")
+      ?.startDate,
+    recentWindowEndDate: windows.find((window) => window.label === "recent")
+      ?.endDate,
     nextBackfillCursorDate: resolveNextBackfillCursorDate({
       cutoffDate,
       config,
@@ -933,7 +1004,9 @@ async function postAssemblyFileServiceSearch(
   config: MirrorConfig
 ): Promise<AssemblyFileServiceResponse> {
   if (!config.serviceInfId) {
-    throw new Error("MIRROR_SERVICE_INF_ID must be configured for assembly_file_service mode.");
+    throw new Error(
+      "MIRROR_SERVICE_INF_ID must be configured for assembly_file_service mode."
+    );
   }
 
   const response = await api.post(
@@ -963,17 +1036,28 @@ async function collectAssemblyFileServiceCandidates(
   existingState: DocumentMirrorState | null,
   cutoffDate: string
 ): Promise<CandidateCollectionResult> {
-  const windows = buildAssemblySearchWindows(cutoffDate, config, existingState, {
-    includeAllBackfillWindows: true
-  });
+  const windows = buildAssemblySearchWindows(
+    cutoffDate,
+    config,
+    existingState,
+    {
+      includeAllBackfillWindows: true
+    }
+  );
   const response = await postAssemblyFileServiceSearch(api, config);
-  const sourceSnapshot = buildAssemblyFileServiceSourceSnapshot(response.data ?? []);
-  const hasBackfillWindow = windows.some((window) => window.label === "backfill");
+  const sourceSnapshot = buildAssemblyFileServiceSourceSnapshot(
+    response.data ?? []
+  );
+  const hasBackfillWindow = windows.some(
+    (window) => window.label === "backfill"
+  );
   const candidates = (response.data ?? [])
     .map((item) => buildAssemblyFileServiceCandidate(item, config))
     .filter((candidate): candidate is MirrorCandidate => Boolean(candidate))
     .filter((candidate) =>
-      windows.some((window) => isDateWithinSearchWindow(candidate.publishedDate ?? "", window))
+      windows.some((window) =>
+        isDateWithinSearchWindow(candidate.publishedDate ?? "", window)
+      )
     );
   const skipBySourceSnapshot = shouldSkipAssemblyFileServiceRefresh({
     existingState,
@@ -987,8 +1071,10 @@ async function collectAssemblyFileServiceCandidates(
       candidates: [],
       pagesVisited: 1,
       discoveredCandidates: 0,
-      recentWindowStartDate: windows.find((window) => window.label === "recent")?.startDate,
-      recentWindowEndDate: windows.find((window) => window.label === "recent")?.endDate,
+      recentWindowStartDate: windows.find((window) => window.label === "recent")
+        ?.startDate,
+      recentWindowEndDate: windows.find((window) => window.label === "recent")
+        ?.endDate,
       nextBackfillCursorDate: resolveNextBackfillCursorDate({
         cutoffDate,
         config,
@@ -1005,8 +1091,10 @@ async function collectAssemblyFileServiceCandidates(
     candidates,
     pagesVisited: 1,
     discoveredCandidates: candidates.length,
-    recentWindowStartDate: windows.find((window) => window.label === "recent")?.startDate,
-    recentWindowEndDate: windows.find((window) => window.label === "recent")?.endDate,
+    recentWindowStartDate: windows.find((window) => window.label === "recent")
+      ?.startDate,
+    recentWindowEndDate: windows.find((window) => window.label === "recent")
+      ?.endDate,
     nextBackfillCursorDate: resolveNextBackfillCursorDate({
       cutoffDate,
       config,
@@ -1038,7 +1126,8 @@ async function downloadDocument(
   return {
     body,
     responseUrl: response.url(),
-    contentType: response.headers()["content-type"] ?? "application/octet-stream",
+    contentType:
+      response.headers()["content-type"] ?? "application/octet-stream",
     contentDisposition: response.headers()["content-disposition"]
   };
 }
@@ -1051,7 +1140,11 @@ async function mirrorCandidate(
   retrievedAt: string
 ): Promise<MirrorOutcome> {
   const downloadTarget = candidate.downloadUrl ?? candidate.sourceUrl;
-  const downloaded = await downloadDocument(api, downloadTarget, config.timeoutMs);
+  const downloaded = await downloadDocument(
+    api,
+    downloadTarget,
+    config.timeoutMs
+  );
   const fileExtension = detectFileExtension(
     downloaded.responseUrl,
     downloaded.contentType,
@@ -1074,7 +1167,10 @@ async function mirrorCandidate(
   });
   const contentSha = sha256Buffer(downloaded.body);
 
-  if (existingMetadata && existingMetadata.currentContentSha256 === contentSha) {
+  if (
+    existingMetadata &&
+    existingMetadata.currentContentSha256 === contentSha
+  ) {
     return { type: "unchanged", metadata: existingMetadata };
   }
 
@@ -1095,7 +1191,8 @@ async function mirrorCandidate(
   const dedupedVersions = [...existingVersions, newVersion].filter(
     (version, index, versions) =>
       versions.findIndex(
-        (candidateVersion) => candidateVersion.contentSha256 === version.contentSha256
+        (candidateVersion) =>
+          candidateVersion.contentSha256 === version.contentSha256
       ) === index
   );
 
@@ -1114,7 +1211,9 @@ async function mirrorCandidate(
     currentContentSha256: contentSha,
     currentContentType: downloaded.contentType,
     currentBytes: downloaded.body.byteLength,
-    ...(candidate.sourceMetadata ? { sourceMetadata: candidate.sourceMetadata } : {}),
+    ...(candidate.sourceMetadata
+      ? { sourceMetadata: candidate.sourceMetadata }
+      : {}),
     versions: dedupedVersions
   };
 
@@ -1164,15 +1263,26 @@ async function main(): Promise<void> {
     indexFile,
     mergeDocumentIndex(config.sourceId, [], retrievedAt)
   );
-  const existingState = await readJsonFile<DocumentMirrorState | null>(stateFile, null);
-  const existingMetadata = await loadExistingMetadata(config.dataRepoDir, existingIndex);
+  const existingState = await readJsonFile<DocumentMirrorState | null>(
+    stateFile,
+    null
+  );
+  const existingMetadata = await loadExistingMetadata(
+    config.dataRepoDir,
+    existingIndex
+  );
   const updatedMetadataByDocumentId = new Map(existingMetadata.byDocumentId);
   const updatedMetadataBySourceUrl = new Map(existingMetadata.bySourceUrl);
   const updatedMetadataByDownloadUrl = new Map(existingMetadata.byDownloadUrl);
 
-  const needsBrowser = config.mode === "generic" || config.mode === "assembly_minutes_search";
-  const browser = needsBrowser ? await chromium.launch({ headless: true }) : null;
-  const context = browser ? await browser.newContext({ userAgent: config.userAgent }) : null;
+  const needsBrowser =
+    config.mode === "generic" || config.mode === "assembly_minutes_search";
+  const browser = needsBrowser
+    ? await chromium.launch({ headless: true })
+    : null;
+  const context = browser
+    ? await browser.newContext({ userAgent: config.userAgent })
+    : null;
   const page = context ? await context.newPage() : null;
   if (page) {
     await page.goto(config.startUrl, {
@@ -1180,7 +1290,10 @@ async function main(): Promise<void> {
       timeout: config.timeoutMs
     });
     if (config.readySelector) {
-      await page.locator(config.readySelector).first().waitFor({ timeout: config.timeoutMs });
+      await page
+        .locator(config.readySelector)
+        .first()
+        .waitFor({ timeout: config.timeoutMs });
     }
   }
 
@@ -1191,9 +1304,20 @@ async function main(): Promise<void> {
 
   const collectionResult =
     config.mode === "assembly_minutes_search"
-      ? await collectAssemblyCandidates(page!, api, config, existingState, cutoffDate)
+      ? await collectAssemblyCandidates(
+          page!,
+          api,
+          config,
+          existingState,
+          cutoffDate
+        )
       : config.mode === "assembly_file_service"
-        ? await collectAssemblyFileServiceCandidates(api, config, existingState, cutoffDate)
+        ? await collectAssemblyFileServiceCandidates(
+            api,
+            config,
+            existingState,
+            cutoffDate
+          )
         : await collectGenericCandidates(page!, config);
 
   const seenCandidateKeys = new Set<string>();
@@ -1242,10 +1366,19 @@ async function main(): Promise<void> {
       retrievedAt
     );
 
-    updatedMetadataByDocumentId.set(outcome.metadata.documentId, outcome.metadata);
-    updatedMetadataBySourceUrl.set(outcome.metadata.sourceUrl, outcome.metadata);
+    updatedMetadataByDocumentId.set(
+      outcome.metadata.documentId,
+      outcome.metadata
+    );
+    updatedMetadataBySourceUrl.set(
+      outcome.metadata.sourceUrl,
+      outcome.metadata
+    );
     if (outcome.metadata.downloadUrl) {
-      updatedMetadataByDownloadUrl.set(outcome.metadata.downloadUrl, outcome.metadata);
+      updatedMetadataByDownloadUrl.set(
+        outcome.metadata.downloadUrl,
+        outcome.metadata
+      );
     }
 
     if (outcome.type === "downloaded") {
@@ -1266,7 +1399,9 @@ async function main(): Promise<void> {
 
   const index = mergeDocumentIndex(
     config.sourceId,
-    [...updatedMetadataByDocumentId.values()].map((metadata) => toIndexItem(metadata)),
+    [...updatedMetadataByDocumentId.values()].map((metadata) =>
+      toIndexItem(metadata)
+    ),
     retrievedAt
   );
 
@@ -1296,6 +1431,9 @@ async function main(): Promise<void> {
   process.stdout.write(`${JSON.stringify(state, null, 2)}\n`);
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
   void main();
 }

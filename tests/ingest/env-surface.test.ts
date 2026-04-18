@@ -3,7 +3,10 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const workflowPath = resolve(process.cwd(), ".github/workflows/ingest-live.yml");
+const workflowPath = resolve(
+  process.cwd(),
+  ".github/workflows/ingest-live.yml"
+);
 const envExamplePath = resolve(process.cwd(), ".env.example");
 const readmePath = resolve(process.cwd(), "README.md");
 

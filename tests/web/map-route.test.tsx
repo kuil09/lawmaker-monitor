@@ -8,19 +8,31 @@ import {
 
 describe("map-route", () => {
   it("parses district-first routes and preserves legacy province fallback", () => {
-    expect(parseMapRoute("district=%EC%84%9C%EC%9A%B8%EC%A4%91%EA%B5%AC&metric=negative")).toEqual({
+    expect(
+      parseMapRoute(
+        "district=%EC%84%9C%EC%9A%B8%EC%A4%91%EA%B5%AC&metric=negative"
+      )
+    ).toEqual({
       province: null,
       district: "서울중구",
       metric: "negative"
     });
 
-    expect(parseMapRoute("district=%EB%B6%80%EC%82%B0%EB%82%A8%EA%B5%AC&metric=assetTotal")).toEqual({
+    expect(
+      parseMapRoute(
+        "district=%EB%B6%80%EC%82%B0%EB%82%A8%EA%B5%AC&metric=assetTotal"
+      )
+    ).toEqual({
       province: null,
       district: "부산남구",
       metric: "assetTotal"
     });
 
-    expect(parseMapRoute("district=%EB%B6%80%EC%82%B0%EB%82%A8%EA%B5%AC&metric=realEstate")).toEqual({
+    expect(
+      parseMapRoute(
+        "district=%EB%B6%80%EC%82%B0%EB%82%A8%EA%B5%AC&metric=realEstate"
+      )
+    ).toEqual({
       province: null,
       district: "부산남구",
       metric: "realEstate"
@@ -34,9 +46,13 @@ describe("map-route", () => {
   });
 
   it("builds canonical map hashes with district priority", () => {
-    expect(buildMapHash({ district: "서울중구", province: "서울", metric: "negative" })).toBe(
-      "map?district=%EC%84%9C%EC%9A%B8%EC%A4%91%EA%B5%AC&metric=negative"
-    );
+    expect(
+      buildMapHash({
+        district: "서울중구",
+        province: "서울",
+        metric: "negative"
+      })
+    ).toBe("map?district=%EC%84%9C%EC%9A%B8%EC%A4%91%EA%B5%AC&metric=negative");
     expect(buildMapHash({ province: "부산", metric: "absence" })).toBe(
       "map?province=%EB%B6%80%EC%82%B0"
     );

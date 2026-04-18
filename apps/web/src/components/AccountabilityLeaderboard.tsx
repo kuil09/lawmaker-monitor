@@ -1,25 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import type {
-  AccountabilitySummaryItem,
-  MemberAssetsIndexItem
-} from "@lawmaker-monitor/schemas";
-
-import { buildCalendarHref } from "../lib/calendar-route.js";
+import { MemberIdentity } from "./MemberIdentity.js";
 import {
   getYesCount,
   rankLeaderboardItems,
   type LeaderboardMetric
 } from "../lib/accountability.js";
+import { buildCalendarHref } from "../lib/calendar-route.js";
 import {
   formatAssetEok,
   formatAssetEokDelta,
   formatNumber,
   formatPercent
 } from "../lib/format.js";
+
 import type { MemberAttendanceSummary } from "../lib/member-activity.js";
 import type { AssetAllocationSummary } from "../lib/member-assets.js";
-import { MemberIdentity } from "./MemberIdentity.js";
+import type {
+  AccountabilitySummaryItem,
+  MemberAssetsIndexItem
+} from "@lawmaker-monitor/schemas";
 
 type AccountabilityLeaderboardProps = {
   items: AccountabilitySummaryItem[];
@@ -70,7 +70,9 @@ const baseLeaderboardMetricOptions: LeaderboardMetricOption[] = [
   { value: "yes", label: "찬성", styleKey: "yes" }
 ];
 
-function isAssetMetric(metric: HomeLeaderboardMetric): metric is "realEstate" | "assetTotal" {
+function isAssetMetric(
+  metric: HomeLeaderboardMetric
+): metric is "realEstate" | "assetTotal" {
   return metric === "realEstate" || metric === "assetTotal";
 }
 
@@ -84,7 +86,7 @@ function rankAssetItems(
       metricValue:
         metric === "assetTotal"
           ? item.latestTotal
-          : item.latestRealEstateTotal ?? Number.NEGATIVE_INFINITY
+          : (item.latestRealEstateTotal ?? Number.NEGATIVE_INFINITY)
     }))
     .filter((item) => Number.isFinite(item.metricValue))
     .sort((left, right) => {
@@ -111,13 +113,18 @@ export function AccountabilityLeaderboard({
   assetItems = []
 }: AccountabilityLeaderboardProps) {
   const [metric, setMetric] = useState<HomeLeaderboardMetric>("absent");
-  const hasRealEstateData = assetItems.some((item) => item.latestRealEstateTotal != null);
+  const hasRealEstateData = assetItems.some(
+    (item) => item.latestRealEstateTotal != null
+  );
   const hasAssetTotalData = assetItems.length > 0;
-  const metricOptions = [
-    ...baseLeaderboardMetricOptions,
-    ...(hasRealEstateData ? [realEstateMetricOption] : []),
-    ...(hasAssetTotalData ? [assetTotalMetricOption] : [])
-  ];
+  const metricOptions = useMemo(
+    () => [
+      ...baseLeaderboardMetricOptions,
+      ...(hasRealEstateData ? [realEstateMetricOption] : []),
+      ...(hasAssetTotalData ? [assetTotalMetricOption] : [])
+    ],
+    [hasAssetTotalData, hasRealEstateData]
+  );
 
   useEffect(() => {
     if (!metricOptions.some((option) => option.value === metric)) {
@@ -126,8 +133,11 @@ export function AccountabilityLeaderboard({
   }, [metric, metricOptions]);
 
   const metricOption =
-    metricOptions.find((option) => option.value === metric) ?? defaultMetricOption;
-  const rankedItems = isAssetMetric(metric) ? [] : rankLeaderboardItems(items, metric).slice(0, 10);
+    metricOptions.find((option) => option.value === metric) ??
+    defaultMetricOption;
+  const rankedItems = isAssetMetric(metric)
+    ? []
+    : rankLeaderboardItems(items, metric).slice(0, 10);
   const rankedAssetItems = isAssetMetric(metric)
     ? rankAssetItems(assetItems, metric).slice(0, 10)
     : [];
@@ -146,7 +156,11 @@ export function AccountabilityLeaderboard({
           <p className="section-label">의원 랭킹</p>
           <h2>{`${assemblyLabel} 의원 순위`}</h2>
         </div>
-        <div className="metric-toggle" role="tablist" aria-label="의원 랭킹 기준">
+        <div
+          className="metric-toggle"
+          role="tablist"
+          aria-label="의원 랭킹 기준"
+        >
           {metricOptions.map((option) => (
             <button
               key={option.value}
@@ -171,7 +185,8 @@ export function AccountabilityLeaderboard({
       {isAssetMetric(metric) ? (
         <ol className="ranking-list">
           {rankedAssetItems.map((item, index) => {
-            const metricLabel = metric === "realEstate" ? "최신 부동산" : "최신 총재산";
+            const metricLabel =
+              metric === "realEstate" ? "최신 부동산" : "최신 총재산";
             const assetShareText = item.assetAllocation
               ? `비중 ${formatPercent(item.assetAllocation.realEstateShare)}`
               : "비중 계산 중";
@@ -182,7 +197,11 @@ export function AccountabilityLeaderboard({
                   ? `부동산 ${formatAssetEok(item.latestRealEstateTotal)} · ${assetShareText}`
                   : `부동산 데이터 준비 중 · ${assetShareText}`;
             const metaItems = [
-              { key: "asset-total", label: "총재산", value: formatAssetEok(item.latestTotal) },
+              {
+                key: "asset-total",
+                label: "총재산",
+                value: formatAssetEok(item.latestTotal)
+              },
               {
                 key: "real-estate",
                 label: "부동산",
@@ -194,9 +213,15 @@ export function AccountabilityLeaderboard({
               {
                 key: "asset-share",
                 label: "부동산 비중",
-                value: item.assetAllocation ? formatPercent(item.assetAllocation.realEstateShare) : "계산 중"
+                value: item.assetAllocation
+                  ? formatPercent(item.assetAllocation.realEstateShare)
+                  : "계산 중"
               },
-              { key: "asset-delta", label: "증감", value: formatAssetEokDelta(item.totalDelta) },
+              {
+                key: "asset-delta",
+                label: "증감",
+                value: formatAssetEokDelta(item.totalDelta)
+              },
               {
                 key: "asset-date",
                 label: "공개일",
@@ -206,7 +231,9 @@ export function AccountabilityLeaderboard({
 
             return (
               <li key={item.memberId} className="ranking-item">
-                <div className="ranking-item__rank">{formatNumber(index + 1)}</div>
+                <div className="ranking-item__rank">
+                  {formatNumber(index + 1)}
+                </div>
                 <div className="ranking-item__content">
                   <div className="ranking-item__header">
                     <div className="ranking-item__main">
@@ -214,14 +241,22 @@ export function AccountabilityLeaderboard({
                         name={item.name}
                         party={item.party}
                         photoUrl={item.photoUrl}
-                        calendarHref={buildCalendarHref({ memberId: item.memberId })}
+                        calendarHref={buildCalendarHref({
+                          memberId: item.memberId
+                        })}
                         size="small"
                       />
                     </div>
-                    <div className={`ranking-item__stats ranking-item__stats--${metricOption.styleKey}`}>
-                      <span className="ranking-item__stats-label">{metricLabel}</span>
+                    <div
+                      className={`ranking-item__stats ranking-item__stats--${metricOption.styleKey}`}
+                    >
+                      <span className="ranking-item__stats-label">
+                        {metricLabel}
+                      </span>
                       <strong>{formatAssetEok(item.metricValue)}</strong>
-                      <span className="ranking-item__stats-rate">{secondaryText}</span>
+                      <span className="ranking-item__stats-rate">
+                        {secondaryText}
+                      </span>
                     </div>
                   </div>
                   <div className="ranking-item__graph" aria-hidden="true">
@@ -229,11 +264,15 @@ export function AccountabilityLeaderboard({
                       <>
                         <span
                           className="ranking-item__segment ranking-item__segment--real-estate-share"
-                          style={{ width: `${item.assetAllocation.realEstateShare * 100}%` }}
+                          style={{
+                            width: `${item.assetAllocation.realEstateShare * 100}%`
+                          }}
                         />
                         <span
                           className="ranking-item__segment ranking-item__segment--other-assets-share"
-                          style={{ width: `${(1 - item.assetAllocation.realEstateShare) * 100}%` }}
+                          style={{
+                            width: `${(1 - item.assetAllocation.realEstateShare) * 100}%`
+                          }}
                         />
                       </>
                     ) : (
@@ -249,8 +288,12 @@ export function AccountabilityLeaderboard({
                         key={metaItem.key}
                         className={`ranking-item__meta-item ranking-item__meta-item--${metaItem.key}`}
                       >
-                        <span className="ranking-item__meta-label">{metaItem.label}</span>
-                        <strong className="ranking-item__meta-value">{metaItem.value}</strong>
+                        <span className="ranking-item__meta-label">
+                          {metaItem.label}
+                        </span>
+                        <strong className="ranking-item__meta-value">
+                          {metaItem.value}
+                        </strong>
                       </span>
                     ))}
                   </div>
@@ -263,12 +306,22 @@ export function AccountabilityLeaderboard({
         <ol className="ranking-list">
           {rankedItems.map((item, index) => {
             const yesCount = getYesCount(item);
-            const noShare = item.totalRecordedVotes > 0 ? (item.noCount / item.totalRecordedVotes) * 100 : 0;
+            const noShare =
+              item.totalRecordedVotes > 0
+                ? (item.noCount / item.totalRecordedVotes) * 100
+                : 0;
             const abstainShare =
-              item.totalRecordedVotes > 0 ? (item.abstainCount / item.totalRecordedVotes) * 100 : 0;
+              item.totalRecordedVotes > 0
+                ? (item.abstainCount / item.totalRecordedVotes) * 100
+                : 0;
             const absentShare =
-              item.totalRecordedVotes > 0 ? (item.absentCount / item.totalRecordedVotes) * 100 : 0;
-            const yesShare = item.totalRecordedVotes > 0 ? (yesCount / item.totalRecordedVotes) * 100 : 0;
+              item.totalRecordedVotes > 0
+                ? (item.absentCount / item.totalRecordedVotes) * 100
+                : 0;
+            const yesShare =
+              item.totalRecordedVotes > 0
+                ? (yesCount / item.totalRecordedVotes) * 100
+                : 0;
             const attendanceSummary = attendanceByMemberId?.get(item.memberId);
             const breakdownItems = [
               { key: "yes", label: "찬성", count: yesCount },
@@ -277,13 +330,16 @@ export function AccountabilityLeaderboard({
               { key: "absent", label: "불참", count: item.absentCount }
             ] as const;
 
-            const absentRate = item.totalRecordedVotes > 0
-              ? item.absentCount / item.totalRecordedVotes
-              : null;
+            const absentRate =
+              item.totalRecordedVotes > 0
+                ? item.absentCount / item.totalRecordedVotes
+                : null;
 
             return (
               <li key={item.memberId} className="ranking-item">
-                <div className="ranking-item__rank">{formatNumber(index + 1)}</div>
+                <div className="ranking-item__rank">
+                  {formatNumber(index + 1)}
+                </div>
                 <div className="ranking-item__content">
                   <div className="ranking-item__header">
                     <div className="ranking-item__main">
@@ -291,7 +347,9 @@ export function AccountabilityLeaderboard({
                         name={item.name}
                         party={item.party}
                         photoUrl={item.photoUrl}
-                        calendarHref={buildCalendarHref({ memberId: item.memberId })}
+                        calendarHref={buildCalendarHref({
+                          memberId: item.memberId
+                        })}
                         size="small"
                       />
                       {metric === "absent" && absentRate !== null ? (
@@ -301,7 +359,9 @@ export function AccountabilityLeaderboard({
                       ) : null}
                     </div>
                     <div className="ranking-item__stats">
-                      <span className="ranking-item__stats-label">출석 현황</span>
+                      <span className="ranking-item__stats-label">
+                        출석 현황
+                      </span>
                       <strong>
                         {attendanceSummary
                           ? `출석 ${formatNumber(attendanceSummary.attendedDays)}일 / 대상 ${formatNumber(
@@ -340,7 +400,9 @@ export function AccountabilityLeaderboard({
                         key={breakdownItem.key}
                         className={`ranking-item__meta-item ranking-item__meta-item--${breakdownItem.key}`}
                       >
-                        <span className="ranking-item__meta-label">{breakdownItem.label}</span>
+                        <span className="ranking-item__meta-label">
+                          {breakdownItem.label}
+                        </span>
                         <strong className="ranking-item__meta-value">{`${formatNumber(breakdownItem.count)}건`}</strong>
                       </span>
                     ))}

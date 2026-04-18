@@ -1,8 +1,7 @@
 import type {
   MemberRecord,
   MemberProfile,
-  OfficialTally,
-  VoteFactRecord
+  OfficialTally
 } from "@lawmaker-monitor/schemas";
 
 export type SourceContext = {

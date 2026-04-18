@@ -12,7 +12,11 @@
     "build:constituency-boundaries": "npm run build:constituency-boundaries --workspace @lawmaker-monitor/ingest",
     "build:data": "npm run build:data --workspace @lawmaker-monitor/ingest",
     "dev:web": "npm run dev --workspace @lawmaker-monitor/web",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "ingest:live": "npm run ingest:live --workspace @lawmaker-monitor/ingest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "mirror:documents": "npm run mirror:documents --workspace @lawmaker-monitor/ingest",
     "monitor:sources": "npm run monitor:sources --workspace @lawmaker-monitor/ingest",
     "sync:property-member-context": "npm run sync:property-member-context --workspace @lawmaker-monitor/ingest",
@@ -27,13 +31,21 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
     "@types/node": "^24.5.2",
+    "eslint": "^9.39.4",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.5.0",
     "jsdom": "^26.1.0",
+    "prettier": "^3.8.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.9.2",
+    "typescript-eslint": "^8.58.2",
     "vitest": "^3.2.4"
   }
 }

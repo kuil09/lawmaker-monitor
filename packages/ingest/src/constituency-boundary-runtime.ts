@@ -1,13 +1,13 @@
 import { createRequire } from "node:module";
 
+import { sha256 } from "./utils.js";
+
 import type {
   ConstituencyBoundaryExport,
   ConstituencyBoundaryFeature,
   ConstituencyBoundariesIndexExport,
   ConstituencyBoundariesIndexProvince
 } from "@lawmaker-monitor/schemas";
-
-import { sha256 } from "./utils.js";
 
 const require = createRequire(import.meta.url);
 const topojsonServer = require("topojson-server") as {
@@ -33,10 +33,11 @@ type Topology = {
   transform?: Record<string, unknown>;
 };
 
-export type ConstituencyBoundaryProvinceShard = ConstituencyBoundariesIndexProvince & {
-  content: string;
-  topology: Topology;
-};
+export type ConstituencyBoundaryProvinceShard =
+  ConstituencyBoundariesIndexProvince & {
+    content: string;
+    topology: Topology;
+  };
 
 export type ConstituencyBoundaryRuntimeArtifacts = {
   index: ConstituencyBoundariesIndexExport;
@@ -44,14 +45,20 @@ export type ConstituencyBoundaryRuntimeArtifacts = {
   shards: ConstituencyBoundaryProvinceShard[];
 };
 
-export const CONSTITUENCY_BOUNDARIES_INDEX_PATH = "exports/constituency_boundaries/index.json";
-export const CONSTITUENCY_BOUNDARY_PROVINCES_DIR = "exports/constituency_boundaries/provinces";
+export const CONSTITUENCY_BOUNDARIES_INDEX_PATH =
+  "exports/constituency_boundaries/index.json";
+export const CONSTITUENCY_BOUNDARY_PROVINCES_DIR =
+  "exports/constituency_boundaries/provinces";
 
-export function buildConstituencyBoundaryProvinceShardPath(provinceShortName: string): string {
+export function buildConstituencyBoundaryProvinceShardPath(
+  provinceShortName: string
+): string {
   return `${CONSTITUENCY_BOUNDARY_PROVINCES_DIR}/${provinceShortName}.topo.json`;
 }
 
-function cloneFeature(feature: ConstituencyBoundaryFeature): ConstituencyBoundaryFeature {
+function cloneFeature(
+  feature: ConstituencyBoundaryFeature
+): ConstituencyBoundaryFeature {
   return {
     type: "Feature",
     properties: {
@@ -62,11 +69,15 @@ function cloneFeature(feature: ConstituencyBoundaryFeature): ConstituencyBoundar
       emdCodes: [...feature.properties.emdCodes],
       emdNames: [...feature.properties.emdNames]
     },
-    geometry: JSON.parse(JSON.stringify(feature.geometry)) as ConstituencyBoundaryFeature["geometry"]
+    geometry: JSON.parse(
+      JSON.stringify(feature.geometry)
+    ) as ConstituencyBoundaryFeature["geometry"]
   };
 }
 
-function buildProvinceTopology(features: ConstituencyBoundaryFeature[]): Topology {
+function buildProvinceTopology(
+  features: ConstituencyBoundaryFeature[]
+): Topology {
   return topojsonServer.topology({
     constituencies: {
       type: "FeatureCollection",
@@ -90,7 +101,9 @@ export function buildConstituencyBoundaryRuntimeArtifacts(args: {
   }
 
   const shards = [...provinces.entries()]
-    .sort(([leftProvince], [rightProvince]) => leftProvince.localeCompare(rightProvince, "ko"))
+    .sort(([leftProvince], [rightProvince]) =>
+      leftProvince.localeCompare(rightProvince, "ko")
+    )
     .map(([provinceShortName, features]) => {
       const sortedFeatures = [...features].sort((left, right) =>
         left.properties.memberDistrictKey.localeCompare(
@@ -98,7 +111,8 @@ export function buildConstituencyBoundaryRuntimeArtifacts(args: {
           "ko"
         )
       );
-      const provinceName = sortedFeatures[0]?.properties.provinceName ?? provinceShortName;
+      const provinceName =
+        sortedFeatures[0]?.properties.provinceName ?? provinceShortName;
       const inconsistentProvince = sortedFeatures.find(
         (feature) => feature.properties.provinceName !== provinceName
       );
@@ -109,7 +123,8 @@ export function buildConstituencyBoundaryRuntimeArtifacts(args: {
         );
       }
 
-      const path = buildConstituencyBoundaryProvinceShardPath(provinceShortName);
+      const path =
+        buildConstituencyBoundaryProvinceShardPath(provinceShortName);
       const topology = buildProvinceTopology(sortedFeatures);
       const content = JSON.stringify(topology);
 
@@ -134,7 +149,9 @@ export function buildConstituencyBoundaryRuntimeArtifacts(args: {
     sources: args.boundaryExport.sources.map((source) => ({
       ...source
     })),
-    provinces: shards.map(({ content: _content, topology: _topology, ...province }) => province)
+    provinces: shards.map(
+      ({ content: _content, topology: _topology, ...province }) => province
+    )
   } satisfies ConstituencyBoundariesIndexExport;
 
   return {

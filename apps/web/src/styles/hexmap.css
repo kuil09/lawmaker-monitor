@@ -1,7 +1,9 @@
-.hexmap-page {
-  padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
+@layer feature {
+  .hexmap-page {
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
 }
 
 .hexmap-page__header {
@@ -48,7 +50,10 @@
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
 }
 
 .hexmap-metric-tab:hover {

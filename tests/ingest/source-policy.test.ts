@@ -17,7 +17,9 @@ const snapshotManifestPath = resolve(
 );
 
 function readFixtureManifest(): RawSnapshotManifest {
-  return JSON.parse(readFileSync(snapshotManifestPath, "utf8")) as RawSnapshotManifest;
+  return JSON.parse(
+    readFileSync(snapshotManifestPath, "utf8")
+  ) as RawSnapshotManifest;
 }
 
 describe("assembly source policy", () => {
@@ -34,20 +36,40 @@ describe("assembly source policy", () => {
     const expectedPaths = getOfficialAssemblyEndpointPaths();
 
     expect(config.endpoints.memberInfoPath).toBe(expectedPaths.memberInfo);
-    expect(config.endpoints.memberProfileAllPath).toBe(expectedPaths.memberProfileAll);
-    expect(config.endpoints.memberHistoryPath).toBe(expectedPaths.memberHistory);
-    expect(config.endpoints.committeeOverviewPath).toBe(expectedPaths.committeeOverview);
-    expect(config.endpoints.committeeRosterPath).toBe(expectedPaths.committeeRoster);
-    expect(config.endpoints.billVoteSummaryPath).toBe(expectedPaths.billVoteSummary);
+    expect(config.endpoints.memberProfileAllPath).toBe(
+      expectedPaths.memberProfileAll
+    );
+    expect(config.endpoints.memberHistoryPath).toBe(
+      expectedPaths.memberHistory
+    );
+    expect(config.endpoints.committeeOverviewPath).toBe(
+      expectedPaths.committeeOverview
+    );
+    expect(config.endpoints.committeeRosterPath).toBe(
+      expectedPaths.committeeRoster
+    );
+    expect(config.endpoints.billVoteSummaryPath).toBe(
+      expectedPaths.billVoteSummary
+    );
     expect(config.endpoints.votesPath).toBe(expectedPaths.votes);
-    expect(config.endpoints.plenarySchedulePath).toBe(expectedPaths.plenarySchedule);
-    expect(config.endpoints.plenaryLawBillsPath).toBe(expectedPaths.plenaryBillsLaw);
-    expect(config.endpoints.plenaryBudgetBillsPath).toBe(expectedPaths.plenaryBillsBudget);
+    expect(config.endpoints.plenarySchedulePath).toBe(
+      expectedPaths.plenarySchedule
+    );
+    expect(config.endpoints.plenaryLawBillsPath).toBe(
+      expectedPaths.plenaryBillsLaw
+    );
+    expect(config.endpoints.plenaryBudgetBillsPath).toBe(
+      expectedPaths.plenaryBillsBudget
+    );
     expect(config.endpoints.plenarySettlementBillsPath).toBe(
       expectedPaths.plenaryBillsSettlement
     );
-    expect(config.endpoints.plenaryOtherBillsPath).toBe(expectedPaths.plenaryBillsOther);
-    expect(config.endpoints.plenaryMinutesPath).toBe(expectedPaths.plenaryMinutes);
+    expect(config.endpoints.plenaryOtherBillsPath).toBe(
+      expectedPaths.plenaryBillsOther
+    );
+    expect(config.endpoints.plenaryMinutesPath).toBe(
+      expectedPaths.plenaryMinutes
+    );
     expect(config.endpoints.livePath).toBe(expectedPaths.liveWebcast);
   });
 
@@ -59,7 +81,9 @@ describe("assembly source policy", () => {
 
   it("rejects forbidden sheet endpoints", () => {
     const manifest = readFixtureManifest();
-    const voteEntryIndex = manifest.entries.findIndex((entry) => entry.kind === "vote_detail");
+    const voteEntryIndex = manifest.entries.findIndex(
+      (entry) => entry.kind === "vote_detail"
+    );
 
     if (voteEntryIndex < 0) {
       throw new Error("Fixture manifest does not include a vote_detail entry.");
@@ -72,7 +96,8 @@ describe("assembly source policy", () => {
           ? {
               ...entry,
               endpointCode: "searchSheetData.do",
-              sourceUrl: "https://open.assembly.go.kr/portal/data/sheet/searchSheetData.do"
+              sourceUrl:
+                "https://open.assembly.go.kr/portal/data/sheet/searchSheetData.do"
             }
           : entry
       )

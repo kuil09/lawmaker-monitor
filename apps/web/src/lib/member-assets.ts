@@ -31,12 +31,17 @@ export type AssetHistorySnapshot = Pick<
   "series" | "categorySeries" | "latestSummary"
 >;
 
-export function getFamilyGapLatest(history: MemberAssetsHistoryExport | null): number | null {
+export function getFamilyGapLatest(
+  history: MemberAssetsHistoryExport | null
+): number | null {
   if (!history?.selfOnly) {
     return null;
   }
 
-  return history.latestSummary.currentAmount - history.selfOnly.latestSummary.currentAmount;
+  return (
+    history.latestSummary.currentAmount -
+    history.selfOnly.latestSummary.currentAmount
+  );
 }
 
 export function resolveAssetHistorySnapshot(
@@ -67,8 +72,13 @@ function getCategoryAmountAtDate(
     return 0;
   }
 
-  const series = history.categorySeries.find((entry) => entry.categoryLabel === categoryLabel);
-  return series?.points.find((point) => point.reportedAt === reportedAt)?.currentAmount ?? 0;
+  const series = history.categorySeries.find(
+    (entry) => entry.categoryLabel === categoryLabel
+  );
+  return (
+    series?.points.find((point) => point.reportedAt === reportedAt)
+      ?.currentAmount ?? 0
+  );
 }
 
 export function buildRealEstateFocusSummary(
@@ -85,11 +95,16 @@ export function buildRealEstateFocusSummary(
     return null;
   }
 
-  const buildingAmount = getCategoryAmountAtDate(history, "건물", latestReportedAt);
+  const buildingAmount = getCategoryAmountAtDate(
+    history,
+    "건물",
+    latestReportedAt
+  );
   const landAmount = getCategoryAmountAtDate(history, "토지", latestReportedAt);
   const latestAmount = buildingAmount + landAmount;
   const firstAmount = explicitRealEstateCategoryLabels.reduce(
-    (sum, categoryLabel) => sum + getCategoryAmountAtDate(history, categoryLabel, firstReportedAt),
+    (sum, categoryLabel) =>
+      sum + getCategoryAmountAtDate(history, categoryLabel, firstReportedAt),
     0
   );
 
@@ -115,7 +130,10 @@ export function getLatestRealEstateTotalFromHistory(
   history: MemberAssetsHistoryExport | null,
   scopeMode: AssetScopeMode = "familyIncluded"
 ): number | null {
-  return buildRealEstateFocusSummary(resolveAssetHistorySnapshot(history, scopeMode))?.latestAmount ?? null;
+  return (
+    buildRealEstateFocusSummary(resolveAssetHistorySnapshot(history, scopeMode))
+      ?.latestAmount ?? null
+  );
 }
 
 export function buildLatestAssetAllocationSummary(
@@ -129,7 +147,9 @@ export function buildLatestAssetAllocationSummary(
 
   const latestReportedAt = snapshot.latestSummary.reportedAt;
   const positiveAssetTotal = snapshot.categorySeries.reduce((sum, series) => {
-    const amount = series.points.find((point) => point.reportedAt === latestReportedAt)?.currentAmount ?? 0;
+    const amount =
+      series.points.find((point) => point.reportedAt === latestReportedAt)
+        ?.currentAmount ?? 0;
     return amount > 0 ? sum + amount : sum;
   }, 0);
 
@@ -141,8 +161,14 @@ export function buildLatestAssetAllocationSummary(
     getLatestRealEstateTotalFromHistory(history, scopeMode) ?? 0,
     0
   );
-  const normalizedRealEstateAmount = Math.min(realEstateAmount, positiveAssetTotal);
-  const otherAssetAmount = Math.max(positiveAssetTotal - normalizedRealEstateAmount, 0);
+  const normalizedRealEstateAmount = Math.min(
+    realEstateAmount,
+    positiveAssetTotal
+  );
+  const otherAssetAmount = Math.max(
+    positiveAssetTotal - normalizedRealEstateAmount,
+    0
+  );
 
   return {
     positiveAssetTotal,

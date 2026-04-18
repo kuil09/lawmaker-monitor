@@ -51,7 +51,10 @@ export function getSnapshotRoot(outputDir: string, snapshotId: string): string {
   return join(resolve(outputDir), "raw", snapshotId);
 }
 
-export function getSnapshotManifestPath(outputDir: string, snapshotId: string): string {
+export function getSnapshotManifestPath(
+  outputDir: string,
+  snapshotId: string
+): string {
   return join(getSnapshotRoot(outputDir, snapshotId), SNAPSHOT_MANIFEST_FILE);
 }
 
@@ -67,7 +70,10 @@ export async function writeSnapshotPayload(args: {
   body: string;
   metadata?: Record<string, string>;
 }): Promise<RawSnapshotEntry> {
-  const absolutePath = join(getSnapshotRoot(args.outputDir, args.snapshotId), args.relativePath);
+  const absolutePath = join(
+    getSnapshotRoot(args.outputDir, args.snapshotId),
+    args.relativePath
+  );
 
   await mkdir(dirname(absolutePath), { recursive: true });
   await writeFile(absolutePath, args.body);
@@ -120,11 +126,15 @@ export async function resolveRawSnapshot(rawRoot: string): Promise<{
   if (await pathExists(rawNestedRoot)) {
     const nested = await readdir(rawNestedRoot, { withFileTypes: true });
     candidates.push(
-      ...nested.filter((entry) => entry.isDirectory()).map((entry) => join(rawNestedRoot, entry.name))
+      ...nested
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => join(rawNestedRoot, entry.name))
     );
   }
 
-  const directChildren = await readdir(root, { withFileTypes: true }).catch(() => []);
+  const directChildren = await readdir(root, { withFileTypes: true }).catch(
+    () => []
+  );
   candidates.push(
     ...directChildren
       .filter((entry) => entry.isDirectory())

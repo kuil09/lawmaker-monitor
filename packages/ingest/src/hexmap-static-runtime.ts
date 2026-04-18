@@ -2,6 +2,9 @@ import { polygonToCells } from "h3-js";
 import proj4 from "proj4";
 import { feature } from "topojson-client";
 
+import { sha256 } from "./utils.js";
+
+import type { ConstituencyBoundaryProvinceShard } from "./constituency-boundary-runtime.js";
 import type {
   GeoJsonMultiPolygon,
   GeoJsonPolygon,
@@ -12,9 +15,6 @@ import type {
   HexmapStaticProvinceArtifact
 } from "@lawmaker-monitor/schemas";
 
-import type { ConstituencyBoundaryProvinceShard } from "./constituency-boundary-runtime.js";
-import { sha256 } from "./utils.js";
-
 const KOREAN_TM =
   "+proj=tmerc +lat_0=38 +lon_0=127.5 +k=0.9996 +x_0=1000000 +y_0=2000000 +ellps=GRS80 +units=m +no_defs";
 const WGS84 = "+proj=longlat +datum=WGS84 +no_defs";
@@ -22,7 +22,8 @@ const DETAIL_RES_STEP = 20;
 const FULL_FEATURE_STEP = 1;
 const LOW_ZOOM_DISTRICT_STEP = 6;
 
-type ConstituencyBoundaryTopology = ConstituencyBoundaryProvinceShard["topology"];
+type ConstituencyBoundaryTopology =
+  ConstituencyBoundaryProvinceShard["topology"];
 
 type FeatureCollection = {
   type: "FeatureCollection";
@@ -47,11 +48,15 @@ export type HexmapStaticRuntimeArtifacts = {
 export const HEXMAP_STATIC_INDEX_PATH = "exports/hexmap_static/index.json";
 export const HEXMAP_STATIC_PROVINCES_DIR = "exports/hexmap_static/provinces";
 
-export function buildHexmapStaticProvinceArtifactPath(provinceShortName: string): string {
+export function buildHexmapStaticProvinceArtifactPath(
+  provinceShortName: string
+): string {
   return `${HEXMAP_STATIC_PROVINCES_DIR}/${provinceShortName}.json`;
 }
 
-function normalizeConstituencyLookupKey(value: string | null | undefined): string {
+function normalizeConstituencyLookupKey(
+  value: string | null | undefined
+): string {
   if (!value) {
     return "";
   }
@@ -110,14 +115,16 @@ function reprojectRing(ring: number[][], step: number): number[][] {
     return normalizeRing(result);
   }
 
-  return normalizeRing(ring.flatMap((point) => {
-    const [x, y] = point ?? [];
-    if (x === undefined || y === undefined) {
-      return [];
-    }
+  return normalizeRing(
+    ring.flatMap((point) => {
+      const [x, y] = point ?? [];
+      if (x === undefined || y === undefined) {
+        return [];
+      }
 
-    return [toWgs84(x, y)];
-  }));
+      return [toWgs84(x, y)];
+    })
+  );
 }
 
 function reprojectGeometry(
@@ -145,10 +152,15 @@ function extractReprojectedFeatures(
   topology: ConstituencyBoundaryTopology,
   step: number
 ): HexmapStaticDistrict[] {
-  const collection = feature(topology, topology.objects.constituencies) as FeatureCollection;
+  const collection = feature(
+    topology,
+    topology.objects.constituencies
+  ) as FeatureCollection;
 
   return collection.features.map((currentFeature) => {
-    const label = (currentFeature.properties.memberDistrictLabel as string | undefined) ?? "";
+    const label =
+      (currentFeature.properties.memberDistrictLabel as string | undefined) ??
+      "";
 
     return {
       type: "Feature",
@@ -226,7 +238,11 @@ function buildStaticHexCells(
 
     for (const polygon of polygons) {
       try {
-        const polygonCells = polygonToCells(polygon as number[][][], detailRes, true);
+        const polygonCells = polygonToCells(
+          polygon as number[][][],
+          detailRes,
+          true
+        );
         for (const h3Index of polygonCells) {
           cells.push({
             h3Index,
@@ -271,7 +287,9 @@ export function buildHexmapStaticRuntimeArtifacts(args: {
 
     return {
       provinceShortName: provinceShard.provinceShortName,
-      path: buildHexmapStaticProvinceArtifactPath(provinceShard.provinceShortName),
+      path: buildHexmapStaticProvinceArtifactPath(
+        provinceShard.provinceShortName
+      ),
       checksumSha256: sha256(content),
       detailRes,
       cellCount: cells.length,
@@ -284,7 +302,9 @@ export function buildHexmapStaticRuntimeArtifacts(args: {
   const index = {
     generatedAt: args.generatedAt,
     snapshotId: args.snapshotId,
-    provinces: provinces.map(({ content: _content, artifact: _artifact, ...province }) => province)
+    provinces: provinces.map(
+      ({ content: _content, artifact: _artifact, ...province }) => province
+    )
   } satisfies HexmapStaticIndexExport;
 
   return {
