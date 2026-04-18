@@ -152,6 +152,28 @@
   align-items: start;
 }
 
+.activity-drawer__member-primary .member-identity--activity-card.member-identity--large,
+.activity-drawer__member-primary
+  .member-identity--activity-card.member-identity--large
+  .member-identity__primary {
+  align-items: start;
+}
+
+.activity-drawer__member-primary
+  .member-identity--activity-card.member-identity--large
+  .member-identity__avatar {
+  width: clamp(4.15rem, 5.2vw, 4.85rem);
+  height: clamp(5.54rem, 6.93vw, 6.47rem);
+  border-radius: 1.15rem;
+  object-position: center 20%;
+}
+
+.activity-drawer__member-primary
+  .member-identity--activity-card.member-identity--large
+  .member-identity__avatar--fallback {
+  font-size: clamp(1.25rem, 1.05rem + 0.55vw, 1.55rem);
+}
+
 .activity-drawer__member-copy {
   max-width: 50ch;
   line-height: 1.45;
@@ -1176,6 +1198,14 @@
 
   .activity-drawer__member-primary {
     gap: 0.72rem;
+  }
+
+  .activity-drawer__member-primary
+    .member-identity--activity-card.member-identity--large
+    .member-identity__avatar {
+    width: clamp(3.85rem, 21vw, 4.35rem);
+    height: clamp(5.13rem, 28vw, 5.8rem);
+    border-radius: 1rem;
   }
 
   .activity-drawer__identity-row {

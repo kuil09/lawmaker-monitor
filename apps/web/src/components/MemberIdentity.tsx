@@ -7,6 +7,7 @@ type MemberIdentityProps = {
   calendarHref?: string | null;
   size?: "small" | "medium" | "large";
   showParty?: boolean;
+  avatarVariant?: "default" | "activity-card";
 };
 
 export function MemberIdentity({
@@ -15,22 +16,33 @@ export function MemberIdentity({
   photoUrl,
   calendarHref,
   size = "medium",
-  showParty = true
+  showParty = true,
+  avatarVariant = "default"
 }: MemberIdentityProps) {
   const resolvedPhotoUrl = getOptimizedMemberPhotoUrl(photoUrl);
+  const variantClassName =
+    avatarVariant === "activity-card" ? "member-identity--activity-card" : "";
+  const avatarClassName =
+    avatarVariant === "activity-card"
+      ? "member-identity__avatar member-identity__avatar--activity-card"
+      : "member-identity__avatar";
+  const fallbackAvatarClassName =
+    avatarVariant === "activity-card"
+      ? "member-identity__avatar member-identity__avatar--fallback member-identity__avatar--activity-card"
+      : "member-identity__avatar member-identity__avatar--fallback";
 
   const identityBody = (
     <>
       {resolvedPhotoUrl ? (
         <img
-          className="member-identity__avatar"
+          className={avatarClassName}
           src={resolvedPhotoUrl}
           alt=""
           loading="lazy"
         />
       ) : (
         <span
-          className="member-identity__avatar member-identity__avatar--fallback"
+          className={fallbackAvatarClassName}
           aria-hidden="true"
         >
           {name.slice(0, 1)}
@@ -46,7 +58,9 @@ export function MemberIdentity({
   );
 
   return (
-    <div className={`member-identity member-identity--${size}`}>
+    <div
+      className={`member-identity member-identity--${size} ${variantClassName}`.trim()}
+    >
       {calendarHref ? (
         <a href={calendarHref} className="member-identity__primary">
           {identityBody}

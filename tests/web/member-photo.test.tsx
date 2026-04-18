@@ -41,6 +41,7 @@ describe("member photo optimization", () => {
       <MemberIdentity
         name="김아라"
         photoUrl="https://www.assembly.go.kr/static/portal/img/openassm/new/91fb2f6800d143f8a702091abae98326.jpg"
+        avatarVariant="activity-card"
       />
     );
 
@@ -49,5 +50,18 @@ describe("member photo optimization", () => {
     expect(avatar?.getAttribute("src")).toBe(
       "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/91fb2f6800d143f8a702091abae98326.jpg"
     );
+    expect(avatar).toHaveClass("member-identity__avatar--activity-card");
+  });
+
+  it("applies the activity-card frame to fallback avatars", () => {
+    const { container } = render(
+      <MemberIdentity name="김아라" avatarVariant="activity-card" />
+    );
+
+    const fallbackAvatar = container.querySelector(
+      ".member-identity__avatar--fallback"
+    );
+
+    expect(fallbackAvatar).toHaveClass("member-identity__avatar--activity-card");
   });
 });

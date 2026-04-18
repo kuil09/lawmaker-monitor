@@ -2990,6 +2990,7 @@ export function ActivityCalendarPage({
                             memberId: selectedMember.memberId
                           })}
                           size="large"
+                          avatarVariant="activity-card"
                         />
                         <div className="activity-page__member-actions">
                           <ExternalSiteLink
