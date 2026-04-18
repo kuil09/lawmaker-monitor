@@ -272,6 +272,15 @@
   color: var(--text-muted);
 }
 
+.leaderboard-panel__empty {
+  margin: 0;
+  padding: 1.1rem 1.25rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: color-mix(in srgb, var(--surface-2) 82%, white);
+  color: var(--text-muted);
+}
+
 /* ─── 리더보드 랭킹 ─────────────────────────────────── */
 .leaderboard-panel h2 {
   font-family: var(--font-sans);

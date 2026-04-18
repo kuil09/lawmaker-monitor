@@ -136,7 +136,7 @@ describe("web app shell", () => {
     });
   });
 
-  it("renders the party-line leaderboard mode on the home screen", async () => {
+  it("shows the party-line empty state on the home screen when no opportunities exist", async () => {
     render(<App />);
 
     fireEvent.click(await screen.findByRole("tab", { name: "당내 이탈" }));
@@ -146,7 +146,11 @@ describe("web app shell", () => {
         "당 기준이 성립한 기록표결에서 실제 참여했을 때 얼마나 다른 표를 던졌는지 보여 줍니다. 불참은 이탈로 세지 않고 기회 대비 참여 여부만 따로 남깁니다."
       )
     ).toBeInTheDocument();
-    expect(screen.getAllByText("당내 이탈도").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        "당 기준이 성립한 표결이 아직 집계되지 않았습니다. 데이터가 갱신되면 순위가 표시됩니다."
+      )
+    ).toBeInTheDocument();
   });
 
   it("shows the party-line empty state on the trends route when no opportunities exist", async () => {

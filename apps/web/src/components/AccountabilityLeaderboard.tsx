@@ -142,9 +142,13 @@ export function AccountabilityLeaderboard({
   const metricOption =
     metricOptions.find((option) => option.value === metric) ??
     defaultMetricOption;
+  const visibleItems =
+    metric === "partyLine"
+      ? items.filter((item) => item.partyLineOpportunityCount > 0)
+      : items;
   const rankedItems = isAssetMetric(metric)
     ? []
-    : rankLeaderboardItems(items, metric).slice(0, 10);
+    : rankLeaderboardItems(visibleItems, metric).slice(0, 10);
   const rankedAssetItems = isAssetMetric(metric)
     ? rankAssetItems(assetItems, metric).slice(0, 10)
     : [];
@@ -311,6 +315,11 @@ export function AccountabilityLeaderboard({
             );
           })}
         </ol>
+      ) : metric === "partyLine" && rankedItems.length === 0 ? (
+        <p className="leaderboard-panel__empty">
+          당 기준이 성립한 표결이 아직 집계되지 않았습니다. 데이터가
+          갱신되면 순위가 표시됩니다.
+        </p>
       ) : (
         <ol className="ranking-list">
           {rankedItems.map((item, index) => {
