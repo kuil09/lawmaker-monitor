@@ -3,7 +3,10 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { applyMemberAssetsIndexRealEstateFallbacks } from "../../apps/web/src/lib/member-assets.js";
+import {
+  applyMemberAssetsIndexRealEstateFallbacks,
+  resolveAssetHistorySnapshot
+} from "../../apps/web/src/lib/member-assets.js";
 
 const fixturesDir = resolve(process.cwd(), "tests/fixtures/contracts");
 const memberAssetsIndexFixture = JSON.parse(
@@ -25,6 +28,13 @@ const memberAssetsHistoryFixtures = {
 };
 
 describe("member-assets", () => {
+  it("resolveAssetHistorySnapshot reuses history for familyIncluded (stable identity)", () => {
+    const history = memberAssetsHistoryFixtures.M001;
+    expect(resolveAssetHistorySnapshot(history, "familyIncluded")).toBe(
+      history
+    );
+  });
+
   it("fills missing real-estate totals from member history exports", () => {
     const legacyIndexFixture = structuredClone(memberAssetsIndexFixture);
     for (const member of legacyIndexFixture.members) {

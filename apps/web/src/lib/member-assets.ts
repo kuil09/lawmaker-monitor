@@ -56,11 +56,8 @@ export function resolveAssetHistorySnapshot(
     return history.selfOnly;
   }
 
-  return {
-    series: history.series,
-    categorySeries: history.categorySeries,
-    latestSummary: history.latestSummary
-  };
+  // Use `history` directly so familyIncluded snapshots stay referentially stable.
+  return history;
 }
 
 function getCategoryAmountAtDate(

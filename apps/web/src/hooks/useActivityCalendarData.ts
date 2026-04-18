@@ -44,6 +44,7 @@ export function useActivityCalendarData(args: {
     useState<Record<string, boolean | undefined>>({});
 
   const activityCalendarRef = useRef<MemberActivityCalendarExport | null>(null);
+  const isActivityLoadingRef = useRef(false);
   const activityMemberDetailsRef = useRef<
     Record<string, MemberActivityCalendarMemberDetailExport | undefined>
   >({});
@@ -59,10 +60,11 @@ export function useActivityCalendarData(args: {
   activityMemberDetailLoadingRef.current = activityMemberDetailLoading;
 
   const ensureActivityCalendarLoaded = useCallback(async () => {
-    if (activityCalendarRef.current || isActivityLoading) {
+    if (activityCalendarRef.current || isActivityLoadingRef.current) {
       return;
     }
 
+    isActivityLoadingRef.current = true;
     setIsActivityLoading(true);
     setActivityError(null);
 
@@ -82,9 +84,10 @@ export function useActivityCalendarData(args: {
         `활동 캘린더 데이터를 불러오지 못했습니다. ${(error as Error).message}`
       );
     } finally {
+      isActivityLoadingRef.current = false;
       setIsActivityLoading(false);
     }
-  }, [args.manifest, isActivityLoading]);
+  }, [args.manifest]);
 
   useEffect(() => {
     if (!args.shouldLoad) {
