@@ -80,6 +80,35 @@ describe("web data hooks", () => {
     );
   });
 
+  it("loads activity calendar once on failure and still allows manual retry", async () => {
+    dataMocks.loadMemberActivityCalendar
+      .mockRejectedValueOnce(new Error("network"))
+      .mockResolvedValueOnce(memberActivityCalendarFixture);
+
+    const { result } = renderHook(() =>
+      useActivityCalendarData({
+        manifest: null,
+        shouldLoad: true
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.activityError).not.toBeNull();
+    });
+
+    expect(dataMocks.loadMemberActivityCalendar).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await result.current.ensureActivityCalendarLoaded();
+    });
+
+    await waitFor(() => {
+      expect(result.current.activityCalendar).not.toBeNull();
+    });
+
+    expect(dataMocks.loadMemberActivityCalendar).toHaveBeenCalledTimes(2);
+  });
+
   it("supports retrying failed member asset history fetches", async () => {
     dataMocks.loadMemberAssetsIndex.mockResolvedValue(memberAssetsIndexFixture);
     dataMocks.loadMemberAssetsHistory
