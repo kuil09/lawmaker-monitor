@@ -1,7 +1,12 @@
 import type { AccountabilitySummaryItem } from "@lawmaker-monitor/schemas";
 
 export type AccountabilityMetric = "combined" | "absent" | "abstain" | "no";
-export type LeaderboardMetric = "yes" | "no" | "abstain" | "absent";
+export type LeaderboardMetric =
+  | "yes"
+  | "no"
+  | "abstain"
+  | "absent"
+  | "partyLine";
 
 export function getYesCount(item: AccountabilitySummaryItem): number {
   return Math.max(
@@ -48,6 +53,8 @@ export function getLeaderboardMetricCount(
       return item.abstainCount;
     case "absent":
       return item.absentCount;
+    case "partyLine":
+      return item.partyLineDefectionCount;
   }
 }
 
@@ -64,6 +71,8 @@ export function getLeaderboardMetricRate(
       return item.abstainRate;
     case "absent":
       return item.absentRate;
+    case "partyLine":
+      return item.partyLineDefectionRate;
   }
 }
 
@@ -119,6 +128,26 @@ export function rankLeaderboardItems(
   metric: LeaderboardMetric
 ): AccountabilitySummaryItem[] {
   return [...items].sort((left, right) => {
+    if (metric === "partyLine") {
+      if (right.partyLineDefectionRate !== left.partyLineDefectionRate) {
+        return right.partyLineDefectionRate - left.partyLineDefectionRate;
+      }
+
+      if (right.partyLineDefectionCount !== left.partyLineDefectionCount) {
+        return right.partyLineDefectionCount - left.partyLineDefectionCount;
+      }
+
+      if (
+        right.partyLineParticipationCount !== left.partyLineParticipationCount
+      ) {
+        return (
+          right.partyLineParticipationCount - left.partyLineParticipationCount
+        );
+      }
+
+      return left.name.localeCompare(right.name, "ko-KR");
+    }
+
     const rightRate = getLeaderboardMetricRate(right, metric);
     const leftRate = getLeaderboardMetricRate(left, metric);
     if (rightRate !== leftRate) {

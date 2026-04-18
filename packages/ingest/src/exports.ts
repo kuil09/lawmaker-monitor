@@ -59,6 +59,7 @@ type MemberCentricVoteCode = Extract<
   VoteCode,
   "yes" | "no" | "abstain" | "absent"
 >;
+type PartyLineMajorityVoteCode = Exclude<MemberCentricVoteCode, "absent">;
 type VoteHighlight = {
   memberId: string | null;
   memberName: string;
@@ -117,6 +118,15 @@ type WindowVoteCounts = {
   noCount: number;
   abstainCount: number;
   absentCount: number;
+  partyLineOpportunityCount: number;
+  partyLineParticipationCount: number;
+  partyLineDefectionCount: number;
+};
+type VoteFactLookup = Map<string, NormalizedBundle["voteFacts"][number]>;
+type PartyLineMajority = {
+  party: string;
+  voteCode: PartyLineMajorityVoteCode;
+  participantCount: number;
 };
 type WeekRange = {
   weekStart: string;
@@ -292,7 +302,10 @@ function createWindowVoteCounts(): WindowVoteCounts {
     eligibleCount: 0,
     noCount: 0,
     abstainCount: 0,
-    absentCount: 0
+    absentCount: 0,
+    partyLineOpportunityCount: 0,
+    partyLineParticipationCount: 0,
+    partyLineDefectionCount: 0
   };
 }
 
@@ -568,11 +581,16 @@ function getEligibleCurrentMembersForRollCall(args: {
     args.eligibleRollCallIdsByMember?.get(member.memberId)?.has(args.rollCallId)
   );
 }
-function createVoteCodeLookup(
+
+function buildVoteFactLookupKey(rollCallId: string, memberId: string): string {
+  return `${rollCallId}:${memberId}`;
+}
+
+function createVoteFactLookup(
   voteFacts: NormalizedBundle["voteFacts"],
   rollCallIds: Set<string>
-): Map<string, VoteCode> {
-  const lookup = new Map<string, VoteCode>();
+): VoteFactLookup {
+  const lookup: VoteFactLookup = new Map();
 
   for (const voteFact of voteFacts) {
     if (!rollCallIds.has(voteFact.rollCallId)) {
@@ -584,12 +602,56 @@ function createVoteCodeLookup(
     }
 
     lookup.set(
-      `${voteFact.rollCallId}:${voteFact.memberId}`,
-      voteFact.voteCode
+      buildVoteFactLookupKey(voteFact.rollCallId, voteFact.memberId),
+      voteFact
     );
   }
 
   return lookup;
+}
+
+function createVoteCodeLookup(
+  voteFactLookup: VoteFactLookup
+): Map<string, VoteCode> {
+  const lookup = new Map<string, VoteCode>();
+
+  for (const [key, voteFact] of voteFactLookup.entries()) {
+    lookup.set(key, voteFact.voteCode);
+  }
+
+  return lookup;
+}
+
+function resolveVoteFactRecord(args: {
+  rollCallId: string;
+  memberId: string;
+  voteFactLookup: VoteFactLookup;
+}): NormalizedBundle["voteFacts"][number] | undefined {
+  return args.voteFactLookup.get(
+    buildVoteFactLookupKey(args.rollCallId, args.memberId)
+  );
+}
+
+function normalizePartyLabel(value: string | null | undefined): string | null {
+  const normalized = value?.replace(/\s+/g, " ").trim();
+  return normalized ? normalized : null;
+}
+
+function resolveMemberPartyForRollCall(args: {
+  rollCallId: string;
+  member: NormalizedBundle["members"][number];
+  voteFactLookup: VoteFactLookup;
+}): string | null {
+  const voteFact = resolveVoteFactRecord({
+    rollCallId: args.rollCallId,
+    memberId: args.member.memberId,
+    voteFactLookup: args.voteFactLookup
+  });
+
+  return (
+    normalizePartyLabel(voteFact?.party) ??
+    normalizePartyLabel(args.member.party)
+  );
 }
 
 function getMemberCentricEligibleCurrentMembersForRollCall(args: {
@@ -624,6 +686,131 @@ function resolveMemberCentricVoteCode(args: {
   }
 
   return "absent";
+}
+
+function resolvePartyLineMajorityVoteCode(args: {
+  yesCount: number;
+  noCount: number;
+  abstainCount: number;
+}): PartyLineMajorityVoteCode | null {
+  const participantCount = args.yesCount + args.noCount + args.abstainCount;
+  if (participantCount < 2) {
+    return null;
+  }
+
+  if (args.yesCount > participantCount / 2) {
+    return "yes";
+  }
+
+  if (args.noCount > participantCount / 2) {
+    return "no";
+  }
+
+  if (args.abstainCount > participantCount / 2) {
+    return "abstain";
+  }
+
+  return null;
+}
+
+function buildPartyLineMajoritiesByRollCall(args: {
+  currentMembers: NormalizedBundle["members"];
+  eligibleRollCalls: NormalizedBundle["rollCalls"];
+  voteCodeLookup: Map<string, VoteCode>;
+  voteFactLookup: VoteFactLookup;
+  eligibleRollCallIdsByMember?: Map<string, Set<string>>;
+}): Map<string, Map<string, PartyLineMajority>> {
+  const majoritiesByRollCall = new Map<
+    string,
+    Map<string, PartyLineMajority>
+  >();
+
+  for (const rollCall of args.eligibleRollCalls) {
+    const eligibleMembers = getMemberCentricEligibleCurrentMembersForRollCall({
+      currentMembers: args.currentMembers,
+      eligibleRollCallIdsByMember: args.eligibleRollCallIdsByMember,
+      rollCallId: rollCall.rollCallId
+    });
+    const partyCounts = new Map<
+      string,
+      { yesCount: number; noCount: number; abstainCount: number }
+    >();
+
+    for (const member of eligibleMembers) {
+      const party = resolveMemberPartyForRollCall({
+        rollCallId: rollCall.rollCallId,
+        member,
+        voteFactLookup: args.voteFactLookup
+      });
+      if (!party) {
+        continue;
+      }
+
+      const voteCode = resolveMemberCentricVoteCode({
+        rollCallId: rollCall.rollCallId,
+        memberId: member.memberId,
+        voteCodeLookup: args.voteCodeLookup
+      });
+      if (voteCode === "absent") {
+        continue;
+      }
+
+      const currentCounts = partyCounts.get(party) ?? {
+        yesCount: 0,
+        noCount: 0,
+        abstainCount: 0
+      };
+      if (voteCode === "yes") {
+        currentCounts.yesCount += 1;
+      } else if (voteCode === "no") {
+        currentCounts.noCount += 1;
+      } else {
+        currentCounts.abstainCount += 1;
+      }
+
+      partyCounts.set(party, currentCounts);
+    }
+
+    const majorityByParty = new Map<string, PartyLineMajority>();
+    for (const [party, counts] of partyCounts.entries()) {
+      const voteCode = resolvePartyLineMajorityVoteCode(counts);
+      if (!voteCode) {
+        continue;
+      }
+
+      majorityByParty.set(party, {
+        party,
+        voteCode,
+        participantCount: counts.yesCount + counts.noCount + counts.abstainCount
+      });
+    }
+
+    majoritiesByRollCall.set(rollCall.rollCallId, majorityByParty);
+  }
+
+  return majoritiesByRollCall;
+}
+
+function accumulatePartyLineCounts(args: {
+  target: Pick<
+    WindowVoteCounts,
+    | "partyLineOpportunityCount"
+    | "partyLineParticipationCount"
+    | "partyLineDefectionCount"
+  >;
+  majorityVoteCode: PartyLineMajorityVoteCode;
+  voteCode: MemberCentricVoteCode;
+}): void {
+  args.target.partyLineOpportunityCount += 1;
+
+  if (args.voteCode === "absent") {
+    return;
+  }
+
+  args.target.partyLineParticipationCount += 1;
+  if (args.voteCode !== args.majorityVoteCode) {
+    args.target.partyLineDefectionCount += 1;
+  }
 }
 
 function buildMemberVoteRecordsByMember(args: {
@@ -999,10 +1186,18 @@ export function buildAccountabilitySummaryExport(
   const allEligibleRollCallIds = new Set(
     eligibleRollCalls.map((rollCall) => rollCall.rollCallId)
   );
-  const voteCodeLookup = createVoteCodeLookup(
+  const voteFactLookup = createVoteFactLookup(
     bundle.voteFacts,
     allEligibleRollCallIds
   );
+  const voteCodeLookup = createVoteCodeLookup(voteFactLookup);
+  const partyLineMajoritiesByRollCall = buildPartyLineMajoritiesByRollCall({
+    currentMembers,
+    eligibleRollCalls,
+    voteCodeLookup,
+    voteFactLookup,
+    eligibleRollCallIdsByMember: eligibleRollCallIdsByMember ?? undefined
+  });
   const latestVoteAtByMember = new Map<string, string>();
 
   for (const voteFact of bundle.voteFacts) {
@@ -1041,6 +1236,9 @@ export function buildAccountabilitySummaryExport(
       let noCount = 0;
       let abstainCount = 0;
       let absentCount = 0;
+      let partyLineOpportunityCount = 0;
+      let partyLineParticipationCount = 0;
+      let partyLineDefectionCount = 0;
 
       for (const rollCallId of eligibleRollCallIds) {
         const voteCode = resolveMemberCentricVoteCode({
@@ -1055,6 +1253,24 @@ export function buildAccountabilitySummaryExport(
           abstainCount += 1;
         } else if (voteCode === "absent") {
           absentCount += 1;
+        }
+
+        const party = resolveMemberPartyForRollCall({
+          rollCallId,
+          member,
+          voteFactLookup
+        });
+        const partyMajority = party
+          ? partyLineMajoritiesByRollCall.get(rollCallId)?.get(party)
+          : undefined;
+        if (partyMajority) {
+          partyLineOpportunityCount += 1;
+          if (voteCode !== "absent") {
+            partyLineParticipationCount += 1;
+            if (voteCode !== partyMajority.voteCode) {
+              partyLineDefectionCount += 1;
+            }
+          }
         }
       }
 
@@ -1074,6 +1290,13 @@ export function buildAccountabilitySummaryExport(
         noRate: noCount / denominator,
         abstainRate: abstainCount / denominator,
         absentRate: absentCount / denominator,
+        partyLineOpportunityCount,
+        partyLineParticipationCount,
+        partyLineDefectionCount,
+        partyLineDefectionRate:
+          partyLineParticipationCount > 0
+            ? partyLineDefectionCount / partyLineParticipationCount
+            : 0,
         lastVoteAt: latestVoteAtByMember.get(member.memberId) ?? null
       };
     })
@@ -1155,7 +1378,10 @@ export function buildAccountabilityTrendsExport(
         noCount: 0,
         abstainCount: 0,
         absentCount: 0,
-        eligibleVoteCount: 0
+        eligibleVoteCount: 0,
+        partyLineOpportunityCount: 0,
+        partyLineParticipationCount: 0,
+        partyLineDefectionCount: 0
       }
     ])
   );
@@ -1170,10 +1396,18 @@ export function buildAccountabilityTrendsExport(
   const eligibleRollCallIds = new Set(
     eligibleRollCalls.map((rollCall) => rollCall.rollCallId)
   );
-  const voteCodeLookup = createVoteCodeLookup(
+  const voteFactLookup = createVoteFactLookup(
     bundle.voteFacts,
     eligibleRollCallIds
   );
+  const voteCodeLookup = createVoteCodeLookup(voteFactLookup);
+  const partyLineMajoritiesByRollCall = buildPartyLineMajoritiesByRollCall({
+    currentMembers,
+    eligibleRollCalls,
+    voteCodeLookup,
+    voteFactLookup,
+    eligibleRollCallIdsByMember: eligibleRollCallIdsByMember ?? undefined
+  });
   const relevantWeeks = weekRanges.slice(-8);
   const previousWindowStarts = new Set(
     relevantWeeks.slice(0, 4).map((range) => range.weekStart)
@@ -1213,6 +1447,14 @@ export function buildAccountabilityTrendsExport(
         memberId: member.memberId,
         voteCodeLookup
       });
+      const party = resolveMemberPartyForRollCall({
+        rollCallId: rollCall.rollCallId,
+        member,
+        voteFactLookup
+      });
+      const partyMajority = party
+        ? partyLineMajoritiesByRollCall.get(rollCall.rollCallId)?.get(party)
+        : undefined;
       if (weeklyTrend) {
         weeklyTrend.eligibleVoteCount += 1;
         if (voteCode === "yes") {
@@ -1224,6 +1466,13 @@ export function buildAccountabilityTrendsExport(
         } else if (voteCode === "absent") {
           weeklyTrend.absentCount += 1;
         }
+        if (partyMajority) {
+          accumulatePartyLineCounts({
+            target: weeklyTrend,
+            majorityVoteCode: partyMajority.voteCode,
+            voteCode
+          });
+        }
       }
 
       const mover = moversByMember.get(member.memberId);
@@ -1233,8 +1482,22 @@ export function buildAccountabilityTrendsExport(
 
       if (isPreviousWindow) {
         accumulateVoteCounts(mover.previous, voteCode);
+        if (partyMajority) {
+          accumulatePartyLineCounts({
+            target: mover.previous,
+            majorityVoteCode: partyMajority.voteCode,
+            voteCode
+          });
+        }
       } else if (isCurrentWindow) {
         accumulateVoteCounts(mover.current, voteCode);
+        if (partyMajority) {
+          accumulatePartyLineCounts({
+            target: mover.current,
+            majorityVoteCode: partyMajority.voteCode,
+            voteCode
+          });
+        }
       }
     }
   }
@@ -1254,7 +1517,10 @@ export function buildAccountabilityTrendsExport(
           noCount: 0,
           abstainCount: 0,
           absentCount: 0,
-          eligibleVoteCount: 0
+          eligibleVoteCount: 0,
+          partyLineOpportunityCount: 0,
+          partyLineParticipationCount: 0,
+          partyLineDefectionCount: 0
         }
     ),
     movers: currentMembers
@@ -1273,10 +1539,22 @@ export function buildAccountabilityTrendsExport(
           previousWindowNoCount: mover?.previous.noCount ?? 0,
           previousWindowAbstainCount: mover?.previous.abstainCount ?? 0,
           previousWindowAbsentCount: mover?.previous.absentCount ?? 0,
+          previousWindowPartyLineOpportunityCount:
+            mover?.previous.partyLineOpportunityCount ?? 0,
+          previousWindowPartyLineParticipationCount:
+            mover?.previous.partyLineParticipationCount ?? 0,
+          previousWindowPartyLineDefectionCount:
+            mover?.previous.partyLineDefectionCount ?? 0,
           currentWindowEligibleCount: mover?.current.eligibleCount ?? 0,
           currentWindowNoCount: mover?.current.noCount ?? 0,
           currentWindowAbstainCount: mover?.current.abstainCount ?? 0,
-          currentWindowAbsentCount: mover?.current.absentCount ?? 0
+          currentWindowAbsentCount: mover?.current.absentCount ?? 0,
+          currentWindowPartyLineOpportunityCount:
+            mover?.current.partyLineOpportunityCount ?? 0,
+          currentWindowPartyLineParticipationCount:
+            mover?.current.partyLineParticipationCount ?? 0,
+          currentWindowPartyLineDefectionCount:
+            mover?.current.partyLineDefectionCount ?? 0
         };
       })
       .filter(
@@ -1330,10 +1608,11 @@ export function buildMemberActivityCalendarArtifacts(
         tenureIndex: options.tenureIndex
       })
     : null;
-  const voteCodeLookup = createVoteCodeLookup(
+  const voteFactLookup = createVoteFactLookup(
     bundle.voteFacts,
     assemblyRollCallIds
   );
+  const voteCodeLookup = createVoteCodeLookup(voteFactLookup);
   const memberVoteRecordsByMember = buildMemberVoteRecordsByMember({
     currentMembers,
     assemblyRollCalls,

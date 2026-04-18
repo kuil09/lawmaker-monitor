@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-03-22T11:45:00+09:00",
-  "snapshotId": "snapshot-20260322-114500",
+  "generatedAt": "2026-04-18T08:34:15.266Z",
+  "snapshotId": "fixture-snapshot-20260322-114500",
   "assemblyNo": 22,
   "assemblyLabel": "제22대 국회",
   "items": [
@@ -12,6 +12,20 @@
       "photoUrl": "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m002.jpg",
       "officialProfileUrl": "https://www.assembly.go.kr/members/22nd/PARKMIN",
       "officialExternalUrl": null,
+      "profile": {
+        "nameHanja": "朴敏",
+        "nameEnglish": "PARK MIN",
+        "birthType": "양력",
+        "birthDate": "1985-04-15",
+        "roleName": "국회의원",
+        "reelectionLabel": "재선",
+        "electedAssembliesLabel": "제22대",
+        "gender": "남성",
+        "representativeCommitteeName": "법제사법위원회",
+        "affiliatedCommitteeName": "법제사법위원회, 예산결산특별위원회",
+        "briefHistory": "법률안 심사 경험 다수",
+        "officeRoom": "의원회관 202호"
+      },
       "assemblyNo": 22,
       "totalRecordedVotes": 2,
       "noCount": 1,
@@ -20,6 +34,10 @@
       "noRate": 0.5,
       "abstainRate": 0,
       "absentRate": 0.5,
+      "partyLineOpportunityCount": 0,
+      "partyLineParticipationCount": 0,
+      "partyLineDefectionCount": 0,
+      "partyLineDefectionRate": 0,
       "lastVoteAt": "2026-03-22T11:40:00+09:00"
     },
     {
@@ -30,6 +48,20 @@
       "photoUrl": "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member-m001.jpg",
       "officialProfileUrl": "https://www.assembly.go.kr/members/22nd/KIMARA",
       "officialExternalUrl": "https://blog.example.kr/kim-ara",
+      "profile": {
+        "nameHanja": "金아라",
+        "nameEnglish": "KIM ARA",
+        "birthType": "양력",
+        "birthDate": "1990-01-12",
+        "roleName": "국회의원",
+        "reelectionLabel": "초선",
+        "electedAssembliesLabel": "제22대",
+        "gender": "여성",
+        "representativeCommitteeName": "과학기술정보방송통신위원회",
+        "affiliatedCommitteeName": "과학기술정보방송통신위원회, 예산결산특별위원회",
+        "briefHistory": "첫째 줄\n둘째 줄",
+        "officeRoom": "의원회관 101호"
+      },
       "assemblyNo": 22,
       "totalRecordedVotes": 2,
       "noCount": 1,
@@ -38,6 +70,10 @@
       "noRate": 0.5,
       "abstainRate": 0,
       "absentRate": 0,
+      "partyLineOpportunityCount": 0,
+      "partyLineParticipationCount": 0,
+      "partyLineDefectionCount": 0,
+      "partyLineDefectionRate": 0,
       "lastVoteAt": "2026-03-22T11:40:00+09:00"
     },
     {
@@ -48,6 +84,20 @@
       "photoUrl": null,
       "officialProfileUrl": "https://www.assembly.go.kr/members/22nd/LEESU",
       "officialExternalUrl": null,
+      "profile": {
+        "nameHanja": "李秀",
+        "nameEnglish": "LEE SU",
+        "birthType": "양력",
+        "birthDate": "1992-11-30",
+        "roleName": "국회의원",
+        "reelectionLabel": "초선",
+        "electedAssembliesLabel": "제22대",
+        "gender": "여성",
+        "representativeCommitteeName": "환경노동위원회",
+        "affiliatedCommitteeName": "환경노동위원회",
+        "briefHistory": "기후 정책 전문가",
+        "officeRoom": "의원회관 303호"
+      },
       "assemblyNo": 22,
       "totalRecordedVotes": 2,
       "noCount": 0,
@@ -56,6 +106,10 @@
       "noRate": 0,
       "abstainRate": 0.5,
       "absentRate": 0,
+      "partyLineOpportunityCount": 0,
+      "partyLineParticipationCount": 0,
+      "partyLineDefectionCount": 0,
+      "partyLineDefectionRate": 0,
       "lastVoteAt": "2026-03-22T11:40:00+09:00"
     }
   ]

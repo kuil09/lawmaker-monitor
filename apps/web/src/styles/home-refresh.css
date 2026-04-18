@@ -426,6 +426,11 @@
   color: #8b6a1e;
 }
 
+.ranking-item__stats--party-line strong,
+.ranking-item__stats--party-line span {
+  color: #7b3128;
+}
+
 /* 불참 탭 활성화 시 메트릭 토글 색상 */
 .metric-toggle__button--absent.is-active {
   background: var(--neutral);
@@ -440,6 +445,11 @@
 .metric-toggle__button--asset-total.is-active {
   background: #8b6a1e;
   box-shadow: 0 4px 12px rgba(139, 106, 30, 0.28);
+}
+
+.metric-toggle__button--party-line.is-active {
+  background: #7b3128;
+  box-shadow: 0 4px 12px rgba(123, 49, 40, 0.28);
 }
 
 /* ─── 검색 패널 (컴팩트) ──────────────────────────── */
@@ -661,6 +671,65 @@
 
 .metric-toggle__button--asset-total.is-active {
   background: #8b6a1e;
+}
+
+.metric-toggle__button--party-line.is-active {
+  background: #7b3128;
+}
+
+.chart-card__mover-block {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.chart-card__mover-head {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.chart-card__mover-head h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.chart-card__mover-list {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chart-card__mover-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.chart-card__mover-stats {
+  display: grid;
+  gap: 0.18rem;
+  justify-items: end;
+  text-align: right;
+}
+
+.chart-card__mover-stats strong {
+  color: #7b3128;
+  font-size: 0.94rem;
+}
+
+.chart-card__mover-stats span {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
 }
 
 /* ─── 투표 카드 ───────────────────────────────────── */
@@ -983,6 +1052,16 @@
 
   .ranking-item__graph {
     height: 0.7rem;
+  }
+
+  .chart-card__mover-item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.6rem;
+  }
+
+  .chart-card__mover-stats {
+    justify-items: start;
+    text-align: left;
   }
 }
 

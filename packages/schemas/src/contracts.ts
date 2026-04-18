@@ -102,6 +102,10 @@ export const accountabilitySummaryItemSchema = z.object({
   noRate: z.number().min(0).max(1),
   abstainRate: z.number().min(0).max(1),
   absentRate: z.number().min(0).max(1).default(0),
+  partyLineOpportunityCount: z.number().int().nonnegative().default(0),
+  partyLineParticipationCount: z.number().int().nonnegative().default(0),
+  partyLineDefectionCount: z.number().int().nonnegative().default(0),
+  partyLineDefectionRate: z.number().min(0).max(1).default(0),
   lastVoteAt: nonEmptyString.nullable().optional()
 });
 
@@ -120,7 +124,10 @@ export const weeklyAssemblyTrendPointSchema = z.object({
   noCount: z.number().int().nonnegative(),
   abstainCount: z.number().int().nonnegative(),
   absentCount: z.number().int().nonnegative(),
-  eligibleVoteCount: z.number().int().nonnegative()
+  eligibleVoteCount: z.number().int().nonnegative(),
+  partyLineOpportunityCount: z.number().int().nonnegative().default(0),
+  partyLineParticipationCount: z.number().int().nonnegative().default(0),
+  partyLineDefectionCount: z.number().int().nonnegative().default(0)
 });
 
 export const accountabilityMoverWindowSchema = z.object({
@@ -134,10 +141,40 @@ export const accountabilityMoverWindowSchema = z.object({
   previousWindowNoCount: z.number().int().nonnegative(),
   previousWindowAbstainCount: z.number().int().nonnegative(),
   previousWindowAbsentCount: z.number().int().nonnegative(),
+  previousWindowPartyLineOpportunityCount: z
+    .number()
+    .int()
+    .nonnegative()
+    .default(0),
+  previousWindowPartyLineParticipationCount: z
+    .number()
+    .int()
+    .nonnegative()
+    .default(0),
+  previousWindowPartyLineDefectionCount: z
+    .number()
+    .int()
+    .nonnegative()
+    .default(0),
   currentWindowEligibleCount: z.number().int().nonnegative(),
   currentWindowNoCount: z.number().int().nonnegative(),
   currentWindowAbstainCount: z.number().int().nonnegative(),
-  currentWindowAbsentCount: z.number().int().nonnegative()
+  currentWindowAbsentCount: z.number().int().nonnegative(),
+  currentWindowPartyLineOpportunityCount: z
+    .number()
+    .int()
+    .nonnegative()
+    .default(0),
+  currentWindowPartyLineParticipationCount: z
+    .number()
+    .int()
+    .nonnegative()
+    .default(0),
+  currentWindowPartyLineDefectionCount: z
+    .number()
+    .int()
+    .nonnegative()
+    .default(0)
 });
 
 export const accountabilityTrendsExportSchema = z.object({

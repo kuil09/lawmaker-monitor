@@ -63,10 +63,17 @@ const assetTotalMetricOption: LeaderboardMetricOption = {
   styleKey: "asset-total"
 };
 
+const partyLineMetricOption: LeaderboardMetricOption = {
+  value: "partyLine",
+  label: "당내 이탈",
+  styleKey: "party-line"
+};
+
 const baseLeaderboardMetricOptions: LeaderboardMetricOption[] = [
   defaultMetricOption,
   { value: "no", label: "반대", styleKey: "no" },
   { value: "abstain", label: "기권", styleKey: "abstain" },
+  partyLineMetricOption,
   { value: "yes", label: "찬성", styleKey: "yes" }
 ];
 
@@ -145,9 +152,11 @@ export function AccountabilityLeaderboard({
     ? metric === "realEstate"
       ? "최신 재산 공개 기준 건물·토지 합계로 정렬하고, 그래프에는 공개된 플러스 자산 중 부동산 비중을 함께 반영합니다."
       : "최신 재산 공개 기준 총재산 순위를 보여 주고, 그래프에는 공개된 플러스 자산 중 부동산 비중을 함께 반영합니다."
-    : metric === "absent"
-      ? "불참 기준으로 먼저 정렬해 출석 문제를 바로 드러내고, 나머지 선택 구성은 작은 막대로 함께 봅니다."
-      : `${metricOption.label} 기준으로 정렬하되, 불참 막대를 함께 남겨 출석 문제를 놓치지 않도록 했습니다.`;
+    : metric === "partyLine"
+      ? "당 기준이 성립한 기록표결에서 실제 참여했을 때 얼마나 다른 표를 던졌는지 보여 줍니다. 불참은 이탈로 세지 않고 기회 대비 참여 여부만 따로 남깁니다."
+      : metric === "absent"
+        ? "불참 기준으로 먼저 정렬해 출석 문제를 바로 드러내고, 나머지 선택 구성은 작은 막대로 함께 봅니다."
+        : `${metricOption.label} 기준으로 정렬하되, 불참 막대를 함께 남겨 출석 문제를 놓치지 않도록 했습니다.`;
 
   return (
     <section className="leaderboard-panel">
@@ -334,6 +343,62 @@ export function AccountabilityLeaderboard({
               item.totalRecordedVotes > 0
                 ? item.absentCount / item.totalRecordedVotes
                 : null;
+            const partyLineSkippedCount = Math.max(
+              item.partyLineOpportunityCount - item.partyLineParticipationCount,
+              0
+            );
+            const statsLabel =
+              metric === "partyLine" ? "당내 이탈도" : "출석 현황";
+            const statsValue =
+              metric === "partyLine"
+                ? `이탈 ${formatNumber(item.partyLineDefectionCount)}회 / 참여 ${formatNumber(
+                    item.partyLineParticipationCount
+                  )}회`
+                : attendanceSummary
+                  ? `출석 ${formatNumber(attendanceSummary.attendedDays)}일 / 대상 ${formatNumber(
+                      attendanceSummary.eligibleDays
+                    )}일`
+                  : "준비 중";
+            const statsRate =
+              metric === "partyLine"
+                ? `이탈률 ${formatPercent(item.partyLineDefectionRate)} · 기준 기회 ${formatNumber(item.partyLineOpportunityCount)}회`
+                : attendanceSummary
+                  ? `출석률 ${formatPercent(attendanceSummary.attendanceRate)}`
+                  : "활동 데이터 확인 전";
+            const metaItems =
+              metric === "partyLine"
+                ? [
+                    {
+                      key: "party-line-defection-rate",
+                      label: "이탈률",
+                      value: formatPercent(item.partyLineDefectionRate)
+                    },
+                    {
+                      key: "party-line-defection-count",
+                      label: "이탈",
+                      value: `${formatNumber(item.partyLineDefectionCount)}회`
+                    },
+                    {
+                      key: "party-line-participation-count",
+                      label: "참여",
+                      value: `${formatNumber(item.partyLineParticipationCount)}회`
+                    },
+                    {
+                      key: "party-line-opportunity-count",
+                      label: "기준 기회",
+                      value: `${formatNumber(item.partyLineOpportunityCount)}회`
+                    },
+                    {
+                      key: "party-line-skipped-count",
+                      label: "미참여",
+                      value: `${formatNumber(partyLineSkippedCount)}회`
+                    }
+                  ]
+                : breakdownItems.map((breakdownItem) => ({
+                    key: breakdownItem.key,
+                    label: breakdownItem.label,
+                    value: `${formatNumber(breakdownItem.count)}건`
+                  }));
 
             return (
               <li key={item.memberId} className="ranking-item">
@@ -358,21 +423,19 @@ export function AccountabilityLeaderboard({
                         </span>
                       ) : null}
                     </div>
-                    <div className="ranking-item__stats">
+                    <div
+                      className={
+                        metric === "partyLine"
+                          ? "ranking-item__stats ranking-item__stats--party-line"
+                          : "ranking-item__stats"
+                      }
+                    >
                       <span className="ranking-item__stats-label">
-                        출석 현황
+                        {statsLabel}
                       </span>
-                      <strong>
-                        {attendanceSummary
-                          ? `출석 ${formatNumber(attendanceSummary.attendedDays)}일 / 대상 ${formatNumber(
-                              attendanceSummary.eligibleDays
-                            )}일`
-                          : "준비 중"}
-                      </strong>
+                      <strong>{statsValue}</strong>
                       <span className="ranking-item__stats-rate">
-                        {attendanceSummary
-                          ? `출석률 ${formatPercent(attendanceSummary.attendanceRate)}`
-                          : "활동 데이터 확인 전"}
+                        {statsRate}
                       </span>
                     </div>
                   </div>
@@ -395,15 +458,17 @@ export function AccountabilityLeaderboard({
                     />
                   </div>
                   <div className="ranking-item__meta">
-                    {breakdownItems.map((breakdownItem) => (
+                    {metaItems.map((metaItem) => (
                       <span
-                        key={breakdownItem.key}
-                        className={`ranking-item__meta-item ranking-item__meta-item--${breakdownItem.key}`}
+                        key={metaItem.key}
+                        className={`ranking-item__meta-item ranking-item__meta-item--${metaItem.key}`}
                       >
                         <span className="ranking-item__meta-label">
-                          {breakdownItem.label}
+                          {metaItem.label}
                         </span>
-                        <strong className="ranking-item__meta-value">{`${formatNumber(breakdownItem.count)}건`}</strong>
+                        <strong className="ranking-item__meta-value">
+                          {metaItem.value}
+                        </strong>
                       </span>
                     ))}
                   </div>

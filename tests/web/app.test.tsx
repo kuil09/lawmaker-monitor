@@ -135,4 +135,35 @@ describe("web app shell", () => {
       ).toBeInTheDocument();
     });
   });
+
+  it("renders the party-line leaderboard mode on the home screen", async () => {
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("tab", { name: "당내 이탈" }));
+
+    expect(
+      screen.getByText(
+        "당 기준이 성립한 기록표결에서 실제 참여했을 때 얼마나 다른 표를 던졌는지 보여 줍니다. 불참은 이탈로 세지 않고 기회 대비 참여 여부만 따로 남깁니다."
+      )
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("당내 이탈도").length).toBeGreaterThan(0);
+  });
+
+  it("shows the party-line empty state on the trends route when no opportunities exist", async () => {
+    render(<App />);
+
+    fireEvent.click(await screen.findByText("출석 추이"));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", {
+          level: 1,
+          name: /출석과 당내 이탈 흐름/
+        })
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/관측 창에 당 기준이 성립한 표결이 아직 없습니다\./)
+    ).toBeInTheDocument();
+  });
 });
