@@ -3199,6 +3199,7 @@ export function ActivityCalendarPage({
                             calendarHref={buildCalendarHref({
                               memberId: selectedMember.memberId
                             })}
+                            avatarVariant="activity-card"
                           />
                           <ExternalSiteLink
                             url={selectedMember.officialExternalUrl}
@@ -3217,6 +3218,7 @@ export function ActivityCalendarPage({
                             calendarHref={buildCalendarHref({
                               memberId: compareMember.memberId
                             })}
+                            avatarVariant="activity-card"
                           />
                           <ExternalSiteLink
                             url={compareMember.officialExternalUrl}

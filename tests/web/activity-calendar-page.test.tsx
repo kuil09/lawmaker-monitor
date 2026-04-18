@@ -80,9 +80,12 @@ describe("activity calendar profile avatars", () => {
         ".activity-drawer__member-primary .member-identity__avatar--activity-card"
       )
     ).not.toBeNull();
+    expect(
+      container.querySelectorAll(".member-identity__avatar--activity-card")
+    ).toHaveLength(1);
   });
 
-  it("keeps compare-view member identities on the default avatar variant", async () => {
+  it("applies the activity-card avatar variant to both compare-view member identities", async () => {
     const { container } = renderActivityCalendarPage({
       initialView: "compare",
       initialMemberId: "M001",
@@ -99,11 +102,11 @@ describe("activity calendar profile avatars", () => {
       container.querySelectorAll(
         ".activity-compare__column .member-identity--activity-card"
       )
-    ).toHaveLength(0);
+    ).toHaveLength(2);
     expect(
       container.querySelectorAll(
         ".activity-compare__column .member-identity__avatar--activity-card"
       )
-    ).toHaveLength(0);
+    ).toHaveLength(2);
   });
 });
