@@ -132,4 +132,45 @@ describe("v2 observatory", () => {
     );
     expect(onSubmitSearch).toHaveBeenCalledTimes(1);
   });
+
+  it("converts thousand-won asset values to eok exactly once", () => {
+    render(
+      <V2ObservatoryPage
+        assemblyLabel="제22대 국회"
+        freshnessText="2026년 7월 24일"
+        manifest={manifest}
+        accountabilitySummary={accountabilitySummary}
+        members={members}
+        activityCalendar={activityCalendar}
+        accountabilityTrends={accountabilityTrends}
+        memberAssetsIndex={memberAssetsIndex}
+        loading={false}
+        errors={[]}
+        onOpenMap={vi.fn()}
+        onOpenDistribution={vi.fn()}
+        onOpenMember={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "재산" }));
+    const analysisRegion = screen.getByRole("region", {
+      name: "지역별 공개 부동산 분포"
+    });
+    fireEvent.click(
+      within(analysisRegion).getByRole("button", { name: "표로 보기" })
+    );
+
+    const table = screen.getByRole("table", { name: "재산 분석 데이터" });
+    const memberButton = within(table).getByRole("button", { name: "김아라" });
+    const memberRow = memberButton.closest("tr");
+    const secondMemberButton = within(table).getByRole("button", {
+      name: "박민"
+    });
+    const secondMemberRow = secondMemberButton.closest("tr");
+
+    expect(memberRow).toHaveTextContent("8.2억");
+    expect(memberRow).toHaveTextContent("5.1억");
+    expect(secondMemberRow).toHaveTextContent("2.7억");
+    expect(secondMemberRow).toHaveTextContent("3.2억");
+  });
 });

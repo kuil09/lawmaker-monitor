@@ -21,6 +21,7 @@ import {
 
 import { V2NationalMap } from "./V2NationalMap.js";
 import { buildWeeklyTrendChartData } from "../lib/charts.js";
+import { convertThousandWonToEok } from "../lib/format.js";
 import { getPartyColor } from "../lib/geo-utils.js";
 
 import type { DistributionMemberPoint } from "../lib/distribution.js";
@@ -150,7 +151,7 @@ function formatPercentValue(value: number): string {
 }
 
 function toEok(value: number | null | undefined): number {
-  return value == null ? 0 : value / 100_000_000;
+  return value == null ? 0 : convertThousandWonToEok(value);
 }
 
 function formatEok(value: number): string {
