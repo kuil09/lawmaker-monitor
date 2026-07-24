@@ -265,7 +265,7 @@
   display: grid;
   min-height: 440px;
   padding: 10px 0 0;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto auto;
   border-right: 0;
 }
 
@@ -281,8 +281,9 @@
 }
 
 .v2-map-legend {
-  bottom: 40px;
-  left: 12px;
+  position: static;
+  justify-self: start;
+  margin-top: 8px;
   padding: 0.5rem 0.62rem;
   border-color: #d6dde5;
   border-radius: 6px;
@@ -591,10 +592,9 @@
   }
 
   .v2-map-legend {
-    bottom: 38px;
-    left: 7px;
+    margin-top: 7px;
     transform: scale(0.9);
-    transform-origin: bottom left;
+    transform-origin: top left;
   }
 
   .v3-scatter-card__axis {

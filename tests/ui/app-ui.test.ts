@@ -899,6 +899,63 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
         await page
           .getByRole("region", { name: "지역별 결석률 분포" })
           .waitFor();
+        await expect
+          .poll(async () => page.locator("[data-district-label]").count())
+          .toBeGreaterThan(0);
+
+        const mapLayout = await page
+          .locator(".v2-map-panel")
+          .evaluate((element) => {
+            const map = element.querySelector(
+              ".v2-national-map"
+            ) as HTMLElement | null;
+            const legend = element.querySelector(
+              ".v2-map-legend"
+            ) as HTMLElement | null;
+            const mapDistricts = Array.from(
+              element.querySelectorAll("[data-district-label]")
+            ) as SVGPathElement[];
+
+            if (!map || !legend || mapDistricts.length === 0) {
+              return null;
+            }
+
+            const mapRect = map.getBoundingClientRect();
+            const legendRect = legend.getBoundingClientRect();
+            const districtRects = mapDistricts.map((district) =>
+              district.getBoundingClientRect()
+            );
+            const districtBounds = {
+              left: Math.min(...districtRects.map((rect) => rect.left)),
+              top: Math.min(...districtRects.map((rect) => rect.top)),
+              right: Math.max(...districtRects.map((rect) => rect.right)),
+              bottom: Math.max(...districtRects.map((rect) => rect.bottom))
+            };
+            const overlapWidth = Math.max(
+              0,
+              Math.min(legendRect.right, districtBounds.right) -
+                Math.max(legendRect.left, districtBounds.left)
+            );
+            const overlapHeight = Math.max(
+              0,
+              Math.min(legendRect.bottom, districtBounds.bottom) -
+                Math.max(legendRect.top, districtBounds.top)
+            );
+
+            return {
+              legendPosition: window.getComputedStyle(legend).position,
+              legendTop: legendRect.top,
+              mapBottom: mapRect.bottom,
+              overlapArea: overlapWidth * overlapHeight
+            };
+          });
+
+        expect(mapLayout).not.toBeNull();
+        expect(mapLayout?.legendPosition).toBe("static");
+        expect(mapLayout?.legendTop ?? 0).toBeGreaterThanOrEqual(
+          (mapLayout?.mapBottom ?? 1) - 1
+        );
+        expect(mapLayout?.overlapArea).toBe(0);
       }
 
       if (route.id === "map") {
