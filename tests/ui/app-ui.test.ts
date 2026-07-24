@@ -956,6 +956,70 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
           (mapLayout?.mapBottom ?? 1) - 1
         );
         expect(mapLayout?.overlapArea).toBe(0);
+
+        const trendHeadingLayout = await page
+          .locator(".v2-trend-card .v2-card-heading")
+          .evaluate((element) => {
+            const title = element.querySelector("h2") as HTMLElement | null;
+            const button = element.querySelector(
+              ".v2-button--quiet"
+            ) as HTMLElement | null;
+            const buttonLabel = element.querySelector(
+              ".v2-button__label"
+            ) as HTMLElement | null;
+
+            if (!title || !button || !buttonLabel) {
+              return null;
+            }
+
+            const titleStyle = window.getComputedStyle(title);
+            const labelStyle = window.getComputedStyle(buttonLabel);
+            const titleLineHeight = Number.parseFloat(titleStyle.lineHeight);
+            const labelLineHeight = Number.parseFloat(labelStyle.lineHeight);
+
+            return {
+              buttonHeight: button.getBoundingClientRect().height,
+              buttonOverflow: button.scrollWidth - button.clientWidth,
+              buttonWhiteSpace: window.getComputedStyle(button).whiteSpace,
+              labelLineCount:
+                Number.isFinite(labelLineHeight) && labelLineHeight > 0
+                  ? buttonLabel.getBoundingClientRect().height / labelLineHeight
+                  : null,
+              titleLineCount:
+                Number.isFinite(titleLineHeight) && titleLineHeight > 0
+                  ? title.getBoundingClientRect().height / titleLineHeight
+                  : null
+            };
+          });
+
+        expect(trendHeadingLayout).not.toBeNull();
+        expect(trendHeadingLayout?.buttonOverflow ?? 99).toBeLessThanOrEqual(1);
+        expect(trendHeadingLayout?.buttonWhiteSpace).toBe("nowrap");
+        expect(trendHeadingLayout?.labelLineCount ?? 99).toBeLessThanOrEqual(
+          1.1
+        );
+        expect(trendHeadingLayout?.titleLineCount ?? 99).toBeLessThanOrEqual(
+          2.1
+        );
+        if (viewportName === "mobile") {
+          expect(trendHeadingLayout?.buttonHeight ?? 0).toBeGreaterThanOrEqual(
+            44
+          );
+        }
+
+        const scatterPoint = page
+          .locator(".v3-scatter-card .recharts-scatter-symbol")
+          .first();
+        await scatterPoint.hover();
+        const scatterTooltip = page.locator(
+          ".v3-scatter-card .v2-chart-tooltip"
+        );
+        await scatterTooltip.waitFor();
+        const scatterTooltipText = await scatterTooltip.textContent();
+        expect(scatterTooltipText).toContain("출석률");
+        expect(scatterTooltipText).toContain("반대·기권 비중");
+        expect(scatterTooltipText).not.toContain("가로");
+        expect(scatterTooltipText).not.toContain("세로");
       }
 
       if (route.id === "map") {

@@ -360,25 +360,27 @@ function buildRankingRows(points: ObservatoryPoint[]): RankingRow[] {
 function ScatterTooltipContent({
   active,
   payload,
-  lens
+  config
 }: {
   active?: boolean;
   payload?: Array<{ payload?: ObservatoryPoint }>;
-  lens: ObservatoryLens;
+  config: LensConfig;
 }) {
   const point = payload?.[0]?.payload;
   if (!active || !point) {
     return null;
   }
 
+  const formatValue = config.key === "assets" ? formatEok : formatPercentValue;
+  const xLabel = config.xLabel.replace(/\s+\([^)]*\)$/, "");
+  const yLabel = config.yLabel.replace(/\s+\([^)]*\)$/, "");
+
   return (
     <div className="v2-chart-tooltip">
       <strong>{point.name}</strong>
       <span>{`${point.party} · ${point.district}`}</span>
       <span>
-        {lens === "assets"
-          ? `총재산 ${formatEok(point.x)} · 부동산 ${formatEok(point.y)}`
-          : `가로 ${formatPercentValue(point.x)} · 세로 ${formatPercentValue(point.y)}`}
+        {`${xLabel} ${formatValue(point.x)} · ${yLabel} ${formatValue(point.y)}`}
       </span>
     </div>
   );
@@ -840,7 +842,7 @@ export function V2ObservatoryPage({
               <ZAxis range={[45, 45]} />
               <Tooltip
                 cursor={{ strokeDasharray: "3 3" }}
-                content={<ScatterTooltipContent lens={activeLens} />}
+                content={<ScatterTooltipContent config={config} />}
               />
               <Scatter data={points}>
                 {points.map((point) => (
@@ -881,7 +883,9 @@ export function V2ObservatoryPage({
               onClick={() => setShowTrendTable((current) => !current)}
             >
               <TableIcon size={18} />
-              {showTrendTable ? "차트 보기" : "표로 보기"}
+              <span className="v2-button__label">
+                {showTrendTable ? "차트 보기" : "표로 보기"}
+              </span>
             </button>
           </div>
           <div className="v2-trend-legend" aria-label="추세 범례">

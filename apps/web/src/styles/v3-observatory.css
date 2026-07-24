@@ -394,6 +394,23 @@
   padding: 16px 17px 14px;
 }
 
+.v2-trend-card .v2-card-heading {
+  gap: 0.75rem;
+}
+
+.v2-trend-card .v2-card-heading > div {
+  min-width: 0;
+}
+
+.v2-trend-card .v2-card-heading h2 {
+  word-break: keep-all;
+}
+
+.v2-trend-card .v2-button--quiet {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .v2-trend-card .v2-trend-chart {
   height: 240px;
 }
@@ -604,5 +621,9 @@
   .v3-scatter-card .v2-chart-frame,
   .v2-trend-card .v2-trend-chart {
     height: 220px;
+  }
+
+  .v2-trend-card .v2-button--quiet {
+    min-height: 44px;
   }
 }
