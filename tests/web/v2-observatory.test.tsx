@@ -131,7 +131,7 @@ describe("v2 observatory", () => {
       name: "지역별 반대·기권 분포"
     });
     fireEvent.click(
-      within(analysisRegion).getByRole("button", { name: "표로 보기" })
+      within(analysisRegion).getByRole("button", { name: "목록 보기" })
     );
 
     expect(
@@ -142,6 +142,7 @@ describe("v2 observatory", () => {
   it("submits a selected member through the v2 navigation search", () => {
     const onSelectSearchMemberId = vi.fn();
     const onSubmitSearch = vi.fn();
+    const onNavigate = vi.fn();
 
     const { rerender } = render(
       <V2GlobalNav
@@ -153,17 +154,27 @@ describe("v2 observatory", () => {
         ]}
         selectedSearchMemberId={null}
         onHome={vi.fn()}
-        onNavigate={vi.fn()}
+        onNavigate={onNavigate}
         onSelectSearchMemberId={onSelectSearchMemberId}
         onSubmitSearch={onSubmitSearch}
       />
     );
 
-    expect(
-      screen
-        .getByRole("link", { name: "국회 책임성 모니터 개요" })
-        .querySelector("svg")
-    ).toBeInTheDocument();
+    const brandLink = screen.getByRole("link", {
+      name: "국회 책임성 모니터 홈"
+    });
+    expect(brandLink.querySelector("svg")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "오늘의 변화" })).toHaveAttribute(
+      "aria-current",
+      "page"
+    );
+    expect(screen.getByRole("link", { name: "의원 찾기" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "지역 탐색" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "표결 기록" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "추세" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: "지역 탐색" }));
+    expect(onNavigate).toHaveBeenCalledWith("map");
 
     fireEvent.change(screen.getByRole("combobox", { name: "의원 검색" }), {
       target: { value: "김예시 · 예시당" }
@@ -181,7 +192,7 @@ describe("v2 observatory", () => {
         ]}
         selectedSearchMemberId="M001"
         onHome={vi.fn()}
-        onNavigate={vi.fn()}
+        onNavigate={onNavigate}
         onSelectSearchMemberId={onSelectSearchMemberId}
         onSubmitSearch={onSubmitSearch}
       />
@@ -191,6 +202,38 @@ describe("v2 observatory", () => {
       screen.getByRole("button", { name: "김예시 의원 활동 보기" })
     );
     expect(onSubmitSearch).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the mobile navigation with Escape and restores menu focus", () => {
+    render(
+      <V2GlobalNav
+        route="distribution"
+        assemblyLabel="제22대 국회"
+        searchOptions={[]}
+        selectedSearchMemberId={null}
+        onHome={vi.fn()}
+        onNavigate={vi.fn()}
+        onSelectSearchMemberId={vi.fn()}
+        onSubmitSearch={vi.fn()}
+      />
+    );
+
+    const menuButton = screen.getByRole("button", { name: "메뉴 열기" });
+    expect(screen.getByRole("link", { name: "의원 찾기" })).toHaveAttribute(
+      "aria-current",
+      "page"
+    );
+    fireEvent.click(menuButton);
+    expect(menuButton).toHaveAttribute("aria-expanded", "true");
+
+    screen.getByRole("link", { name: "의원 찾기" }).focus();
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.getByRole("button", { name: "메뉴 열기" })).toHaveAttribute(
+      "aria-expanded",
+      "false"
+    );
+    expect(menuButton).toHaveFocus();
   });
 
   it("converts thousand-won asset values to eok exactly once", () => {
@@ -217,7 +260,7 @@ describe("v2 observatory", () => {
       name: "지역별 공개 부동산 분포"
     });
     fireEvent.click(
-      within(analysisRegion).getByRole("button", { name: "표로 보기" })
+      within(analysisRegion).getByRole("button", { name: "목록 보기" })
     );
 
     const table = screen.getByRole("table", { name: "재산 분석 데이터" });

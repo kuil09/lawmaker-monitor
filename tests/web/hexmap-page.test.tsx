@@ -175,6 +175,12 @@ function getLastLayer(idPrefix: string) {
   return matches.at(-1);
 }
 
+function getLayers(idPrefix: string) {
+  return testState.layerInstances.filter((layer) =>
+    layer.id.startsWith(idPrefix)
+  );
+}
+
 function getLastDeckProps(kind: "national" | "detail") {
   const matches = testState.deckPropsLog.filter((entry) =>
     kind === "national"
@@ -275,6 +281,7 @@ describe("HexmapPage", () => {
 
   it("renders the shared national detailed H3 layer, keeps the lower panel empty until selection, and requests shared loading only once", async () => {
     const onChangeRoute = vi.fn();
+    const onNavigateToMember = vi.fn();
 
     render(
       <HexmapPage
@@ -286,13 +293,13 @@ describe("HexmapPage", () => {
         initialProvince={null}
         initialDistrict={null}
         initialMetric="absence"
-        onNavigateToMember={vi.fn()}
+        onNavigateToMember={onNavigateToMember}
         onChangeRoute={onChangeRoute}
       />
     );
 
     await waitFor(() => {
-      expect(getLastLayer("h3-national-absence")).toBeDefined();
+      expect(getLastLayer("h3-national-absence-부산")).toBeDefined();
     });
 
     expect(testState.ensureLoadMock).toHaveBeenCalledTimes(1);
@@ -308,7 +315,7 @@ describe("HexmapPage", () => {
       )
     ).toBeInTheDocument();
 
-    const nationalLayer = getLastLayer("h3-national-absence");
+    const nationalLayer = getLastLayer("h3-national-absence-부산");
     const nationalDeck = getLastDeckProps("national");
     const onClick = nationalLayer?.props.onClick as
       | ((info: { object?: Record<string, unknown> }) => void)
@@ -322,7 +329,7 @@ describe("HexmapPage", () => {
     expect(
       testState.layerInstances.some((layer) => layer.id.startsWith("h3-bloom-"))
     ).toBe(false);
-    expect(nationalDeck?.layers).toHaveLength(1);
+    expect(nationalDeck?.layers).toHaveLength(2);
     expect(nationalDeck?.initialViewState).toMatchObject({
       pitch: 0,
       zoom: 6.2
@@ -349,6 +356,12 @@ describe("HexmapPage", () => {
         "부산 전체 지역구를 보여줍니다. 헥사곤을 클릭하면 작은 의원 오버레이와 활동 캘린더 바로가기가 열립니다."
       )
     ).toBeInTheDocument();
+    const accessibleMemberButton = screen.getByRole("button", {
+      name: "박민 의원 활동 보기"
+    });
+    accessibleMemberButton.focus();
+    fireEvent.click(accessibleMemberButton);
+    expect(onNavigateToMember).toHaveBeenCalledWith("M002");
   });
 
   it("promotes legacy district routes to their parent province selection", async () => {
@@ -448,7 +461,7 @@ describe("HexmapPage", () => {
         screen.getByRole("button", { name: "활동 캘린더 보기" })
       ).toBeInTheDocument();
     });
-    expect(screen.getByText("박민")).toBeInTheDocument();
+    expect(screen.getAllByText("박민").length).toBeGreaterThan(0);
     expect(screen.getByText("부산 남구")).toBeInTheDocument();
     expect(
       screen.queryByText("클릭 → 캘린더 바로가기")
@@ -563,16 +576,18 @@ describe("HexmapPage", () => {
       expect(getLastLayer("h3-national-realEstate")).toBeDefined();
     });
 
-    const nationalLayer = getLastLayer("h3-national-realEstate");
+    const nationalLayer = getLastLayer("h3-national-realEstate-부산");
     const firstCell = (
       nationalLayer?.props.data as Array<Record<string, unknown>>
     )[0];
-    const assetValues = (
-      nationalLayer?.props.data as Array<{
-        metric: number;
-        metricMemberCount: number;
-      }>
-    ).flatMap((cell) => (cell.metricMemberCount > 0 ? [cell.metric] : []));
+    const assetValues = getLayers("h3-national-realEstate").flatMap((layer) =>
+      (
+        layer.props.data as Array<{
+          metric: number;
+          metricMemberCount: number;
+        }>
+      ).flatMap((cell) => (cell.metricMemberCount > 0 ? [cell.metric] : []))
+    );
     const getFillColor = nationalLayer?.props.getFillColor as
       | ((cell: Record<string, unknown>) => [number, number, number, number])
       | undefined;
@@ -639,16 +654,18 @@ describe("HexmapPage", () => {
       expect(getLastLayer("h3-national-assetTotal")).toBeDefined();
     });
 
-    const nationalLayer = getLastLayer("h3-national-assetTotal");
+    const nationalLayer = getLastLayer("h3-national-assetTotal-부산");
     const firstCell = (
       nationalLayer?.props.data as Array<Record<string, unknown>>
     )[0];
-    const assetValues = (
-      nationalLayer?.props.data as Array<{
-        metric: number;
-        metricMemberCount: number;
-      }>
-    ).flatMap((cell) => (cell.metricMemberCount > 0 ? [cell.metric] : []));
+    const assetValues = getLayers("h3-national-assetTotal").flatMap((layer) =>
+      (
+        layer.props.data as Array<{
+          metric: number;
+          metricMemberCount: number;
+        }>
+      ).flatMap((cell) => (cell.metricMemberCount > 0 ? [cell.metric] : []))
+    );
     const getFillColor = nationalLayer?.props.getFillColor as
       | ((cell: Record<string, unknown>) => [number, number, number, number])
       | undefined;

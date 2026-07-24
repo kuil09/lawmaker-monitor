@@ -827,6 +827,124 @@ async function openDistributionFlow(viewportName: string): Promise<void> {
   }
 }
 
+const v2Routes = [
+  {
+    id: "home",
+    hash: "",
+    heading: "국회 움직임 탐색기"
+  },
+  {
+    id: "calendar",
+    hash: "#calendar",
+    heading: "의원 표결 활동 그래프"
+  },
+  {
+    id: "distribution",
+    hash: "#distribution",
+    heading: "제22대 국회 의원 분포"
+  },
+  {
+    id: "map",
+    hash: "#map",
+    heading: "지역별 국회 기록 탐색"
+  },
+  {
+    id: "votes",
+    hash: "#votes",
+    heading: "제22대 국회 최신 본회의 표결"
+  },
+  {
+    id: "trends",
+    hash: "#trends",
+    heading: "출석과 당내 이탈 흐름"
+  }
+] as const;
+
+async function openV2RouteFlow(viewportName: string): Promise<void> {
+  const { context, page, issues } = await createBrowserSession(
+    browser,
+    viewportCases.find((item) => item.name === viewportName)!
+  );
+
+  try {
+    for (const route of v2Routes) {
+      const issueStart = issues.length;
+      await page.goto(`${appUrl}/?ui=v2${route.hash}`, {
+        waitUntil: "networkidle"
+      });
+      await page.addStyleTag({
+        content: `
+          *,
+          *::before,
+          *::after {
+            animation: none !important;
+            transition: none !important;
+            caret-color: transparent !important;
+          }
+        `
+      });
+      await page.getByRole("heading", { name: route.heading }).waitFor();
+
+      await expect
+        .poll(async () =>
+          page.evaluate(
+            () =>
+              document.documentElement.scrollWidth -
+              document.documentElement.clientWidth
+          )
+        )
+        .toBeLessThanOrEqual(1);
+
+      if (route.id === "home") {
+        await page
+          .getByRole("region", { name: "지역별 결석률 분포" })
+          .waitFor();
+      }
+
+      if (route.id === "map") {
+        await expect
+          .poll(async () => page.locator(".hexmap-region-list button").count())
+          .toBeGreaterThanOrEqual(2);
+        await expect.poll(async () => page.locator("canvas").count()).toBe(1);
+      }
+
+      if (route.id === "votes") {
+        const renderedVoteCount = await page.locator(".vote-card").count();
+        expect(renderedVoteCount).toBeGreaterThan(0);
+        expect(renderedVoteCount).toBeLessThanOrEqual(20);
+      }
+
+      const screenshot = await saveScreenshot(
+        page,
+        `${viewportName}/v2-${route.id}.png`
+      );
+      scenarioManifest.push({
+        viewport: viewportName,
+        scenario: `v2-${route.id}`,
+        screenshot
+      });
+      const unexpectedRouteIssues = issues.slice(issueStart).filter((issue) => {
+        if (
+          issue ===
+          "console:Failed to load resource: the server responded with a status of 404 (Not Found)"
+        ) {
+          return false;
+        }
+
+        return !issue.includes(
+          "response:404 http://127.0.0.1:4174/exports/hexmap_static/index.json"
+        );
+      });
+      expect(
+        unexpectedRouteIssues,
+        `Unexpected browser issues on the V2 ${route.id} route`
+      ).toEqual([]);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
 describe("UI flow coverage", () => {
   beforeAll(async () => {
     await ensureScreenshotRoot();
@@ -854,6 +972,10 @@ describe("UI flow coverage", () => {
 
     it(`captures the distribution flow on ${viewport.name}`, async () => {
       await openDistributionFlow(viewport.name);
+    });
+
+    it(`captures all rebuilt V2 routes on ${viewport.name}`, async () => {
+      await openV2RouteFlow(viewport.name);
     });
   }
 });

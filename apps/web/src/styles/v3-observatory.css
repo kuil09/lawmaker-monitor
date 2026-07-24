@@ -1,0 +1,608 @@
+.v2-observatory {
+  width: min(1440px, calc(100% - 48px));
+  padding: 12px 0 56px;
+}
+
+.v2-observatory__hero {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(340px, 520px) auto;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 0 2px 12px;
+  border-bottom: 1px solid #dce2e8;
+}
+
+.v2-observatory__eyebrow {
+  display: none;
+}
+
+.v2-observatory__title {
+  color: #162131;
+  font-size: clamp(1.28rem, 2vw, 1.55rem);
+  letter-spacing: -0.045em;
+}
+
+.v2-observatory__intro {
+  margin: 0.2rem 0 0;
+  color: #657180;
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.v2-observatory__freshness {
+  margin-bottom: 0.12rem;
+  color: #74808d;
+}
+
+.v2-observatory__freshness strong {
+  color: #344253;
+}
+
+.v2-lens-tabs {
+  width: 100%;
+  height: 40px;
+  margin: 0;
+  padding: 3px;
+  gap: 3px;
+  overflow: visible;
+  border: 1px solid #d5dce4;
+  border-radius: 8px;
+  background: #f4f7fa;
+}
+
+.v2-lens-tabs button {
+  min-width: 112px;
+  height: 32px;
+  padding: 0 0.9rem;
+  gap: 0.42rem;
+  border: 0;
+  border-radius: 5px;
+  color: #536171;
+  font-size: 0.78rem;
+}
+
+.v2-lens-tabs button:hover {
+  background: #e8edf4;
+  color: #173d79;
+}
+
+.v2-lens-tabs button.is-active {
+  background: #fff;
+  color: #1f58c7;
+  box-shadow: 0 1px 3px rgba(28, 45, 68, 0.12);
+}
+
+.v2-observatory__grid {
+  display: grid;
+  grid-template-areas:
+    "rail map insight"
+    "scatter scatter trend"
+    "ranking ranking ranking";
+  grid-template-columns: 242px minmax(520px, 1fr) 294px;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.v2-analysis-card,
+.v2-insight-card,
+.v2-trend-card,
+.v2-ranking-card,
+.v3-rank-rail,
+.v3-scatter-card {
+  min-width: 0;
+  border: 1px solid #dce2e8;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.v3-rank-rail {
+  grid-area: rail;
+  display: flex;
+  min-height: 520px;
+  padding: 18px 14px 14px;
+  flex-direction: column;
+}
+
+.v3-rank-rail__heading {
+  padding: 0 4px 13px;
+  border-bottom: 1px solid #e5e9ee;
+}
+
+.v3-rank-rail__heading h2 {
+  margin: 0;
+  color: #1b2737;
+  font-size: 0.94rem;
+  font-weight: 780;
+  letter-spacing: -0.025em;
+}
+
+.v3-rank-rail__heading > span {
+  display: block;
+  margin-top: 0.25rem;
+  color: #7b8794;
+  font-size: 0.68rem;
+}
+
+.v3-rank-rail__list {
+  display: grid;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+}
+
+.v3-rank-rail__list li {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  align-items: center;
+  border-bottom: 1px solid #edf0f3;
+}
+
+.v3-rank-rail__rank {
+  color: #8a95a1;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.v3-rank-rail__list button {
+  display: flex;
+  min-width: 0;
+  min-height: 62px;
+  padding: 0.62rem 0.2rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+  text-align: left;
+}
+
+.v3-rank-rail__list button:hover {
+  background: #f3f7fb;
+}
+
+.v3-rank-rail__list button > span {
+  display: grid;
+  min-width: 0;
+  gap: 0.18rem;
+}
+
+.v3-rank-rail__list strong {
+  overflow: hidden;
+  color: #263343;
+  font-size: 0.8rem;
+  font-weight: 730;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v3-rank-rail__list small {
+  overflow: hidden;
+  color: #7b8794;
+  font-size: 0.65rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v3-rank-rail__list em {
+  color: #245ec8;
+  font-size: 0.74rem;
+  font-style: normal;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.v3-rank-rail__all {
+  display: inline-flex;
+  min-height: 38px;
+  margin-top: auto;
+  padding: 0 0.7rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.36rem;
+  border: 1px solid #d3dbe4;
+  border-radius: 6px;
+  background: #fff;
+  color: #344f72;
+  font-size: 0.72rem;
+  font-weight: 720;
+  box-shadow: none;
+}
+
+.v3-rank-rail__all:hover {
+  border-color: #9fb4cc;
+  background: #f5f8fb;
+}
+
+.v2-analysis-card {
+  grid-area: map;
+  min-height: 520px;
+  padding: 16px 17px 14px;
+}
+
+.v2-card-heading {
+  min-height: 38px;
+  margin-bottom: 8px;
+}
+
+.v2-card-kicker {
+  display: block;
+  margin: 0 0 0.2rem;
+  color: #7b8794;
+  font-size: 0.62rem;
+  font-weight: 760;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.v2-card-heading h2,
+.v2-insight-card h2,
+.v3-scatter-card h2 {
+  color: #1c2939;
+  font-size: 0.94rem;
+}
+
+.v2-button--quiet {
+  min-height: 32px;
+  border-color: #d5dce4;
+  border-radius: 6px;
+  color: #526171;
+  font-size: 0.69rem;
+}
+
+.v2-analysis-visuals {
+  display: block;
+  min-height: 440px;
+  border-top-color: #e5e9ee;
+}
+
+.v2-map-panel {
+  display: grid;
+  min-height: 440px;
+  padding: 10px 0 0;
+  grid-template-rows: minmax(0, 1fr) auto;
+  border-right: 0;
+}
+
+.v2-national-map {
+  min-height: 394px;
+  border-radius: 7px;
+  background:
+    linear-gradient(rgba(242, 246, 249, 0.7), rgba(242, 246, 249, 0.7)), #f4f7f9;
+}
+
+.v2-national-map__canvas {
+  inset: -1% -6% 0;
+}
+
+.v2-map-legend {
+  bottom: 40px;
+  left: 12px;
+  padding: 0.5rem 0.62rem;
+  border-color: #d6dde5;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 2px 8px rgba(31, 47, 66, 0.06);
+}
+
+.v2-map-detail-link {
+  min-height: 34px;
+  margin-top: 3px;
+  padding: 0 0.42rem;
+  color: #2457a6;
+  font-size: 0.7rem;
+}
+
+.v2-insight-card {
+  grid-area: insight;
+  min-height: 520px;
+  padding: 18px 17px 15px;
+}
+
+.v2-insight-card__heading svg {
+  color: #2366da;
+}
+
+.v2-insight-card__lead {
+  margin: 1.1rem 0 1rem;
+  color: #253345;
+  font-size: 1.04rem;
+  line-height: 1.52;
+}
+
+.v2-insight-card__stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  margin-bottom: 1rem;
+  border: 1px solid #e0e6ec;
+  border-radius: 7px;
+}
+
+.v2-insight-card__stats div {
+  display: grid;
+  padding: 0.72rem 0.7rem;
+  gap: 0.2rem;
+  border-right: 1px solid #e0e6ec;
+}
+
+.v2-insight-card__stats div:first-child {
+  padding-left: 0.7rem;
+}
+
+.v2-insight-card__stats dt {
+  color: #7a8693;
+  font-size: 0.62rem;
+}
+
+.v2-insight-card__stats dd {
+  color: #25384d;
+  font-size: 0.78rem;
+}
+
+.v2-insight-note {
+  margin-bottom: 0.65rem;
+  border-color: #dbe5f2;
+  border-radius: 7px;
+  background: #f5f8fc;
+}
+
+.v2-button--primary {
+  min-height: 42px;
+  margin-top: auto;
+  border-radius: 6px;
+  background: #245fc8;
+  font-size: 0.76rem;
+}
+
+.v2-button--primary:hover {
+  background: #184da8;
+}
+
+.v2-method-toggle {
+  color: #617286;
+}
+
+.v3-scatter-card {
+  grid-area: scatter;
+  padding: 16px 17px 14px;
+}
+
+.v3-scatter-card__axis {
+  margin: 0;
+  color: #7b8793;
+  font-size: 0.67rem;
+}
+
+.v3-scatter-card .v2-chart-frame {
+  height: 248px;
+  border-top: 1px solid #e7ebef;
+}
+
+.v3-scatter-card .v2-party-legend {
+  margin-top: 5px;
+}
+
+.v2-trend-card {
+  grid-area: trend;
+  min-height: 338px;
+  padding: 16px 17px 14px;
+}
+
+.v2-trend-card .v2-trend-chart {
+  height: 240px;
+}
+
+.v2-ranking-card {
+  grid-area: ranking;
+  padding: 16px 17px 12px;
+}
+
+.v2-ranking-table-wrap,
+.v2-data-table-wrap {
+  border-color: #e0e5ea;
+  border-radius: 7px;
+}
+
+.v2-ranking-table th,
+.v2-ranking-table td,
+.v2-data-table th,
+.v2-data-table td {
+  border-bottom-color: #e8ecf0;
+}
+
+.v2-ranking-table thead th,
+.v2-data-table thead th {
+  background: #f4f7f9;
+  color: #657281;
+}
+
+@media (max-width: 1180px) {
+  .v2-observatory__grid {
+    grid-template-areas:
+      "rail map"
+      "insight map"
+      "scatter trend"
+      "ranking ranking";
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+
+  .v3-rank-rail,
+  .v2-insight-card {
+    min-height: auto;
+  }
+
+  .v3-rank-rail__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 10px;
+  }
+
+  .v3-rank-rail__list li {
+    grid-template-columns: 22px minmax(0, 1fr);
+  }
+
+  .v3-rank-rail__list li:nth-child(n + 5) {
+    display: none;
+  }
+
+  .v3-rank-rail__all {
+    margin-top: 10px;
+  }
+
+  .v2-analysis-card {
+    min-height: 680px;
+  }
+
+  .v2-analysis-visuals,
+  .v2-map-panel {
+    min-height: 600px;
+  }
+
+  .v2-national-map {
+    min-height: 550px;
+  }
+}
+
+@media (max-width: 860px) {
+  .v2-observatory {
+    width: min(100% - 28px, 720px);
+    padding-top: 16px;
+  }
+
+  .v2-observatory__hero {
+    align-items: start;
+    flex-direction: column;
+    gap: 0.8rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .v2-observatory__freshness {
+    margin: 0;
+    text-align: left;
+  }
+
+  .v2-lens-tabs {
+    grid-row: 2;
+  }
+
+  .v2-observatory__grid {
+    grid-template-areas:
+      "rail"
+      "map"
+      "insight"
+      "scatter"
+      "trend"
+      "ranking";
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .v3-rank-rail {
+    min-height: auto;
+  }
+
+  .v3-rank-rail__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .v2-analysis-card {
+    min-height: 540px;
+  }
+
+  .v2-analysis-visuals,
+  .v2-map-panel {
+    min-height: 460px;
+  }
+
+  .v2-national-map {
+    min-height: 410px;
+  }
+
+  .v2-insight-card {
+    min-height: auto;
+  }
+
+  .v2-button--primary {
+    margin-top: 0.5rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .v2-observatory {
+    width: calc(100% - 20px);
+    padding-bottom: 38px;
+  }
+
+  .v2-observatory__hero {
+    padding-bottom: 14px;
+  }
+
+  .v2-observatory__title {
+    font-size: 1.62rem;
+  }
+
+  .v2-lens-tabs {
+    width: 100%;
+  }
+
+  .v2-lens-tabs button {
+    min-width: 0;
+    padding: 0 0.45rem;
+    font-size: 0.72rem;
+  }
+
+  .v2-lens-tabs button svg {
+    display: none;
+  }
+
+  .v3-rank-rail,
+  .v2-analysis-card,
+  .v2-insight-card,
+  .v3-scatter-card,
+  .v2-trend-card,
+  .v2-ranking-card {
+    padding-right: 12px;
+    padding-left: 12px;
+    border-radius: 8px;
+  }
+
+  .v3-rank-rail__list {
+    grid-template-columns: 1fr;
+  }
+
+  .v3-rank-rail__list li:nth-child(n + 4) {
+    display: none;
+  }
+
+  .v2-analysis-card {
+    min-height: 430px;
+  }
+
+  .v2-analysis-visuals,
+  .v2-map-panel {
+    min-height: 350px;
+  }
+
+  .v2-national-map {
+    min-height: 300px;
+  }
+
+  .v2-map-legend {
+    bottom: 38px;
+    left: 7px;
+    transform: scale(0.9);
+    transform-origin: bottom left;
+  }
+
+  .v3-scatter-card__axis {
+    display: none;
+  }
+
+  .v3-scatter-card .v2-chart-frame,
+  .v2-trend-card .v2-trend-chart {
+    height: 220px;
+  }
+}

@@ -1,3 +1,4 @@
+import { QuestionIcon } from "@phosphor-icons/react/dist/csr/Question";
 import { useEffect, useMemo, useState } from "react";
 import {
   CartesianGrid,
@@ -211,7 +212,16 @@ function DistributionPointShape({
     <g
       transform={`translate(${Number(cx)}, ${Number(cy)})`}
       className="distribution-chart__point"
+      role="button"
+      tabIndex={0}
+      aria-label={`${payload.name} 의원 선택`}
       onClick={() => onSelectMember(payload.memberId)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelectMember(payload.memberId);
+        }
+      }}
       style={{ cursor: "pointer" }}
     >
       {selected ? (
@@ -732,7 +742,7 @@ export function DistributionPage({
                     aria-controls="distribution-chart-help"
                     onClick={() => setIsChartHelpOpen((current) => !current)}
                   >
-                    ?
+                    <QuestionIcon aria-hidden="true" size={18} weight="bold" />
                   </button>
                 </div>
                 <h2>{chartHeading}</h2>

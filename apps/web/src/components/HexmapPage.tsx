@@ -2,8 +2,14 @@ import { WebMercatorViewport } from "@deck.gl/core";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import { GeoJsonLayer } from "@deck.gl/layers";
 import DeckGL from "@deck.gl/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Map as MapGL } from "react-map-gl/maplibre";
+import {
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
 
 import { normalizeConstituencyLookupKey } from "../lib/constituency-map.js";
 import { formatAssetEok, formatPercent } from "../lib/format.js";
@@ -33,19 +39,6 @@ import type {
   Manifest,
   MemberAssetsIndexExport
 } from "@lawmaker-monitor/schemas";
-
-const MAP_STYLE = {
-  version: 8 as const,
-  sources: {
-    carto: {
-      type: "raster" as const,
-      tiles: ["https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors © CARTO"
-    }
-  },
-  layers: [{ id: "carto", type: "raster" as const, source: "carto" }]
-};
 
 const INITIAL_VIEW_STATE = {
   longitude: 127.8,
@@ -651,41 +644,49 @@ export function HexmapPage({
       ];
     }
 
-    return [
-      new H3HexagonLayer<H3DataCell>({
-        id: `h3-national-${activeMetric}`,
-        data: nationalCells,
-        getHexagon: (cell) => cell.h3Index,
-        getFillColor: (cell) => getCellFillColor(cell, normalizeMetric),
-        getLineColor: [255, 255, 255, 40],
-        lineWidthMinPixels: 1,
-        extruded: false,
-        pickable: true,
-        onHover: (info) => {
-          if (info.object && info.x !== undefined && info.y !== undefined) {
-            const { h3Index: _h3Index, ...datum } = info.object;
-            setNationalTooltip({ x: info.x, y: info.y, datum });
-            return;
-          }
+    const cellsByProvince = new Map<string, H3DataCell[]>();
+    for (const cell of nationalCells) {
+      const provinceCells = cellsByProvince.get(cell.provinceShortName) ?? [];
+      provinceCells.push(cell);
+      cellsByProvince.set(cell.provinceShortName, provinceCells);
+    }
 
-          setNationalTooltip(null);
-        },
-        onClick: (info) => {
-          if (!info.object) {
-            return;
-          }
+    return [...cellsByProvince.entries()].map(
+      ([provinceShortName, provinceCells]) =>
+        new H3HexagonLayer<H3DataCell>({
+          id: `h3-national-${activeMetric}-${provinceShortName}`,
+          data: provinceCells,
+          getHexagon: (cell) => cell.h3Index,
+          getFillColor: (cell) => getCellFillColor(cell, normalizeMetric),
+          getLineColor: [255, 255, 255, 40],
+          lineWidthMinPixels: 1,
+          extruded: false,
+          pickable: true,
+          onHover: (info) => {
+            if (info.object && info.x !== undefined && info.y !== undefined) {
+              const { h3Index: _h3Index, ...datum } = info.object;
+              setNationalTooltip({ x: info.x, y: info.y, datum });
+              return;
+            }
 
-          districtPanelSpanRef.current = startPerformanceSpan(
-            "hexmap:districtPanelReady"
-          );
-          setSelectedDistrictKey(null);
-          setSelectedProvinceFilter(info.object.provinceShortName);
-          setNationalTooltip(null);
-          setDetailTooltip(null);
-          setSelectedDetailMemberOverlay(null);
-        }
-      })
-    ];
+            setNationalTooltip(null);
+          },
+          onClick: (info) => {
+            if (!info.object) {
+              return;
+            }
+
+            districtPanelSpanRef.current = startPerformanceSpan(
+              "hexmap:districtPanelReady"
+            );
+            setSelectedDistrictKey(null);
+            setSelectedProvinceFilter(info.object.provinceShortName);
+            setNationalTooltip(null);
+            setDetailTooltip(null);
+            setSelectedDetailMemberOverlay(null);
+          }
+        })
+    );
   }, [
     activeMetric,
     getCellFillColor,
@@ -759,6 +760,24 @@ export function HexmapPage({
   const summaryItemsByMemberId = useMemo(
     () => new Map(summaryItems.map((item) => [item.memberId, item] as const)),
     [summaryItems]
+  );
+  const detailMemberOptions = useMemo(
+    () =>
+      [...new Set(detailCells.flatMap((cell) => cell.memberIds))].flatMap(
+        (memberId) => {
+          const member = summaryItemsByMemberId.get(memberId);
+          return member
+            ? [
+                {
+                  memberId,
+                  name: member.name,
+                  party: member.party
+                }
+              ]
+            : [];
+        }
+      ),
+    [detailCells, summaryItemsByMemberId]
   );
   const selectedDetailMemberId = selectedDetailMemberOverlay?.memberId ?? null;
   const selectedDetailMember = useMemo<DetailMemberSummary | null>(() => {
@@ -903,158 +922,254 @@ export function HexmapPage({
     );
   }
 
+  function selectMetric(metric: MapMetric) {
+    if (metric !== activeMetric) {
+      metricSwitchSpanRef.current = startPerformanceSpan(
+        "hexmap:metricSwitchReady"
+      );
+    }
+    setNationalTooltip(null);
+    setDetailTooltip(null);
+    setActiveMetric(metric);
+  }
+
+  function handleMetricKeyDown(
+    event: KeyboardEvent<HTMLButtonElement>,
+    index: number
+  ) {
+    let nextIndex = index;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      nextIndex = (index + 1) % VIZ_CONFIGS.length;
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      nextIndex = (index - 1 + VIZ_CONFIGS.length) % VIZ_CONFIGS.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = VIZ_CONFIGS.length - 1;
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    const nextMetric = VIZ_CONFIGS[nextIndex]!.key;
+    selectMetric(nextMetric);
+    const tabs =
+      event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
+        '[role="tab"]'
+      );
+    tabs?.[nextIndex]?.focus();
+  }
+
   return (
     <div className="hexmap-page">
-      <div className="hexmap-page__header">
-        <h1 className="hexmap-page__title">의원 활동·재산 지도</h1>
-        <p className="hexmap-page__subtitle">
-          {assemblyLabel} 의원 활동과 재산 공개 데이터를 전국 상세 H3 격자로
-          탐색합니다.
-        </p>
-      </div>
-
-      <div className="hexmap-disclaimer">
-        비례대표 의원은 지역구가 없어 표시되지 않으며, 공석 또는 매칭되지 않은
-        지역은 회색 타일로 유지합니다.
-        {isAssetMetric(activeMetric) &&
-          ` · ${getAssetMetricLabel(activeMetric)} 비교는 ${
-            activeMetric === "realEstate"
-              ? "최신 공개 건물·토지 합계"
-              : "최신 공개 총재산"
-          } 기준이며, 공개 데이터가 없는 지역구는 중립 타일로 남깁니다.`}
-        {loadProgress &&
-          ` · ${loadProgress.total}개 시·도 중 ${loadProgress.done}개 상세 격자 로드 완료`}
-        {nationalCells.length > 0 && ` · ${nationalCells.length}개 상세 셀`}
-      </div>
-
-      <div
-        className="hexmap-metric-selector"
-        role="tablist"
-        aria-label="시각화 지표 선택"
-      >
-        {VIZ_CONFIGS.map((config) => (
-          <button
-            key={config.key}
-            role="tab"
-            aria-selected={activeMetric === config.key}
-            className={`hexmap-metric-tab${activeMetric === config.key ? " hexmap-metric-tab--active" : ""}`}
-            onClick={() => {
-              if (config.key !== activeMetric) {
-                metricSwitchSpanRef.current = startPerformanceSpan(
-                  "hexmap:metricSwitchReady"
-                );
-              }
-              setNationalTooltip(null);
-              setDetailTooltip(null);
-              setActiveMetric(config.key);
-            }}
-          >
-            {config.label}
-          </button>
-        ))}
-      </div>
-
-      <p className="hexmap-viz-description">{vizConfig.description}</p>
-      {isAssetMetric(activeMetric) && memberAssetsIndexError ? (
-        <p className="hexmap-viz-warning">{memberAssetsIndexError}</p>
-      ) : null}
-
-      <section className="hexmap-section hexmap-section--national">
-        {partiesPresent.length > 0 && (
-          <div className="hexmap-party-legend" aria-label="정당 범례">
-            <div className="hexmap-party-legend__copy">
-              <span className="hexmap-party-legend__heading">정당</span>
-              <span className="hexmap-party-legend__description">
-                {partyLegendDescription}
-              </span>
-            </div>
-            {partiesPresent.map(({ party, color: [red, green, blue] }) => (
-              <span key={party} className="hexmap-party-legend__item">
-                <span
-                  className="hexmap-party-legend__dot"
-                  style={{ background: `rgb(${red},${green},${blue})` }}
-                  aria-hidden="true"
-                />
-                {party}
-              </span>
-            ))}
-          </div>
-        )}
-
-        <div
-          className={`hexmap-map-container${
-            error && nationalCells.length === 0
-              ? " hexmap-map-container--error"
-              : ""
-          }`}
-        >
-          {error && nationalCells.length === 0 ? (
-            <div className="hexmap-state">
-              <div className="hexmap-state__title">
-                데이터를 불러오지 못했습니다
-              </div>
-              <p>{error}</p>
-            </div>
-          ) : nationalCells.length === 0 ? (
-            <div className="hexmap-state">
-              <div className="hexmap-state__title">
-                {isLoading
-                  ? "전국 상세 격자 로딩 중…"
-                  : "지도 데이터를 준비 중입니다"}
-              </div>
-              <p>
-                {!accountabilitySummary
-                  ? "활동 데이터를 불러오고 있습니다."
-                  : loadProgress
-                    ? `${loadProgress.total}개 시·도 중 ${loadProgress.done}개 완료`
-                    : "선거구 경계 데이터를 불러오는 중입니다."}
-              </p>
-            </div>
-          ) : (
-            <>
-              <DeckGL
-                initialViewState={INITIAL_VIEW_STATE}
-                onViewStateChange={({ viewState }) => {
-                  setNationalViewState(viewState as typeof INITIAL_VIEW_STATE);
-                }}
-                controller
-                layers={nationalLayers}
-              >
-                <MapGL mapStyle={MAP_STYLE} />
-              </DeckGL>
-              {isLoading && (
-                <div className="hexmap-computing-overlay">
-                  전국 상세 격자 로딩 중…
-                  {loadProgress
-                    ? ` ${loadProgress.done}/${loadProgress.total}`
-                    : ""}
-                </div>
-              )}
-            </>
-          )}
-
-          {nationalTooltip &&
-            nationalCells.length > 0 &&
-            renderTooltipContent(nationalTooltip, "클릭 → 아래에서 확대")}
+      <header className="hexmap-page__header">
+        <div>
+          <p className="hexmap-page__eyebrow">deck.gl 지역 탐색</p>
+          <h1 className="hexmap-page__title">지역별 국회 기록 탐색</h1>
+          <p className="hexmap-page__subtitle">
+            {assemblyLabel} 활동과 재산 공개 기록을 전국에서 지역까지 연속적으로
+            확인하세요.
+          </p>
         </div>
-      </section>
+        <dl className="hexmap-page__status">
+          <div>
+            <dt>준비된 시·도</dt>
+            <dd>
+              {loadProgress
+                ? `${loadProgress.done}/${loadProgress.total}`
+                : "확인 중"}
+            </dd>
+          </div>
+          <div>
+            <dt>상세 셀</dt>
+            <dd>{nationalCells.length > 0 ? nationalCells.length : "—"}</dd>
+          </div>
+        </dl>
+      </header>
 
-      <p className="hexmap-footer-note">
-        데이터: 공개 기록표결·재산공개 기준 · 지도: © OpenStreetMap contributors
-        © CARTO · 시각화: deck.gl · 격자: Uber H3
-      </p>
+      <div className="hexmap-workspace">
+        <aside className="hexmap-sidebar" aria-label="지도 탐색 조건">
+          <section className="hexmap-sidebar__section">
+            <h2>비교 기준</h2>
+            <div
+              className="hexmap-metric-selector"
+              role="tablist"
+              aria-label="시각화 지표 선택"
+            >
+              {VIZ_CONFIGS.map((config, index) => (
+                <button
+                  key={config.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeMetric === config.key}
+                  tabIndex={activeMetric === config.key ? 0 : -1}
+                  className={`hexmap-metric-tab${activeMetric === config.key ? " hexmap-metric-tab--active" : ""}`}
+                  onClick={() => selectMetric(config.key)}
+                  onKeyDown={(event) => handleMetricKeyDown(event, index)}
+                >
+                  {config.label}
+                </button>
+              ))}
+            </div>
+            <p className="hexmap-viz-description">{vizConfig.description}</p>
+            {isAssetMetric(activeMetric) && memberAssetsIndexError ? (
+              <p className="hexmap-viz-warning">{memberAssetsIndexError}</p>
+            ) : null}
+          </section>
 
-      <section className="hexmap-section hexmap-section--detail">
-        <div className="hexmap-section-divider">
+          <section className="hexmap-sidebar__section">
+            <h2>시·도 바로가기</h2>
+            <div className="hexmap-region-list">
+              {staticState.entries.map((entry) => {
+                const selected =
+                  entry.provinceShortName === selectedProvinceFilter;
+                return (
+                  <button
+                    key={entry.cacheKey}
+                    type="button"
+                    aria-pressed={selected}
+                    className={selected ? "is-active" : undefined}
+                    onClick={() => {
+                      setSelectedDistrictKey(null);
+                      setSelectedProvinceFilter(entry.provinceShortName);
+                      setNationalTooltip(null);
+                      setDetailTooltip(null);
+                      setSelectedDetailMemberOverlay(null);
+                    }}
+                  >
+                    {entry.provinceShortName}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {partiesPresent.length > 0 ? (
+            <section
+              className="hexmap-sidebar__section hexmap-party-legend"
+              aria-label="정당 범례"
+            >
+              <div className="hexmap-party-legend__copy">
+                <h2 className="hexmap-party-legend__heading">색상 기준</h2>
+                <span className="hexmap-party-legend__description">
+                  {partyLegendDescription}
+                </span>
+              </div>
+              <div className="hexmap-party-legend__items">
+                {partiesPresent.map(({ party, color: [red, green, blue] }) => (
+                  <span key={party} className="hexmap-party-legend__item">
+                    <span
+                      className="hexmap-party-legend__dot"
+                      style={{ background: `rgb(${red},${green},${blue})` }}
+                      aria-hidden="true"
+                    />
+                    {party}
+                  </span>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          <details className="hexmap-disclaimer">
+            <summary>표시 기준과 제한</summary>
+            <p>
+              비례대표 의원은 지역구가 없어 표시되지 않으며, 공석 또는 매칭되지
+              않은 지역은 회색 타일로 유지합니다.
+              {isAssetMetric(activeMetric) &&
+                ` ${getAssetMetricLabel(activeMetric)} 비교는 ${
+                  activeMetric === "realEstate"
+                    ? "최신 공개 건물·토지 합계"
+                    : "최신 공개 총재산"
+                } 기준이며, 공개 데이터가 없는 지역구는 중립 타일로 남깁니다.`}
+            </p>
+          </details>
+        </aside>
+
+        <section
+          className="hexmap-section hexmap-section--national"
+          aria-labelledby="hexmap-national-title"
+        >
+          <div className="hexmap-section__heading">
+            <div>
+              <p>전국 보기</p>
+              <h2 id="hexmap-national-title">지역구 분포</h2>
+            </div>
+            <span>확대 수준에 따라 지역 경계와 H3 셀이 전환됩니다</span>
+          </div>
+          <div
+            className={`hexmap-map-container${
+              error && nationalCells.length === 0
+                ? " hexmap-map-container--error"
+                : ""
+            }`}
+          >
+            {error && nationalCells.length === 0 ? (
+              <div className="hexmap-state">
+                <div className="hexmap-state__title">
+                  데이터를 불러오지 못했습니다
+                </div>
+                <p>{error}</p>
+              </div>
+            ) : nationalCells.length === 0 ? (
+              <div className="hexmap-state">
+                <div className="hexmap-state__title">
+                  {isLoading
+                    ? "전국 상세 격자 로딩 중…"
+                    : "지도 데이터를 준비 중입니다"}
+                </div>
+                <p>
+                  {!accountabilitySummary
+                    ? "활동 데이터를 불러오고 있습니다."
+                    : loadProgress
+                      ? `${loadProgress.total}개 시·도 중 ${loadProgress.done}개 완료`
+                      : "선거구 경계 데이터를 불러오는 중입니다."}
+                </p>
+              </div>
+            ) : (
+              <>
+                <DeckGL
+                  initialViewState={INITIAL_VIEW_STATE}
+                  onViewStateChange={({ viewState }) => {
+                    setNationalViewState(
+                      viewState as typeof INITIAL_VIEW_STATE
+                    );
+                  }}
+                  controller
+                  layers={nationalLayers}
+                />
+                {isLoading ? (
+                  <div className="hexmap-computing-overlay">
+                    전국 상세 격자 로딩 중…
+                    {loadProgress
+                      ? ` ${loadProgress.done}/${loadProgress.total}`
+                      : ""}
+                  </div>
+                ) : null}
+              </>
+            )}
+
+            {nationalTooltip &&
+              nationalCells.length > 0 &&
+              renderTooltipContent(nationalTooltip, "클릭 → 지역 확대")}
+          </div>
+        </section>
+
+        <section
+          className="hexmap-section hexmap-section--detail"
+          aria-labelledby="hexmap-detail-title"
+        >
           <div className="hexmap-detail-header">
             <div>
-              <h2 className="hexmap-section-title">선택 지역 확대 보기</h2>
+              <p>선택 지역</p>
+              <h2 id="hexmap-detail-title" className="hexmap-section-title">
+                {detailPanelLabel ?? "지역을 선택하세요"}
+              </h2>
               <p className="hexmap-section-desc">
                 {selectedProvinceFilter
                   ? `${selectedProvinceFilter} 전체 지역구를 보여줍니다.`
                   : selectedDistrictKey
                     ? "선택한 지역구의 상위 시·도 범위를 불러오는 중입니다."
-                    : "상단 전국 지도에서 지역구를 클릭하면 아래에서 해당 시·도를 보여줍니다."}{" "}
+                    : "상단 전국 지도에서 지역구를 클릭하면 이 영역에 해당 시·도가 나타납니다."}{" "}
                 헥사곤을 클릭하면 작은 의원 오버레이와 활동 캘린더 바로가기가
                 열립니다.
               </p>
@@ -1074,77 +1189,103 @@ export function HexmapPage({
               </button>
             )}
           </div>
-        </div>
 
-        {detailPanelLabel && detailCells.length > 0 && (
-          <div className="hexmap-detail-summary">
-            <span className="hexmap-detail-badge">시·도</span>
-            <strong>{detailPanelLabel}</strong>
-            <span>{detailCells.length}개 셀</span>
-          </div>
-        )}
-
-        <div className="hexmap-map-container">
-          {!selectedDistrictKey && !selectedProvinceFilter ? (
-            <div className="hexmap-state">
-              <div className="hexmap-state__title">
-                아직 선택된 지역구가 없습니다
-              </div>
-              <p>
-                상단 전국 지도에서 지역구를 클릭하면 이 영역에 해당 시·도가
-                나타납니다.
-              </p>
+          {detailPanelLabel && detailCells.length > 0 ? (
+            <div className="hexmap-detail-summary">
+              <span className="hexmap-detail-badge">시·도</span>
+              <strong>{detailPanelLabel}</strong>
+              <span>{detailCells.length}개 셀</span>
             </div>
-          ) : isFilterPending ? (
-            <div className="hexmap-state">
-              <div className="hexmap-state__title">
-                {detailPanelLabel ?? "선택 지역"} 데이터를 불러오는 중…
-              </div>
-              <p>
-                브라우저 캐시를 확인하고 필요한 시·도만 순차적으로 계산합니다.
-              </p>
-            </div>
-          ) : detailCells.length === 0 ? (
-            <div className="hexmap-state">
-              <div className="hexmap-state__title">
-                표시할 지역구 데이터를 찾지 못했습니다
-              </div>
-              <p>선택한 필터와 현재 공개된 비교 데이터를 다시 확인해 주세요.</p>
-            </div>
-          ) : (
-            <DeckGL
-              viewState={detailViewState}
-              onViewStateChange={({ viewState }) => {
-                setDetailViewState(viewState as typeof detailViewState);
-              }}
-              controller
-              layers={detailLayers}
-            >
-              <MapGL mapStyle={MAP_STYLE} />
-            </DeckGL>
-          )}
-
-          {!selectedDetailMemberOverlay &&
-            detailTooltip &&
-            detailCells.length > 0 &&
-            renderTooltipContent(detailTooltip, "클릭 → 캘린더 바로가기")}
-
-          {detailCells.length > 0 && !isFilterPending ? (
-            selectedDetailMember ? (
-              renderDetailMemberOverlay(selectedDetailMember)
-            ) : (
-              <div
-                className="hexmap-detail-member-placeholder"
-                role="status"
-                aria-live="polite"
-              >
-                상세 지도에서 헥사곤을 클릭하면 작은 오버레이와 활동 캘린더
-                바로가기가 나타납니다.
-              </div>
-            )
           ) : null}
-        </div>
-      </section>
+
+          {detailMemberOptions.length > 0 ? (
+            <div
+              className="hexmap-detail-members"
+              aria-label={`${detailPanelLabel ?? "선택 지역"} 의원 목록`}
+            >
+              <span>지역 의원</span>
+              <div>
+                {detailMemberOptions.map((member) => (
+                  <button
+                    key={member.memberId}
+                    type="button"
+                    onClick={() => onNavigateToMember(member.memberId)}
+                    aria-label={`${member.name} 의원 활동 보기`}
+                  >
+                    <strong>{member.name}</strong>
+                    <small>{member.party}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="hexmap-map-container">
+            {!selectedDistrictKey && !selectedProvinceFilter ? (
+              <div className="hexmap-state">
+                <div className="hexmap-state__title">
+                  아직 선택된 지역구가 없습니다
+                </div>
+                <p>
+                  상단 전국 지도에서 지역구를 클릭하면 이 영역에 해당 시·도가
+                  나타납니다.
+                </p>
+              </div>
+            ) : isFilterPending ? (
+              <div className="hexmap-state">
+                <div className="hexmap-state__title">
+                  {detailPanelLabel ?? "선택 지역"} 데이터를 불러오는 중…
+                </div>
+                <p>
+                  브라우저 캐시를 확인하고 필요한 시·도만 순차적으로 계산합니다.
+                </p>
+              </div>
+            ) : detailCells.length === 0 ? (
+              <div className="hexmap-state">
+                <div className="hexmap-state__title">
+                  표시할 지역구 데이터를 찾지 못했습니다
+                </div>
+                <p>
+                  선택한 필터와 현재 공개된 비교 데이터를 다시 확인해 주세요.
+                </p>
+              </div>
+            ) : (
+              <DeckGL
+                viewState={detailViewState}
+                onViewStateChange={({ viewState }) => {
+                  setDetailViewState(viewState as typeof detailViewState);
+                }}
+                controller
+                layers={detailLayers}
+              />
+            )}
+
+            {!selectedDetailMemberOverlay &&
+              detailTooltip &&
+              detailCells.length > 0 &&
+              renderTooltipContent(detailTooltip, "클릭 → 캘린더 바로가기")}
+
+            {detailCells.length > 0 && !isFilterPending ? (
+              selectedDetailMember ? (
+                renderDetailMemberOverlay(selectedDetailMember)
+              ) : (
+                <div
+                  className="hexmap-detail-member-placeholder"
+                  role="status"
+                  aria-live="polite"
+                >
+                  상세 지도에서 헥사곤을 클릭하면 작은 오버레이와 활동 캘린더
+                  바로가기가 나타납니다.
+                </div>
+              )
+            ) : null}
+          </div>
+        </section>
+      </div>
+
+      <p className="hexmap-footer-note">
+        데이터: 공개 기록표결·재산공개 기준 · 시각화: deck.gl · 격자: Uber H3
+      </p>
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { loadAccountabilitySummary } from "../lib/data.js";
 import { buildDistributionMembers } from "../lib/distribution.js";
 import { formatDateTime } from "../lib/format.js";
 import { applyMemberAssetsIndexRealEstateFallbacks } from "../lib/member-assets.js";
+import "../styles/v3-shell.css";
 
 import type { MemberSearchOption } from "../components/MemberSearchField.js";
 import type { MapMetric } from "../lib/map-route.js";
@@ -64,16 +65,16 @@ function useRouteAccessibility(route: RouteState) {
   useEffect(() => {
     const pageLabel =
       route.route === "home"
-        ? "개요"
+        ? "오늘의 변화"
         : route.route === "calendar"
-          ? "의원 활동"
+          ? "의원 찾기"
           : route.route === "distribution"
-            ? "의원 분포"
+            ? "의원 찾기"
             : route.route === "votes"
-              ? "최근 표결"
+              ? "표결 기록"
               : route.route === "trends"
-                ? "분석"
-                : "전국 지도";
+                ? "추세"
+                : "지역 탐색";
 
     document.title = `${pageLabel} · 국회 책임성 모니터`;
     const shouldMoveFocus =
@@ -146,9 +147,6 @@ function V2HomeExperience({ routing }: { routing: V2Routing }) {
     manifest,
     routeState: routing.routeState
   });
-  const [selectedSearchMemberId, setSelectedSearchMemberId] = useState<
-    string | null
-  >(null);
 
   const currentAssemblyLabel = buildAssemblyLabel({
     accountabilitySummary,
@@ -183,18 +181,6 @@ function V2HomeExperience({ routing }: { routing: V2Routing }) {
       memberAssetsState.memberAssetsIndex
     ]
   );
-  const searchOptions = useMemo<MemberSearchOption[]>(
-    () =>
-      (accountabilitySummary?.items ?? []).map((item) => ({
-        id: item.memberId,
-        label: `${item.name} · ${item.party}`
-      })),
-    [accountabilitySummary]
-  );
-  const selectedSearchMemberName =
-    searchOptions
-      .find((option) => option.id === selectedSearchMemberId)
-      ?.label.split(" · ")[0] ?? null;
   const errors = useMemo(
     () =>
       [
@@ -212,51 +198,44 @@ function V2HomeExperience({ routing }: { routing: V2Routing }) {
   );
 
   return (
-    <div className="v2-app">
-      <V2GlobalNav
-        route="home"
-        assemblyLabel={currentAssemblyLabel}
-        memberName={selectedSearchMemberName}
-        searchOptions={searchOptions}
-        selectedSearchMemberId={selectedSearchMemberId}
-        onHome={routing.navigateHome}
-        onNavigate={(target) => navigateFromV2(routing, target)}
-        onSelectSearchMemberId={setSelectedSearchMemberId}
-        onSubmitSearch={() => {
-          if (selectedSearchMemberId) {
-            routing.navigateToCalendar(selectedSearchMemberId);
-          }
-        }}
-      />
-      <V2ObservatoryPage
-        assemblyLabel={currentAssemblyLabel}
-        freshnessText={freshnessText}
-        manifest={manifest}
-        accountabilitySummary={accountabilitySummary}
-        members={members}
-        activityCalendar={activityCalendarState.activityCalendar}
-        accountabilityTrends={accountabilityTrends}
-        memberAssetsIndex={resolvedMemberAssetsIndex}
-        loading={
-          (!accountabilitySummary && !leaderboardError) ||
-          (!activityCalendarState.activityCalendar &&
-            !activityCalendarState.activityError)
-        }
-        errors={errors}
-        onOpenMap={(metric: MapMetric) => routing.navigateToMap({ metric })}
-        onOpenDistribution={routing.navigateToDistribution}
-        onOpenMember={routing.navigateToCalendar}
-      />
+    <V2ObservatoryPage
+      assemblyLabel={currentAssemblyLabel}
+      freshnessText={freshnessText}
+      manifest={manifest}
+      accountabilitySummary={accountabilitySummary}
+      members={members}
+      activityCalendar={activityCalendarState.activityCalendar}
+      accountabilityTrends={accountabilityTrends}
+      memberAssetsIndex={resolvedMemberAssetsIndex}
+      loading={
+        (!accountabilitySummary && !leaderboardError) ||
+        (!activityCalendarState.activityCalendar &&
+          !activityCalendarState.activityError)
+      }
+      errors={errors}
+      onOpenMap={(metric: MapMetric) => routing.navigateToMap({ metric })}
+      onOpenDistribution={routing.navigateToDistribution}
+      onOpenMember={routing.navigateToCalendar}
+    />
+  );
+}
+
+function V2LegacyRouteExperience() {
+  return (
+    <div className="v2-route-content" id="v2-main-content">
+      <App />
     </div>
   );
 }
 
-function V2LegacyRouteExperience({ routing }: { routing: V2Routing }) {
+export function V2App() {
+  const routing = useHashRoute();
   const [accountabilitySummary, setAccountabilitySummary] =
     useState<AccountabilitySummaryExport | null>(null);
   const [selectedSearchMemberId, setSelectedSearchMemberId] = useState<
     string | null
   >(null);
+  useRouteAccessibility(routing.routeState);
 
   useEffect(() => {
     let active = true;
@@ -289,9 +268,23 @@ function V2LegacyRouteExperience({ routing }: { routing: V2Routing }) {
     searchOptions
       .find((option) => option.id === selectedSearchMemberId)
       ?.label.split(" · ")[0] ?? null;
+  const routedMemberId =
+    routing.routeState.route === "calendar" ||
+    routing.routeState.route === "distribution"
+      ? routing.routeState.memberId
+      : null;
+
+  useEffect(() => {
+    if (
+      routedMemberId &&
+      searchOptions.some((option) => option.id === routedMemberId)
+    ) {
+      setSelectedSearchMemberId(routedMemberId);
+    }
+  }, [routedMemberId, searchOptions]);
 
   return (
-    <div className="v2-app">
+    <div className="v2-app v3-shell">
       <V2GlobalNav
         route={routing.routeState.route}
         assemblyLabel={accountabilitySummary?.assemblyLabel}
@@ -307,20 +300,11 @@ function V2LegacyRouteExperience({ routing }: { routing: V2Routing }) {
           }
         }}
       />
-      <div className="v2-route-content" id="v2-main-content">
-        <App />
-      </div>
+      {routing.routeState.route === "home" ? (
+        <V2HomeExperience routing={routing} />
+      ) : (
+        <V2LegacyRouteExperience />
+      )}
     </div>
-  );
-}
-
-export function V2App() {
-  const routing = useHashRoute();
-  useRouteAccessibility(routing.routeState);
-
-  return routing.routeState.route === "home" ? (
-    <V2HomeExperience routing={routing} />
-  ) : (
-    <V2LegacyRouteExperience routing={routing} />
   );
 }

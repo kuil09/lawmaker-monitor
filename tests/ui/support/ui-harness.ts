@@ -322,13 +322,23 @@ export async function createBrowserSession(
   });
 
   page.on("pageerror", (error) => {
-    issues.push(`pageerror:${error.message}`);
+    issues.push(`pageerror:${error.stack ?? error.message}`);
   });
 
   page.on("requestfailed", (request) => {
     const url = request.url();
     if (url.startsWith(appUrl) || url.startsWith(dataUrl)) {
       issues.push(`requestfailed:${request.method()} ${url}`);
+    }
+  });
+
+  page.on("response", (response) => {
+    const url = response.url();
+    if (
+      response.status() >= 400 &&
+      (url.startsWith(appUrl) || url.startsWith(dataUrl))
+    ) {
+      issues.push(`response:${response.status()} ${url}`);
     }
   });
 

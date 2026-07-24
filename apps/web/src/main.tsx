@@ -1,7 +1,4 @@
-import React from "react";
 import ReactDOM from "react-dom/client";
-
-import "maplibre-gl/dist/maplibre-gl.css";
 
 import AppEntry from "./AppEntry.js";
 import "./styles/layers.css";
@@ -14,9 +11,7 @@ import "./styles/activity-refresh.css";
 import "./styles/distribution-refresh.css";
 import "./styles/hexmap.css";
 import "./styles/v2-observatory.css";
+import "./styles/v3-observatory.css";
+import "./styles/v3-unified.css";
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <AppEntry />
-  </React.StrictMode>
-);
+ReactDOM.createRoot(document.getElementById("root")!).render(<AppEntry />);

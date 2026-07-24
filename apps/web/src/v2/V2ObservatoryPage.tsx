@@ -508,43 +508,51 @@ export function V2ObservatoryPage({
       <header className="v2-observatory__hero">
         <div>
           <p className="v2-observatory__eyebrow">
-            {assemblyLabel} 데이터 데스크
+            시민을 위한 {assemblyLabel} 공식 기록
           </p>
           <h1 className="v2-observatory__title" tabIndex={-1}>
-            지금 국회에서 무엇이 보이나요?
+            국회 움직임 탐색기
           </h1>
+          <p className="v2-observatory__intro">
+            지역, 의원, 표결 근거를 한 화면에서 비교하고 원문까지 확인하세요.
+          </p>
         </div>
+
+        <div
+          className="v2-lens-tabs"
+          role="tablist"
+          aria-label="관찰 지표 선택"
+        >
+          {LENS_CONFIGS.map((lens, index) => {
+            const Icon = lens.icon;
+            const selected = lens.key === activeLens;
+            return (
+              <button
+                key={lens.key}
+                ref={(element) => {
+                  tabRefs.current[index] = element;
+                }}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                aria-controls="v2-observatory-panel"
+                tabIndex={selected ? 0 : -1}
+                className={selected ? "is-active" : undefined}
+                onClick={() => selectLens(lens.key)}
+                onKeyDown={(event) => handleTabKeyDown(event, index)}
+              >
+                <Icon size={20} weight={selected ? "fill" : "regular"} />
+                <span>{lens.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
         <p className="v2-observatory__freshness">
           <span>공식 기록 기준</span>
           <strong>{freshnessText}</strong>
         </p>
       </header>
-
-      <div className="v2-lens-tabs" role="tablist" aria-label="관찰 지표 선택">
-        {LENS_CONFIGS.map((lens, index) => {
-          const Icon = lens.icon;
-          const selected = lens.key === activeLens;
-          return (
-            <button
-              key={lens.key}
-              ref={(element) => {
-                tabRefs.current[index] = element;
-              }}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              aria-controls="v2-observatory-panel"
-              tabIndex={selected ? 0 : -1}
-              className={selected ? "is-active" : undefined}
-              onClick={() => selectLens(lens.key)}
-              onKeyDown={(event) => handleTabKeyDown(event, index)}
-            >
-              <Icon size={20} weight={selected ? "fill" : "regular"} />
-              <span>{lens.label}</span>
-            </button>
-          );
-        })}
-      </div>
 
       {errors.length > 0 ? (
         <div className="v2-status-stack" role="alert">
@@ -560,13 +568,52 @@ export function V2ObservatoryPage({
         aria-label={`${config.label} 관찰`}
         className="v2-observatory__grid"
       >
+        <aside className="v3-rank-rail" aria-labelledby="v3-rank-rail-title">
+          <div className="v3-rank-rail__heading">
+            <p className="v2-card-kicker">빠른 비교</p>
+            <h2 id="v3-rank-rail-title">{config.scoreLabel}</h2>
+            <span>상위 공개 기록</span>
+          </div>
+          <ol className="v3-rank-rail__list">
+            {rankingRows
+              .filter((row) => row.section === "top")
+              .map((row, index) => (
+                <li key={row.memberId}>
+                  <span className="v3-rank-rail__rank">{index + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => onOpenMember(row.memberId)}
+                  >
+                    <span>
+                      <strong>{row.name}</strong>
+                      <small>{row.party}</small>
+                    </span>
+                    <em>
+                      {activeLens === "assets"
+                        ? formatEok(row.score)
+                        : formatPercentValue(row.score)}
+                    </em>
+                  </button>
+                </li>
+              ))}
+          </ol>
+          <button
+            type="button"
+            className="v3-rank-rail__all"
+            onClick={onOpenDistribution}
+          >
+            전체 의원 비교
+            <ArrowRightIcon size={16} />
+          </button>
+        </aside>
+
         <section
           className="v2-analysis-card"
           aria-labelledby="v2-analysis-title"
         >
           <div className="v2-card-heading">
             <div>
-              <p className="v2-card-kicker">전국 · 의원 연결 분석</p>
+              <p className="v2-card-kicker">전국 지역 탐색</p>
               <h2 id="v2-analysis-title">{config.mapTitle}</h2>
             </div>
             <button
@@ -576,7 +623,7 @@ export function V2ObservatoryPage({
               onClick={() => setShowPrimaryTable((current) => !current)}
             >
               <TableIcon size={18} />
-              {showPrimaryTable ? "시각화 보기" : "표로 보기"}
+              {showPrimaryTable ? "지도 보기" : "목록 보기"}
             </button>
           </div>
 
@@ -675,83 +722,6 @@ export function V2ObservatoryPage({
                   <ArrowRightIcon size={16} />
                 </button>
               </div>
-
-              <div className="v2-scatter-panel">
-                <h3>{config.scatterTitle}</h3>
-                <p>
-                  세로축: {config.yLabel} / 가로축: {config.xLabel}
-                </p>
-                <div
-                  className="v2-chart-frame"
-                  role="img"
-                  aria-label={`${points.length}명 의원의 ${config.scatterTitle}`}
-                >
-                  <ScatterChart
-                    responsive
-                    style={{ width: "100%", height: "100%" }}
-                    margin={{ top: 16, right: 12, bottom: 24, left: 0 }}
-                  >
-                    <CartesianGrid stroke="#e2e4e7" strokeDasharray="2 2" />
-                    <XAxis
-                      type="number"
-                      dataKey="x"
-                      domain={resolvedXDomain}
-                      tick={{ fontSize: 11, fill: "#62666c" }}
-                      tickFormatter={(value: number) =>
-                        activeLens === "assets"
-                          ? `${Math.round(value)}`
-                          : `${Math.round(value)}%`
-                      }
-                      label={{
-                        value: config.xLabel,
-                        position: "insideBottom",
-                        offset: -14,
-                        fill: "#62666c",
-                        fontSize: 11
-                      }}
-                    />
-                    <YAxis
-                      type="number"
-                      dataKey="y"
-                      domain={resolvedYDomain}
-                      width={42}
-                      tick={{ fontSize: 11, fill: "#62666c" }}
-                      tickFormatter={(value: number) =>
-                        activeLens === "assets"
-                          ? `${Math.round(value)}`
-                          : `${Math.round(value)}%`
-                      }
-                    />
-                    <ZAxis range={[45, 45]} />
-                    <Tooltip
-                      cursor={{ strokeDasharray: "3 3" }}
-                      content={<ScatterTooltipContent lens={activeLens} />}
-                    />
-                    <Scatter data={points}>
-                      {points.map((point) => (
-                        <Cell
-                          key={point.memberId}
-                          fill={getPartyHex(point.party)}
-                          fillOpacity={0.82}
-                        />
-                      ))}
-                    </Scatter>
-                  </ScatterChart>
-                </div>
-                <div className="v2-party-legend">
-                  {[...new Set(points.map((point) => point.party))]
-                    .slice(0, 6)
-                    .map((party) => (
-                      <span key={party}>
-                        <i
-                          style={{ backgroundColor: getPartyHex(party) }}
-                          aria-hidden="true"
-                        />
-                        {party}
-                      </span>
-                    ))}
-                </div>
-              </div>
             </div>
           )}
         </section>
@@ -813,6 +783,90 @@ export function V2ObservatoryPage({
             </p>
           ) : null}
         </aside>
+
+        <section className="v3-scatter-card" aria-labelledby="v3-scatter-title">
+          <div className="v2-card-heading">
+            <div>
+              <p className="v2-card-kicker">의원 비교</p>
+              <h2 id="v3-scatter-title">{config.scatterTitle}</h2>
+            </div>
+            <p className="v3-scatter-card__axis">
+              세로 {config.yLabel} · 가로 {config.xLabel}
+            </p>
+          </div>
+          <div
+            className="v2-chart-frame"
+            role="img"
+            aria-label={`${points.length}명 의원의 ${config.scatterTitle}`}
+          >
+            <ScatterChart
+              responsive
+              style={{ width: "100%", height: "100%" }}
+              margin={{ top: 16, right: 12, bottom: 24, left: 0 }}
+            >
+              <CartesianGrid stroke="#e2e7ec" strokeDasharray="2 2" />
+              <XAxis
+                type="number"
+                dataKey="x"
+                domain={resolvedXDomain}
+                scale={activeLens === "assets" ? "symlog" : "auto"}
+                tick={{ fontSize: 11, fill: "#66717d" }}
+                tickFormatter={(value: number) =>
+                  activeLens === "assets"
+                    ? `${Math.round(value)}`
+                    : `${Math.round(value)}%`
+                }
+                label={{
+                  value: config.xLabel,
+                  position: "insideBottom",
+                  offset: -14,
+                  fill: "#66717d",
+                  fontSize: 11
+                }}
+              />
+              <YAxis
+                type="number"
+                dataKey="y"
+                domain={resolvedYDomain}
+                scale={activeLens === "assets" ? "symlog" : "auto"}
+                width={42}
+                tick={{ fontSize: 11, fill: "#66717d" }}
+                tickFormatter={(value: number) =>
+                  activeLens === "assets"
+                    ? `${Math.round(value)}`
+                    : `${Math.round(value)}%`
+                }
+              />
+              <ZAxis range={[45, 45]} />
+              <Tooltip
+                cursor={{ strokeDasharray: "3 3" }}
+                content={<ScatterTooltipContent lens={activeLens} />}
+              />
+              <Scatter data={points}>
+                {points.map((point) => (
+                  <Cell
+                    key={point.memberId}
+                    fill={getPartyHex(point.party)}
+                    fillOpacity={0.82}
+                  />
+                ))}
+              </Scatter>
+            </ScatterChart>
+          </div>
+          <div className="v2-party-legend">
+            {[...new Set(points.map((point) => point.party))]
+              .slice(0, 6)
+              .map((party) => (
+                <span key={party}>
+                  <i
+                    style={{ backgroundColor: getPartyHex(party) }}
+                    aria-hidden="true"
+                  />
+                  {party}
+                </span>
+              ))}
+          </div>
+        </section>
 
         <section className="v2-trend-card" aria-labelledby="v2-trend-title">
           <div className="v2-card-heading">

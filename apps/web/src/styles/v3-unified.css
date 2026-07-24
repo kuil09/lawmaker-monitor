@@ -1,0 +1,117 @@
+.v2-app.v3-shell {
+  --v3-accent: #165dcc;
+  --v3-accent-strong: #0e49a6;
+  --v3-accent-soft: #edf4ff;
+  --v3-content-width: 1440px;
+}
+
+.v2-app.v3-shell .v2-global-nav__inner,
+.v2-app.v3-shell .v2-observatory,
+.v2-app.v3-shell .hexmap-page,
+.v2-app.v3-shell .v2-route-content > .app-shell {
+  width: min(var(--v3-content-width), calc(100% - 48px));
+}
+
+.v2-app.v3-shell .v2-global-nav__link[aria-current="page"],
+.v2-app.v3-shell .v2-observatory__eyebrow,
+.v2-app.v3-shell .v3-rank-rail__list em,
+.v2-app.v3-shell .v2-map-detail-link,
+.v2-app.v3-shell .hexmap-page__eyebrow,
+.v2-app.v3-shell .hexmap-section__heading p,
+.v2-app.v3-shell .hexmap-detail-header > div > p {
+  color: var(--v3-accent);
+}
+
+.v2-app.v3-shell .v2-global-nav__link[aria-current="page"]::after,
+.v2-app.v3-shell .v2-global-nav__search-submit,
+.v2-app.v3-shell .v2-button--primary {
+  background: var(--v3-accent);
+}
+
+.v2-app.v3-shell .v2-global-nav__search-submit:hover:not(:disabled),
+.v2-app.v3-shell .v2-button--primary:hover {
+  background: var(--v3-accent-strong);
+}
+
+.v2-app.v3-shell .v2-lens-tabs button.is-active,
+.v2-app.v3-shell .hexmap-metric-tab--active,
+.v2-app.v3-shell .hexmap-region-list button.is-active {
+  border-color: #8daee1;
+  background: var(--v3-accent-soft);
+  color: var(--v3-accent);
+}
+
+.v2-app.v3-shell .v3-evidence-page {
+  --v3-blue: var(--v3-accent);
+  --v3-blue-soft: var(--v3-accent-soft);
+}
+
+.v2-app.v3-shell .activity-page {
+  --activity-blue: var(--v3-accent);
+  --activity-blue-strong: var(--v3-accent-strong);
+  --activity-blue-soft: var(--v3-accent-soft);
+}
+
+.v2-app.v3-shell .distribution-page__masthead,
+.v2-app.v3-shell .distribution-page__layout,
+.v2-app.v3-shell .distribution-signal-grid,
+.v2-app.v3-shell .distribution-page__empty {
+  --distribution-blue: var(--v3-accent);
+  --distribution-blue-strong: var(--v3-accent-strong);
+  --distribution-blue-soft: var(--v3-accent-soft);
+}
+
+.v2-app.v3-shell .v2-observatory__title,
+.v2-app.v3-shell .hexmap-page__title,
+.v2-app.v3-shell .v3-page-header h1,
+.v2-app.v3-shell .activity-page .activity-page__masthead h1,
+.v2-app.v3-shell .distribution-page__headline h1,
+.v2-app.v3-shell .distribution-page__empty h1 {
+  font-size: clamp(1.72rem, 2.5vw, 2.12rem);
+  font-weight: 800;
+  line-height: 1.14;
+  letter-spacing: -0.042em;
+}
+
+.v2-app.v3-shell .v2-observatory__title {
+  font-size: clamp(1.28rem, 2vw, 1.55rem);
+}
+
+.search-panel__explore-action {
+  min-height: 44px;
+}
+
+.v2-app.v3-shell h1[tabindex="-1"]:focus {
+  outline: none;
+}
+
+@media (max-width: 860px) {
+  .v2-app.v3-shell .v2-global-nav__inner,
+  .v2-app.v3-shell .v2-observatory,
+  .v2-app.v3-shell .hexmap-page,
+  .v2-app.v3-shell .v2-route-content > .app-shell {
+    width: min(100% - 28px, 720px);
+  }
+}
+
+@media (max-width: 560px) {
+  .v2-app.v3-shell .v2-global-nav__inner,
+  .v2-app.v3-shell .v2-observatory,
+  .v2-app.v3-shell .hexmap-page,
+  .v2-app.v3-shell .v2-route-content > .app-shell {
+    width: calc(100% - 20px);
+  }
+
+  .v2-app.v3-shell .v2-observatory__title,
+  .v2-app.v3-shell .hexmap-page__title,
+  .v2-app.v3-shell .v3-page-header h1,
+  .v2-app.v3-shell .activity-page .activity-page__masthead h1,
+  .v2-app.v3-shell .distribution-page__headline h1,
+  .v2-app.v3-shell .distribution-page__empty h1 {
+    font-size: 1.5rem;
+  }
+
+  .v2-app.v3-shell .v2-observatory__title {
+    font-size: 1.35rem;
+  }
+}

@@ -1,7 +1,7 @@
 import { ListIcon } from "@phosphor-icons/react/dist/csr/List";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react/dist/csr/MagnifyingGlass";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import {
   MemberSearchField,
@@ -33,34 +33,40 @@ export type V2GlobalNavProps = {
 type PrimaryNavigationItem = {
   label: string;
   href: string;
-  target: "home" | "distribution" | "votes" | "trends";
+  target: "home" | "distribution" | "map" | "votes" | "trends";
   activeRoutes: V2GlobalNavRoute[];
 };
 
 const primaryNavigationItems: PrimaryNavigationItem[] = [
   {
-    label: "개요",
+    label: "오늘의 변화",
     href: "#",
     target: "home",
     activeRoutes: ["home"]
   },
   {
-    label: "의원",
+    label: "의원 찾기",
     href: "#distribution",
     target: "distribution",
     activeRoutes: ["calendar", "distribution"]
   },
   {
-    label: "표결",
+    label: "지역 탐색",
+    href: "#map",
+    target: "map",
+    activeRoutes: ["map"]
+  },
+  {
+    label: "표결 기록",
     href: "#votes",
     target: "votes",
     activeRoutes: ["votes"]
   },
   {
-    label: "분석",
+    label: "추세",
     href: "#trends",
     target: "trends",
-    activeRoutes: ["trends", "map"]
+    activeRoutes: ["trends"]
   }
 ];
 
@@ -76,11 +82,31 @@ export function V2GlobalNav({
   onSubmitSearch
 }: V2GlobalNavProps) {
   const menuId = useId();
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     setIsMenuOpen(false);
   }, [route]);
+
+  useEffect(() => {
+    if (!isMenuOpen) {
+      return;
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      event.preventDefault();
+      setIsMenuOpen(false);
+      menuButtonRef.current?.focus();
+    }
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [isMenuOpen]);
 
   function handleNavigation(
     event: React.MouseEvent<HTMLAnchorElement>,
@@ -118,40 +144,14 @@ export function V2GlobalNav({
           <a
             className="v2-global-nav__brand"
             href="#"
-            aria-label="국회 책임성 모니터 개요"
-            aria-current={route === "home" ? "page" : undefined}
+            aria-label="국회 책임성 모니터 홈"
             onClick={(event) => handleNavigation(event, "home")}
           >
-            <svg
-              className="v2-global-nav__brand-mark"
-              viewBox="0 0 64 64"
-              width="32"
-              height="32"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <rect width="64" height="64" rx="16" fill="#171411" />
-              <path
-                d="M16 46V22.5L32 14l16 8.5V46H39.5V31.5h-15V46Z"
-                fill="#f4f1eb"
-              />
-              <path
-                d="M24 46V37h16v9"
-                fill="none"
-                stroke="#982d22"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="3"
-              />
-            </svg>
             <span>국회 책임성 모니터</span>
           </a>
 
-          {assemblyLabel ? (
-            <span className="v2-global-nav__assembly">{assemblyLabel}</span>
-          ) : null}
-
           <button
+            ref={menuButtonRef}
             className="v2-global-nav__menu-button"
             type="button"
             aria-expanded={isMenuOpen}
@@ -201,7 +201,7 @@ export function V2GlobalNav({
               options={searchOptions}
               selectedId={selectedSearchMemberId}
               onSelect={onSelectSearchMemberId}
-              placeholder="의원 이름 또는 정당 검색"
+              placeholder="의원 이름 또는 정당을 검색하세요"
               disabled={searchOptions.length === 0}
             />
             <button
@@ -218,6 +218,13 @@ export function V2GlobalNav({
               <span>의원 보기</span>
             </button>
           </form>
+
+          {assemblyLabel ? (
+            <span className="v2-global-nav__assembly">
+              <span>공식 기록 기준</span>
+              <strong>{assemblyLabel}</strong>
+            </span>
+          ) : null}
         </div>
       </nav>
     </header>

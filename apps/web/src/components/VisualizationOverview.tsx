@@ -1,3 +1,6 @@
+import { ChartLineUpIcon } from "@phosphor-icons/react/dist/csr/ChartLineUp";
+import { DatabaseIcon } from "@phosphor-icons/react/dist/csr/Database";
+import { TableIcon } from "@phosphor-icons/react/dist/csr/Table";
 import { useEffect, useState } from "react";
 import {
   Area,
@@ -27,26 +30,26 @@ type VisualizationOverviewProps = {
   assemblyLabel: string;
 };
 
+type TrendWindow = 4 | 8 | 12;
+
 const chartPalette = {
-  yes: "#2f8f4e",
-  no: "#9f2d20",
-  abstain: "#c4872f",
-  absent: "#8f8880",
-  partyLine: "#7b3128",
-  grid: "rgba(80, 53, 32, 0.1)",
-  axis: "rgba(41, 31, 22, 0.72)",
-  stroke: "#5a5148"
+  yes: "#177245",
+  no: "#c43d3d",
+  abstain: "#c58512",
+  absent: "#758195",
+  partyLine: "#2457a6",
+  grid: "#dfe5ec",
+  axis: "#667085",
+  stroke: "#344054"
 };
+
+const trendWindows: TrendWindow[] = [4, 8, 12];
 
 type TooltipProps = {
   active?: boolean;
   payload?: ReadonlyArray<{
-    value?: number | string;
-    name?: string;
-    color?: string;
     payload?: Record<string, unknown>;
   }>;
-  label?: string;
 };
 
 function WeeklyTrendTooltipPanel({ active, payload }: TooltipProps) {
@@ -59,7 +62,6 @@ function WeeklyTrendTooltipPanel({ active, payload }: TooltipProps) {
         abstainCount: number;
         absentCount: number;
         eligibleVoteCount: number;
-        negativeRate: number;
       }
     | undefined;
 
@@ -67,63 +69,31 @@ function WeeklyTrendTooltipPanel({ active, payload }: TooltipProps) {
     return null;
   }
 
-  if (datum.eligibleVoteCount === 0) {
-    return (
-      <div className="chart-tooltip">
-        <strong>{`${datum.weekStart} ~ ${datum.weekEnd}`}</strong>
-        <p className="chart-tooltip__note">
-          이 주에는 공개 기록표결이 없습니다.
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="chart-tooltip">
+    <div className="v3-chart-tooltip">
       <strong>{`${datum.weekStart} ~ ${datum.weekEnd}`}</strong>
-      <ul>
-        <li>
-          <span
-            className="chart-tooltip__dot"
-            style={{ backgroundColor: chartPalette.yes }}
-          />
-          <span>찬성</span>
-          <strong>{formatNumber(datum.yesCount)}</strong>
-        </li>
-        <li>
-          <span
-            className="chart-tooltip__dot"
-            style={{ backgroundColor: chartPalette.no }}
-          />
-          <span>반대</span>
-          <strong>{formatNumber(datum.noCount)}</strong>
-        </li>
-        <li>
-          <span
-            className="chart-tooltip__dot"
-            style={{ backgroundColor: chartPalette.abstain }}
-          />
-          <span>기권</span>
-          <strong>{formatNumber(datum.abstainCount)}</strong>
-        </li>
-        <li>
-          <span
-            className="chart-tooltip__dot"
-            style={{ backgroundColor: chartPalette.absent }}
-          />
-          <span>불참</span>
-          <strong>{formatNumber(datum.absentCount)}</strong>
-        </li>
-        <li>
-          <span
-            className="chart-tooltip__dot"
-            style={{ backgroundColor: chartPalette.stroke }}
-          />
-          <span>분모</span>
-          <strong>{formatNumber(datum.eligibleVoteCount)}</strong>
-        </li>
-      </ul>
-      <p className="chart-tooltip__note">{`네거티브 비율 ${formatPercent(datum.negativeRate)}`}</p>
+      {datum.eligibleVoteCount > 0 ? (
+        <dl>
+          <div>
+            <dt>찬성</dt>
+            <dd>{formatNumber(datum.yesCount)}</dd>
+          </div>
+          <div>
+            <dt>반대</dt>
+            <dd>{formatNumber(datum.noCount)}</dd>
+          </div>
+          <div>
+            <dt>기권</dt>
+            <dd>{formatNumber(datum.abstainCount)}</dd>
+          </div>
+          <div>
+            <dt>불참</dt>
+            <dd>{formatNumber(datum.absentCount)}</dd>
+          </div>
+        </dl>
+      ) : (
+        <p>이 주에는 공개 기록표결이 없습니다.</p>
+      )}
     </div>
   );
 }
@@ -144,49 +114,31 @@ function PartyLineTooltipPanel({ active, payload }: TooltipProps) {
     return null;
   }
 
-  if (datum.opportunityCount === 0) {
-    return (
-      <div className="chart-tooltip">
-        <strong>{`${datum.weekStart} ~ ${datum.weekEnd}`}</strong>
-        <p className="chart-tooltip__note">
-          이 주에는 당 기준이 성립한 표결이 없습니다.
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="chart-tooltip">
+    <div className="v3-chart-tooltip">
       <strong>{`${datum.weekStart} ~ ${datum.weekEnd}`}</strong>
-      <ul>
-        <li>
-          <span
-            className="chart-tooltip__dot"
-            style={{ backgroundColor: chartPalette.partyLine }}
-          />
-          <span>이탈</span>
-          <strong>{formatNumber(datum.defectionCount)}</strong>
-        </li>
-        <li>
-          <span
-            className="chart-tooltip__dot"
-            style={{ backgroundColor: chartPalette.stroke }}
-          />
-          <span>참여</span>
-          <strong>{formatNumber(datum.participationCount)}</strong>
-        </li>
-        <li>
-          <span
-            className="chart-tooltip__dot"
-            style={{ backgroundColor: chartPalette.absent }}
-          />
-          <span>기준 기회</span>
-          <strong>{formatNumber(datum.opportunityCount)}</strong>
-        </li>
-      </ul>
-      <p className="chart-tooltip__note">
-        {`이탈률 ${formatPercent(datum.defectionRate ?? 0)}`}
-      </p>
+      {datum.opportunityCount > 0 ? (
+        <dl>
+          <div>
+            <dt>기준 기회</dt>
+            <dd>{formatNumber(datum.opportunityCount)}</dd>
+          </div>
+          <div>
+            <dt>참여</dt>
+            <dd>{formatNumber(datum.participationCount)}</dd>
+          </div>
+          <div>
+            <dt>이탈</dt>
+            <dd>{formatNumber(datum.defectionCount)}</dd>
+          </div>
+          <div>
+            <dt>이탈률</dt>
+            <dd>{formatPercent(datum.defectionRate ?? 0)}</dd>
+          </div>
+        </dl>
+      ) : (
+        <p>이 주에는 당 기준이 성립한 표결이 없습니다.</p>
+      )}
     </div>
   );
 }
@@ -195,14 +147,15 @@ export function VisualizationOverview({
   accountabilityTrends,
   assemblyLabel
 }: VisualizationOverviewProps) {
-  const [viewport, setViewport] = useState(() => ({
-    isMobile: typeof window !== "undefined" && window.innerWidth < 760
-  }));
+  const [trendWindow, setTrendWindow] = useState<TrendWindow>(12);
+  const [showTables, setShowTables] = useState(false);
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && window.innerWidth < 760
+  );
 
   useEffect(() => {
     const syncViewport = () => {
-      const isMobile = window.innerWidth < 760;
-      setViewport({ isMobile });
+      setIsMobile(window.innerWidth < 760);
     };
 
     syncViewport();
@@ -213,13 +166,19 @@ export function VisualizationOverview({
     };
   }, []);
 
-  const weeklyTrendData = buildWeeklyTrendChartData(accountabilityTrends);
-  const partyLineTrendData = buildPartyLineTrendChartData(accountabilityTrends);
+  const weeklyTrendData =
+    buildWeeklyTrendChartData(accountabilityTrends).slice(-trendWindow);
+  const partyLineTrendData =
+    buildPartyLineTrendChartData(accountabilityTrends).slice(-trendWindow);
   const partyLineMovers = buildPartyLineMoverChartData(accountabilityTrends, 5);
-  const trendWindowWeekCount =
-    accountabilityTrends?.weeks.length ?? weeklyTrendData.length;
+  const visibleWeekCount = Math.max(
+    weeklyTrendData.length,
+    partyLineTrendData.length
+  );
   const trendWindowPhrase =
-    trendWindowWeekCount > 0 ? `최근 ${trendWindowWeekCount}주` : "최근 12주";
+    visibleWeekCount > 0
+      ? `최근 ${visibleWeekCount}주`
+      : `최근 ${trendWindow}주`;
 
   const activeWeeks = weeklyTrendData.filter(
     (item) => item.eligibleVoteCount > 0
@@ -247,10 +206,6 @@ export function VisualizationOverview({
   const peakAbsenceRate = peakAbsentWeek
     ? peakAbsentWeek.absentCount / peakAbsentWeek.eligibleVoteCount
     : null;
-  const weeklyTrendCopy =
-    activeWeeks.length > 0
-      ? `${trendWindowPhrase} 관측 창에서 참여 대비 불참이 흔들린 주간을 먼저 찾고, 그 위에 반대·기권 레이어를 얹어 네거티브 구성이 어떻게 커졌는지 읽습니다.`
-      : `${trendWindowPhrase} 관측 창의 주간 표결 흐름을 준비 중입니다.`;
 
   const activePartyLineWeeks = partyLineTrendData.filter(
     (item) => item.opportunityCount > 0
@@ -267,311 +222,445 @@ export function VisualizationOverview({
       ? week
       : currentPeak;
   }, null);
-  const latestPartyLineSkippedCount = latestPartyLineWeek
-    ? Math.max(
-        latestPartyLineWeek.opportunityCount -
-          latestPartyLineWeek.participationCount,
-        0
-      )
-    : null;
-  const partyLineCopy =
-    activePartyLineWeeks.length > 0
-      ? `${trendWindowPhrase} 동안 당 기준이 선명했던 표결만 모아 실제 참여한 표 가운데 다른 선택이 얼마나 늘었는지 추적합니다.`
-      : `${trendWindowPhrase} 동안 당 기준이 성립한 표결을 아직 찾지 못했습니다.`;
 
   return (
-    <section className="visualization-panel">
-      <div className="visualization-panel__header">
+    <section
+      className="v3-trend-dashboard"
+      aria-labelledby="trend-dashboard-heading"
+    >
+      <div className="v3-trend-toolbar">
         <div>
-          <p className="section-label">핵심 차트</p>
-          <h2>{`${assemblyLabel}의 출석과 당내 이탈 흐름을 함께 봅니다.`}</h2>
+          <p className="v3-kicker">EVIDENCE DASHBOARD</p>
+          <h2 id="trend-dashboard-heading">{`${assemblyLabel} 주간 관측 대시보드`}</h2>
+          <p>동일한 기간 조건으로 참여 구성과 당내 이탈을 함께 비교합니다.</p>
+        </div>
+
+        <div className="v3-trend-toolbar__controls">
+          <fieldset className="v3-window-selector">
+            <legend>관측 기간</legend>
+            <div>
+              {trendWindows.map((windowSize) => (
+                <button
+                  key={windowSize}
+                  type="button"
+                  aria-pressed={trendWindow === windowSize}
+                  onClick={() => setTrendWindow(windowSize)}
+                >
+                  {`${windowSize}주`}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+          <button
+            type="button"
+            className="v3-table-toggle"
+            aria-pressed={showTables}
+            onClick={() => setShowTables((current) => !current)}
+          >
+            <TableIcon size={18} weight="bold" aria-hidden="true" />
+            {showTables ? "표 닫기" : "표로 보기"}
+          </button>
         </div>
       </div>
 
-      <div className="visualization-stack">
-        <article className="chart-card">
-          <div className="chart-card__header">
-            <div>
-              <p className="chart-card__eyebrow">국회 전체 시계열</p>
-              <h3>{`${assemblyLabel} ${trendWindowPhrase} 참여·불참 추세`}</h3>
-              <p className="chart-card__copy">{weeklyTrendCopy}</p>
-            </div>
-            <div
-              className="chart-card__summary-grid"
-              aria-label="출석 추세 관측 정보"
-            >
-              <div className="chart-card__summary">
-                <span>최근 주 참여율</span>
-                <strong>
-                  {latestParticipationRate !== null
-                    ? formatPercent(latestParticipationRate)
-                    : "대기 중"}
-                </strong>
-                <small>
-                  {latestActiveWeek
-                    ? `${latestActiveWeek.weekStart} ~ ${latestActiveWeek.weekEnd}`
-                    : "실제 표결 대기 중"}
-                </small>
-              </div>
-              <div className="chart-card__summary chart-card__summary--alert">
-                <span>최근 주 불참</span>
-                <strong>
-                  {latestActiveWeek
-                    ? `${formatNumber(latestActiveWeek.absentCount)}건`
-                    : "대기 중"}
-                </strong>
-                <small>
-                  {latestAbsenceRate !== null
-                    ? `비중 ${formatPercent(latestAbsenceRate)}`
-                    : "비중 집계 대기"}
-                </small>
-              </div>
-              <div className="chart-card__summary">
-                <span>최고 불참 비중</span>
-                <strong>
-                  {peakAbsenceRate !== null
-                    ? formatPercent(peakAbsenceRate)
-                    : "대기 중"}
-                </strong>
-                <small>
-                  {peakAbsentWeek
-                    ? `${peakAbsentWeek.weekStart} ~ ${peakAbsentWeek.weekEnd}`
-                    : "실제 표결 대기 중"}
-                </small>
-              </div>
-            </div>
-          </div>
+      <dl className="v3-metric-strip" aria-label="현재 추세 요약">
+        <div>
+          <dt>최근 참여율</dt>
+          <dd>
+            {latestParticipationRate !== null
+              ? formatPercent(latestParticipationRate)
+              : "—"}
+          </dd>
+          <small>
+            {latestActiveWeek
+              ? `${latestActiveWeek.weekStart} 시작 주`
+              : "표결 대기"}
+          </small>
+        </div>
+        <div className="v3-metric-strip__alert">
+          <dt>최근 불참률</dt>
+          <dd>
+            {latestAbsenceRate !== null
+              ? formatPercent(latestAbsenceRate)
+              : "—"}
+          </dd>
+          <small>
+            {latestActiveWeek
+              ? `${formatNumber(latestActiveWeek.absentCount)}건`
+              : "표결 대기"}
+          </small>
+        </div>
+        <div>
+          <dt>최근 당내 이탈률</dt>
+          <dd>
+            {latestPartyLineWeek
+              ? formatPercent(latestPartyLineWeek.defectionRate ?? 0)
+              : "—"}
+          </dd>
+          <small>
+            {latestPartyLineWeek
+              ? `이탈 ${formatNumber(latestPartyLineWeek.defectionCount)}회`
+              : "당 기준 대기"}
+          </small>
+        </div>
+        <div>
+          <dt>관측 주간</dt>
+          <dd>{`${activeWeeks.length}/${visibleWeekCount || trendWindow}`}</dd>
+          <small>표결이 있던 주 / 범위</small>
+        </div>
+      </dl>
 
-          {weeklyTrendData.some((item) => item.eligibleVoteCount > 0) ? (
+      <div className="v3-trend-grid">
+        <article className="v3-evidence-panel">
+          <header className="v3-evidence-panel__header">
+            <div>
+              <p className="v3-kicker">01 · PARTICIPATION</p>
+              <h3>주간 참여 구성</h3>
+              <p>찬성·반대·기권·불참이 전체 공개 기록에서 차지한 비중입니다.</p>
+            </div>
+            <span>{trendWindowPhrase}</span>
+          </header>
+
+          {activeWeeks.length > 0 ? (
             <>
-              <div className="chart-card__chart chart-card__chart--trend">
-                <ResponsiveContainer width="100%" height={280}>
-                  <AreaChart
-                    data={weeklyTrendData}
-                    margin={{ top: 8, right: 4, bottom: 8, left: 4 }}
+              <div className="v3-chart-layout">
+                <div>
+                  <div
+                    className="v3-chart"
+                    role="img"
+                    aria-label={`${trendWindowPhrase} 찬성, 반대, 기권, 불참 비중 누적 영역 차트`}
                   >
-                    <CartesianGrid
-                      stroke={chartPalette.grid}
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="label"
-                      tick={{ fill: chartPalette.axis, fontSize: 12 }}
-                      tickFormatter={(value, index) =>
-                        viewport.isMobile && index % 2 === 1
-                          ? ""
-                          : String(value)
-                      }
-                    />
-                    <YAxis
-                      tick={{ fill: chartPalette.axis, fontSize: 12 }}
-                      tickFormatter={(value) => `${value}%`}
-                      width={42}
-                      domain={[0, 100]}
-                    />
-                    <Tooltip content={<WeeklyTrendTooltipPanel />} />
-                    <Area
-                      type="monotone"
-                      dataKey="yesShare"
-                      stackId="vote-share"
-                      stroke={chartPalette.yes}
-                      fill={chartPalette.yes}
-                      fillOpacity={0.82}
-                      strokeWidth={1.6}
-                      connectNulls={false}
-                      activeDot={{ r: 4 }}
-                      name="찬성"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="noShare"
-                      stackId="vote-share"
-                      stroke={chartPalette.no}
-                      fill={chartPalette.no}
-                      fillOpacity={0.78}
-                      strokeWidth={1.6}
-                      connectNulls={false}
-                      activeDot={{ r: 4 }}
-                      name="반대"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="abstainShare"
-                      stackId="vote-share"
-                      stroke={chartPalette.abstain}
-                      fill={chartPalette.abstain}
-                      fillOpacity={0.8}
-                      strokeWidth={1.6}
-                      connectNulls={false}
-                      activeDot={{ r: 4 }}
-                      name="기권"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="absentShare"
-                      stackId="vote-share"
-                      stroke={chartPalette.absent}
-                      fill={chartPalette.absent}
-                      fillOpacity={0.86}
-                      strokeWidth={1.6}
-                      connectNulls={false}
-                      activeDot={{ r: 4 }}
-                      name="불참"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <AreaChart
+                        data={weeklyTrendData}
+                        margin={{ top: 12, right: 8, bottom: 4, left: 0 }}
+                      >
+                        <CartesianGrid
+                          stroke={chartPalette.grid}
+                          vertical={false}
+                        />
+                        <XAxis
+                          dataKey="label"
+                          tick={{ fill: chartPalette.axis, fontSize: 12 }}
+                          tickFormatter={(value, index) =>
+                            isMobile && index % 2 === 1 ? "" : String(value)
+                          }
+                          tickLine={false}
+                          axisLine={{ stroke: chartPalette.grid }}
+                        />
+                        <YAxis
+                          tick={{ fill: chartPalette.axis, fontSize: 12 }}
+                          tickFormatter={(value) => `${value}%`}
+                          tickLine={false}
+                          axisLine={false}
+                          width={40}
+                          domain={[0, 100]}
+                        />
+                        <Tooltip content={<WeeklyTrendTooltipPanel />} />
+                        <Area
+                          type="monotone"
+                          dataKey="yesShare"
+                          stackId="vote-share"
+                          stroke={chartPalette.yes}
+                          fill={chartPalette.yes}
+                          fillOpacity={0.84}
+                          strokeWidth={1.5}
+                          connectNulls={false}
+                          name="찬성"
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="noShare"
+                          stackId="vote-share"
+                          stroke={chartPalette.no}
+                          fill={chartPalette.no}
+                          fillOpacity={0.82}
+                          strokeWidth={1.5}
+                          connectNulls={false}
+                          name="반대"
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="abstainShare"
+                          stackId="vote-share"
+                          stroke={chartPalette.abstain}
+                          fill={chartPalette.abstain}
+                          fillOpacity={0.82}
+                          strokeWidth={1.5}
+                          connectNulls={false}
+                          name="기권"
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="absentShare"
+                          stackId="vote-share"
+                          stroke={chartPalette.absent}
+                          fill={chartPalette.absent}
+                          fillOpacity={0.86}
+                          strokeWidth={1.5}
+                          connectNulls={false}
+                          name="불참"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="v3-chart-legend" aria-label="차트 범례">
+                    <span>
+                      <i style={{ backgroundColor: chartPalette.yes }} />
+                      찬성
+                    </span>
+                    <span>
+                      <i style={{ backgroundColor: chartPalette.no }} />
+                      반대
+                    </span>
+                    <span>
+                      <i style={{ backgroundColor: chartPalette.abstain }} />
+                      기권
+                    </span>
+                    <span>
+                      <i style={{ backgroundColor: chartPalette.absent }} />
+                      불참
+                    </span>
+                  </div>
+                </div>
+
+                <aside
+                  className="v3-insight-rail"
+                  aria-label="참여 추세 핵심 근거"
+                >
+                  <div>
+                    <span>최고 불참 비중</span>
+                    <strong>
+                      {peakAbsenceRate !== null
+                        ? formatPercent(peakAbsenceRate)
+                        : "—"}
+                    </strong>
+                    <small>
+                      {peakAbsentWeek
+                        ? `${peakAbsentWeek.weekStart} 시작 주`
+                        : "관측 대기"}
+                    </small>
+                  </div>
+                  <div>
+                    <span>최근 참여 건수</span>
+                    <strong>
+                      {latestActiveWeek
+                        ? formatNumber(
+                            latestActiveWeek.eligibleVoteCount -
+                              latestActiveWeek.absentCount
+                          )
+                        : "—"}
+                    </strong>
+                    <small>전체 eligible 기록 기준</small>
+                  </div>
+                  <p>
+                    빈 주간은 선으로 연결하지 않아 미관측을 0%로 오해하지 않게
+                    합니다.
+                  </p>
+                </aside>
               </div>
-              <div className="chart-legend">
-                <span>
-                  <i style={{ backgroundColor: chartPalette.yes }} />
-                  찬성
-                </span>
-                <span>
-                  <i style={{ backgroundColor: chartPalette.no }} />
-                  반대
-                </span>
-                <span>
-                  <i style={{ backgroundColor: chartPalette.abstain }} />
-                  기권
-                </span>
-                <span>
-                  <i style={{ backgroundColor: chartPalette.absent }} />
-                  불참
-                </span>
-              </div>
-              <p className="chart-card__footnote">
-                표결이 없던 주간은 빈 구간으로 남겨 두어, 데이터 공백이 0%
-                급락처럼 보이지 않게 했습니다.
-              </p>
+
+              {showTables ? (
+                <div className="v3-data-table-wrap">
+                  <table className="v3-data-table">
+                    <caption>{`${trendWindowPhrase} 주간 참여 구성 원자료`}</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">주간</th>
+                        <th scope="col">찬성</th>
+                        <th scope="col">반대</th>
+                        <th scope="col">기권</th>
+                        <th scope="col">불참</th>
+                        <th scope="col">분모</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {weeklyTrendData.map((week) => (
+                        <tr key={week.weekStart}>
+                          <th scope="row">{week.weekStart}</th>
+                          <td>{formatNumber(week.yesCount)}</td>
+                          <td>{formatNumber(week.noCount)}</td>
+                          <td>{formatNumber(week.abstainCount)}</td>
+                          <td>{formatNumber(week.absentCount)}</td>
+                          <td>
+                            {week.eligibleVoteCount > 0
+                              ? formatNumber(week.eligibleVoteCount)
+                              : "미관측"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
             </>
           ) : (
-            <p className="chart-card__empty">{`${trendWindowPhrase} 관측 창에 공개 기록표결이 아직 없습니다.`}</p>
+            <p className="v3-empty-state">{`${trendWindowPhrase} 관측 창에 공개 기록표결이 아직 없습니다.`}</p>
           )}
         </article>
 
-        <article className="chart-card">
-          <div className="chart-card__header">
+        <article className="v3-evidence-panel">
+          <header className="v3-evidence-panel__header">
             <div>
-              <p className="chart-card__eyebrow">당 기준 추이</p>
-              <h3>{`${assemblyLabel} ${trendWindowPhrase} 당내 이탈 추세`}</h3>
-              <p className="chart-card__copy">{partyLineCopy}</p>
-            </div>
-            <div
-              className="chart-card__summary-grid"
-              aria-label="당내 이탈 추세 관측 정보"
-            >
-              <div className="chart-card__summary chart-card__summary--alert">
-                <span>최근 주 이탈률</span>
-                <strong>
-                  {latestPartyLineWeek
-                    ? formatPercent(latestPartyLineWeek.defectionRate ?? 0)
-                    : "대기 중"}
-                </strong>
-                <small>
-                  {latestPartyLineWeek
-                    ? `${latestPartyLineWeek.weekStart} ~ ${latestPartyLineWeek.weekEnd}`
-                    : "당 기준 형성 대기 중"}
-                </small>
-              </div>
-              <div className="chart-card__summary">
-                <span>최근 주 기준 기회</span>
-                <strong>
-                  {latestPartyLineWeek
-                    ? `${formatNumber(latestPartyLineWeek.opportunityCount)}회`
-                    : "대기 중"}
-                </strong>
-                <small>
-                  {latestPartyLineWeek
-                    ? `참여 ${formatNumber(latestPartyLineWeek.participationCount)}회 · 미참여 ${formatNumber(latestPartyLineSkippedCount ?? 0)}회`
-                    : "당 기준 형성 대기 중"}
-                </small>
-              </div>
-              <div className="chart-card__summary">
-                <span>최고 이탈률</span>
-                <strong>
-                  {peakPartyLineWeek
-                    ? formatPercent(peakPartyLineWeek.defectionRate ?? 0)
-                    : "대기 중"}
-                </strong>
-                <small>
-                  {peakPartyLineWeek
-                    ? `${peakPartyLineWeek.weekStart} ~ ${peakPartyLineWeek.weekEnd}`
-                    : "당 기준 형성 대기 중"}
-                </small>
-              </div>
-            </div>
-          </div>
-
-          {partyLineTrendData.some((item) => item.opportunityCount > 0) ? (
-            <>
-              <div className="chart-card__chart chart-card__chart--trend">
-                <ResponsiveContainer width="100%" height={240}>
-                  <LineChart
-                    data={partyLineTrendData}
-                    margin={{ top: 8, right: 4, bottom: 8, left: 4 }}
-                  >
-                    <CartesianGrid
-                      stroke={chartPalette.grid}
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="label"
-                      tick={{ fill: chartPalette.axis, fontSize: 12 }}
-                      tickFormatter={(value, index) =>
-                        viewport.isMobile && index % 2 === 1
-                          ? ""
-                          : String(value)
-                      }
-                    />
-                    <YAxis
-                      tick={{ fill: chartPalette.axis, fontSize: 12 }}
-                      tickFormatter={(value) =>
-                        `${Math.round(Number(value) * 100)}%`
-                      }
-                      width={42}
-                      domain={[0, 1]}
-                    />
-                    <Tooltip content={<PartyLineTooltipPanel />} />
-                    <Line
-                      type="monotone"
-                      dataKey="defectionRate"
-                      stroke={chartPalette.partyLine}
-                      strokeWidth={2.4}
-                      connectNulls={false}
-                      dot={{
-                        r: 3.4,
-                        strokeWidth: 0,
-                        fill: chartPalette.partyLine
-                      }}
-                      activeDot={{ r: 4.2 }}
-                      name="당내 이탈률"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="chart-legend">
-                <span>
-                  <i style={{ backgroundColor: chartPalette.partyLine }} />
-                  당내 이탈률
-                </span>
-              </div>
-              <p className="chart-card__footnote">
-                당 기준이 성립하지 않은 주간은 빈 구간으로 남겨, 정당 내부
-                합의가 없던 시점을 0% 이탈로 오해하지 않게 했습니다.
+              <p className="v3-kicker">02 · PARTY-LINE</p>
+              <h3>당내 이탈 추이</h3>
+              <p>
+                당 기준이 성립하고 의원이 실제 참여한 표결에서 다른 선택을 한
+                비율입니다.
               </p>
+            </div>
+            <span>{trendWindowPhrase}</span>
+          </header>
 
-              <div className="chart-card__mover-block">
-                <div className="chart-card__mover-head">
-                  <p className="section-label">최근 4주 mover</p>
-                  <h4>당내 이탈이 늘어난 의원</h4>
-                </div>
-                {partyLineMovers.length > 0 ? (
-                  <ol className="chart-card__mover-list">
-                    {partyLineMovers.map((mover) => (
-                      <li
-                        key={mover.memberId}
-                        className="chart-card__mover-item"
+          {activePartyLineWeeks.length > 0 ? (
+            <>
+              <div className="v3-chart-layout">
+                <div>
+                  <div
+                    className="v3-chart"
+                    role="img"
+                    aria-label={`${trendWindowPhrase} 당내 이탈률 선 차트`}
+                  >
+                    <ResponsiveContainer width="100%" height={270}>
+                      <LineChart
+                        data={partyLineTrendData}
+                        margin={{ top: 12, right: 8, bottom: 4, left: 0 }}
                       >
+                        <CartesianGrid
+                          stroke={chartPalette.grid}
+                          vertical={false}
+                        />
+                        <XAxis
+                          dataKey="label"
+                          tick={{ fill: chartPalette.axis, fontSize: 12 }}
+                          tickFormatter={(value, index) =>
+                            isMobile && index % 2 === 1 ? "" : String(value)
+                          }
+                          tickLine={false}
+                          axisLine={{ stroke: chartPalette.grid }}
+                        />
+                        <YAxis
+                          tick={{ fill: chartPalette.axis, fontSize: 12 }}
+                          tickFormatter={(value) =>
+                            `${Math.round(Number(value) * 100)}%`
+                          }
+                          tickLine={false}
+                          axisLine={false}
+                          width={40}
+                          domain={[0, 1]}
+                        />
+                        <Tooltip content={<PartyLineTooltipPanel />} />
+                        <Line
+                          type="monotone"
+                          dataKey="defectionRate"
+                          stroke={chartPalette.partyLine}
+                          strokeWidth={2.5}
+                          connectNulls={false}
+                          dot={{
+                            r: 3.5,
+                            strokeWidth: 2,
+                            stroke: "#ffffff",
+                            fill: chartPalette.partyLine
+                          }}
+                          activeDot={{ r: 5 }}
+                          name="당내 이탈률"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="v3-chart-legend" aria-label="차트 범례">
+                    <span>
+                      <i style={{ backgroundColor: chartPalette.partyLine }} />
+                      당내 이탈률
+                    </span>
+                  </div>
+                </div>
+
+                <aside
+                  className="v3-insight-rail"
+                  aria-label="당내 이탈 핵심 근거"
+                >
+                  <div>
+                    <span>최고 이탈률</span>
+                    <strong>
+                      {peakPartyLineWeek
+                        ? formatPercent(peakPartyLineWeek.defectionRate ?? 0)
+                        : "—"}
+                    </strong>
+                    <small>
+                      {peakPartyLineWeek
+                        ? `${peakPartyLineWeek.weekStart} 시작 주`
+                        : "관측 대기"}
+                    </small>
+                  </div>
+                  <div>
+                    <span>최근 기준 기회</span>
+                    <strong>
+                      {latestPartyLineWeek
+                        ? formatNumber(latestPartyLineWeek.opportunityCount)
+                        : "—"}
+                    </strong>
+                    <small>
+                      {latestPartyLineWeek
+                        ? `참여 ${formatNumber(latestPartyLineWeek.participationCount)}회`
+                        : "당 기준 대기"}
+                    </small>
+                  </div>
+                  <p>
+                    당 기준이 없는 주간은 이탈률 0%가 아닌 미관측으로
+                    처리합니다.
+                  </p>
+                </aside>
+              </div>
+
+              {showTables ? (
+                <div className="v3-data-table-wrap">
+                  <table className="v3-data-table">
+                    <caption>{`${trendWindowPhrase} 당내 이탈 집계 원자료`}</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">주간</th>
+                        <th scope="col">기준 기회</th>
+                        <th scope="col">참여</th>
+                        <th scope="col">이탈</th>
+                        <th scope="col">이탈률</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {partyLineTrendData.map((week) => (
+                        <tr key={week.weekStart}>
+                          <th scope="row">{week.weekStart}</th>
+                          <td>{formatNumber(week.opportunityCount)}</td>
+                          <td>{formatNumber(week.participationCount)}</td>
+                          <td>{formatNumber(week.defectionCount)}</td>
+                          <td>
+                            {week.defectionRate === null
+                              ? "미관측"
+                              : formatPercent(week.defectionRate)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              <section
+                className="v3-mover-section"
+                aria-labelledby="mover-heading"
+              >
+                <div className="v3-mover-section__heading">
+                  <div>
+                    <p className="v3-kicker">RECENT MOVERS</p>
+                    <h4 id="mover-heading">최근 4주 이탈률이 늘어난 의원</h4>
+                  </div>
+                  <span>{`${partyLineMovers.length}명`}</span>
+                </div>
+
+                {partyLineMovers.length > 0 ? (
+                  <ol className="v3-mover-list">
+                    {partyLineMovers.map((mover) => (
+                      <li key={mover.memberId}>
                         <MemberIdentity
                           name={mover.name}
                           party={mover.party}
@@ -581,28 +670,38 @@ export function VisualizationOverview({
                           })}
                           size="small"
                         />
-                        <div className="chart-card__mover-stats">
-                          <strong>
-                            {`최근 ${formatPercent(mover.currentRate)} · 직전 ${formatPercent(mover.previousRate)}`}
-                          </strong>
+                        <div>
+                          <strong>{`${formatPercent(mover.previousRate)} → ${formatPercent(mover.currentRate)}`}</strong>
                           <span>
-                            {`이탈 ${formatNumber(mover.currentDefectionCount)}회 / 참여 ${formatNumber(mover.currentParticipationCount)}회 / 기준 기회 ${formatNumber(mover.currentOpportunityCount)}회`}
+                            {`이탈 ${formatNumber(mover.currentDefectionCount)}회 · 참여 ${formatNumber(mover.currentParticipationCount)}회`}
                           </span>
                         </div>
                       </li>
                     ))}
                   </ol>
                 ) : (
-                  <p className="chart-card__empty">
+                  <p className="v3-empty-state">
                     최근 4주 대비 당내 이탈이 늘어난 의원이 아직 없습니다.
                   </p>
                 )}
-              </div>
+              </section>
             </>
           ) : (
-            <p className="chart-card__empty">{`${trendWindowPhrase} 관측 창에 당 기준이 성립한 표결이 아직 없습니다.`}</p>
+            <p className="v3-empty-state">{`${trendWindowPhrase} 관측 창에 당 기준이 성립한 표결이 아직 없습니다.`}</p>
           )}
         </article>
+      </div>
+
+      <div className="v3-source-line">
+        <DatabaseIcon size={19} weight="bold" aria-hidden="true" />
+        <div>
+          <strong>집계 근거</strong>
+          <p>
+            공개 기록표결의 주간 스냅샷을 사용하며, 화면의 요약·차트·표는 동일한
+            데이터 범위에 반응합니다.
+          </p>
+        </div>
+        <ChartLineUpIcon size={22} weight="bold" aria-hidden="true" />
       </div>
     </section>
   );

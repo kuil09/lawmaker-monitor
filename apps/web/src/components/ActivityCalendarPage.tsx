@@ -1,3 +1,12 @@
+import { BuildingsIcon } from "@phosphor-icons/react/dist/csr/Buildings";
+import { GlobeSimpleIcon } from "@phosphor-icons/react/dist/csr/GlobeSimple";
+import { HouseIcon } from "@phosphor-icons/react/dist/csr/House";
+import { MinusIcon } from "@phosphor-icons/react/dist/csr/Minus";
+import { MountainsIcon } from "@phosphor-icons/react/dist/csr/Mountains";
+import { QuestionIcon } from "@phosphor-icons/react/dist/csr/Question";
+import { ShareNetworkIcon } from "@phosphor-icons/react/dist/csr/ShareNetwork";
+import { TrendDownIcon } from "@phosphor-icons/react/dist/csr/TrendDown";
+import { TrendUpIcon } from "@phosphor-icons/react/dist/csr/TrendUp";
 import {
   useEffect,
   useRef,
@@ -359,13 +368,21 @@ function getAssetTrendDirection(value: number): AssetTrendDirection {
 
 function AssetTrendValue({ value }: { value: number }) {
   const direction = getAssetTrendDirection(value);
-  const arrow = direction === "up" ? "↑" : direction === "down" ? "↓" : "→";
+  const TrendIcon =
+    direction === "up"
+      ? TrendUpIcon
+      : direction === "down"
+        ? TrendDownIcon
+        : MinusIcon;
 
   return (
     <span className={`activity-asset-trend activity-asset-trend--${direction}`}>
-      <span className="activity-asset-trend__arrow" aria-hidden="true">
-        {arrow}
-      </span>
+      <TrendIcon
+        className="activity-asset-trend__arrow"
+        aria-hidden="true"
+        size={16}
+        weight="bold"
+      />
       <span>{formatAssetMagnitude(value)}</span>
     </span>
   );
@@ -374,33 +391,8 @@ function AssetTrendValue({ value }: { value: number }) {
 type AssetGlyphKind = "building" | "land";
 
 function AssetGlyph({ kind }: { kind: AssetGlyphKind }) {
-  if (kind === "building") {
-    return (
-      <svg viewBox="0 0 20 20" aria-hidden="true">
-        <path
-          d="M4.5 16.2V5.2a1 1 0 0 1 1-1h6.6a1 1 0 0 1 1 1v11M8.3 16.2v-3.5h1.5v3.5M6.4 7.1h1.1M10.1 7.1h1.1M6.4 9.8h1.1M10.1 9.8h1.1M13.1 8.5h2.3a1 1 0 0 1 1 1v6.7H13.1"
-          fill="none"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="1.4"
-        />
-      </svg>
-    );
-  }
-
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
-      <path
-        d="M3.8 13.9c2.4-1.7 4.8-2.5 7.4-2.5 2.1 0 3.8.4 5 1.1M4.7 15.6h10.8M6.1 12.6 7.6 8.4a1.6 1.6 0 0 1 3 0l1.6 4.2M9.1 8.5V5.2"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.4"
-      />
-    </svg>
-  );
+  const GlyphIcon = kind === "building" ? BuildingsIcon : MountainsIcon;
+  return <GlyphIcon aria-hidden="true" size={20} weight="regular" />;
 }
 
 function AssetMetricLabel({
@@ -1064,24 +1056,7 @@ function ExternalSiteLink({ url }: { url?: string | null }) {
       aria-label="홈페이지"
       title="홈페이지"
     >
-      <svg viewBox="0 0 20 20" aria-hidden="true">
-        <circle
-          cx="10"
-          cy="10"
-          r="6.7"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        />
-        <path
-          d="M3.9 10h12.2M10 3.3c1.7 1.6 2.8 4.1 2.8 6.7s-1.1 5.1-2.8 6.7c-1.7-1.6-2.8-4.1-2.8-6.7s1.1-5.1 2.8-6.7Z"
-          fill="none"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="1.4"
-        />
-      </svg>
+      <GlobeSimpleIcon aria-hidden="true" size={19} weight="regular" />
       <span>홈페이지</span>
     </a>
   );
@@ -2437,6 +2412,7 @@ function ContributionCalendar({
                     <span
                       key={`${assembly.assemblyNo}:${index}:${dayIndex}:${cell.date ?? "empty"}`}
                       className={`contribution-calendar__cell contribution-calendar__cell--${cell.state}`}
+                      role="img"
                       title={getCalendarCellLabel(cell)}
                       aria-label={getCalendarCellLabel(cell)}
                     />
@@ -2863,16 +2839,7 @@ export function ActivityCalendarPage({
             aria-label="홈으로"
             title="홈으로"
           >
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <path
-                d="M3.9 9.1 10 4.2l6.1 4.9v6.2a1 1 0 0 1-1 1h-2.9v-4.7H7.8v4.7H4.9a1 1 0 0 1-1-1Z"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1.7"
-              />
-            </svg>
+            <HouseIcon aria-hidden="true" size={19} weight="regular" />
           </button>
         </div>
       </header>
@@ -2889,7 +2856,7 @@ export function ActivityCalendarPage({
             aria-expanded={isHelpOpen}
             onClick={() => setIsHelpOpen((current) => !current)}
           >
-            ?
+            <QuestionIcon aria-hidden="true" size={19} weight="bold" />
           </button>
         </header>
 
@@ -2907,6 +2874,8 @@ export function ActivityCalendarPage({
           <button
             type="button"
             role="tab"
+            id="activity-single-tab"
+            aria-controls="activity-analysis-panel"
             aria-selected={activeView === "single"}
             className={
               activeView === "single"
@@ -2920,6 +2889,8 @@ export function ActivityCalendarPage({
           <button
             type="button"
             role="tab"
+            id="activity-compare-tab"
+            aria-controls="activity-analysis-panel"
             aria-selected={activeView === "compare"}
             className={
               activeView === "compare"
@@ -2974,7 +2945,16 @@ export function ActivityCalendarPage({
 
         {!loading && !error && selectedAssembly ? (
           <div className="activity-drawer__content">
-            <div className="activity-drawer__main activity-drawer__main--full">
+            <div
+              id="activity-analysis-panel"
+              className="activity-drawer__main activity-drawer__main--full"
+              role="tabpanel"
+              aria-labelledby={
+                activeView === "single"
+                  ? "activity-single-tab"
+                  : "activity-compare-tab"
+              }
+            >
               {activeView === "single" &&
               selectedMember &&
               selectedBreakdown ? (
@@ -3006,16 +2986,11 @@ export function ActivityCalendarPage({
                             aria-label={isSharing ? "링크 준비 중" : "공유하기"}
                             title={isSharing ? "링크 준비 중" : "공유하기"}
                           >
-                            <svg viewBox="0 0 20 20" aria-hidden="true">
-                              <path
-                                d="M8.1 6.3H6.6a2.8 2.8 0 0 0 0 5.5h1.5M11.9 6.3h1.5a2.8 2.8 0 1 1 0 5.5h-1.5M7.4 10h5.2"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="1.7"
-                              />
-                            </svg>
+                            <ShareNetworkIcon
+                              aria-hidden="true"
+                              size={19}
+                              weight="regular"
+                            />
                             <span>
                               {isSharing ? "링크 준비 중" : "공유하기"}
                             </span>
