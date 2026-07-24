@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { V2GlobalNav } from "../../apps/web/src/v2/V2GlobalNav.js";
 import { V2ObservatoryPage } from "../../apps/web/src/v2/V2ObservatoryPage.js";
 import { buildDistributionMembers } from "../../apps/web/src/lib/distribution.js";
+import { getScatterYDomain } from "../../apps/web/src/lib/scatter-domain.js";
 
 vi.mock("../../apps/web/src/v2/V2NationalMap.js", () => ({
   V2NationalMap: () => (
@@ -37,6 +38,38 @@ const members = buildDistributionMembers(
 );
 
 describe("v2 observatory", () => {
+  it("caps percentage scatter domains at 100 without changing asset padding", () => {
+    const productionBoundaryPoints = [
+      {
+        memberId: "low",
+        name: "Low",
+        party: "Independent",
+        district: "District A",
+        x: 99.245,
+        y: 0.755,
+        score: 99.245,
+        supportValue: 0.755,
+        basisValue: "1"
+      },
+      {
+        memberId: "high",
+        name: "High",
+        party: "Independent",
+        district: "District B",
+        x: 0,
+        y: 100,
+        score: 0,
+        supportValue: 100,
+        basisValue: "1"
+      }
+    ];
+
+    expect(getScatterYDomain(productionBoundaryPoints, true)).toEqual([0, 100]);
+    expect(getScatterYDomain(productionBoundaryPoints, false)).toEqual([
+      0, 112
+    ]);
+  });
+
   it("supports arrow-key lens navigation and an accessible table alternative", () => {
     render(
       <V2ObservatoryPage

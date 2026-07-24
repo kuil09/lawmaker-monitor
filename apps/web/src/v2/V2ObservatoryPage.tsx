@@ -23,6 +23,10 @@ import { V2NationalMap } from "./V2NationalMap.js";
 import { buildWeeklyTrendChartData } from "../lib/charts.js";
 import { convertThousandWonToEok } from "../lib/format.js";
 import { getMetricModulatedColor, getPartyColor } from "../lib/geo-utils.js";
+import {
+  getPaddedAxisDomain,
+  getScatterYDomain
+} from "../lib/scatter-domain.js";
 
 import type { DistributionMemberPoint } from "../lib/distribution.js";
 import type { MapMetric } from "../lib/map-route.js";
@@ -353,21 +357,6 @@ function buildRankingRows(points: ObservatoryPoint[]): RankingRow[] {
   return [...top, ...bottom];
 }
 
-function getAxisDomain(points: ObservatoryPoint[], key: "x" | "y") {
-  if (points.length === 0) {
-    return [0, 100] as [number, number];
-  }
-
-  const values = points.map((point) => point[key]);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const padding = Math.max((max - min) * 0.12, 2);
-  return [Math.max(0, Math.floor(min - padding)), Math.ceil(max + padding)] as [
-    number,
-    number
-  ];
-}
-
 function ScatterTooltipContent({
   active,
   payload,
@@ -467,11 +456,13 @@ export function V2ObservatoryPage({
       )[0] ?? null,
     [points]
   );
-  const xDomain = useMemo(() => getAxisDomain(points, "x"), [points]);
-  const yDomain = useMemo(() => getAxisDomain(points, "y"), [points]);
+  const xDomain = useMemo(() => getPaddedAxisDomain(points, "x"), [points]);
   const resolvedXDomain =
     activeLens === "assets" ? xDomain : ([0, 100] as [number, number]);
-  const resolvedYDomain = yDomain;
+  const resolvedYDomain = useMemo(
+    () => getScatterYDomain(points, activeLens !== "assets"),
+    [activeLens, points]
+  );
   const latestTrendPoint = trendData[trendData.length - 1] ?? null;
 
   function selectLens(lens: ObservatoryLens, focus = false) {
