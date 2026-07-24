@@ -77,10 +77,6 @@
   font-size: clamp(1.28rem, 2vw, 1.55rem);
 }
 
-.search-panel__explore-action {
-  min-height: 44px;
-}
-
 .v2-app.v3-shell h1[tabindex="-1"]:focus {
   outline: none;
 }

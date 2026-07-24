@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { V2GlobalNav } from "./V2GlobalNav.js";
 import { V2ObservatoryPage } from "./V2ObservatoryPage.js";
-import App from "../App.js";
+import { V2RouteContent } from "./V2RouteContent.js";
 import { useActivityCalendarData } from "../hooks/useActivityCalendarData.js";
 import { useAppBootstrapData } from "../hooks/useAppBootstrapData.js";
 import { useHashRoute } from "../hooks/useHashRoute.js";
@@ -220,10 +220,10 @@ function V2HomeExperience({ routing }: { routing: V2Routing }) {
   );
 }
 
-function V2LegacyRouteExperience() {
+function V2EvidenceRouteExperience() {
   return (
     <div className="v2-route-content" id="v2-main-content">
-      <App />
+      <V2RouteContent />
     </div>
   );
 }
@@ -303,7 +303,7 @@ export function V2App() {
       {routing.routeState.route === "home" ? (
         <V2HomeExperience routing={routing} />
       ) : (
-        <V2LegacyRouteExperience />
+        <V2EvidenceRouteExperience />
       )}
     </div>
   );

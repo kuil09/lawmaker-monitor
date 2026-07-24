@@ -176,11 +176,6 @@
   background: #f4f6f8;
 }
 
-.v2-app.v3-shell .v2-route-content > .global-nav,
-.v2-app.v3-shell .v2-route-content .global-nav {
-  display: none !important;
-}
-
 @media (max-width: 1240px) {
   .v2-app.v3-shell .v2-global-nav__inner {
     gap: 1.5rem;

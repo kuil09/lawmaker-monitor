@@ -2,10 +2,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import App from "../../apps/web/src/App.js";
+import { V2RouteContent } from "../../apps/web/src/v2/V2RouteContent.js";
 
 const fixturesDir = resolve(process.cwd(), "tests/fixtures/contracts");
 const latestVotesFixture = JSON.parse(
@@ -103,7 +103,7 @@ function buildFetchResponse(input: string | URL | Request): Response {
   return new Response(null, { status: 404 });
 }
 
-describe("web app shell", () => {
+describe("v2 evidence routes", () => {
   beforeEach(() => {
     window.location.hash = "";
     vi.stubGlobal(
@@ -114,20 +114,9 @@ describe("web app shell", () => {
     );
   });
 
-  it("renders the home shell and search affordances", async () => {
-    render(<App />);
-
-    await screen.findByText("의원 직접 검색");
-    expect(
-      screen.getByRole("button", { name: "활동 캘린더 열기" })
-    ).toBeDisabled();
-    expect(screen.getByText("국회 전체 분포 보기")).toBeInTheDocument();
-  });
-
-  it("navigates from the home shell into the lazy recent-votes route", async () => {
-    render(<App />);
-
-    fireEvent.click(await screen.findByText("최근 표결"));
+  it("renders the recent-votes evidence route without a legacy shell", async () => {
+    window.location.hash = "#votes";
+    render(<V2RouteContent />);
 
     await waitFor(() => {
       expect(
@@ -136,27 +125,9 @@ describe("web app shell", () => {
     });
   });
 
-  it("shows the party-line empty state on the home screen when no opportunities exist", async () => {
-    render(<App />);
-
-    fireEvent.click(await screen.findByRole("tab", { name: "당내 이탈" }));
-
-    expect(
-      screen.getByText(
-        "같은 당 의원들이 한쪽으로 표를 모았던 표결에서, 이 의원이 얼마나 다르게 투표했는지 보여 줍니다. 표결에 참여하지 않은 경우는 이탈이 아니라 미참여로 따로 집계합니다."
-      )
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "당 기준이 성립한 표결이 아직 집계되지 않았습니다. 데이터가 갱신되면 순위가 표시됩니다."
-      )
-    ).toBeInTheDocument();
-  });
-
   it("shows the party-line empty state on the trends route when no opportunities exist", async () => {
-    render(<App />);
-
-    fireEvent.click(await screen.findByText("출석 추이"));
+    window.location.hash = "#trends";
+    render(<V2RouteContent />);
 
     await waitFor(() => {
       expect(

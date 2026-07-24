@@ -957,14 +957,14 @@
   min-height: 220px;
 }
 
-.v2-route-content > .global-nav,
-.v2-route-content .global-nav {
-  display: none;
-}
-
 .v2-route-content {
   min-height: calc(100vh - 64px);
   background: var(--v2-canvas);
+}
+
+.v2-route-loading__copy {
+  margin: 0.65rem 0 0;
+  color: var(--v2-muted);
 }
 
 .v2-route-content > .app-shell,
@@ -973,13 +973,7 @@
   padding-top: 26px;
 }
 
-.v2-route-content .hero-panel,
-.v2-route-content .search-panel,
-.v2-route-content .status-panel,
-.v2-route-content .visualization-panel,
-.v2-route-content .leaderboard-panel,
 .v2-route-content .feed-panel,
-.v2-route-content .info-panel,
 .v2-route-content .activity-page__masthead,
 .v2-route-content .activity-page__panel {
   border-radius: 11px;
