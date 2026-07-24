@@ -97,6 +97,7 @@ export function V2NationalMap({
   memberAssetsIndex,
   metric
 }: V2NationalMapProps) {
+  const [mapReady, setMapReady] = useState(false);
   const [staticState, setStaticState] = useState(() =>
     getHexmapStaticState(manifest)
   );
@@ -267,11 +268,14 @@ export function V2NationalMap({
           mapStyle={MAP_STYLE}
           attributionControl={false}
           interactive={false}
+          onLoad={() => setMapReady(true)}
         >
-          <Source id="v2-national-districts" type="geojson" data={mapData}>
-            <Layer {...DISTRICT_FILL_LAYER} />
-            <Layer {...DISTRICT_LINE_LAYER} />
-          </Source>
+          {mapReady ? (
+            <Source id="v2-national-districts" type="geojson" data={mapData}>
+              <Layer {...DISTRICT_FILL_LAYER} />
+              <Layer {...DISTRICT_LINE_LAYER} />
+            </Source>
+          ) : null}
         </MapGL>
       </div>
       <div className="v2-national-map__labels" aria-hidden="true">
