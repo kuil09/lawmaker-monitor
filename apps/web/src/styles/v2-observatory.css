@@ -90,7 +90,9 @@
   white-space: nowrap;
 }
 
-.v2-global-nav__brand img {
+.v2-global-nav__brand-mark {
+  display: block;
+  flex: 0 0 auto;
   width: 31px;
   height: 31px;
   border-radius: 8px;
@@ -1026,7 +1028,7 @@
     font-size: 1.05rem;
   }
 
-  .v2-global-nav__brand img {
+  .v2-global-nav__brand-mark {
     width: 28px;
     height: 28px;
   }

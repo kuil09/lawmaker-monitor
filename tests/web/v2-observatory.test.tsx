@@ -105,6 +105,12 @@ describe("v2 observatory", () => {
       />
     );
 
+    expect(
+      screen
+        .getByRole("link", { name: "국회 책임성 모니터 개요" })
+        .querySelector("svg")
+    ).toBeInTheDocument();
+
     fireEvent.change(screen.getByRole("combobox", { name: "의원 검색" }), {
       target: { value: "김예시 · 예시당" }
     });

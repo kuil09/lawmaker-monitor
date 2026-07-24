@@ -122,7 +122,28 @@ export function V2GlobalNav({
             aria-current={route === "home" ? "page" : undefined}
             onClick={(event) => handleNavigation(event, "home")}
           >
-            <img src="favicon.svg" alt="" width="32" height="32" />
+            <svg
+              className="v2-global-nav__brand-mark"
+              viewBox="0 0 64 64"
+              width="32"
+              height="32"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <rect width="64" height="64" rx="16" fill="#171411" />
+              <path
+                d="M16 46V22.5L32 14l16 8.5V46H39.5V31.5h-15V46Z"
+                fill="#f4f1eb"
+              />
+              <path
+                d="M24 46V37h16v9"
+                fill="none"
+                stroke="#982d22"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="3"
+              />
+            </svg>
             <span>국회 책임성 모니터</span>
           </a>
 
