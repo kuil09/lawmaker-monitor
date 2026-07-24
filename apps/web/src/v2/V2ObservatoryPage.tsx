@@ -22,7 +22,7 @@ import {
 import { V2NationalMap } from "./V2NationalMap.js";
 import { buildWeeklyTrendChartData } from "../lib/charts.js";
 import { convertThousandWonToEok } from "../lib/format.js";
-import { getPartyColor } from "../lib/geo-utils.js";
+import { getMetricModulatedColor, getPartyColor } from "../lib/geo-utils.js";
 
 import type { DistributionMemberPoint } from "../lib/distribution.js";
 import type { MapMetric } from "../lib/map-route.js";
@@ -71,6 +71,7 @@ type LensConfig = {
   icon: typeof UsersThreeIcon;
   mapMetric: MapMetric;
   mapTitle: string;
+  mapLegendMetric: string;
   scatterTitle: string;
   xLabel: string;
   yLabel: string;
@@ -89,6 +90,7 @@ const LENS_CONFIGS: LensConfig[] = [
     icon: UsersThreeIcon,
     mapMetric: "absence",
     mapTitle: "지역별 출석률 분포",
+    mapLegendMetric: "결석률",
     scatterTitle: "정당별 의원 분포",
     xLabel: "출석률",
     yLabel: "반대·기권 비중",
@@ -105,6 +107,7 @@ const LENS_CONFIGS: LensConfig[] = [
     icon: ScalesIcon,
     mapMetric: "negative",
     mapTitle: "지역별 반대·기권 분포",
+    mapLegendMetric: "반대·기권률",
     scatterTitle: "의원별 찬성·이탈 분포",
     xLabel: "찬성 비중",
     yLabel: "반대·기권·불참",
@@ -121,6 +124,7 @@ const LENS_CONFIGS: LensConfig[] = [
     icon: CurrencyKrwIcon,
     mapMetric: "realEstate",
     mapTitle: "지역별 공개 부동산 분포",
+    mapLegendMetric: "공개 부동산액",
     scatterTitle: "의원별 총재산·부동산 분포",
     xLabel: "총재산 (억원)",
     yLabel: "부동산 (억원)",
@@ -144,6 +148,14 @@ function getPartyHex(party: string): string {
   const value = `rgb(${red} ${green} ${blue})`;
   PARTY_COLORS[party] = value;
   return value;
+}
+
+function getMapLegendRamp(party: string): string {
+  const stops = [0, 0.5, 1].map((value) => {
+    const [red, green, blue, alpha] = getMetricModulatedColor(party, value);
+    return `rgba(${red}, ${green}, ${blue}, ${alpha / 255})`;
+  });
+  return `linear-gradient(90deg, ${stops[0]} 0%, ${stops[1]} 50%, ${stops[2]} 100%)`;
 }
 
 function formatPercentValue(value: number): string {
@@ -428,6 +440,12 @@ export function V2ObservatoryPage({
     [activeLens, memberAssetsIndex, members]
   );
   const rankingRows = useMemo(() => buildRankingRows(points), [points]);
+  const mapLegendParties = useMemo(() => {
+    const parties = [...new Set(points.map((point) => point.party))];
+    return parties.length > 0
+      ? parties.slice(0, 7)
+      : ["국민의힘", "더불어민주당", "무소속"];
+  }, [points]);
   const trendData = useMemo(() => {
     if (activeLens === "attendance") {
       return buildAttendanceTrend(activityCalendar);
@@ -629,10 +647,33 @@ export function V2ObservatoryPage({
                   memberAssetsIndex={memberAssetsIndex}
                   metric={config.mapMetric}
                 />
-                <div className="v2-map-legend" aria-label="지도 범례">
-                  <span>낮음</span>
-                  <span className="v2-map-legend__scale" aria-hidden="true" />
-                  <span>높음</span>
+                <div
+                  className="v2-map-legend"
+                  aria-label={`지도 범례: 색상은 정당을, 같은 정당색 안에서 진할수록 ${config.mapLegendMetric}이 높음을 나타냅니다. 회색은 자료 없음입니다.`}
+                >
+                  <div className="v2-map-legend__header">
+                    <span className="v2-map-legend__title">색상은 정당</span>
+                    <span className="v2-map-legend__missing">
+                      <i aria-hidden="true" />
+                      자료 없음
+                    </span>
+                  </div>
+                  <span className="v2-map-legend__metric">
+                    진할수록 {config.mapLegendMetric} 높음
+                  </span>
+                  <div className="v2-map-legend__axis">
+                    <span>낮음</span>
+                    <span className="v2-map-legend__scale" aria-hidden="true">
+                      {mapLegendParties.map((party) => (
+                        <i
+                          key={party}
+                          className="v2-map-legend__ramp"
+                          style={{ background: getMapLegendRamp(party) }}
+                        />
+                      ))}
+                    </span>
+                    <span>높음</span>
+                  </div>
                 </div>
                 <button
                   type="button"

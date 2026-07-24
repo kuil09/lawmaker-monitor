@@ -159,6 +159,14 @@ export function V2NationalMap({
   memberAssetsIndex,
   metric
 }: V2NationalMapProps) {
+  const metricLabel =
+    metric === "absence"
+      ? "결석률"
+      : metric === "negative"
+        ? "반대·기권률"
+        : metric === "realEstate"
+          ? "공개 부동산액"
+          : "공개 총재산";
   const [staticState, setStaticState] = useState(() =>
     getHexmapStaticState(manifest)
   );
@@ -322,7 +330,7 @@ export function V2NationalMap({
       data-rendered-feature-count={projectedDistricts.length}
       data-renderer="svg"
       role="img"
-      aria-label={`전국 지역구 ${metric === "absence" ? "출석" : metric === "negative" ? "표결 성향" : "재산"} 분포 지도`}
+      aria-label={`전국 지역구 ${metric === "absence" ? "출석" : metric === "negative" ? "표결 성향" : "재산"} 분포 지도. 색상은 정당을, 같은 정당색 안에서 진할수록 ${metricLabel}이 높음을 나타냅니다. 회색은 자료 없음입니다.`}
     >
       <div className="v2-national-map__canvas" aria-hidden="true">
         <svg

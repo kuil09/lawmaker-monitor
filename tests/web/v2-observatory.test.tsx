@@ -57,6 +57,18 @@ describe("v2 observatory", () => {
     );
 
     const attendanceTab = screen.getByRole("tab", { name: "출석" });
+    const mapLegend = screen.getByLabelText(
+      "지도 범례: 색상은 정당을, 같은 정당색 안에서 진할수록 결석률이 높음을 나타냅니다. 회색은 자료 없음입니다."
+    );
+    expect(within(mapLegend).getByText("색상은 정당")).toBeInTheDocument();
+    expect(
+      within(mapLegend).getByText("진할수록 결석률 높음")
+    ).toBeInTheDocument();
+    expect(within(mapLegend).getByText("자료 없음")).toBeInTheDocument();
+    expect(
+      mapLegend.querySelectorAll(".v2-map-legend__ramp").length
+    ).toBeGreaterThan(0);
+
     fireEvent.keyDown(attendanceTab, { key: "ArrowRight" });
 
     const votingTab = screen.getByRole("tab", { name: "표결 성향" });
