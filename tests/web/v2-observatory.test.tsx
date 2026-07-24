@@ -100,16 +100,20 @@ describe("v2 observatory", () => {
       screen.getByRole("img", { name: "전국 지역구 결석률 분포 지도" })
     ).toBeInTheDocument();
     const mapLegend = screen.getByLabelText(
-      "지도 범례: 색상은 정당을, 같은 정당색 안에서 진할수록 결석률이 높음을 나타냅니다. 회색은 자료 없음입니다."
+      "지도 범례: 색상으로 정당을 구분합니다. 같은 정당색 안에서는 진할수록 결석률이 높습니다. 회색은 자료 없음입니다."
     );
-    expect(within(mapLegend).getByText("색상은 정당")).toBeInTheDocument();
     expect(
-      within(mapLegend).getByText("진할수록 결석률 높음")
+      within(mapLegend).getByText("색상으로 정당 구분")
+    ).toBeInTheDocument();
+    expect(
+      within(mapLegend).getByText("같은 색에서 진할수록 결석률 높음")
     ).toBeInTheDocument();
     expect(within(mapLegend).getByText("자료 없음")).toBeInTheDocument();
+    expect(mapLegend.querySelectorAll(".v2-map-legend__ramp")).toHaveLength(0);
     expect(
-      mapLegend.querySelectorAll(".v2-map-legend__ramp").length
-    ).toBeGreaterThan(0);
+      mapLegend.querySelectorAll(".v2-map-legend__intensity")
+    ).toHaveLength(1);
+    expect(within(mapLegend).queryByText("미래개혁당")).toBeNull();
 
     fireEvent.keyDown(attendanceTab, { key: "ArrowRight" });
 

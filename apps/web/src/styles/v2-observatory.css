@@ -602,16 +602,12 @@
   gap: 0.4rem;
 }
 
-.v2-map-legend__scale {
-  display: grid;
-  gap: 2px;
-  width: 70px;
-}
-
-.v2-map-legend__ramp {
+.v2-map-legend__intensity {
   display: block;
-  height: 3px;
+  width: 70px;
+  height: 5px;
   border-radius: 999px;
+  background: linear-gradient(90deg, #dce5ed 0%, #8394a6 52%, #34495f 100%);
 }
 
 .v2-map-detail-link {

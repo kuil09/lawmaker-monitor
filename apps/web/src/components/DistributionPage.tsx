@@ -27,6 +27,7 @@ import {
   type DistributionMemberPoint
 } from "../lib/distribution.js";
 import { formatNumber, formatPercent } from "../lib/format.js";
+import { getPartyCssColor } from "../lib/geo-utils.js";
 import { getOptimizedMemberPhotoUrl } from "../lib/member-photo.js";
 
 import type {
@@ -72,14 +73,7 @@ type TooltipProps = {
   }>;
 };
 
-const partyPalette = [
-  "#7b3128",
-  "#43657b",
-  "#7a5a22",
-  "#385f43",
-  "#8b5c88",
-  "#5c4f98"
-];
+const fallbackPartyColor = getPartyCssColor("");
 const MIN_POINT_PHOTO_SIZE = 48;
 const distributionPointPhotoCache = new Map<string, boolean>();
 
@@ -96,14 +90,8 @@ function buildPartyColorMap(
   members: DistributionMemberPoint[]
 ): Map<string, string> {
   const parties = [...new Set(members.map((member) => member.party))];
-  const fallbackColor = "#7b3128";
 
-  return new Map(
-    parties.map((party, index) => [
-      party,
-      partyPalette[index % partyPalette.length] ?? fallbackColor
-    ])
-  );
+  return new Map(parties.map((party) => [party, getPartyCssColor(party)]));
 }
 
 function buildChartPoints(
@@ -203,7 +191,7 @@ function DistributionPointShape({
   }
 
   const resolvedColor = partyColors.get(payload.party);
-  const fill = resolvedColor ?? partyPalette[0];
+  const fill = resolvedColor ?? fallbackPartyColor;
   const radius = payload.radius + (selected ? 2 : 0);
   const markerIdBase = `distribution-point-${payload.memberId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const clipPathId = `${markerIdBase}-clip`;
@@ -919,7 +907,7 @@ export function DistributionPage({
                       <i
                         style={{
                           backgroundColor:
-                            partyColors.get(summary.party) ?? partyPalette[0]
+                            partyColors.get(summary.party) ?? fallbackPartyColor
                         }}
                       />
                       <span>{summary.party}</span>
@@ -1139,7 +1127,7 @@ export function DistributionPage({
                       <i
                         style={{
                           backgroundColor:
-                            partyColors.get(summary.party) ?? partyPalette[0]
+                            partyColors.get(summary.party) ?? fallbackPartyColor
                         }}
                       />
                       {summary.party}

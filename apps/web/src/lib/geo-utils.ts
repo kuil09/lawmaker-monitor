@@ -180,13 +180,20 @@ export const PARTY_COLORS: Record<string, [number, number, number, number]> = {
   국민의힘: [220, 50, 32, 230],
   조국혁신당: [0, 170, 120, 230],
   개혁신당: [230, 120, 0, 230],
-  진보당: [170, 0, 50, 230],
+  // Use a chart-safe magenta derived from the party's secondary pink so it
+  // remains distinguishable from the People Power Party's red.
+  진보당: [192, 42, 138, 230],
   기본소득당: [100, 60, 180, 230],
   사회민주당: [80, 160, 80, 230]
 };
 
 export function getPartyColor(party: string): [number, number, number, number] {
   return PARTY_COLORS[party] ?? [130, 130, 130, 230];
+}
+
+export function getPartyCssColor(party: string): string {
+  const [red, green, blue] = getPartyColor(party);
+  return `rgb(${red} ${green} ${blue})`;
 }
 
 // t is a normalized value in [0, 1].

@@ -25,7 +25,7 @@ import { V2NationalMap } from "./V2NationalMap.js";
 import { MemberDetailLink } from "../components/MemberDetailLink.js";
 import { buildWeeklyTrendChartData } from "../lib/charts.js";
 import { convertThousandWonToEok } from "../lib/format.js";
-import { getMetricModulatedColor, getPartyColor } from "../lib/geo-utils.js";
+import { getPartyCssColor } from "../lib/geo-utils.js";
 import { calculateDebtRatio } from "../lib/member-assets.js";
 import {
   getPaddedAxisDomain,
@@ -154,27 +154,6 @@ const LENS_CONFIGS: LensConfig[] = [
     basisLabel: "최근 공개일"
   }
 ];
-
-const PARTY_COLORS: Record<string, string> = {};
-
-function getPartyHex(party: string): string {
-  if (PARTY_COLORS[party]) {
-    return PARTY_COLORS[party]!;
-  }
-
-  const [red, green, blue] = getPartyColor(party);
-  const value = `rgb(${red} ${green} ${blue})`;
-  PARTY_COLORS[party] = value;
-  return value;
-}
-
-function getMapLegendRamp(party: string): string {
-  const stops = [0, 0.5, 1].map((value) => {
-    const [red, green, blue, alpha] = getMetricModulatedColor(party, value);
-    return `rgba(${red}, ${green}, ${blue}, ${alpha / 255})`;
-  });
-  return `linear-gradient(90deg, ${stops[0]} 0%, ${stops[1]} 50%, ${stops[2]} 100%)`;
-}
 
 function formatPercentValue(value: number): string {
   return `${value.toFixed(1)}%`;
@@ -524,12 +503,6 @@ export function V2ObservatoryPage({
     [activeLens, memberAssetsIndex, members]
   );
   const rankingRows = useMemo(() => buildRankingRows(points), [points]);
-  const mapLegendParties = useMemo(() => {
-    const parties = [...new Set(points.map((point) => point.party))];
-    return parties.length > 0
-      ? parties.slice(0, 7)
-      : ["국민의힘", "더불어민주당", "무소속"];
-  }, [points]);
   const trendData = useMemo(() => {
     if (activeLens === "attendance") {
       return buildAttendanceTrend(activityCalendar);
@@ -786,30 +759,27 @@ export function V2ObservatoryPage({
                 />
                 <div
                   className="v2-map-legend"
-                  aria-label={`지도 범례: 색상은 정당을, 같은 정당색 안에서 진할수록 ${config.mapLegendMetric}이 높음을 나타냅니다. 회색은 자료 없음입니다.`}
+                  aria-label={`지도 범례: 색상으로 정당을 구분합니다. 같은 정당색 안에서는 진할수록 ${config.mapLegendMetric}이 높습니다. 회색은 자료 없음입니다.`}
                 >
                   <div className="v2-map-legend__header">
-                    <span className="v2-map-legend__title">색상은 정당</span>
+                    <span className="v2-map-legend__title">
+                      색상으로 정당 구분
+                    </span>
                     <span className="v2-map-legend__missing">
                       <i aria-hidden="true" />
                       자료 없음
                     </span>
                   </div>
                   <span className="v2-map-legend__metric">
-                    진할수록 {config.mapLegendMetric} 높음
+                    같은 색에서 진할수록 {config.mapLegendMetric} 높음
                   </span>
                   <div className="v2-map-legend__axis">
-                    <span>낮음</span>
-                    <span className="v2-map-legend__scale" aria-hidden="true">
-                      {mapLegendParties.map((party) => (
-                        <i
-                          key={party}
-                          className="v2-map-legend__ramp"
-                          style={{ background: getMapLegendRamp(party) }}
-                        />
-                      ))}
-                    </span>
-                    <span>높음</span>
+                    <span>옅음</span>
+                    <i
+                      className="v2-map-legend__intensity"
+                      aria-hidden="true"
+                    />
+                    <span>진함</span>
                   </div>
                 </div>
                 <button
@@ -975,7 +945,7 @@ export function V2ObservatoryPage({
                 {points.map((point) => (
                   <Cell
                     key={point.memberId}
-                    fill={getPartyHex(point.party)}
+                    fill={getPartyCssColor(point.party)}
                     fillOpacity={0.82}
                   />
                 ))}
@@ -983,17 +953,15 @@ export function V2ObservatoryPage({
             </ScatterChart>
           </div>
           <div className="v2-party-legend">
-            {[...new Set(points.map((point) => point.party))]
-              .slice(0, 6)
-              .map((party) => (
-                <span key={party}>
-                  <i
-                    style={{ backgroundColor: getPartyHex(party) }}
-                    aria-hidden="true"
-                  />
-                  {party}
-                </span>
-              ))}
+            {[...new Set(points.map((point) => point.party))].map((party) => (
+              <span key={party}>
+                <i
+                  style={{ backgroundColor: getPartyCssColor(party) }}
+                  aria-hidden="true"
+                />
+                {party}
+              </span>
+            ))}
           </div>
         </section>
 
@@ -1277,7 +1245,9 @@ export function V2ObservatoryPage({
                     <td>
                       <span
                         className="v2-party-dot"
-                        style={{ backgroundColor: getPartyHex(row.party) }}
+                        style={{
+                          backgroundColor: getPartyCssColor(row.party)
+                        }}
                         aria-hidden="true"
                       />
                       {row.party}
