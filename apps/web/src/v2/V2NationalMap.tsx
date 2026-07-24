@@ -304,26 +304,60 @@ export function V2NationalMap({
     () => projectDistricts(coloredDistricts),
     [coloredDistricts]
   );
+  const isStaticMapComplete =
+    staticState.total > 0 &&
+    staticState.done >= staticState.total &&
+    staticState.entries.length >= staticState.total &&
+    !staticState.isLoading;
+  const hasIncompleteMapData =
+    !staticState.isLoading &&
+    staticState.total > 0 &&
+    staticState.done >= staticState.total &&
+    staticState.entries.length < staticState.total;
 
-  if (staticState.error && nationalDistricts.length === 0) {
+  if (staticState.error || hasIncompleteMapData) {
     return (
       <div className="v2-map-state" role="status">
         <strong>지도 데이터를 불러오지 못했습니다.</strong>
-        <span>상세 지도에서 다시 시도할 수 있습니다.</span>
+        <span>
+          {hasIncompleteMapData
+            ? `${staticState.total}개 시·도 중 ${staticState.entries.length}개만 준비되었습니다.`
+            : "상세 지도에서 다시 시도할 수 있습니다."}
+        </span>
       </div>
     );
   }
 
-  if (nationalDistricts.length === 0) {
+  if (!isStaticMapComplete || nationalDistricts.length === 0) {
     return (
-      <div className="v2-map-state" role="status" aria-live="polite">
+      <div
+        className="v2-map-state"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
         <span className="v2-map-state__pulse" aria-hidden="true" />
-        <strong>전국 지역구를 연결하고 있습니다.</strong>
+        <strong>전국 지도를 준비하고 있습니다.</strong>
         <span>
           {staticState.total > 0
             ? `${staticState.total}개 시·도 중 ${staticState.done}개 준비`
             : "공식 선거구 경계를 불러오는 중입니다."}
         </span>
+        <progress
+          className="v2-map-state__progress"
+          aria-label="전국 지도 데이터 준비 진행률"
+          max={staticState.total || 1}
+          value={staticState.total > 0 ? staticState.done : undefined}
+        />
+      </div>
+    );
+  }
+
+  if (projectedDistricts.length === 0) {
+    return (
+      <div className="v2-map-state" role="status">
+        <strong>지도 경계를 완성하지 못했습니다.</strong>
+        <span>상세 지도에서 다시 시도할 수 있습니다.</span>
       </div>
     );
   }

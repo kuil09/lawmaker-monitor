@@ -2,7 +2,13 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -127,10 +133,21 @@ vi.mock("@deck.gl/react", () => ({
       initialViewState,
       layers,
       viewState,
-      onViewStateChange: props.onViewStateChange
+      onViewStateChange: props.onViewStateChange,
+      onAfterRender: props.onAfterRender,
+      style: props.style,
+      ariaHidden: props["aria-hidden"]
     });
 
-    return React.createElement("div", null, children);
+    return React.createElement(
+      "div",
+      {
+        "data-testid": initialViewState ? "national-deck" : "detail-deck",
+        "aria-hidden": props["aria-hidden"] as boolean | undefined,
+        style: props.style as React.CSSProperties | undefined
+      },
+      children
+    );
   }
 }));
 
@@ -362,6 +379,117 @@ describe("HexmapPage", () => {
     accessibleMemberButton.focus();
     fireEvent.click(accessibleMemberButton);
     expect(onNavigateToMember).toHaveBeenCalledWith("M002");
+  });
+
+  it("keeps the initial national map hidden until loading and the first deck render both complete", async () => {
+    testState.staticState = {
+      ...testState.staticState,
+      entries: testState.staticState.entries.slice(0, 1),
+      done: 1,
+      isLoading: true
+    };
+
+    render(
+      <HexmapPage
+        manifest={null}
+        accountabilitySummary={accountabilitySummaryFixture}
+        memberAssetsIndex={memberAssetsIndexFixture}
+        memberAssetsIndexError={null}
+        assemblyLabel="제22대 국회"
+        initialProvince={null}
+        initialDistrict={null}
+        initialMetric="absence"
+        onNavigateToMember={vi.fn()}
+        onChangeRoute={vi.fn()}
+      />
+    );
+
+    const initialLoadingStatus = screen.getByRole("status");
+    expect(initialLoadingStatus).toHaveTextContent(
+      "전국 지도를 준비하고 있습니다."
+    );
+    expect(
+      document.querySelector(".hexmap-section--national .hexmap-map-container")
+    ).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByTestId("national-deck")).toHaveStyle({ opacity: "0" });
+
+    const loadingDeck = getLastDeckProps("national");
+    act(() => {
+      (loadingDeck?.onAfterRender as (() => void) | undefined)?.();
+    });
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "전국 지도를 준비하고 있습니다."
+    );
+
+    act(() => {
+      testState.listener?.({
+        ...testState.staticState,
+        entries: [
+          ...testState.staticState.entries,
+          {
+            cacheKey: "boundaries-1:seoul",
+            provinceShortName: "서울",
+            detailRes: 7,
+            createdAt: 1,
+            districts: [
+              {
+                type: "Feature",
+                geometry: {
+                  type: "Polygon",
+                  coordinates: [
+                    [
+                      [126.95, 37.52],
+                      [127.05, 37.52],
+                      [127.05, 37.62],
+                      [126.95, 37.62],
+                      [126.95, 37.52]
+                    ]
+                  ]
+                },
+                properties: {
+                  districtKey: "서울중구",
+                  label: "서울 중구"
+                }
+              }
+            ],
+            cells: [
+              {
+                h3Index: "8730e1d88ffffff",
+                districtKey: "서울중구",
+                districtLabel: "서울 중구",
+                provinceShortName: "서울"
+              }
+            ]
+          }
+        ],
+        done: 2,
+        isLoading: false
+      });
+    });
+
+    await waitFor(() => {
+      expect(
+        (
+          getLastDeckProps("national")?.style as
+            | { opacity?: string }
+            | undefined
+        )?.opacity
+      ).toBe("0");
+    });
+
+    act(() => {
+      (
+        getLastDeckProps("national")?.onAfterRender as (() => void) | undefined
+      )?.();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    });
+    expect(
+      document.querySelector(".hexmap-section--national .hexmap-map-container")
+    ).toHaveAttribute("aria-busy", "false");
+    expect(screen.getByTestId("national-deck")).toHaveStyle({ opacity: "1" });
   });
 
   it("promotes legacy district routes to their parent province selection", async () => {

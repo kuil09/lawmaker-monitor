@@ -1027,6 +1027,31 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
           .poll(async () => page.locator(".hexmap-region-list button").count())
           .toBeGreaterThanOrEqual(2);
         await expect.poll(async () => page.locator("canvas").count()).toBe(1);
+        const nationalMapContainer = page.locator(
+          ".hexmap-section--national .hexmap-map-container"
+        );
+        expect(await nationalMapContainer.getAttribute("aria-busy")).toBe(
+          "false"
+        );
+        expect(
+          await nationalMapContainer.locator(".hexmap-map-loading").count()
+        ).toBe(0);
+        expect(
+          await nationalMapContainer.evaluate((element) => {
+            const canvas = element.querySelector("canvas");
+            if (!canvas) {
+              return null;
+            }
+
+            return {
+              canvasCount: element.querySelectorAll("canvas").length,
+              opacity: window.getComputedStyle(canvas.parentElement!).opacity
+            };
+          })
+        ).toMatchObject({
+          canvasCount: 1,
+          opacity: "1"
+        });
       }
 
       if (route.id === "votes") {

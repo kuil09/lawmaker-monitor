@@ -523,6 +523,13 @@
   animation: v2-pulse 1.5s ease-in-out infinite;
 }
 
+.v2-map-state__progress {
+  width: min(240px, 72%);
+  height: 5px;
+  margin-top: 0.55rem;
+  accent-color: var(--v2-blue);
+}
+
 @keyframes v2-pulse {
   50% {
     opacity: 0.45;

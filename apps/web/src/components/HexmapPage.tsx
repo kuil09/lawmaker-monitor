@@ -234,6 +234,7 @@ export function HexmapPage({
   const [detailViewState, setDetailViewState] = useState(
     INITIAL_DETAIL_VIEW_STATE
   );
+  const [isNationalMapRendered, setIsNationalMapRendered] = useState(false);
 
   const onChangeRouteRef = useRef(onChangeRoute);
   onChangeRouteRef.current = onChangeRoute;
@@ -333,6 +334,7 @@ export function HexmapPage({
   useEffect(() => {
     setNationalTooltip(null);
     setDetailTooltip(null);
+    setIsNationalMapRendered(false);
     firstVisibleSpanRef.current = startPerformanceSpan(
       "hexmap:firstVisibleHexCells"
     );
@@ -394,7 +396,7 @@ export function HexmapPage({
   ]);
 
   useEffect(() => {
-    if (firstVisibleSpanRef.current && nationalCells.length > 0) {
+    if (firstVisibleSpanRef.current && isNationalMapRendered) {
       endPerformanceSpan(firstVisibleSpanRef.current);
       firstVisibleSpanRef.current = null;
     }
@@ -402,7 +404,8 @@ export function HexmapPage({
     if (
       layerReadySpanRef.current &&
       !staticState.isLoading &&
-      staticState.entries.length > 0
+      staticState.entries.length > 0 &&
+      isNationalMapRendered
     ) {
       endPerformanceSpan(layerReadySpanRef.current);
       layerReadySpanRef.current = null;
@@ -415,7 +418,12 @@ export function HexmapPage({
       endPerformanceSpan(metricSwitchSpanRef.current);
       metricSwitchSpanRef.current = null;
     }
-  }, [nationalCells.length, staticState.entries.length, staticState.isLoading]);
+  }, [
+    isNationalMapRendered,
+    nationalCells.length,
+    staticState.entries.length,
+    staticState.isLoading
+  ]);
 
   useEffect(() => {
     if (!selectedDistrictKey && !selectedProvinceFilter) {
@@ -757,6 +765,29 @@ export function HexmapPage({
     Boolean(selectedDistrictKey || selectedProvinceFilter) &&
     detailCells.length === 0 &&
     (isLoading || !accountabilitySummary);
+  const isStaticMapComplete =
+    staticState.total > 0 &&
+    staticState.done >= staticState.total &&
+    staticState.entries.length >= staticState.total &&
+    !isLoading;
+  const incompleteMapError =
+    !isLoading &&
+    staticState.total > 0 &&
+    staticState.done >= staticState.total &&
+    staticState.entries.length < staticState.total
+      ? `${staticState.total}개 시·도 중 ${staticState.entries.length}개만 준비되었습니다.`
+      : null;
+  const nationalMapError = error ?? incompleteMapError;
+  const isNationalMapPending =
+    !nationalMapError &&
+    (!isStaticMapComplete ||
+      nationalCells.length === 0 ||
+      !isNationalMapRendered);
+  const handleNationalMapAfterRender = useCallback(() => {
+    if (isStaticMapComplete && nationalCells.length > 0) {
+      setIsNationalMapRendered(true);
+    }
+  }, [isStaticMapComplete, nationalCells.length]);
   const summaryItemsByMemberId = useMemo(
     () => new Map(summaryItems.map((item) => [item.memberId, item] as const)),
     [summaryItems]
@@ -1098,51 +1129,60 @@ export function HexmapPage({
           </div>
           <div
             className={`hexmap-map-container${
-              error && nationalCells.length === 0
+              nationalMapError
                 ? " hexmap-map-container--error"
-                : ""
+                : isNationalMapPending
+                  ? " hexmap-map-container--loading"
+                  : ""
             }`}
+            aria-busy={isNationalMapPending}
           >
-            {error && nationalCells.length === 0 ? (
+            {nationalMapError ? (
               <div className="hexmap-state">
                 <div className="hexmap-state__title">
-                  데이터를 불러오지 못했습니다
+                  지도를 완성하지 못했습니다
                 </div>
-                <p>{error}</p>
-              </div>
-            ) : nationalCells.length === 0 ? (
-              <div className="hexmap-state">
-                <div className="hexmap-state__title">
-                  {isLoading
-                    ? "전국 상세 격자 로딩 중…"
-                    : "지도 데이터를 준비 중입니다"}
-                </div>
-                <p>
-                  {!accountabilitySummary
-                    ? "활동 데이터를 불러오고 있습니다."
-                    : loadProgress
-                      ? `${loadProgress.total}개 시·도 중 ${loadProgress.done}개 완료`
-                      : "선거구 경계 데이터를 불러오는 중입니다."}
-                </p>
+                <p>{nationalMapError}</p>
               </div>
             ) : (
               <>
-                <DeckGL
-                  initialViewState={INITIAL_VIEW_STATE}
-                  onViewStateChange={({ viewState }) => {
-                    setNationalViewState(
-                      viewState as typeof INITIAL_VIEW_STATE
-                    );
-                  }}
-                  controller
-                  layers={nationalLayers}
-                />
-                {isLoading ? (
-                  <div className="hexmap-computing-overlay">
-                    전국 상세 격자 로딩 중…
-                    {loadProgress
-                      ? ` ${loadProgress.done}/${loadProgress.total}`
-                      : ""}
+                {nationalCells.length > 0 ? (
+                  <DeckGL
+                    initialViewState={INITIAL_VIEW_STATE}
+                    onViewStateChange={({ viewState }) => {
+                      setNationalViewState(
+                        viewState as typeof INITIAL_VIEW_STATE
+                      );
+                    }}
+                    onAfterRender={handleNationalMapAfterRender}
+                    controller
+                    layers={nationalLayers}
+                    aria-hidden={isNationalMapPending}
+                    style={{
+                      opacity: isNationalMapPending ? "0" : "1",
+                      pointerEvents: isNationalMapPending ? "none" : "auto"
+                    }}
+                  />
+                ) : null}
+                {isNationalMapPending ? (
+                  <div
+                    className="hexmap-map-loading"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <strong>전국 지도를 준비하고 있습니다.</strong>
+                    <span>
+                      {!accountabilitySummary
+                        ? "활동 데이터를 불러오고 있습니다."
+                        : loadProgress
+                          ? `${loadProgress.total}개 시·도 중 ${loadProgress.done}개 완료`
+                          : "선거구 경계 데이터를 불러오는 중입니다."}
+                    </span>
+                    <progress
+                      aria-label="전국 상세 지도 준비 진행률"
+                      max={loadProgress?.total ?? 1}
+                      value={loadProgress?.done}
+                    />
                   </div>
                 ) : null}
               </>
