@@ -1,10 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Layer,
-  Map as MapGL,
-  Source,
-  type LayerProps
-} from "react-map-gl/maplibre";
 
 import {
   createLogNormalizer,
@@ -26,30 +20,9 @@ import type {
   MemberAssetsIndexExport
 } from "@lawmaker-monitor/schemas";
 
-const INITIAL_VIEW_STATE = {
-  longitude: 127.8,
-  latitude: 36.45,
-  zoom: 6.15,
-  minZoom: 5,
-  maxZoom: 8,
-  pitch: 0,
-  bearing: 0
-};
-
-const MAP_STYLE = {
-  version: 8 as const,
-  sources: {},
-  layers: [
-    {
-      id: "v2-map-background",
-      type: "background" as const,
-      paint: {
-        "background-color": "#f7fafb"
-      }
-    }
-  ]
-};
-
+const MAP_WIDTH = 520;
+const MAP_HEIGHT = 430;
+const MAP_PADDING = 14;
 const UNMATCHED_COLOR: [number, number, number, number] = [205, 211, 218, 205];
 
 type TooltipDatum = Omit<H3DataCell, "h3Index">;
@@ -66,23 +39,112 @@ type ColoredDistrictFeature = ExtrudedFeature & {
   };
 };
 
-const DISTRICT_FILL_LAYER: LayerProps = {
-  id: "v2-national-district-fill",
-  type: "fill",
-  paint: {
-    "fill-color": ["get", "fillColor"],
-    "fill-opacity": 1
-  }
+type ProjectedDistrict = {
+  key: string;
+  label: string;
+  fillColor: string;
+  path: string;
 };
 
-const DISTRICT_LINE_LAYER: LayerProps = {
-  id: "v2-national-district-line",
-  type: "line",
-  paint: {
-    "line-color": "rgba(255, 255, 255, 0.88)",
-    "line-width": 0.8
+function toMercatorPoint(position: [number, number]): [number, number] {
+  const [longitude, latitude] = position;
+  const clampedLatitude = Math.max(
+    -85.051_128_78,
+    Math.min(85.051_128_78, latitude)
+  );
+  const longitudeRadians = (longitude * Math.PI) / 180;
+  const latitudeRadians = (clampedLatitude * Math.PI) / 180;
+
+  return [
+    longitudeRadians,
+    -Math.log(Math.tan(Math.PI / 4 + latitudeRadians / 2))
+  ];
+}
+
+function getFeaturePolygons(feature: ColoredDistrictFeature) {
+  return feature.geometry.type === "Polygon"
+    ? [feature.geometry.coordinates]
+    : feature.geometry.coordinates;
+}
+
+function projectDistricts(
+  features: ColoredDistrictFeature[]
+): ProjectedDistrict[] {
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (const feature of features) {
+    for (const polygon of getFeaturePolygons(feature)) {
+      for (const ring of polygon) {
+        for (const position of ring) {
+          const [x, y] = toMercatorPoint(position);
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y);
+          maxY = Math.max(maxY, y);
+        }
+      }
+    }
   }
-};
+
+  const contentWidth = maxX - minX;
+  const contentHeight = maxY - minY;
+
+  if (
+    !Number.isFinite(contentWidth) ||
+    !Number.isFinite(contentHeight) ||
+    contentWidth <= 0 ||
+    contentHeight <= 0
+  ) {
+    return [];
+  }
+
+  const scale = Math.min(
+    (MAP_WIDTH - MAP_PADDING * 2) / contentWidth,
+    (MAP_HEIGHT - MAP_PADDING * 2) / contentHeight
+  );
+  const offsetX = (MAP_WIDTH - contentWidth * scale) / 2;
+  const offsetY = (MAP_HEIGHT - contentHeight * scale) / 2;
+
+  const projectPosition = (position: [number, number]) => {
+    const [x, y] = toMercatorPoint(position);
+    return [
+      offsetX + (x - minX) * scale,
+      offsetY + (y - minY) * scale
+    ] as const;
+  };
+
+  return features.flatMap((feature, featureIndex) => {
+    const path = getFeaturePolygons(feature)
+      .flatMap((polygon) =>
+        polygon.map((ring) =>
+          ring
+            .map((position, positionIndex) => {
+              const [x, y] = projectPosition(position);
+              return `${positionIndex === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+            })
+            .join(" ")
+            .concat(" Z")
+        )
+      )
+      .join(" ");
+
+    if (!path || path.includes("NaN")) {
+      return [];
+    }
+
+    return [
+      {
+        key: `${feature.properties.districtKey}-${featureIndex}`,
+        label: feature.properties.label,
+        fillColor: feature.properties.fillColor,
+        path
+      }
+    ];
+  });
+}
 
 type V2NationalMapProps = {
   manifest: Manifest | null;
@@ -97,7 +159,6 @@ export function V2NationalMap({
   memberAssetsIndex,
   metric
 }: V2NationalMapProps) {
-  const [mapReady, setMapReady] = useState(false);
   const [staticState, setStaticState] = useState(() =>
     getHexmapStaticState(manifest)
   );
@@ -225,11 +286,8 @@ export function V2NationalMap({
     });
   }, [nationalCells, nationalDistricts]);
 
-  const mapData = useMemo(
-    () => ({
-      type: "FeatureCollection" as const,
-      features: coloredDistricts
-    }),
+  const projectedDistricts = useMemo(
+    () => projectDistricts(coloredDistricts),
     [coloredDistricts]
   );
 
@@ -261,25 +319,31 @@ export function V2NationalMap({
       className="v2-national-map"
       data-feature-count={coloredDistricts.length}
       data-loaded-provinces={staticState.entries.length}
-      data-map-ready={mapReady ? "true" : "false"}
+      data-rendered-feature-count={projectedDistricts.length}
+      data-renderer="svg"
       role="img"
       aria-label={`전국 지역구 ${metric === "absence" ? "출석" : metric === "negative" ? "표결 성향" : "재산"} 분포 지도`}
     >
       <div className="v2-national-map__canvas" aria-hidden="true">
-        <MapGL
-          initialViewState={INITIAL_VIEW_STATE}
-          mapStyle={MAP_STYLE}
-          attributionControl={false}
-          interactive={false}
-          onLoad={() => setMapReady(true)}
+        <svg
+          className="v2-national-map__svg"
+          viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
+          preserveAspectRatio="xMidYMid meet"
+          aria-hidden="true"
         >
-          {mapReady ? (
-            <Source id="v2-national-districts" type="geojson" data={mapData}>
-              <Layer {...DISTRICT_FILL_LAYER} />
-              <Layer {...DISTRICT_LINE_LAYER} />
-            </Source>
-          ) : null}
-        </MapGL>
+          {projectedDistricts.map((district) => (
+            <path
+              key={district.key}
+              d={district.path}
+              fill={district.fillColor}
+              fillRule="evenodd"
+              stroke="rgba(255, 255, 255, 0.88)"
+              strokeWidth="0.8"
+              vectorEffect="non-scaling-stroke"
+              data-district-label={district.label}
+            />
+          ))}
+        </svg>
       </div>
       <div className="v2-national-map__labels" aria-hidden="true">
         <span className="v2-national-map__label v2-national-map__label--seoul">

@@ -483,10 +483,10 @@
   inset: -4% -8% -3% -7%;
 }
 
-.v2-national-map__canvas > div,
-.v2-national-map__canvas canvas {
-  width: 100% !important;
-  height: 100% !important;
+.v2-national-map__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .v2-national-map__labels {
