@@ -12,7 +12,7 @@ import { getScatterYDomain } from "../../apps/web/src/lib/scatter-domain.js";
 
 vi.mock("../../apps/web/src/v2/V2NationalMap.js", () => ({
   V2NationalMap: () => (
-    <div role="img" aria-label="전국 지역구 출석 분포 지도" />
+    <div role="img" aria-label="전국 지역구 결석률 분포 지도" />
   )
 }));
 
@@ -90,6 +90,15 @@ describe("v2 observatory", () => {
     );
 
     const attendanceTab = screen.getByRole("tab", { name: "출석" });
+    expect(
+      screen.getByRole("region", { name: "지역별 결석률 분포" })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "지역별 출석률 분포" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "전국 지역구 결석률 분포 지도" })
+    ).toBeInTheDocument();
     const mapLegend = screen.getByLabelText(
       "지도 범례: 색상은 정당을, 같은 정당색 안에서 진할수록 결석률이 높음을 나타냅니다. 회색은 자료 없음입니다."
     );

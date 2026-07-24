@@ -93,7 +93,7 @@ const LENS_CONFIGS: LensConfig[] = [
     label: "출석",
     icon: UsersThreeIcon,
     mapMetric: "absence",
-    mapTitle: "지역별 출석률 분포",
+    mapTitle: "지역별 결석률 분포",
     mapLegendMetric: "결석률",
     scatterTitle: "정당별 의원 분포",
     xLabel: "출석률",
