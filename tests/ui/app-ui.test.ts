@@ -939,6 +939,51 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
         expect(await firstRegionalMember.textContent()).toContain(
           "공개 순재산"
         );
+        if (viewportName === "desktop") {
+          const stressedRegionalLayout = await page.evaluate(() => {
+            const list = document.querySelector(".hexmap-detail-member-list");
+            const sourceItem = list?.firstElementChild;
+            const clones: Element[] = [];
+
+            if (!list || !sourceItem) {
+              return null;
+            }
+
+            for (let index = 0; index < 16; index += 1) {
+              const clone = sourceItem.cloneNode(true) as Element;
+              clone.setAttribute("data-layout-stress-clone", "");
+              list.append(clone);
+              clones.push(clone);
+            }
+
+            const result = {
+              listClientHeight: list.clientHeight,
+              listScrollHeight: list.scrollHeight,
+              nationalHeight:
+                document
+                  .querySelector(".hexmap-section--national")
+                  ?.getBoundingClientRect().height ?? 0,
+              detailHeight:
+                document
+                  .querySelector(".hexmap-section--detail")
+                  ?.getBoundingClientRect().height ?? 0
+            };
+
+            clones.forEach((clone) => clone.remove());
+            return result;
+          });
+
+          expect(stressedRegionalLayout).not.toBeNull();
+          expect(stressedRegionalLayout?.listScrollHeight ?? 0).toBeGreaterThan(
+            stressedRegionalLayout?.listClientHeight ?? 0
+          );
+          expect(
+            stressedRegionalLayout?.nationalHeight ?? 0
+          ).toBeLessThanOrEqual(720);
+          expect(stressedRegionalLayout?.detailHeight ?? 0).toBeLessThanOrEqual(
+            720
+          );
+        }
         const nationalMapContainer = page.locator(
           ".hexmap-section--national .hexmap-map-container"
         );

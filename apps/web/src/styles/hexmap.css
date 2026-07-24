@@ -846,6 +846,7 @@
 .hexmap-detail-member-list {
   display: grid;
   min-height: 0;
+  max-height: 410px;
   margin: 0;
   padding: 0 3px 1px 0;
   gap: 7px;
@@ -1076,6 +1077,7 @@
   }
 
   .hexmap-detail-member-list {
+    max-height: none;
     overflow-y: visible;
   }
 }
