@@ -147,7 +147,7 @@ export function BillProposalActivitySection({
               <dd>{formatCount(data.billCount)}</dd>
             </div>
             <div>
-              <dt>대표발의 합계</dt>
+              <dt>현재 의원 대표발의</dt>
               <dd>{formatCount(representativeProposalCount)}</dd>
             </div>
             <div>
@@ -275,7 +275,7 @@ export function BillProposalActivitySection({
                   </p>
                 </div>
                 <small>
-                  {`현재 의원 식별자 연결률 ${coveragePercent.toFixed(1)}% · 연결되지 않은 식별자 ${data.unmatchedProposerCount}개`}
+                  {`현재 의원 식별자 연결률 ${coveragePercent.toFixed(1)}% · 현재 의원과 연결되지 않은 식별자 ${data.unmatchedProposerCount}개`}
                 </small>
               </aside>
             </div>
