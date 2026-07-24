@@ -259,6 +259,9 @@ export function V2NationalMap({
   return (
     <div
       className="v2-national-map"
+      data-feature-count={coloredDistricts.length}
+      data-loaded-provinces={staticState.entries.length}
+      data-map-ready={mapReady ? "true" : "false"}
       role="img"
       aria-label={`전국 지역구 ${metric === "absence" ? "출석" : metric === "negative" ? "표결 성향" : "재산"} 분포 지도`}
     >
