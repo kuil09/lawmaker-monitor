@@ -345,26 +345,6 @@ export function V2NationalMap({
           ))}
         </svg>
       </div>
-      <div className="v2-national-map__labels" aria-hidden="true">
-        <span className="v2-national-map__label v2-national-map__label--seoul">
-          서울
-        </span>
-        <span className="v2-national-map__label v2-national-map__label--gangwon">
-          강원
-        </span>
-        <span className="v2-national-map__label v2-national-map__label--chungcheong">
-          충청
-        </span>
-        <span className="v2-national-map__label v2-national-map__label--gyeongsang">
-          경상
-        </span>
-        <span className="v2-national-map__label v2-national-map__label--jeolla">
-          전라
-        </span>
-        <span className="v2-national-map__label v2-national-map__label--jeju">
-          제주
-        </span>
-      </div>
     </div>
   );
 }

@@ -491,54 +491,6 @@
   height: 100%;
 }
 
-.v2-national-map__labels {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.v2-national-map__label {
-  position: absolute;
-  padding: 0.22rem 0.42rem;
-  border: 1px solid rgba(103, 109, 117, 0.28);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.91);
-  color: #4e5359;
-  font-size: 0.62rem;
-  font-weight: 690;
-  box-shadow: 0 1px 2px rgba(20, 30, 42, 0.08);
-}
-
-.v2-national-map__label--seoul {
-  top: 22%;
-  left: 32%;
-}
-
-.v2-national-map__label--gangwon {
-  top: 16%;
-  right: 23%;
-}
-
-.v2-national-map__label--chungcheong {
-  top: 42%;
-  left: 35%;
-}
-
-.v2-national-map__label--gyeongsang {
-  top: 55%;
-  right: 19%;
-}
-
-.v2-national-map__label--jeolla {
-  bottom: 23%;
-  left: 28%;
-}
-
-.v2-national-map__label--jeju {
-  bottom: 7%;
-  left: 31%;
-}
-
 .v2-map-state,
 .v2-analysis-loading,
 .v2-empty-state {
