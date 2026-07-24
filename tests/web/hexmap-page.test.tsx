@@ -601,6 +601,14 @@ describe("HexmapPage", () => {
         .closest(".hexmap-tooltip")
     ).not.toBeNull();
 
+    const memberLink = screen.getByRole("link", {
+      name: "박민 의원 상세 보기"
+    });
+    expect(memberLink).toHaveAttribute("href", "#calendar?member=M002");
+    fireEvent.click(memberLink);
+    expect(onNavigateToMember).toHaveBeenCalledWith("M002");
+
+    onNavigateToMember.mockClear();
     fireEvent.click(screen.getByRole("button", { name: "활동 캘린더 보기" }));
     expect(onNavigateToMember).toHaveBeenCalledWith("M002");
 

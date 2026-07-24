@@ -22,6 +22,7 @@ import {
 } from "recharts";
 
 import { V2NationalMap } from "./V2NationalMap.js";
+import { MemberDetailLink } from "../components/MemberDetailLink.js";
 import { buildWeeklyTrendChartData } from "../lib/charts.js";
 import { convertThousandWonToEok } from "../lib/format.js";
 import { getMetricModulatedColor, getPartyColor } from "../lib/geo-utils.js";
@@ -55,6 +56,7 @@ type ObservatoryPoint = {
 };
 
 type TrendPoint = {
+  memberId?: string;
   label: string;
   primary: number | null;
   secondary: number | null;
@@ -274,6 +276,7 @@ function buildAssetTrend(assets: MemberAssetsIndexExport | null): TrendPoint[] {
     .slice(0, 6)
     .reverse()
     .map((member) => ({
+      memberId: member.memberId,
       label: member.name,
       primary: toEok(member.latestTotal),
       secondary: toEok(member.latestRealEstateTotal),
@@ -370,11 +373,13 @@ function buildRankingRows(points: ObservatoryPoint[]): RankingRow[] {
 function ScatterTooltipContent({
   active,
   payload,
-  config
+  config,
+  onOpenMember
 }: {
   active?: boolean;
   payload?: Array<{ payload?: ObservatoryPoint }>;
   config: LensConfig;
+  onOpenMember: (memberId: string) => void;
 }) {
   const point = payload?.[0]?.payload;
   if (!active || !point) {
@@ -387,11 +392,68 @@ function ScatterTooltipContent({
 
   return (
     <div className="v2-chart-tooltip">
-      <strong>{point.name}</strong>
+      <MemberDetailLink
+        memberId={point.memberId}
+        name={point.name}
+        onNavigate={onOpenMember}
+      />
       <span>{`${point.party} · ${point.district}`}</span>
       <span>
         {`${xLabel} ${formatValue(point.x)} · ${yLabel} ${formatValue(point.y)}`}
       </span>
+    </div>
+  );
+}
+
+function AssetComparisonTooltipContent({
+  active,
+  payload,
+  config,
+  onOpenMember
+}: {
+  active?: boolean;
+  payload?: Array<{
+    dataKey?: string | number;
+    name?: string | number;
+    value?: number | string | Array<number | string>;
+    payload?: TrendPoint;
+  }>;
+  config: LensConfig;
+  onOpenMember: (memberId: string) => void;
+}) {
+  const point = payload?.[0]?.payload;
+  if (!active || !point?.memberId) {
+    return null;
+  }
+
+  return (
+    <div className="v2-chart-tooltip v2-chart-tooltip--asset">
+      <MemberDetailLink
+        memberId={point.memberId}
+        name={point.label}
+        onNavigate={onOpenMember}
+      />
+      {payload?.map((entry) => {
+        const rawValue = Array.isArray(entry.value)
+          ? entry.value[0]
+          : entry.value;
+        const seriesName =
+          typeof entry.name === "string"
+            ? entry.name
+            : config.trendSeries[
+                entry.dataKey === "primary"
+                  ? 0
+                  : entry.dataKey === "secondary"
+                    ? 1
+                    : 2
+              ];
+
+        return (
+          <span key={String(entry.dataKey)}>
+            {`${seriesName} ${formatEok(Number(rawValue ?? 0))}`}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -763,9 +825,31 @@ export function V2ObservatoryPage({
             <div className="v2-insight-note">
               <InfoIcon size={18} />
               <p>
-                {activeLens === "assets"
-                  ? `${highestSupportPoint.name} 의원이 현재 비교군에서 부동산 비중이 가장 높습니다.`
-                  : `${lowestPoint.name} 의원은 ${config.scoreLabel}이 가장 낮고, ${highestSupportPoint.name} 의원은 ${config.supportLabel}이 가장 높습니다.`}
+                {activeLens === "assets" ? (
+                  <>
+                    <MemberDetailLink
+                      memberId={highestSupportPoint.memberId}
+                      name={highestSupportPoint.name}
+                      onNavigate={onOpenMember}
+                    />
+                    {` 의원이 현재 비교군에서 부동산 비중이 가장 높습니다.`}
+                  </>
+                ) : (
+                  <>
+                    <MemberDetailLink
+                      memberId={lowestPoint.memberId}
+                      name={lowestPoint.name}
+                      onNavigate={onOpenMember}
+                    />
+                    {` 의원은 ${config.scoreLabel}이 가장 낮고, `}
+                    <MemberDetailLink
+                      memberId={highestSupportPoint.memberId}
+                      name={highestSupportPoint.name}
+                      onNavigate={onOpenMember}
+                    />
+                    {` 의원은 ${config.supportLabel}이 가장 높습니다.`}
+                  </>
+                )}
               </p>
             </div>
           ) : null}
@@ -852,7 +936,13 @@ export function V2ObservatoryPage({
               <ZAxis range={[45, 45]} />
               <Tooltip
                 cursor={{ strokeDasharray: "3 3" }}
-                content={<ScatterTooltipContent config={config} />}
+                wrapperStyle={{ pointerEvents: "auto" }}
+                content={
+                  <ScatterTooltipContent
+                    config={config}
+                    onOpenMember={onOpenMember}
+                  />
+                }
               />
               <Scatter data={points}>
                 {points.map((point) => (
@@ -938,7 +1028,17 @@ export function V2ObservatoryPage({
                 <tbody>
                   {trendData.map((point) => (
                     <tr key={point.label}>
-                      <th scope="row">{point.label}</th>
+                      <th scope="row">
+                        {point.memberId ? (
+                          <MemberDetailLink
+                            memberId={point.memberId}
+                            name={point.label}
+                            onNavigate={onOpenMember}
+                          />
+                        ) : (
+                          point.label
+                        )}
+                      </th>
                       {[point.primary, point.secondary, point.tertiary].map(
                         (value, index) => (
                           <td key={`${point.label}-${index}`}>
@@ -994,10 +1094,13 @@ export function V2ObservatoryPage({
                     tickLine={false}
                   />
                   <Tooltip
-                    formatter={(value) => {
-                      const rawValue = Array.isArray(value) ? value[0] : value;
-                      return formatEok(Number(rawValue ?? 0));
-                    }}
+                    wrapperStyle={{ pointerEvents: "auto" }}
+                    content={
+                      <AssetComparisonTooltipContent
+                        config={config}
+                        onOpenMember={onOpenMember}
+                      />
+                    }
                   />
                   <Bar
                     dataKey="secondary"

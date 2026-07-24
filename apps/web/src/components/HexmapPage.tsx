@@ -11,6 +11,7 @@ import {
   useState
 } from "react";
 
+import { MemberDetailLink } from "./MemberDetailLink.js";
 import { normalizeConstituencyLookupKey } from "../lib/constituency-map.js";
 import { formatAssetEok, formatPercent } from "../lib/format.js";
 import {
@@ -884,9 +885,7 @@ export function HexmapPage({
                 aria-hidden="true"
               />
               <span className="hexmap-tooltip__name">
-                {cell.memberCount === 1
-                  ? cell.memberNames[0]
-                  : `${cell.memberNames[0]} 외 ${cell.memberCount - 1}명`}
+                {`의원 ${cell.memberCount}명`}
               </span>
             </div>
             <div className="hexmap-tooltip__party">
@@ -933,7 +932,12 @@ export function HexmapPage({
             style={dotStyle}
             aria-hidden="true"
           />
-          <span className="hexmap-tooltip__name">{member.name}</span>
+          <MemberDetailLink
+            className="hexmap-tooltip__name"
+            memberId={member.memberId}
+            name={member.name}
+            onNavigate={onNavigateToMember}
+          />
         </div>
         <div className="hexmap-tooltip__party">{member.party}</div>
         {metricSummary ? (

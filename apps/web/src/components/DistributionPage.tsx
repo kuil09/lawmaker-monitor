@@ -11,6 +11,7 @@ import {
   YAxis
 } from "recharts";
 
+import { MemberDetailLink } from "./MemberDetailLink.js";
 import { MemberIdentity } from "./MemberIdentity.js";
 import { MemberSearchField } from "./MemberSearchField.js";
 import { buildCalendarHref } from "../lib/calendar-route.js";
@@ -291,7 +292,7 @@ function DistributionTooltipPanel({ active, payload }: TooltipProps) {
 
   return (
     <div className="chart-tooltip distribution-chart__tooltip">
-      <strong>{point.name}</strong>
+      <MemberDetailLink memberId={point.memberId} name={point.name} />
       <p className="distribution-chart__tooltip-line">{`${point.party} · ${
         point.district ?? "지역 정보 없음"
       }`}</p>
@@ -853,7 +854,10 @@ export function DistributionPage({
                       position: "insideLeft"
                     }}
                   />
-                  <Tooltip content={<DistributionTooltipPanel />} />
+                  <Tooltip
+                    wrapperStyle={{ pointerEvents: "auto" }}
+                    content={<DistributionTooltipPanel />}
+                  />
                   <Scatter
                     data={otherChartPoints}
                     shape={(props) => (

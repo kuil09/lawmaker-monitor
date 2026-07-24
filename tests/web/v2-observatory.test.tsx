@@ -293,4 +293,55 @@ describe("v2 observatory", () => {
     expect(secondMemberRow).toHaveTextContent("2.7억");
     expect(secondMemberRow).toHaveTextContent("3.2억");
   });
+
+  it("opens member detail from names in the weekly insight and asset table", () => {
+    const onOpenMember = vi.fn();
+
+    render(
+      <V2ObservatoryPage
+        assemblyLabel="제22대 국회"
+        freshnessText="2026년 7월 24일"
+        manifest={manifest}
+        accountabilitySummary={accountabilitySummary}
+        members={members}
+        activityCalendar={activityCalendar}
+        accountabilityTrends={accountabilityTrends}
+        memberAssetsIndex={memberAssetsIndex}
+        loading={false}
+        errors={[]}
+        onOpenMap={vi.fn()}
+        onOpenDistribution={vi.fn()}
+        onOpenMember={onOpenMember}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "재산" }));
+
+    const insight = screen
+      .getByRole("heading", { name: "이번 주 관찰" })
+      .closest("aside");
+    expect(insight).not.toBeNull();
+    const insightLink = within(insight!).getByRole("link", {
+      name: "박민 의원 상세 보기"
+    });
+    expect(insightLink).toHaveAttribute("href", "#calendar?member=M002");
+
+    fireEvent.click(insightLink);
+    expect(onOpenMember).toHaveBeenCalledWith("M002");
+
+    const assetTrendCard = screen
+      .getByRole("heading", { name: "공개 재산 상위 의원 비교" })
+      .closest("section");
+    expect(assetTrendCard).not.toBeNull();
+    fireEvent.click(
+      within(assetTrendCard!).getByRole("button", { name: "표로 보기" })
+    );
+
+    fireEvent.click(
+      within(assetTrendCard!).getByRole("link", {
+        name: "김아라 의원 상세 보기"
+      })
+    );
+    expect(onOpenMember).toHaveBeenCalledWith("M001");
+  });
 });

@@ -26,6 +26,21 @@ a {
   font-weight: 600;
 }
 
+.member-detail-link {
+  color: inherit;
+  font: inherit;
+  font-weight: 750;
+  text-decoration-line: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 42%, transparent);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.17em;
+}
+
+.member-detail-link:hover {
+  color: var(--accent-strong);
+  text-decoration-color: currentColor;
+}
+
 button {
   border-color: var(--border);
   border-radius: var(--radius-pill);

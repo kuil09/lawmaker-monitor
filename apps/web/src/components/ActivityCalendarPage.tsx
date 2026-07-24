@@ -31,6 +31,7 @@ import {
   YAxis
 } from "recharts";
 
+import { MemberDetailLink } from "./MemberDetailLink.js";
 import { MemberIdentity } from "./MemberIdentity.js";
 import { MemberSearchField } from "./MemberSearchField.js";
 import {
@@ -638,6 +639,49 @@ type MemberAssetCompareSectionProps = {
   onRetryRight?: (() => void) | null;
 };
 
+function MemberAssetCompareTooltip({
+  active,
+  label,
+  payload,
+  leftMember,
+  rightMember
+}: {
+  active?: boolean;
+  label?: string | number;
+  payload?: Array<{
+    dataKey?: string | number;
+    value?: number | string | Array<number | string>;
+  }>;
+  leftMember: MemberActivityCalendarMember;
+  rightMember: MemberActivityCalendarMember;
+}) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  return (
+    <div className="chart-tooltip activity-asset-chart__tooltip">
+      <strong>{`공개일 ${String(label ?? "")}`}</strong>
+      <ul>
+        {payload.map((entry) => {
+          const member =
+            entry.dataKey === "leftTotal" ? leftMember : rightMember;
+          const rawValue = Array.isArray(entry.value)
+            ? entry.value[0]
+            : entry.value;
+
+          return (
+            <li key={`${member.memberId}:${String(entry.dataKey)}`}>
+              <MemberDetailLink memberId={member.memberId} name={member.name} />
+              <strong>{formatAssetAmount(Number(rawValue ?? 0))}</strong>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function MemberAssetCompareSection({
   leftMember,
   rightMember,
@@ -866,7 +910,12 @@ function MemberAssetCompareSection({
           >
             <div className="activity-asset-compare__panel-head">
               <div>
-                <h4>{entry.member.name}</h4>
+                <h4>
+                  <MemberDetailLink
+                    memberId={entry.member.memberId}
+                    name={entry.member.name}
+                  />
+                </h4>
                 <p>{`${entry.member.party}${entry.indexEntry?.district ? ` · ${entry.indexEntry.district}` : ""}`}</p>
               </div>
             </div>
@@ -952,16 +1001,25 @@ function MemberAssetCompareSection({
                 tick={{ fontSize: 12, fill: "var(--ink-muted)" }}
               />
               <Tooltip
-                formatter={(value, name) => [
-                  formatAssetAmount(Number(value ?? 0)),
-                  name === "leftTotal" ? leftMember.name : rightMember.name
-                ]}
-                labelFormatter={(value) => `공개일 ${value}`}
+                wrapperStyle={{ pointerEvents: "auto" }}
+                content={
+                  <MemberAssetCompareTooltip
+                    leftMember={leftMember}
+                    rightMember={rightMember}
+                  />
+                }
               />
               <Legend
-                formatter={(value) =>
-                  value === "leftTotal" ? leftMember.name : rightMember.name
-                }
+                formatter={(value) => {
+                  const member =
+                    value === "leftTotal" ? leftMember : rightMember;
+                  return (
+                    <MemberDetailLink
+                      memberId={member.memberId}
+                      name={member.name}
+                    />
+                  );
+                }}
               />
               <Line
                 type="monotone"

@@ -1020,6 +1020,13 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
         expect(scatterTooltipText).toContain("반대·기권 비중");
         expect(scatterTooltipText).not.toContain("가로");
         expect(scatterTooltipText).not.toContain("세로");
+        const scatterMemberLink = scatterTooltip.locator(
+          "a.member-detail-link"
+        );
+        expect(await scatterMemberLink.count()).toBe(1);
+        expect(await scatterMemberLink.getAttribute("href")).toMatch(
+          /^#calendar\?member=/
+        );
 
         await page.getByRole("tab", { name: "재산" }).click();
         const assetComparisonCard = page.locator(".v2-trend-card");
