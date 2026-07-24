@@ -1,7 +1,7 @@
-import { WebMercatorViewport } from "@deck.gl/core";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import { GeoJsonLayer } from "@deck.gl/layers";
 import DeckGL from "@deck.gl/react";
+import { ArrowRightIcon } from "@phosphor-icons/react/dist/csr/ArrowRight";
 import {
   type KeyboardEvent,
   useCallback,
@@ -21,7 +21,6 @@ import {
 } from "../lib/geo-utils.js";
 import {
   endPerformanceSpan,
-  getHexCellsBounds,
   hydrateHexCells,
   startPerformanceSpan,
   type SummaryItem
@@ -51,16 +50,6 @@ const INITIAL_VIEW_STATE = {
   bearing: 0
 };
 
-const INITIAL_DETAIL_VIEW_STATE = {
-  longitude: 127.8,
-  latitude: 36.5,
-  zoom: 6.5,
-  pitch: 0,
-  bearing: 0,
-  minZoom: 5,
-  maxZoom: 14
-};
-
 const UNMATCHED_CELL_COLOR: [number, number, number, number] = [
   204, 210, 216, 190
 ];
@@ -79,12 +68,6 @@ type TooltipInfo = {
   datum: TooltipDatum;
 };
 
-type DetailMemberOverlay = {
-  memberId: string;
-  x: number;
-  y: number;
-};
-
 type DetailMemberSummary = {
   memberId: string;
   name: string;
@@ -97,9 +80,9 @@ type DetailMemberSummary = {
 };
 
 type DetailMemberMetricSummary = {
+  key: MapMetric;
   label: string;
   value: string;
-  note: string;
 };
 
 type VizConfig = {
@@ -123,39 +106,31 @@ function formatOptionalAssetMetric(value: number | null): string {
   return value != null ? formatAssetEok(value) : "공개 데이터 없음";
 }
 
-function buildDetailMemberPrimaryMetric(
-  member: DetailMemberSummary,
-  metric: MapMetric
-): DetailMemberMetricSummary {
-  if (metric === "absence") {
-    return {
+function buildDetailMemberMetrics(
+  member: DetailMemberSummary
+): DetailMemberMetricSummary[] {
+  return [
+    {
+      key: "absence",
       label: "결석률",
-      value: formatPercent(member.absentRate),
-      note: "공개 기록표결 기준"
-    };
-  }
-
-  if (metric === "negative") {
-    return {
-      label: "반대·기권율",
-      value: formatPercent(member.negativeRate),
-      note: "반대 + 기권 합계"
-    };
-  }
-
-  if (metric === "realEstate") {
-    return {
-      label: "최신 부동산",
-      value: formatOptionalAssetMetric(member.realEstateTotal),
-      note: "건물·토지 합계"
-    };
-  }
-
-  return {
-    label: "최신 총재산",
-    value: formatOptionalAssetMetric(member.assetTotal),
-    note: "최근 공개 기준"
-  };
+      value: formatPercent(member.absentRate)
+    },
+    {
+      key: "negative",
+      label: "반대·기권",
+      value: formatPercent(member.negativeRate)
+    },
+    {
+      key: "realEstate",
+      label: "부동산",
+      value: formatOptionalAssetMetric(member.realEstateTotal)
+    },
+    {
+      key: "assetTotal",
+      label: "공개 순재산",
+      value: formatOptionalAssetMetric(member.assetTotal)
+    }
+  ];
 }
 
 const VIZ_CONFIGS: VizConfig[] = [
@@ -227,14 +202,8 @@ export function HexmapPage({
   const [nationalTooltip, setNationalTooltip] = useState<TooltipInfo | null>(
     null
   );
-  const [detailTooltip, setDetailTooltip] = useState<TooltipInfo | null>(null);
-  const [selectedDetailMemberOverlay, setSelectedDetailMemberOverlay] =
-    useState<DetailMemberOverlay | null>(null);
   const [nationalViewState, setNationalViewState] =
     useState(INITIAL_VIEW_STATE);
-  const [detailViewState, setDetailViewState] = useState(
-    INITIAL_DETAIL_VIEW_STATE
-  );
   const [isNationalMapRendered, setIsNationalMapRendered] = useState(false);
 
   const onChangeRouteRef = useRef(onChangeRoute);
@@ -282,8 +251,6 @@ export function HexmapPage({
     setSelectedDistrictKey(nextDistrictKey);
     setSelectedProvinceFilter(nextProvince);
     setNationalTooltip(null);
-    setDetailTooltip(null);
-    setSelectedDetailMemberOverlay(null);
   }, [initialDistrict, initialProvince]);
 
   const summaryItems = useMemo<SummaryItem[]>(() => {
@@ -334,7 +301,6 @@ export function HexmapPage({
 
   useEffect(() => {
     setNationalTooltip(null);
-    setDetailTooltip(null);
     setIsNationalMapRendered(false);
     firstVisibleSpanRef.current = startPerformanceSpan(
       "hexmap:firstVisibleHexCells"
@@ -388,7 +354,6 @@ export function HexmapPage({
     setSelectedProvinceFilter(resolvedProvince);
     setSelectedDistrictKey(null);
     setNationalTooltip(null);
-    setDetailTooltip(null);
   }, [
     allCachedCells,
     nationalCells,
@@ -427,12 +392,10 @@ export function HexmapPage({
   ]);
 
   useEffect(() => {
-    if (!selectedDistrictKey && !selectedProvinceFilter) {
-      setDetailViewState(INITIAL_DETAIL_VIEW_STATE);
-      return;
-    }
-
-    if (!districtPanelSpanRef.current) {
+    if (
+      (selectedDistrictKey || selectedProvinceFilter) &&
+      !districtPanelSpanRef.current
+    ) {
       districtPanelSpanRef.current = startPerformanceSpan(
         "hexmap:districtPanelReady"
       );
@@ -529,49 +492,6 @@ export function HexmapPage({
     return [];
   }, [nationalCells, selectedProvinceFilter]);
 
-  const detailBounds = useMemo(
-    () => getHexCellsBounds(detailCells),
-    [detailCells]
-  );
-
-  useEffect(() => {
-    if (!detailBounds) {
-      return;
-    }
-
-    const [[minLng, minLat], [maxLng, maxLat]] = detailBounds;
-
-    try {
-      const viewport = new WebMercatorViewport({ width: 900, height: 480 });
-      const { longitude, latitude, zoom } = viewport.fitBounds(detailBounds, {
-        padding: 48
-      });
-      setDetailViewState((current) => ({
-        ...current,
-        longitude,
-        latitude,
-        zoom: Math.min(zoom, 12),
-        pitch: 0,
-        bearing: 0
-      }));
-    } catch {
-      const span = Math.max(maxLng - minLng, (maxLat - minLat) * 1.3, 0.1);
-      setDetailViewState((current) => ({
-        ...current,
-        longitude: (minLng + maxLng) / 2,
-        latitude: (minLat + maxLat) / 2,
-        zoom: Math.min(11, Math.max(6, Math.log2(360 / span) - 1.5)),
-        pitch: 0,
-        bearing: 0
-      }));
-    }
-
-    if (districtPanelSpanRef.current) {
-      endPerformanceSpan(districtPanelSpanRef.current);
-      districtPanelSpanRef.current = null;
-    }
-  }, [detailBounds]);
-
   useEffect(() => {
     if (!isMountedRef.current) {
       isMountedRef.current = true;
@@ -646,8 +566,6 @@ export function HexmapPage({
               feature.properties.summary.provinceShortName
             );
             setNationalTooltip(null);
-            setDetailTooltip(null);
-            setSelectedDetailMemberOverlay(null);
           }
         })
       ];
@@ -691,8 +609,6 @@ export function HexmapPage({
             setSelectedDistrictKey(null);
             setSelectedProvinceFilter(info.object.provinceShortName);
             setNationalTooltip(null);
-            setDetailTooltip(null);
-            setSelectedDetailMemberOverlay(null);
           }
         })
     );
@@ -702,63 +618,6 @@ export function HexmapPage({
     nationalCells,
     nationalDistricts,
     nationalViewState.zoom
-  ]);
-
-  const detailLayers = useMemo(() => {
-    if (detailCells.length === 0) {
-      return [];
-    }
-
-    const normalizeMetric = createLogNormalizer(
-      detailCells
-        .filter((cell) => cell.metricMemberCount > 0)
-        .map((cell) => cell.metric)
-    );
-    const filterKey = selectedProvinceFilter ?? selectedDistrictKey ?? "none";
-
-    return [
-      new H3HexagonLayer<H3DataCell>({
-        id: `h3-panel-${activeMetric}-${filterKey}`,
-        data: detailCells,
-        getHexagon: (cell) => cell.h3Index,
-        getFillColor: (cell) => getCellFillColor(cell, normalizeMetric),
-        getLineColor: [255, 255, 255, 40],
-        lineWidthMinPixels: 1,
-        extruded: false,
-        pickable: true,
-        onHover: (info) => {
-          if (selectedDetailMemberOverlay) {
-            setDetailTooltip(null);
-            return;
-          }
-
-          if (info.object && info.x !== undefined && info.y !== undefined) {
-            const { h3Index: _h3Index, ...datum } = info.object;
-            setDetailTooltip({ x: info.x, y: info.y, datum });
-            return;
-          }
-
-          setDetailTooltip(null);
-        },
-        onClick: (info) => {
-          const memberId = info.object?.memberIds[0];
-          if (memberId && info.x !== undefined && info.y !== undefined) {
-            setSelectedDetailMemberOverlay({ memberId, x: info.x, y: info.y });
-            setDetailTooltip(null);
-            return;
-          }
-
-          setSelectedDetailMemberOverlay(null);
-        }
-      })
-    ];
-  }, [
-    activeMetric,
-    detailCells,
-    getCellFillColor,
-    selectedDetailMemberOverlay,
-    selectedDistrictKey,
-    selectedProvinceFilter
   ]);
 
   const detailPanelLabel = selectedProvinceFilter;
@@ -795,47 +654,40 @@ export function HexmapPage({
   );
   const detailMemberOptions = useMemo(
     () =>
-      [...new Set(detailCells.flatMap((cell) => cell.memberIds))].flatMap(
-        (memberId) => {
+      [...new Set(detailCells.flatMap((cell) => cell.memberIds))]
+        .flatMap((memberId) => {
           const member = summaryItemsByMemberId.get(memberId);
           return member
             ? [
                 {
                   memberId,
                   name: member.name,
-                  party: member.party
+                  party: member.party,
+                  district: member.district ?? null,
+                  absentRate: member.absentRate,
+                  negativeRate: member.noRate + member.abstainRate,
+                  realEstateTotal: member.realEstateTotal ?? null,
+                  assetTotal: member.assetTotal ?? null
                 }
               ]
             : [];
-        }
-      ),
+        })
+        .sort(
+          (left, right) =>
+            (left.district ?? "").localeCompare(right.district ?? "", "ko") ||
+            left.name.localeCompare(right.name, "ko")
+        ),
     [detailCells, summaryItemsByMemberId]
   );
-  const selectedDetailMemberId = selectedDetailMemberOverlay?.memberId ?? null;
-  const selectedDetailMember = useMemo<DetailMemberSummary | null>(() => {
-    if (!selectedDetailMemberId) {
-      return null;
-    }
-
-    const summaryItem = summaryItemsByMemberId.get(selectedDetailMemberId);
-    if (!summaryItem) {
-      return null;
-    }
-
-    return {
-      memberId: selectedDetailMemberId,
-      name: summaryItem.name,
-      party: summaryItem.party,
-      district: summaryItem.district ?? null,
-      absentRate: summaryItem.absentRate,
-      negativeRate: summaryItem.noRate + summaryItem.abstainRate,
-      realEstateTotal: summaryItem.realEstateTotal ?? null,
-      assetTotal: summaryItem.assetTotal ?? null
-    };
-  }, [selectedDetailMemberId, summaryItemsByMemberId]);
-  const selectedDetailMemberMetric = selectedDetailMember
-    ? buildDetailMemberPrimaryMetric(selectedDetailMember, activeMetric)
-    : null;
+  const detailDistrictCount = useMemo(
+    () =>
+      new Set(
+        detailMemberOptions.flatMap((member) =>
+          member.district ? [member.district] : []
+        )
+      ).size,
+    [detailMemberOptions]
+  );
   const partyLegendDescription = isAssetMetric(activeMetric)
     ? `${getAssetMetricLabel(activeMetric)} 비교에서도 색상은 정당별로 나뉘며, 같은 정당 안에서는 ${
         activeMetric === "realEstate" ? "부동산 규모" : "재산 규모"
@@ -843,23 +695,17 @@ export function HexmapPage({
     : "색상은 정당별로 구분되며, 같은 정당 안에서는 값이 높을수록 더 진합니다.";
 
   useEffect(() => {
-    if (!selectedDetailMemberId) {
+    if (
+      !districtPanelSpanRef.current ||
+      !selectedProvinceFilter ||
+      isFilterPending
+    ) {
       return;
     }
 
-    const visibleMemberIds = new Set(
-      detailCells.flatMap((cell) => cell.memberIds)
-    );
-    if (!visibleMemberIds.has(selectedDetailMemberId)) {
-      setSelectedDetailMemberOverlay(null);
-    }
-  }, [detailCells, selectedDetailMemberId]);
-
-  useEffect(() => {
-    if (selectedDetailMemberOverlay) {
-      setDetailTooltip(null);
-    }
-  }, [selectedDetailMemberOverlay]);
+    endPerformanceSpan(districtPanelSpanRef.current);
+    districtPanelSpanRef.current = null;
+  }, [detailMemberOptions.length, isFilterPending, selectedProvinceFilter]);
 
   function renderTooltipContent(info: TooltipInfo, hint: string | null) {
     const { datum: cell } = info;
@@ -909,54 +755,6 @@ export function HexmapPage({
     );
   }
 
-  function renderDetailMemberOverlay(member: DetailMemberSummary) {
-    const [red, green, blue] = getPartyColor(member.party);
-    const dotStyle = { background: `rgb(${red},${green},${blue})` };
-    const metricSummary = selectedDetailMemberMetric;
-
-    return (
-      <div
-        className="hexmap-tooltip hexmap-tooltip--interactive"
-        style={{
-          left: (selectedDetailMemberOverlay?.x ?? 0) + 12,
-          top: (selectedDetailMemberOverlay?.y ?? 0) - 12,
-          transform: "translateY(-100%)"
-        }}
-      >
-        <div className="hexmap-tooltip__party">
-          {member.district ?? "지역 정보 없음"}
-        </div>
-        <div className="hexmap-tooltip__member">
-          <span
-            className="hexmap-tooltip__party-dot"
-            style={dotStyle}
-            aria-hidden="true"
-          />
-          <MemberDetailLink
-            className="hexmap-tooltip__name"
-            memberId={member.memberId}
-            name={member.name}
-            onNavigate={onNavigateToMember}
-          />
-        </div>
-        <div className="hexmap-tooltip__party">{member.party}</div>
-        {metricSummary ? (
-          <>
-            <div className="hexmap-tooltip__value">{`${metricSummary.label} ${metricSummary.value}`}</div>
-            <div className="hexmap-tooltip__meta">{metricSummary.note}</div>
-          </>
-        ) : null}
-        <button
-          type="button"
-          className="hexmap-tooltip__action"
-          onClick={() => onNavigateToMember(member.memberId)}
-        >
-          활동 캘린더 보기
-        </button>
-      </div>
-    );
-  }
-
   function selectMetric(metric: MapMetric) {
     if (metric !== activeMetric) {
       metricSwitchSpanRef.current = startPerformanceSpan(
@@ -964,7 +762,6 @@ export function HexmapPage({
       );
     }
     setNationalTooltip(null);
-    setDetailTooltip(null);
     setActiveMetric(metric);
   }
 
@@ -1068,8 +865,6 @@ export function HexmapPage({
                       setSelectedDistrictKey(null);
                       setSelectedProvinceFilter(entry.provinceShortName);
                       setNationalTooltip(null);
-                      setDetailTooltip(null);
-                      setSelectedDetailMemberOverlay(null);
                     }}
                   >
                     {entry.provinceShortName}
@@ -1210,12 +1005,11 @@ export function HexmapPage({
               </h2>
               <p className="hexmap-section-desc">
                 {selectedProvinceFilter
-                  ? `${selectedProvinceFilter} 전체 지역구를 보여줍니다.`
+                  ? `${selectedProvinceFilter} 지역 의원의 지역구·정당과 핵심 지표를 비교합니다.`
                   : selectedDistrictKey
                     ? "선택한 지역구의 상위 시·도 범위를 불러오는 중입니다."
-                    : "상단 전국 지도에서 지역구를 클릭하면 이 영역에 해당 시·도가 나타납니다."}{" "}
-                헥사곤을 클릭하면 작은 의원 오버레이와 활동 캘린더 바로가기가
-                열립니다.
+                    : "전국 지도나 시·도 바로가기에서 지역을 선택하세요."}{" "}
+                의원을 선택하면 상세 활동 화면으로 이동합니다.
               </p>
             </div>
             {(selectedDistrictKey || selectedProvinceFilter) && (
@@ -1225,8 +1019,6 @@ export function HexmapPage({
                 onClick={() => {
                   setSelectedDistrictKey(null);
                   setSelectedProvinceFilter(null);
-                  setDetailTooltip(null);
-                  setSelectedDetailMemberOverlay(null);
                 }}
               >
                 선택 해제
@@ -1238,92 +1030,103 @@ export function HexmapPage({
             <div className="hexmap-detail-summary">
               <span className="hexmap-detail-badge">시·도</span>
               <strong>{detailPanelLabel}</strong>
-              <span>{detailCells.length}개 셀</span>
+              <span>{detailMemberOptions.length}명 의원</span>
+              <span>{detailDistrictCount}개 지역구</span>
             </div>
           ) : null}
 
-          {detailMemberOptions.length > 0 ? (
+          {!selectedDistrictKey && !selectedProvinceFilter ? (
+            <div className="hexmap-detail-state">
+              <div className="hexmap-state__title">지역을 선택해 주세요</div>
+              <p>
+                전국 지도나 시·도 바로가기에서 지역을 선택하면 소속 의원 목록을
+                보여드립니다.
+              </p>
+            </div>
+          ) : isFilterPending ? (
             <div
-              className="hexmap-detail-members"
+              className="hexmap-detail-state"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="hexmap-state__title">
+                {detailPanelLabel ?? "선택 지역"} 의원 정보를 불러오는 중…
+              </div>
+              <p>지역구와 활동·재산 공개 기록을 연결하고 있습니다.</p>
+            </div>
+          ) : detailMemberOptions.length === 0 ? (
+            <div className="hexmap-detail-state">
+              <div className="hexmap-state__title">
+                공개된 지역 의원 정보를 찾지 못했습니다
+              </div>
+              <p>선택한 지역과 현재 공개된 비교 데이터를 다시 확인해 주세요.</p>
+            </div>
+          ) : (
+            <div
+              className="hexmap-detail-directory"
               aria-label={`${detailPanelLabel ?? "선택 지역"} 의원 목록`}
             >
-              <span>지역 의원</span>
-              <div>
+              <div className="hexmap-detail-directory__heading">
+                <div>
+                  <span>지역 의원</span>
+                  <strong>{detailMemberOptions.length}명</strong>
+                </div>
+                <p>지역구와 활동·재산 지표를 함께 봅니다.</p>
+              </div>
+              <ul className="hexmap-detail-member-list">
                 {detailMemberOptions.map((member) => (
-                  <button
-                    key={member.memberId}
-                    type="button"
-                    onClick={() => onNavigateToMember(member.memberId)}
-                    aria-label={`${member.name} 의원 활동 보기`}
-                  >
-                    <strong>{member.name}</strong>
-                    <small>{member.party}</small>
-                  </button>
+                  <li key={member.memberId}>
+                    <MemberDetailLink
+                      className="hexmap-detail-member-card"
+                      memberId={member.memberId}
+                      name={member.name}
+                      onNavigate={onNavigateToMember}
+                    >
+                      <span className="hexmap-detail-member-card__top">
+                        <span className="hexmap-detail-member-card__identity">
+                          <span
+                            className="hexmap-detail-member-card__party-dot"
+                            style={{
+                              background: `rgb(${getPartyColor(member.party)
+                                .slice(0, 3)
+                                .join(",")})`
+                            }}
+                            aria-hidden="true"
+                          />
+                          <span>
+                            <strong>{member.name}</strong>
+                            <small>{member.party}</small>
+                          </span>
+                        </span>
+                        <span className="hexmap-detail-member-card__action">
+                          상세
+                          <ArrowRightIcon size={13} aria-hidden="true" />
+                        </span>
+                      </span>
+                      <span className="hexmap-detail-member-card__district">
+                        {member.district ?? "지역구 정보 없음"}
+                      </span>
+                      <dl className="hexmap-detail-member-card__metrics">
+                        {buildDetailMemberMetrics(member).map((metric) => (
+                          <div
+                            key={metric.key}
+                            className={
+                              metric.key === activeMetric
+                                ? "is-active"
+                                : undefined
+                            }
+                          >
+                            <dt>{metric.label}</dt>
+                            <dd>{metric.value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </MemberDetailLink>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
-          ) : null}
-
-          <div className="hexmap-map-container">
-            {!selectedDistrictKey && !selectedProvinceFilter ? (
-              <div className="hexmap-state">
-                <div className="hexmap-state__title">
-                  아직 선택된 지역구가 없습니다
-                </div>
-                <p>
-                  상단 전국 지도에서 지역구를 클릭하면 이 영역에 해당 시·도가
-                  나타납니다.
-                </p>
-              </div>
-            ) : isFilterPending ? (
-              <div className="hexmap-state">
-                <div className="hexmap-state__title">
-                  {detailPanelLabel ?? "선택 지역"} 데이터를 불러오는 중…
-                </div>
-                <p>
-                  브라우저 캐시를 확인하고 필요한 시·도만 순차적으로 계산합니다.
-                </p>
-              </div>
-            ) : detailCells.length === 0 ? (
-              <div className="hexmap-state">
-                <div className="hexmap-state__title">
-                  표시할 지역구 데이터를 찾지 못했습니다
-                </div>
-                <p>
-                  선택한 필터와 현재 공개된 비교 데이터를 다시 확인해 주세요.
-                </p>
-              </div>
-            ) : (
-              <DeckGL
-                viewState={detailViewState}
-                onViewStateChange={({ viewState }) => {
-                  setDetailViewState(viewState as typeof detailViewState);
-                }}
-                controller
-                layers={detailLayers}
-              />
-            )}
-
-            {!selectedDetailMemberOverlay &&
-              detailTooltip &&
-              detailCells.length > 0 &&
-              renderTooltipContent(detailTooltip, "클릭 → 캘린더 바로가기")}
-
-            {detailCells.length > 0 && !isFilterPending ? (
-              selectedDetailMember ? (
-                renderDetailMemberOverlay(selectedDetailMember)
-              ) : (
-                <div
-                  className="hexmap-detail-member-placeholder"
-                  role="status"
-                  aria-live="polite"
-                >
-                  상세 지도에서 헥사곤을 클릭하면 작은 오버레이와 활동 캘린더
-                  바로가기가 나타납니다.
-                </div>
-              )
-            ) : null}
-          </div>
+          )}
         </section>
       </div>
 

@@ -918,7 +918,27 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
         await expect
           .poll(async () => page.locator(".hexmap-region-list button").count())
           .toBeGreaterThanOrEqual(2);
+        await page.locator(".hexmap-region-list button").first().click();
+        const regionalMemberList = page.locator(".hexmap-detail-member-list");
+        await regionalMemberList.waitFor();
+        await expect
+          .poll(async () =>
+            regionalMemberList.locator(".hexmap-detail-member-card").count()
+          )
+          .toBeGreaterThan(0);
         await expect.poll(async () => page.locator("canvas").count()).toBe(1);
+        expect(
+          await page.locator(".hexmap-section--detail canvas").count()
+        ).toBe(0);
+        const firstRegionalMember = regionalMemberList
+          .locator(".hexmap-detail-member-card")
+          .first();
+        expect(await firstRegionalMember.textContent()).toContain("결석률");
+        expect(await firstRegionalMember.textContent()).toContain("반대·기권");
+        expect(await firstRegionalMember.textContent()).toContain("부동산");
+        expect(await firstRegionalMember.textContent()).toContain(
+          "공개 순재산"
+        );
         const nationalMapContainer = page.locator(
           ".hexmap-section--national .hexmap-map-container"
         );

@@ -296,7 +296,7 @@ describe("HexmapPage", () => {
     testState.ensureLoadMock.mockResolvedValue(undefined);
   });
 
-  it("renders the shared national detailed H3 layer, keeps the lower panel empty until selection, and requests shared loading only once", async () => {
+  it("renders one national map and replaces a selected region with a detailed member directory", async () => {
     const onChangeRoute = vi.fn();
     const onNavigateToMember = vi.fn();
 
@@ -323,14 +323,13 @@ describe("HexmapPage", () => {
     expect(testState.ensureLoadMock).toHaveBeenCalledWith(null, {
       source: "map"
     });
-    expect(
-      screen.getByText("아직 선택된 지역구가 없습니다")
-    ).toBeInTheDocument();
+    expect(screen.getByText("지역을 선택해 주세요")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "상단 전국 지도에서 지역구를 클릭하면 이 영역에 해당 시·도가 나타납니다."
+        "전국 지도나 시·도 바로가기에서 지역을 선택하면 소속 의원 목록을 보여드립니다."
       )
     ).toBeInTheDocument();
+    expect(screen.queryByTestId("detail-deck")).not.toBeInTheDocument();
 
     const nationalLayer = getLastLayer("h3-national-absence-부산");
     const nationalDeck = getLastDeckProps("national");
@@ -360,9 +359,15 @@ describe("HexmapPage", () => {
     onClick?.({ object: firstCell });
 
     await waitFor(() => {
-      expect(getLastLayer("h3-panel-absence-부산")).toBeDefined();
+      expect(
+        screen.getByRole("link", { name: "박민 의원 상세 보기" })
+      ).toBeInTheDocument();
     });
 
+    expect(
+      testState.layerInstances.some((layer) => layer.id.startsWith("h3-panel-"))
+    ).toBe(false);
+    expect(screen.queryByTestId("detail-deck")).not.toBeInTheDocument();
     expect(onChangeRoute).toHaveBeenCalledWith({
       district: null,
       province: "부산",
@@ -370,14 +375,23 @@ describe("HexmapPage", () => {
     });
     expect(
       screen.getByText(
-        "부산 전체 지역구를 보여줍니다. 헥사곤을 클릭하면 작은 의원 오버레이와 활동 캘린더 바로가기가 열립니다."
+        "부산 지역 의원의 지역구·정당과 핵심 지표를 비교합니다. 의원을 선택하면 상세 활동 화면으로 이동합니다."
       )
     ).toBeInTheDocument();
-    const accessibleMemberButton = screen.getByRole("button", {
-      name: "박민 의원 활동 보기"
+    expect(screen.getByLabelText("부산 의원 목록")).toBeInTheDocument();
+    expect(screen.getByText("부산 남구")).toBeInTheDocument();
+    expect(screen.getAllByText("50.0%")).toHaveLength(2);
+    expect(screen.getByText("3.2억원")).toBeInTheDocument();
+    expect(screen.getByText("2.7억원")).toBeInTheDocument();
+    const accessibleMemberLink = screen.getByRole("link", {
+      name: "박민 의원 상세 보기"
     });
-    accessibleMemberButton.focus();
-    fireEvent.click(accessibleMemberButton);
+    expect(accessibleMemberLink).toHaveAttribute(
+      "href",
+      "#calendar?member=M002"
+    );
+    accessibleMemberLink.focus();
+    fireEvent.click(accessibleMemberLink);
     expect(onNavigateToMember).toHaveBeenCalledWith("M002");
   });
 
@@ -511,7 +525,9 @@ describe("HexmapPage", () => {
     );
 
     await waitFor(() => {
-      expect(getLastLayer("h3-panel-absence-부산")).toBeDefined();
+      expect(
+        screen.getByRole("link", { name: "박민 의원 상세 보기" })
+      ).toBeInTheDocument();
     });
 
     await waitFor(() => {
@@ -523,7 +539,7 @@ describe("HexmapPage", () => {
     });
   });
 
-  it("supports legacy province fallback and does not trigger shared static loading again on metric switch", async () => {
+  it("keeps a selected province directory interactive without triggering static loading again on metric switch", async () => {
     const onNavigateToMember = vi.fn();
     const onChangeRoute = vi.fn();
 
@@ -543,73 +559,29 @@ describe("HexmapPage", () => {
     );
 
     await waitFor(() => {
-      expect(getLastLayer("h3-panel-negative-부산")).toBeDefined();
+      expect(
+        screen.getByRole("link", { name: "박민 의원 상세 보기" })
+      ).toBeInTheDocument();
     });
 
     expect(screen.queryByText(/셀 높이/)).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        "부산 전체 지역구를 보여줍니다. 헥사곤을 클릭하면 작은 의원 오버레이와 활동 캘린더 바로가기가 열립니다."
+        "부산 지역 의원의 지역구·정당과 핵심 지표를 비교합니다. 의원을 선택하면 상세 활동 화면으로 이동합니다."
       )
     ).toBeInTheDocument();
+    expect(screen.queryByTestId("detail-deck")).not.toBeInTheDocument();
     expect(
-      screen.getByText(
-        "상세 지도에서 헥사곤을 클릭하면 작은 오버레이와 활동 캘린더 바로가기가 나타납니다."
-      )
-    ).toBeInTheDocument();
-    expect(
-      screen
-        .getByText(
-          "상세 지도에서 헥사곤을 클릭하면 작은 오버레이와 활동 캘린더 바로가기가 나타납니다."
-        )
-        .closest(".hexmap-map-container")
-    ).not.toBeNull();
-
-    const detailLayer = getLastLayer("h3-panel-negative-부산");
-    const detailDeck = getLastDeckProps("detail");
-    const onClick = detailLayer?.props.onClick as
-      | ((info: {
-          object?: Record<string, unknown>;
-          x?: number;
-          y?: number;
-        }) => void)
-      | undefined;
-    const firstCell = (
-      detailLayer?.props.data as Array<Record<string, unknown>>
-    )[0];
-
-    expect(detailLayer?.props.extruded).toBe(false);
-    expect(detailLayer?.props).not.toHaveProperty("getElevation");
-    expect(detailDeck?.viewState).toMatchObject({ pitch: 0 });
-
-    onClick?.({ object: firstCell, x: 120, y: 140 });
-    expect(onNavigateToMember).not.toHaveBeenCalled();
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "활동 캘린더 보기" })
-      ).toBeInTheDocument();
-    });
-    expect(screen.getAllByText("박민").length).toBeGreaterThan(0);
+      testState.layerInstances.some((layer) => layer.id.startsWith("h3-panel-"))
+    ).toBe(false);
+    expect(screen.getByText("박민")).toBeInTheDocument();
     expect(screen.getByText("부산 남구")).toBeInTheDocument();
+    expect(screen.getByText("반대·기권")).toBeInTheDocument();
     expect(
-      screen.queryByText("클릭 → 캘린더 바로가기")
-    ).not.toBeInTheDocument();
-    expect(document.querySelectorAll(".hexmap-tooltip")).toHaveLength(1);
-    expect(
-      screen
-        .getByRole("button", { name: "활동 캘린더 보기" })
-        .closest(".hexmap-tooltip")
-    ).not.toBeNull();
+      document.querySelector(".hexmap-detail-member-card__metrics > .is-active")
+    ).toHaveTextContent("반대·기권50.0%");
 
-    const memberLink = screen.getByRole("link", {
-      name: "박민 의원 상세 보기"
-    });
-    expect(memberLink).toHaveAttribute("href", "#calendar?member=M002");
-    fireEvent.click(memberLink);
-    expect(onNavigateToMember).toHaveBeenCalledWith("M002");
-
-    onNavigateToMember.mockClear();
-    fireEvent.click(screen.getByRole("button", { name: "활동 캘린더 보기" }));
+    fireEvent.click(screen.getByRole("link", { name: "박민 의원 상세 보기" }));
     expect(onNavigateToMember).toHaveBeenCalledWith("M002");
 
     fireEvent.click(screen.getByRole("tab", { name: "결석 핫스팟" }));
