@@ -119,6 +119,23 @@ describe("v2 observatory", () => {
 
     const assetsTab = screen.getByRole("tab", { name: "재산" });
     expect(assetsTab).toHaveAttribute("aria-selected", "true");
+    const assetTrendHeading = screen.getByRole("heading", {
+      name: "공개 재산 상위 의원 비교"
+    });
+    const assetTrendCard = assetTrendHeading.closest("section");
+    expect(assetTrendCard).not.toBeNull();
+    expect(within(assetTrendCard!).getByText("의원 비교")).toBeInTheDocument();
+    expect(
+      within(assetTrendCard!).getByRole("img", {
+        name: "공개 재산 상위 의원 비교 대칭 로그 축 막대그래프"
+      })
+    ).toBeInTheDocument();
+    expect(
+      within(assetTrendCard!).getByText(
+        "금액 격차를 함께 보기 위해 대칭 로그 축을 사용합니다."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText("공개 재산 상위 구간 비교")).toBeNull();
     fireEvent.keyDown(assetsTab, { key: "Home" });
 
     expect(attendanceTab).toHaveAttribute("aria-selected", "true");

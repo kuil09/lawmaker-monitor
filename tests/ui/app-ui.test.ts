@@ -1020,6 +1020,31 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
         expect(scatterTooltipText).toContain("반대·기권 비중");
         expect(scatterTooltipText).not.toContain("가로");
         expect(scatterTooltipText).not.toContain("세로");
+
+        await page.getByRole("tab", { name: "재산" }).click();
+        const assetComparisonCard = page.locator(".v2-trend-card");
+        expect(
+          await assetComparisonCard.locator(".v2-card-kicker").textContent()
+        ).toBe("의원 비교");
+        expect(await assetComparisonCard.locator("h2").textContent()).toBe(
+          "공개 재산 상위 의원 비교"
+        );
+        expect(
+          await assetComparisonCard
+            .locator(".v2-trend-scale-note")
+            .textContent()
+        ).toContain("대칭 로그 축");
+        const renderedAssetBars = await assetComparisonCard
+          .locator(".recharts-bar-rectangle")
+          .count();
+        expect(renderedAssetBars).toBeGreaterThan(0);
+        expect(renderedAssetBars).toBeLessThanOrEqual(18);
+        expect(
+          await assetComparisonCard.locator(".recharts-line").count()
+        ).toBe(0);
+        expect(await assetComparisonCard.textContent()).not.toContain(
+          "시간 흐름"
+        );
       }
 
       if (route.id === "map") {

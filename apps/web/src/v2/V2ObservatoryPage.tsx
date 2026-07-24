@@ -7,6 +7,8 @@ import { TableIcon } from "@phosphor-icons/react/dist/csr/Table";
 import { UsersThreeIcon } from "@phosphor-icons/react/dist/csr/UsersThree";
 import { useMemo, useRef, useState } from "react";
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
   Cell,
   Line,
@@ -79,8 +81,10 @@ type LensConfig = {
   scatterTitle: string;
   xLabel: string;
   yLabel: string;
+  trendKicker: string;
   trendTitle: string;
   trendSeries: [string, string, string];
+  trendCategoryLabel: string;
   rankingTitle: string;
   scoreLabel: string;
   supportLabel: string;
@@ -98,8 +102,10 @@ const LENS_CONFIGS: LensConfig[] = [
     scatterTitle: "정당별 의원 분포",
     xLabel: "출석률",
     yLabel: "반대·기권 비중",
+    trendKicker: "시간 흐름",
     trendTitle: "최근 12주 출석률 추이",
     trendSeries: ["최고", "전체 평균", "최저"],
+    trendCategoryLabel: "기간",
     rankingTitle: "의원 출석률 상위 5 / 하위 5",
     scoreLabel: "평균 출석률",
     supportLabel: "반대·기권 비중",
@@ -115,8 +121,10 @@ const LENS_CONFIGS: LensConfig[] = [
     scatterTitle: "의원별 찬성·이탈 분포",
     xLabel: "찬성 비중",
     yLabel: "반대·기권·불참",
+    trendKicker: "시간 흐름",
     trendTitle: "최근 12주 표결 구성 추이",
     trendSeries: ["찬성", "반대", "불참"],
+    trendCategoryLabel: "기간",
     rankingTitle: "찬성 비중 상위 5 / 하위 5",
     scoreLabel: "찬성 비중",
     supportLabel: "반대·기권·불참",
@@ -132,8 +140,10 @@ const LENS_CONFIGS: LensConfig[] = [
     scatterTitle: "의원별 총재산·부동산 분포",
     xLabel: "총재산 (억원)",
     yLabel: "부동산 (억원)",
-    trendTitle: "공개 재산 상위 구간 비교",
-    trendSeries: ["총재산", "부동산", "증감"],
+    trendKicker: "의원 비교",
+    trendTitle: "공개 재산 상위 의원 비교",
+    trendSeries: ["총재산", "부동산", "재산 증감"],
+    trendCategoryLabel: "의원",
     rankingTitle: "공개 총재산 상위 5 / 하위 5",
     scoreLabel: "공개 총재산",
     supportLabel: "부동산 비중",
@@ -261,13 +271,13 @@ function buildVotingTrend(
 function buildAssetTrend(assets: MemberAssetsIndexExport | null): TrendPoint[] {
   return [...(assets?.members ?? [])]
     .sort((left, right) => right.latestTotal - left.latestTotal)
-    .slice(0, 12)
+    .slice(0, 6)
     .reverse()
     .map((member) => ({
       label: member.name,
       primary: toEok(member.latestTotal),
       secondary: toEok(member.latestRealEstateTotal),
-      tertiary: toEok(Math.abs(member.totalDelta))
+      tertiary: toEok(member.totalDelta)
     }));
 }
 
@@ -873,7 +883,7 @@ export function V2ObservatoryPage({
         <section className="v2-trend-card" aria-labelledby="v2-trend-title">
           <div className="v2-card-heading">
             <div>
-              <p className="v2-card-kicker">시간 흐름</p>
+              <p className="v2-card-kicker">{config.trendKicker}</p>
               <h2 id="v2-trend-title">{config.trendTitle}</h2>
             </div>
             <button
@@ -888,7 +898,12 @@ export function V2ObservatoryPage({
               </span>
             </button>
           </div>
-          <div className="v2-trend-legend" aria-label="추세 범례">
+          <div
+            className="v2-trend-legend"
+            aria-label={
+              activeLens === "assets" ? "재산 비교 범례" : "추세 범례"
+            }
+          >
             <span>
               <i className="v2-dot v2-dot--green" aria-hidden="true" />
               {config.trendSeries[1]}
@@ -902,6 +917,11 @@ export function V2ObservatoryPage({
               {config.trendSeries[2]}
             </span>
           </div>
+          {activeLens === "assets" ? (
+            <p className="v2-trend-scale-note">
+              금액 격차를 함께 보기 위해 대칭 로그 축을 사용합니다.
+            </p>
+          ) : null}
 
           {showTrendTable ? (
             <div className="v2-data-table-wrap">
@@ -909,7 +929,7 @@ export function V2ObservatoryPage({
                 <caption>{config.trendTitle}</caption>
                 <thead>
                   <tr>
-                    <th scope="col">구간</th>
+                    <th scope="col">{config.trendCategoryLabel}</th>
                     <th scope="col">{config.trendSeries[0]}</th>
                     <th scope="col">{config.trendSeries[1]}</th>
                     <th scope="col">{config.trendSeries[2]}</th>
@@ -937,98 +957,146 @@ export function V2ObservatoryPage({
             </div>
           ) : trendData.length > 0 ? (
             <div
-              className="v2-trend-chart"
+              className={`v2-trend-chart${
+                activeLens === "assets" ? " v2-trend-chart--comparison" : ""
+              }`}
               role="img"
-              aria-label={config.trendTitle}
+              aria-label={
+                activeLens === "assets"
+                  ? `${config.trendTitle} 대칭 로그 축 막대그래프`
+                  : config.trendTitle
+              }
             >
-              <LineChart
-                responsive
-                style={{ width: "100%", height: "100%" }}
-                data={trendData}
-                margin={{ top: 18, right: 16, bottom: 4, left: 0 }}
-              >
-                <CartesianGrid stroke="#e3e4e6" vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: "#676a70" }}
-                  tickLine={false}
-                />
-                <YAxis
-                  width={42}
-                  tick={{ fontSize: 11, fill: "#676a70" }}
-                  tickFormatter={(value: number) =>
-                    activeLens === "assets"
-                      ? `${Math.round(value)}억`
-                      : `${Math.round(value)}%`
-                  }
-                  tickLine={false}
-                />
-                <Tooltip
-                  formatter={(value) => {
-                    const rawValue = Array.isArray(value) ? value[0] : value;
-                    const numericValue = Number(rawValue ?? 0);
-                    return activeLens === "assets"
-                      ? formatEok(numericValue)
-                      : formatPercentValue(numericValue);
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="secondary"
-                  name={config.trendSeries[1]}
-                  stroke="#397b5d"
-                  strokeWidth={2}
-                  dot={{ r: 2.5 }}
-                  connectNulls
-                />
-                <Line
-                  type="monotone"
-                  dataKey="primary"
-                  name={config.trendSeries[0]}
-                  stroke="#4a7ed7"
-                  strokeWidth={2}
-                  dot={{ r: 2.5 }}
-                  connectNulls
-                />
-                <Line
-                  type="monotone"
-                  dataKey="tertiary"
-                  name={config.trendSeries[2]}
-                  stroke="#c33a45"
-                  strokeWidth={2}
-                  dot={{ r: 2.5 }}
-                  connectNulls
-                />
-              </LineChart>
-              {latestTrendPoint ? (
+              {activeLens === "assets" ? (
+                <BarChart
+                  responsive
+                  style={{ width: "100%", height: "100%" }}
+                  data={trendData}
+                  layout="vertical"
+                  margin={{ top: 8, right: 12, bottom: 8, left: 0 }}
+                  barCategoryGap="18%"
+                >
+                  <CartesianGrid stroke="#e3e4e6" horizontal={false} />
+                  <XAxis
+                    type="number"
+                    scale="symlog"
+                    domain={["auto", "auto"]}
+                    tick={{ fontSize: 11, fill: "#676a70" }}
+                    tickFormatter={(value: number) => `${Math.round(value)}억`}
+                    tickLine={false}
+                    minTickGap={30}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="label"
+                    width={48}
+                    tick={{ fontSize: 11, fill: "#676a70" }}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    formatter={(value) => {
+                      const rawValue = Array.isArray(value) ? value[0] : value;
+                      return formatEok(Number(rawValue ?? 0));
+                    }}
+                  />
+                  <Bar
+                    dataKey="secondary"
+                    name={config.trendSeries[1]}
+                    fill="#397b5d"
+                    radius={[3, 3, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="primary"
+                    name={config.trendSeries[0]}
+                    fill="#4a7ed7"
+                    radius={[3, 3, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="tertiary"
+                    name={config.trendSeries[2]}
+                    fill="#c33a45"
+                    radius={[3, 3, 0, 0]}
+                  />
+                </BarChart>
+              ) : (
+                <LineChart
+                  responsive
+                  style={{ width: "100%", height: "100%" }}
+                  data={trendData}
+                  margin={{ top: 18, right: 16, bottom: 4, left: 0 }}
+                >
+                  <CartesianGrid stroke="#e3e4e6" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 11, fill: "#676a70" }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    width={42}
+                    tick={{ fontSize: 11, fill: "#676a70" }}
+                    tickFormatter={(value: number) => `${Math.round(value)}%`}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    formatter={(value) => {
+                      const rawValue = Array.isArray(value) ? value[0] : value;
+                      return formatPercentValue(Number(rawValue ?? 0));
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="secondary"
+                    name={config.trendSeries[1]}
+                    stroke="#397b5d"
+                    strokeWidth={2}
+                    dot={{ r: 2.5 }}
+                    connectNulls
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="primary"
+                    name={config.trendSeries[0]}
+                    stroke="#4a7ed7"
+                    strokeWidth={2}
+                    dot={{ r: 2.5 }}
+                    connectNulls
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="tertiary"
+                    name={config.trendSeries[2]}
+                    stroke="#c33a45"
+                    strokeWidth={2}
+                    dot={{ r: 2.5 }}
+                    connectNulls
+                  />
+                </LineChart>
+              )}
+              {latestTrendPoint && activeLens !== "assets" ? (
                 <div className="v2-trend-values" aria-hidden="true">
                   <strong className="v2-trend-values__primary">
                     {latestTrendPoint.primary == null
                       ? "—"
-                      : activeLens === "assets"
-                        ? formatEok(latestTrendPoint.primary)
-                        : formatPercentValue(latestTrendPoint.primary)}
+                      : formatPercentValue(latestTrendPoint.primary)}
                   </strong>
                   <strong className="v2-trend-values__secondary">
                     {latestTrendPoint.secondary == null
                       ? "—"
-                      : activeLens === "assets"
-                        ? formatEok(latestTrendPoint.secondary)
-                        : formatPercentValue(latestTrendPoint.secondary)}
+                      : formatPercentValue(latestTrendPoint.secondary)}
                   </strong>
                   <strong className="v2-trend-values__tertiary">
                     {latestTrendPoint.tertiary == null
                       ? "—"
-                      : activeLens === "assets"
-                        ? formatEok(latestTrendPoint.tertiary)
-                        : formatPercentValue(latestTrendPoint.tertiary)}
+                      : formatPercentValue(latestTrendPoint.tertiary)}
                   </strong>
                 </div>
               ) : null}
             </div>
           ) : (
             <div className="v2-empty-state" role="status">
-              추세 데이터가 발행되면 이곳에서 변화 폭을 비교할 수 있습니다.
+              {activeLens === "assets"
+                ? "공개 재산 데이터가 발행되면 이곳에서 의원별 금액을 비교할 수 있습니다."
+                : "추세 데이터가 발행되면 이곳에서 변화 폭을 비교할 수 있습니다."}
             </div>
           )}
         </section>

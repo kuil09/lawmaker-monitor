@@ -804,6 +804,14 @@
   margin: -4px 4px 1px;
 }
 
+.v2-trend-scale-note {
+  margin: 2px 4px 0;
+  color: #72777f;
+  font-size: 0.64rem;
+  line-height: 1.35;
+  text-align: right;
+}
+
 .v2-dot--green {
   background: var(--v2-green);
 }
@@ -821,6 +829,10 @@
   width: 100%;
   height: 232px;
   padding-right: 64px;
+}
+
+.v2-trend-chart--comparison {
+  padding-right: 0;
 }
 
 .v2-trend-values {
