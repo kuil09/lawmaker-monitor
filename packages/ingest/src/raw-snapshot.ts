@@ -16,6 +16,7 @@ export type RawSnapshotEntryKind =
   | "plenary_bills_other"
   | "vote_detail"
   | "bill_vote_summary"
+  | "bill_proposals"
   | "live"
   | "plenary_minutes";
 

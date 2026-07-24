@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  parseBillProposalXml,
   parseBillVoteSummaryXml,
   parseCommitteeOverviewXml,
   parseCommitteeRosterXml
@@ -16,6 +17,26 @@ const snapshotDir = resolve(
 const officialDir = resolve(snapshotDir, "official");
 
 describe("committee and bill-summary parsers", () => {
+  it("parses representative and co-sponsor identifiers without double counting", () => {
+    const xml = readFileSync(
+      resolve(officialDir, "bill_proposals/page-1.xml"),
+      "utf8"
+    );
+    const parsed = parseBillProposalXml(xml);
+
+    expect(parsed).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          billId: "PRC_L3",
+          assemblyNo: 22,
+          proposedAt: "2026-03-08",
+          leadMemberIds: ["M003"],
+          coSponsorMemberIds: ["M001", "X999"]
+        })
+      ])
+    );
+  });
+
   it("parses committee roster rows into member-to-committee links", () => {
     const xml = readFileSync(
       resolve(officialDir, "committee_roster/page-1.xml"),

@@ -1,0 +1,260 @@
+.bill-activity-card {
+  margin-top: 12px;
+  padding: 18px 20px 20px;
+  border: 1px solid #dce2e8;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.bill-activity-card__header {
+  display: flex;
+  padding-bottom: 14px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  border-bottom: 1px solid #e4e9ee;
+}
+
+.bill-activity-card__header h2 {
+  margin: 0;
+  color: #1c2939;
+  font-size: 1.08rem;
+  letter-spacing: -0.03em;
+}
+
+.bill-activity-card__header p:last-child {
+  margin: 0.35rem 0 0;
+  color: #687584;
+  font-size: 0.74rem;
+}
+
+.bill-activity-card__stats {
+  display: grid;
+  margin: 14px 0 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid #dfe5eb;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.bill-activity-card__stats div {
+  display: grid;
+  padding: 0.72rem 0.9rem;
+  gap: 0.16rem;
+  border-right: 1px solid #dfe5eb;
+}
+
+.bill-activity-card__stats div:last-child {
+  border-right: 0;
+}
+
+.bill-activity-card__stats dt {
+  color: #7a8693;
+  font-size: 0.65rem;
+}
+
+.bill-activity-card__stats dd {
+  margin: 0;
+  color: #263a52;
+  font-size: 0.88rem;
+  font-weight: 780;
+  font-variant-numeric: tabular-nums;
+}
+
+.bill-activity-card__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 264px;
+  gap: 20px;
+}
+
+.bill-activity-card__legend {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 0.85rem;
+  color: #586575;
+  font-size: 0.7rem;
+}
+
+.bill-activity-card__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+}
+
+.bill-activity-card__legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.bill-activity-card__legend i.is-lead {
+  background: #2f66c7;
+}
+
+.bill-activity-card__legend i.is-cosponsor {
+  background: #2b8a73;
+}
+
+.bill-activity-card__legend small {
+  margin-left: auto;
+  color: #83909d;
+  font-size: 0.64rem;
+}
+
+.bill-activity-card__chart {
+  width: 100%;
+  height: 392px;
+}
+
+.bill-activity-card__method {
+  display: flex;
+  min-height: 392px;
+  padding: 1.2rem;
+  flex-direction: column;
+  border: 1px solid #dce5ef;
+  border-radius: 8px;
+  background: #f5f8fc;
+}
+
+.bill-activity-card__method > svg {
+  color: #2f66c7;
+}
+
+.bill-activity-card__method h3 {
+  margin: 0.8rem 0 0.4rem;
+  color: #22364f;
+  font-size: 0.92rem;
+}
+
+.bill-activity-card__method > p {
+  margin: 0;
+  color: #5d6e81;
+  font-size: 0.73rem;
+  line-height: 1.6;
+}
+
+.bill-activity-card__method > div {
+  display: grid;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  grid-template-columns: auto 1fr;
+  gap: 0.48rem;
+  border: 1px solid #d5e0ec;
+  border-radius: 7px;
+  background: #fff;
+  color: #52657a;
+}
+
+.bill-activity-card__method > div svg {
+  margin-top: 0.08rem;
+  color: #2f66c7;
+}
+
+.bill-activity-card__method > div p {
+  margin: 0;
+  font-size: 0.69rem;
+  line-height: 1.55;
+}
+
+.bill-activity-card__method > small {
+  margin-top: auto;
+  padding-top: 1rem;
+  color: #7a8795;
+  font-size: 0.63rem;
+  line-height: 1.5;
+}
+
+.bill-activity-card__state {
+  display: flex;
+  min-height: 170px;
+  margin: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  color: #687584;
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.bill-activity-card__table {
+  max-height: 540px;
+  overflow: auto;
+}
+
+.bill-activity-card__table td:first-child {
+  color: #7b8794;
+  font-variant-numeric: tabular-nums;
+}
+
+.bill-activity-card__table td:not(:nth-child(3)),
+.bill-activity-card__table th:not(:nth-child(2)) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.bill-activity-card__table th:nth-child(2),
+.bill-activity-card__table td:nth-child(3) {
+  text-align: left;
+}
+
+.bill-activity-tooltip strong {
+  color: #214f94;
+}
+
+@media (max-width: 980px) {
+  .bill-activity-card__body {
+    grid-template-columns: 1fr;
+  }
+
+  .bill-activity-card__method {
+    min-height: auto;
+  }
+
+  .bill-activity-card__method > small {
+    margin-top: 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .bill-activity-card {
+    padding: 14px;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .bill-activity-card__header {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .bill-activity-card__header .v2-button {
+    width: 100%;
+  }
+
+  .bill-activity-card__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bill-activity-card__stats div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .bill-activity-card__stats div:nth-child(-n + 2) {
+    border-bottom: 1px solid #dfe5eb;
+  }
+
+  .bill-activity-card__chart {
+    height: 430px;
+  }
+
+  .bill-activity-card__legend {
+    flex-wrap: wrap;
+  }
+
+  .bill-activity-card__legend small {
+    width: 100%;
+    margin-left: 0;
+  }
+}

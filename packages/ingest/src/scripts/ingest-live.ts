@@ -700,6 +700,50 @@ async function main(): Promise<void> {
     }
   }
 
+  let expectedBillProposalRows: number | null = null;
+  let fetchedBillProposalRows = 0;
+
+  for (let page = 1; page <= MAX_GENERIC_PAGES; page += 1) {
+    const result = await fetchAndStoreTarget({
+      config,
+      outputDir,
+      snapshotId,
+      fetchPolicy,
+      target: {
+        kind: "bill_proposals",
+        endpointCode: endpointCodeFromPath(config.endpoints.billProposalsPath),
+        path: config.endpoints.billProposalsPath,
+        relativePath: `official/bill_proposals/page-${page}.xml`,
+        params: {
+          AGE: String(currentAssembly.assemblyNo),
+          pIndex: page,
+          pSize: config.pageSize
+        },
+        metadata: {
+          assemblyNo: String(currentAssembly.assemblyNo),
+          assemblyLabel: currentAssembly.label,
+          page: String(page)
+        }
+      }
+    });
+    manifestEntries.push(result.entry);
+
+    const rows = countXmlRows(result.body);
+    fetchedBillProposalRows += rows;
+    expectedBillProposalRows ??= parseListTotalCount(result.body);
+
+    if (rows === 0) {
+      break;
+    }
+
+    if (
+      expectedBillProposalRows !== null &&
+      fetchedBillProposalRows >= expectedBillProposalRows
+    ) {
+      break;
+    }
+  }
+
   const scheduleTarget: FetchTarget = {
     kind: "plenary_schedule",
     endpointCode: endpointCodeFromPath(config.endpoints.plenarySchedulePath),

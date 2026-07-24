@@ -29,6 +29,9 @@ const activityCalendar = JSON.parse(
 const memberAssetsIndex = JSON.parse(
   readFileSync(resolve(fixturesDir, "member_assets_index.json"), "utf8")
 );
+const billProposalActivity = JSON.parse(
+  readFileSync(resolve(fixturesDir, "bill_proposal_activity.json"), "utf8")
+);
 const manifest = JSON.parse(
   readFileSync(resolve(fixturesDir, "manifest.json"), "utf8")
 );
@@ -81,6 +84,9 @@ describe("v2 observatory", () => {
         activityCalendar={activityCalendar}
         accountabilityTrends={accountabilityTrends}
         memberAssetsIndex={memberAssetsIndex}
+        billProposalActivity={billProposalActivity}
+        billProposalActivityLoading={false}
+        billProposalActivityError={null}
         loading={false}
         errors={[]}
         onOpenMap={vi.fn()}
@@ -274,6 +280,9 @@ describe("v2 observatory", () => {
         activityCalendar={activityCalendar}
         accountabilityTrends={accountabilityTrends}
         memberAssetsIndex={memberAssetsIndex}
+        billProposalActivity={billProposalActivity}
+        billProposalActivityLoading={false}
+        billProposalActivityError={null}
         loading={false}
         errors={[]}
         onOpenMap={vi.fn()}
@@ -317,6 +326,9 @@ describe("v2 observatory", () => {
         activityCalendar={activityCalendar}
         accountabilityTrends={accountabilityTrends}
         memberAssetsIndex={memberAssetsIndex}
+        billProposalActivity={billProposalActivity}
+        billProposalActivityLoading={false}
+        billProposalActivityError={null}
         loading={false}
         errors={[]}
         onOpenMap={vi.fn()}
@@ -355,5 +367,51 @@ describe("v2 observatory", () => {
       })
     );
     expect(onOpenMember).toHaveBeenCalledWith("M001");
+  });
+
+  it("shows reverse-aggregated bill activity and links table names to member detail", () => {
+    const onOpenMember = vi.fn();
+    render(
+      <V2ObservatoryPage
+        assemblyLabel="제22대 국회"
+        freshnessText="2026년 7월 24일"
+        manifest={manifest}
+        accountabilitySummary={accountabilitySummary}
+        members={members}
+        activityCalendar={activityCalendar}
+        accountabilityTrends={accountabilityTrends}
+        memberAssetsIndex={memberAssetsIndex}
+        billProposalActivity={billProposalActivity}
+        billProposalActivityLoading={false}
+        billProposalActivityError={null}
+        loading={false}
+        errors={[]}
+        onOpenMap={vi.fn()}
+        onOpenDistribution={vi.fn()}
+        onOpenMember={onOpenMember}
+      />
+    );
+
+    const section = screen
+      .getByRole("heading", { name: "의원별 법안 발의 참여 실적" })
+      .closest("section");
+    expect(section).not.toBeNull();
+    expect(within(section!).getByText("집계 법안")).toBeInTheDocument();
+    expect(within(section!).getAllByText("3건")).toHaveLength(2);
+    expect(
+      within(section!).getByRole("img", {
+        name: "전체 법안 참여 상위 12명의 대표발의와 공동발의 참여 누적 막대그래프"
+      })
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(section!).getByRole("button", { name: "전체 표 보기" })
+    );
+    const memberLink = within(section!).getByRole("link", {
+      name: "이수 의원 상세 보기"
+    });
+    expect(memberLink).toHaveAttribute("href", "#calendar?member=M003");
+    fireEvent.click(memberLink);
+    expect(onOpenMember).toHaveBeenCalledWith("M003");
   });
 });

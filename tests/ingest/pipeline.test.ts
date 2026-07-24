@@ -7,6 +7,7 @@ import {
   assertPublishedJsonFileSize,
   buildAccountabilitySummaryExport,
   buildAccountabilityTrendsExport,
+  buildBillProposalActivityExport,
   buildLatestVotesExport,
   buildManifest,
   buildMemberActivityCalendarArtifacts,
@@ -18,6 +19,7 @@ import { createNormalizedBundle } from "../../packages/ingest/src/normalize.js";
 import {
   createSourceRecord,
   parseAgendaXml,
+  parseBillProposalXml,
   parseBillVoteSummaryXml,
   parseCommitteeOverviewXml,
   parseCommitteeRosterXml,
@@ -34,6 +36,7 @@ import { buildMemberTenureIndex } from "../../packages/ingest/src/tenure.js";
 import {
   validateAccountabilitySummaryExport,
   validateAccountabilityTrendsExport,
+  validateBillProposalActivityExport,
   validateLatestVotesExport,
   validateManifest,
   validateMemberActivityCalendarExport,
@@ -44,6 +47,7 @@ import { sha256 } from "../../packages/ingest/src/utils.js";
 import {
   accountabilitySummaryExportSchema,
   accountabilityTrendsExportSchema,
+  billProposalActivityExportSchema,
   latestVotesExportSchema,
   manifestSchema,
   memberAssetsHistoryExportSchema,
@@ -78,6 +82,9 @@ describe("data pipeline contracts", () => {
     );
     const billVoteSummaryEntries = snapshot.manifest.entries.filter(
       (entry) => entry.kind === "bill_vote_summary"
+    );
+    const billProposalEntries = snapshot.manifest.entries.filter(
+      (entry) => entry.kind === "bill_proposals"
     );
     const liveEntry = snapshot.manifest.entries.find(
       (entry) => entry.kind === "live"
@@ -119,6 +126,11 @@ describe("data pipeline contracts", () => {
     );
     const billVoteSummaryXmls = billVoteSummaryEntries.map((entry) =>
       readFileSync(join(snapshot.rawDir, entry.relativePath), "utf8")
+    );
+    const billProposalRows = billProposalEntries.flatMap((entry) =>
+      parseBillProposalXml(
+        readFileSync(join(snapshot.rawDir, entry.relativePath), "utf8")
+      )
     );
     const memberHistoryRows = memberHistoryEntries.flatMap((entry) =>
       parseMemberHistoryXml(
@@ -352,6 +364,18 @@ describe("data pipeline contracts", () => {
     const accountabilityTrends = validateAccountabilityTrendsExport(
       buildAccountabilityTrendsExport(bundle, { tenureIndex })
     );
+    const billProposalActivity = validateBillProposalActivityExport(
+      buildBillProposalActivityExport({
+        bundle,
+        currentAssembly: {
+          assemblyNo: 22,
+          label: "제22대 국회",
+          unitCd: "100022"
+        },
+        snapshotId: snapshot.snapshotId,
+        billProposals: billProposalRows
+      })
+    );
     const {
       memberActivityCalendar: builtMemberActivityCalendar,
       memberDetails
@@ -374,6 +398,7 @@ describe("data pipeline contracts", () => {
         latestVotes,
         accountabilitySummary,
         accountabilityTrends,
+        billProposalActivity,
         memberActivityCalendar
       })
     );
@@ -408,6 +433,22 @@ describe("data pipeline contracts", () => {
     });
     expect(accountabilitySummary.items[0]?.profile).not.toHaveProperty(
       "officePhone"
+    );
+    expect(
+      billProposalActivity.items.find((item) => item.memberId === "M003")
+    ).toMatchObject({
+      leadProposalCount: 1,
+      coSponsorProposalCount: 2,
+      totalProposalCount: 3,
+      latestProposalAt: "2026-03-08"
+    });
+    expect(billProposalActivity.billCount).toBe(3);
+    expect(billProposalActivity.unmatchedProposerCount).toBe(1);
+    expect(
+      billProposalActivityExportSchema.parse(billProposalActivity)
+    ).toEqual(billProposalActivity);
+    expect(manifest.exports.billProposalActivity?.path).toBe(
+      "exports/bill_proposal_activity.json"
     );
     expect(accountabilitySummary.items[0]?.profile).not.toHaveProperty("email");
     expect(accountabilitySummary.items[0]?.profile).not.toHaveProperty(

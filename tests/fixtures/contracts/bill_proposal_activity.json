@@ -1,0 +1,42 @@
+{
+  "generatedAt": "2026-07-24T09:00:00.000Z",
+  "snapshotId": "fixture-snapshot-20260322-114500",
+  "assemblyNo": 22,
+  "assemblyLabel": "제22대 국회",
+  "billCount": 3,
+  "proposerLinkCount": 10,
+  "matchedProposerLinkCount": 9,
+  "unmatchedProposerCount": 1,
+  "items": [
+    {
+      "memberId": "M003",
+      "name": "이수",
+      "party": "시민녹색당",
+      "district": "비례대표",
+      "leadProposalCount": 1,
+      "coSponsorProposalCount": 2,
+      "totalProposalCount": 3,
+      "latestProposalAt": "2026-03-08"
+    },
+    {
+      "memberId": "M001",
+      "name": "김아라",
+      "party": "미래개혁당",
+      "district": "서울 중구",
+      "leadProposalCount": 1,
+      "coSponsorProposalCount": 2,
+      "totalProposalCount": 3,
+      "latestProposalAt": "2026-03-08"
+    },
+    {
+      "memberId": "M002",
+      "name": "박민",
+      "party": "미래개혁당",
+      "district": "부산 남구",
+      "leadProposalCount": 1,
+      "coSponsorProposalCount": 2,
+      "totalProposalCount": 3,
+      "latestProposalAt": "2026-03-08"
+    }
+  ]
+}

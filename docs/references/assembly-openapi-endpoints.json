@@ -142,6 +142,20 @@
   ],
   "pendingOfficialVerification": [
     {
+      "key": "billProposals",
+      "source": "pending_pdf_verification",
+      "serviceCode": "nzmimeepazxkubdpn",
+      "koreanName": "국회의원 발의법률안",
+      "officialUrl": "https://open.assembly.go.kr/portal/openapi/nzmimeepazxkubdpn",
+      "role": "member bill proposal activity",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "The National Assembly Secretariat publishes this feed through the official Public Data Portal as a real-time XML OpenAPI.",
+        "Runtime aggregates representative and co-sponsor member identifiers separately and does not treat proposal volume as legislative quality."
+      ]
+    },
+    {
       "key": "memberProfileAll",
       "source": "pending_pdf_verification",
       "serviceCode": "ALLNAMEMBER",

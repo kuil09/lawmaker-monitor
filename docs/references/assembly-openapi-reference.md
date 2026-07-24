@@ -29,6 +29,7 @@ These endpoints were visually re-verified against the original PDF and are used 
 The runtime still uses these official OpenAPI endpoints, but this repository update did not yet re-cite their exact PDF pages. They remain in the registry under `pendingOfficialVerification`.
 
 - `국회의원 인적사항 (ALLNAMEMBER)` for member photo and expanded profile enrichment
+- `국회의원 발의법률안 (nzmimeepazxkubdpn)` for representative and co-sponsor participation
 - `본회의 일정 (nekcaiymatialqlxr)`
 - `본회의 처리안건_법률안 (nwbpacrgavhjryiph)`
 - `본회의 처리안건_예산안 (nzgjnvnraowulzqwl)`
@@ -43,6 +44,7 @@ The runtime still uses these official OpenAPI endpoints, but this repository upd
 2. Raw snapshot manifests must contain only official endpoint kinds and official service URLs.
 3. Public export shape should stay stable when runtime sources change.
 4. If an official source cannot supply a required field, the build should fail instead of silently restoring a legacy fallback.
+5. Bill proposal counts are published as activity volume only. They must not be labeled as legislative quality, passage performance, or policy impact.
 
 ## Related Files
 

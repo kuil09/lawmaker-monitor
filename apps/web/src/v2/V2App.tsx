@@ -135,9 +135,12 @@ function V2HomeExperience({ routing }: { routing: V2Routing }) {
   const {
     accountabilitySummary,
     accountabilityTrends,
+    billProposalActivity,
+    billProposalActivityLoaded,
     manifest,
     leaderboardError,
-    trendsError
+    trendsError,
+    billProposalActivityError
   } = useAppBootstrapData();
   const activityCalendarState = useActivityCalendarData({
     manifest,
@@ -207,6 +210,9 @@ function V2HomeExperience({ routing }: { routing: V2Routing }) {
       activityCalendar={activityCalendarState.activityCalendar}
       accountabilityTrends={accountabilityTrends}
       memberAssetsIndex={resolvedMemberAssetsIndex}
+      billProposalActivity={billProposalActivity}
+      billProposalActivityLoading={!billProposalActivityLoaded}
+      billProposalActivityError={billProposalActivityError}
       loading={
         (!accountabilitySummary && !leaderboardError) ||
         (!activityCalendarState.activityCalendar &&

@@ -51,6 +51,9 @@ describe("assembly source policy", () => {
     expect(config.endpoints.billVoteSummaryPath).toBe(
       expectedPaths.billVoteSummary
     );
+    expect(config.endpoints.billProposalsPath).toBe(
+      expectedPaths.billProposals
+    );
     expect(config.endpoints.votesPath).toBe(expectedPaths.votes);
     expect(config.endpoints.plenarySchedulePath).toBe(
       expectedPaths.plenarySchedule

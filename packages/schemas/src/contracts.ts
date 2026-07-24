@@ -117,6 +117,40 @@ export const accountabilitySummaryExportSchema = z.object({
   items: z.array(accountabilitySummaryItemSchema)
 });
 
+export const billProposalActivityItemSchema = z
+  .object({
+    memberId: nonEmptyString,
+    name: nonEmptyString,
+    party: nonEmptyString,
+    district: nonEmptyString.nullable().optional(),
+    leadProposalCount: z.number().int().nonnegative(),
+    coSponsorProposalCount: z.number().int().nonnegative(),
+    totalProposalCount: z.number().int().nonnegative(),
+    latestProposalAt: nonEmptyString.nullable().optional()
+  })
+  .refine(
+    (item) =>
+      item.totalProposalCount ===
+      item.leadProposalCount + item.coSponsorProposalCount,
+    {
+      message:
+        "totalProposalCount must equal leadProposalCount + coSponsorProposalCount",
+      path: ["totalProposalCount"]
+    }
+  );
+
+export const billProposalActivityExportSchema = z.object({
+  generatedAt: nonEmptyString,
+  snapshotId: nonEmptyString,
+  assemblyNo: z.number().int().positive(),
+  assemblyLabel: nonEmptyString,
+  billCount: z.number().int().nonnegative(),
+  proposerLinkCount: z.number().int().nonnegative(),
+  matchedProposerLinkCount: z.number().int().nonnegative(),
+  unmatchedProposerCount: z.number().int().nonnegative(),
+  items: z.array(billProposalActivityItemSchema)
+});
+
 export const weeklyAssemblyTrendPointSchema = z.object({
   weekStart: nonEmptyString,
   weekEnd: nonEmptyString,
@@ -582,6 +616,7 @@ export const manifestSchema = z.object({
     accountabilitySummary: datasetFileSchema.optional(),
     memberActivityCalendar: datasetFileSchema.optional(),
     accountabilityTrends: datasetFileSchema.optional(),
+    billProposalActivity: datasetFileSchema.optional(),
     constituencyBoundariesIndex: datasetFileSchema.optional(),
     hexmapStaticIndex: datasetFileSchema.optional(),
     memberAssetsIndex: datasetFileSchema.optional()
@@ -593,6 +628,7 @@ export const publishBundleSchema = z.object({
   latestVotes: latestVotesExportSchema,
   accountabilitySummary: accountabilitySummaryExportSchema,
   accountabilityTrends: accountabilityTrendsExportSchema.optional(),
+  billProposalActivity: billProposalActivityExportSchema.optional(),
   constituencyBoundariesIndex:
     constituencyBoundariesIndexExportSchema.optional(),
   hexmapStaticIndex: hexmapStaticIndexExportSchema.optional(),
@@ -614,6 +650,12 @@ export type AccountabilitySummaryItem = z.infer<
 >;
 export type AccountabilitySummaryExport = z.infer<
   typeof accountabilitySummaryExportSchema
+>;
+export type BillProposalActivityItem = z.infer<
+  typeof billProposalActivityItemSchema
+>;
+export type BillProposalActivityExport = z.infer<
+  typeof billProposalActivityExportSchema
 >;
 export type WeeklyAssemblyTrendPoint = z.infer<
   typeof weeklyAssemblyTrendPointSchema

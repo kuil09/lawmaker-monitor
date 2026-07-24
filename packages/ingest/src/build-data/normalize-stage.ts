@@ -3,6 +3,7 @@ import { createNormalizedBundle } from "../normalize.js";
 import {
   createSourceRecord,
   parseAgendaXml,
+  parseBillProposalXml,
   parseBillVoteSummaryXml,
   parseCommitteeOverviewXml,
   parseCommitteeRosterXml,
@@ -11,7 +12,8 @@ import {
   parseMemberInfoXml,
   parseMemberProfileAllXml,
   parseMeetingXml,
-  parseVoteDetailEntryPayload
+  parseVoteDetailEntryPayload,
+  type BillProposalRecord
 } from "../parsers.js";
 import {
   DEFAULT_PROPERTY_MEMBER_CONTEXT_MANIFEST_PATH,
@@ -36,6 +38,7 @@ export type NormalizedBuildArtifacts = {
   snapshotId: string;
   currentAssembly: CurrentAssembly;
   bundle: NormalizedBundle;
+  billProposals: BillProposalRecord[];
   tenureIndex: ReturnType<typeof buildMemberTenureIndex>;
   propertyMemberContext: Awaited<ReturnType<typeof loadPropertyMemberContext>>;
 };
@@ -87,6 +90,44 @@ function buildSourceRecords(args: {
         ]
       : []
   );
+}
+
+function mergeBillProposalRecords(
+  records: BillProposalRecord[]
+): BillProposalRecord[] {
+  const byBillId = new Map<string, BillProposalRecord>();
+
+  for (const record of records) {
+    const existing = byBillId.get(record.billId);
+    if (!existing) {
+      byBillId.set(record.billId, record);
+      continue;
+    }
+
+    const leadMemberIds = [
+      ...new Set([...existing.leadMemberIds, ...record.leadMemberIds])
+    ];
+    const leadMemberIdSet = new Set(leadMemberIds);
+    const coSponsorMemberIds = [
+      ...new Set([...existing.coSponsorMemberIds, ...record.coSponsorMemberIds])
+    ].filter((memberId) => !leadMemberIdSet.has(memberId));
+
+    byBillId.set(record.billId, {
+      billId: record.billId,
+      billNo: existing.billNo ?? record.billNo,
+      billName: existing.billName || record.billName,
+      assemblyNo: existing.assemblyNo || record.assemblyNo,
+      proposedAt:
+        [existing.proposedAt, record.proposedAt]
+          .filter((value): value is string => Boolean(value))
+          .sort()
+          .at(-1) ?? null,
+      leadMemberIds,
+      coSponsorMemberIds
+    });
+  }
+
+  return [...byBillId.values()];
 }
 
 export async function buildNormalizedStage(
@@ -147,6 +188,11 @@ export async function buildNormalizedStage(
         .sort((left, right) => right.assemblyNo - left.assemblyNo)[0] ?? null,
     tenures: parsedMemberHistory
   });
+  const billProposals = mergeBillProposalRecords(
+    rawInputs.billProposalXmls
+      .flatMap((xml) => parseBillProposalXml(xml))
+      .filter((record) => record.assemblyNo === currentAssembly.assemblyNo)
+  );
 
   const rosterMembershipsByMemberId = new Map<string, string[]>();
   for (const xml of rawInputs.committeeRosterXmls) {
@@ -273,6 +319,11 @@ export async function buildNormalizedStage(
         payloads: rawInputs.billVoteSummaryXmls,
         snapshotId: rawInputs.snapshotId
       }),
+      ...buildSourceRecords({
+        entries: rawInputs.billProposalEntries,
+        payloads: rawInputs.billProposalXmls,
+        snapshotId: rawInputs.snapshotId
+      }),
       ...minutesSources
     ],
     agendas: parsedAgendas,
@@ -314,6 +365,7 @@ export async function buildNormalizedStage(
     snapshotId: rawInputs.snapshotId,
     currentAssembly,
     bundle,
+    billProposals,
     tenureIndex,
     propertyMemberContext
   };

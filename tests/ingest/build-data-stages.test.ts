@@ -30,6 +30,13 @@ describe("build-data pipeline stages", () => {
     });
     expect(normalized.bundle.members.length).toBeGreaterThan(0);
     expect(normalized.bundle.rollCalls.length).toBeGreaterThan(0);
+    expect(normalized.billProposals).toHaveLength(3);
+    expect(
+      normalized.billProposals.find((proposal) => proposal.billId === "PRC_L3")
+    ).toMatchObject({
+      leadMemberIds: ["M003"],
+      coSponsorMemberIds: ["M001", "X999", "M002"]
+    });
     expect(
       normalized.propertyMemberContext.currentMembers.map(
         (member) => member.memberId

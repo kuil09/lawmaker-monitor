@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nzmimeepazxkubdpn>
+  <head>
+    <list_total_count>4</list_total_count>
+    <RESULT>
+      <CODE>INFO-000</CODE>
+      <MESSAGE>정상 처리되었습니다.</MESSAGE>
+    </RESULT>
+  </head>
+  <row>
+    <BILL_ID>PRC_L1</BILL_ID>
+    <BILL_NO>220101</BILL_NO>
+    <BILL_NAME>공공데이터 접근성 강화법안</BILL_NAME>
+    <AGE>22</AGE>
+    <PROPOSE_DT>20260301</PROPOSE_DT>
+    <RST_MONA_CD>M001</RST_MONA_CD>
+    <PUBL_MONA_CD>M002,M003</PUBL_MONA_CD>
+  </row>
+  <row>
+    <BILL_ID>PRC_L2</BILL_ID>
+    <BILL_NO>220102</BILL_NO>
+    <BILL_NAME>지역균형발전 지원법안</BILL_NAME>
+    <AGE>22</AGE>
+    <PROPOSE_DT>2026-03-05</PROPOSE_DT>
+    <RST_MONA_CD>M002</RST_MONA_CD>
+    <PUBL_MONA_CD>M001; M003</PUBL_MONA_CD>
+  </row>
+  <row>
+    <BILL_ID>PRC_L3</BILL_ID>
+    <BILL_NO>220103</BILL_NO>
+    <BILL_NAME>기후대응 기본법안</BILL_NAME>
+    <AGE>22</AGE>
+    <PROPOSE_DT>2026.03.08</PROPOSE_DT>
+    <RST_MONA_CD>M003</RST_MONA_CD>
+    <PUBL_MONA_CD>M001|M003|X999</PUBL_MONA_CD>
+  </row>
+  <row>
+    <BILL_ID>PRC_L3</BILL_ID>
+    <BILL_NO>220103</BILL_NO>
+    <BILL_NAME>기후대응 기본법안</BILL_NAME>
+    <AGE>22</AGE>
+    <PROPOSE_DT>2026.03.08</PROPOSE_DT>
+    <RST_MONA_CD>M003</RST_MONA_CD>
+    <PUBL_MONA_CD>M002</PUBL_MONA_CD>
+  </row>
+</nzmimeepazxkubdpn>

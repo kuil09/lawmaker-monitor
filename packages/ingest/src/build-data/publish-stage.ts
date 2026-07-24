@@ -9,6 +9,7 @@ import {
   assertPublishedJsonFileSize,
   buildAccountabilitySummaryExport,
   buildAccountabilityTrendsExport,
+  buildBillProposalActivityExport,
   buildLatestVotesExport,
   buildManifest,
   buildMemberActivityCalendarArtifacts,
@@ -28,6 +29,7 @@ import {
 import {
   validateAccountabilitySummaryExport,
   validateAccountabilityTrendsExport,
+  validateBillProposalActivityExport,
   validateConstituencyBoundariesIndexExport,
   validateHexmapStaticIndexExport,
   validateHexmapStaticProvinceArtifact,
@@ -102,6 +104,15 @@ export async function publishBuildOutputs(args: {
   const accountabilityTrends = validateAccountabilityTrendsExport(
     buildAccountabilityTrendsExport(args.normalized.bundle, {
       tenureIndex: args.normalized.tenureIndex
+    })
+  );
+  const billProposalActivity = validateBillProposalActivityExport(
+    buildBillProposalActivityExport({
+      bundle: args.normalized.bundle,
+      currentAssembly: args.normalized.currentAssembly,
+      snapshotId: args.normalized.snapshotId,
+      billProposals: args.normalized.billProposals,
+      generatedAt: latestVotes.generatedAt
     })
   );
   const {
@@ -252,6 +263,7 @@ export async function publishBuildOutputs(args: {
       latestVotes,
       accountabilitySummary,
       accountabilityTrends,
+      billProposalActivity,
       memberActivityCalendar,
       memberAssetsIndex,
       assetDisclosuresDataset: {
@@ -280,6 +292,7 @@ export async function publishBuildOutputs(args: {
     accountabilitySummary
   );
   const accountabilityTrendsJson = serializePublishedJson(accountabilityTrends);
+  const billProposalActivityJson = serializePublishedJson(billProposalActivity);
   const memberActivityCalendarJson = serializePublishedJson(
     memberActivityCalendar
   );
@@ -318,6 +331,10 @@ export async function publishBuildOutputs(args: {
   assertPublishedJsonFileSize(
     "exports/accountability_trends.json",
     accountabilityTrendsJson
+  );
+  assertPublishedJsonFileSize(
+    "exports/bill_proposal_activity.json",
+    billProposalActivityJson
   );
   assertPublishedJsonFileSize(
     "exports/member_activity_calendar.json",
@@ -395,6 +412,14 @@ export async function publishBuildOutputs(args: {
         "accountability_trends.json"
       ),
       accountabilityTrendsJson
+    ),
+    writeFile(
+      join(
+        args.runtimeConfig.outputDir,
+        "exports",
+        "bill_proposal_activity.json"
+      ),
+      billProposalActivityJson
     ),
     writeFile(
       join(

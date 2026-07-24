@@ -1,5 +1,6 @@
 export type {
   AgendaRecord,
+  BillProposalRecord,
   BillVoteSummaryRecord,
   CommitteeOverviewRecord,
   CommitteeRosterRecord,
@@ -12,6 +13,8 @@ export type {
   OfficialVoteParseOptions,
   SourceContext
 } from "./parsers/types.js";
+
+export { parseBillProposalXml } from "./parsers/bills.js";
 
 export { createSourceRecord } from "./parsers/helpers.js";
 

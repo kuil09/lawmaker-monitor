@@ -14,6 +14,7 @@ export type CanonicalAssemblyEndpointKey =
 
 export type PendingAssemblyEndpointKey =
   | "memberProfileAll"
+  | "billProposals"
   | "plenarySchedule"
   | "plenaryBillsLaw"
   | "plenaryBillsBudget"
@@ -112,6 +113,7 @@ const RAW_KIND_TO_ENDPOINT_KEY: Partial<
   plenary_bills_other: "plenaryBillsOther",
   vote_detail: "votes",
   bill_vote_summary: "billVoteSummary",
+  bill_proposals: "billProposals",
   live: "liveWebcast",
   plenary_minutes: "plenaryMinutes"
 };

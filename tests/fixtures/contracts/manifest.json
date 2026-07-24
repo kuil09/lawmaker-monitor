@@ -83,6 +83,12 @@
       "checksumSha256": "accountability-trends-checksum",
       "rowCount": 3
     },
+    "billProposalActivity": {
+      "path": "exports/bill_proposal_activity.json",
+      "url": "https://data.example.test/lawmaker-monitor/exports/bill_proposal_activity.json",
+      "checksumSha256": "bill-proposal-activity-checksum",
+      "rowCount": 3
+    },
     "memberActivityCalendar": {
       "path": "exports/member_activity_calendar.json",
       "url": "https://data.example.test/lawmaker-monitor/exports/member_activity_calendar.json",

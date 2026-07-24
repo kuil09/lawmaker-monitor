@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   loadAccountabilitySummary,
   loadAccountabilityTrends,
+  loadBillProposalActivity,
   loadLatestVotes,
   loadManifest
 } from "../lib/data.js";
@@ -10,6 +11,7 @@ import {
 import type {
   AccountabilitySummaryExport,
   AccountabilityTrendsExport,
+  BillProposalActivityExport,
   LatestVotesExport,
   Manifest
 } from "@lawmaker-monitor/schemas";
@@ -18,20 +20,26 @@ type BootstrapDataState = {
   latestVotes: LatestVotesExport | null;
   accountabilitySummary: AccountabilitySummaryExport | null;
   accountabilityTrends: AccountabilityTrendsExport | null;
+  billProposalActivity: BillProposalActivityExport | null;
+  billProposalActivityLoaded: boolean;
   manifest: Manifest | null;
   feedError: string | null;
   leaderboardError: string | null;
   trendsError: string | null;
+  billProposalActivityError: string | null;
 };
 
 const initialState: BootstrapDataState = {
   latestVotes: null,
   accountabilitySummary: null,
   accountabilityTrends: null,
+  billProposalActivity: null,
+  billProposalActivityLoaded: false,
   manifest: null,
   feedError: null,
   leaderboardError: null,
-  trendsError: null
+  trendsError: null,
+  billProposalActivityError: null
 };
 
 export function useAppBootstrapData() {
@@ -92,6 +100,23 @@ export function useAppBootstrapData() {
         updateState((current) => ({
           ...current,
           trendsError: `추세 차트 데이터를 불러오지 못했습니다. ${error.message}`
+        }));
+      });
+
+    void loadBillProposalActivity()
+      .then((billProposalActivity) => {
+        updateState((current) => ({
+          ...current,
+          billProposalActivity,
+          billProposalActivityLoaded: true,
+          billProposalActivityError: null
+        }));
+      })
+      .catch((error: Error) => {
+        updateState((current) => ({
+          ...current,
+          billProposalActivityLoaded: true,
+          billProposalActivityError: `입법 활동 데이터를 불러오지 못했습니다. ${error.message}`
         }));
       });
 

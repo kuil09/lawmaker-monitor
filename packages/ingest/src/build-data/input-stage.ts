@@ -35,6 +35,7 @@ export type BuildDataRawInputs = {
   committeeOverviewEntries: RawSnapshotEntry[];
   committeeRosterEntries: RawSnapshotEntry[];
   billVoteSummaryEntries: RawSnapshotEntry[];
+  billProposalEntries: RawSnapshotEntry[];
   agendaEntries: RawSnapshotEntry[];
   voteEntries: RawSnapshotEntry[];
   liveEntry: RawSnapshotEntry | null;
@@ -45,6 +46,7 @@ export type BuildDataRawInputs = {
   committeeOverviewXmls: string[];
   committeeRosterXmls: string[];
   billVoteSummaryXmls: string[];
+  billProposalXmls: string[];
   scheduleXml: string;
   liveXml: string | null;
   minutesXml: string | null;
@@ -139,6 +141,9 @@ export async function loadBuildDataRawInputs(
   const billVoteSummaryEntries = findEntries(resolvedRaw.manifest.entries, [
     "bill_vote_summary"
   ]);
+  const billProposalEntries = findEntries(resolvedRaw.manifest.entries, [
+    "bill_proposals"
+  ]);
 
   if (
     !scheduleEntry ||
@@ -147,7 +152,8 @@ export async function loadBuildDataRawInputs(
     memberHistoryEntries.length === 0 ||
     committeeOverviewEntries.length === 0 ||
     committeeRosterEntries.length === 0 ||
-    billVoteSummaryEntries.length === 0
+    billVoteSummaryEntries.length === 0 ||
+    billProposalEntries.length === 0
   ) {
     throw new Error(
       "Raw snapshot is missing required assembly metadata payloads."
@@ -176,6 +182,7 @@ export async function loadBuildDataRawInputs(
     committeeOverviewXmls,
     committeeRosterXmls,
     billVoteSummaryXmls,
+    billProposalXmls,
     scheduleXml,
     liveXml,
     minutesXml,
@@ -209,6 +216,11 @@ export async function loadBuildDataRawInputs(
     ),
     Promise.all(
       billVoteSummaryEntries.map((entry) =>
+        readEntryPayload(resolvedRaw.rawDir, entry.relativePath)
+      )
+    ),
+    Promise.all(
+      billProposalEntries.map((entry) =>
         readEntryPayload(resolvedRaw.rawDir, entry.relativePath)
       )
     ),
@@ -247,6 +259,7 @@ export async function loadBuildDataRawInputs(
     committeeOverviewEntries,
     committeeRosterEntries,
     billVoteSummaryEntries,
+    billProposalEntries,
     agendaEntries,
     voteEntries,
     liveEntry,
@@ -257,6 +270,7 @@ export async function loadBuildDataRawInputs(
     committeeOverviewXmls,
     committeeRosterXmls,
     billVoteSummaryXmls,
+    billProposalXmls,
     scheduleXml,
     liveXml,
     minutesXml,

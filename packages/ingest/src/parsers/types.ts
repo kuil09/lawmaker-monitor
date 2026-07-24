@@ -92,3 +92,13 @@ export type BillVoteSummaryRecord = {
   officialTally: OfficialTally;
   summary: string | null;
 };
+
+export type BillProposalRecord = {
+  billId: string;
+  billNo: string | null;
+  billName: string;
+  assemblyNo: number;
+  proposedAt: string | null;
+  leadMemberIds: string[];
+  coSponsorMemberIds: string[];
+};

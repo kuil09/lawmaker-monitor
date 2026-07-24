@@ -18,6 +18,7 @@ This file breaks the ingest pipeline down by published surface and records:
 | `latest_votes` official tally         | `의안별 표결현황 (ncocpgfiaoituanbr)`                                                                                                                               | same                   | `registeredCount`, `presentCount`, `yesCount`, `noCount`, `abstainCount`, `invalidCount`, `absentListStatus` validation input                                    | `exact`         |
 | `accountability_summary`              | `국회의원 인적사항 (nwvrqwxyaytdsfvhu)`, `국회의원 인적사항 (ALLNAMEMBER)`, `국회의원 의원이력`, `위원회 현황 정보`, `위원회 위원 명단`, `국회의원 본회의 표결정보` | same                   | current member roster, photo/profile enrichment, committee context, member-centric vote aggregation                                                              | `exact`         |
 | `accountability_trends`               | `국회의원 인적사항 (nwvrqwxyaytdsfvhu)`, `국회의원 인적사항 (ALLNAMEMBER)`, `국회의원 의원이력`, `국회의원 본회의 표결정보`                                         | same                   | current member roster, optional profile enrichment, rolling vote windows                                                                                         | `exact`         |
+| `bill_proposal_activity`              | `국회의원 발의법률안 (nzmimeepazxkubdpn)`, `국회의원 인적사항 (nwvrqwxyaytdsfvhu)`                                                                                  | same                   | unique bill count by `BILL_ID`, representative proposer ids from `RST_MONA_CD`, co-sponsor ids from `PUBL_MONA_CD`, current-member metadata                      | `exact`         |
 | `member_activity_calendar`            | `국회의원 인적사항 (nwvrqwxyaytdsfvhu)`, `국회의원 인적사항 (ALLNAMEMBER)`, `국회의원 의원이력`, `위원회 현황 정보`, `위원회 위원 명단`, `국회의원 본회의 표결정보` | same                   | member header metadata, optional profile enrichment, committee summaries, daily vote states, detailed vote records                                               | `exact`         |
 | current member metadata               | `국회의원 인적사항 (nwvrqwxyaytdsfvhu)` + `국회의원 인적사항 (ALLNAMEMBER)` + `국회의원 의원이력 (nexgtxtmaamffofof)`                                               | same                   | `memberId`, `name`, `party`, `district`, current-assembly roster, `photoUrl`, synthesized `officialProfileUrl`, `officialExternalUrl`, extended profile metadata | `exact`         |
 | committee memberships                 | `위원회 위원 명단 (nktulghcadyhmiqxi)` + `위원회 현황 정보 (nxrvzonlafugpqjuh)`                                                                                     | same                   | `committeeMemberships`, committee summaries, current committee alert context                                                                                     | `exact`         |
@@ -40,10 +41,11 @@ The ingest runtime now treats the following as the authoritative official source
 5. `committeeRoster`
 6. `votes`
 7. `billVoteSummary`
-8. `plenarySchedule`
-9. `plenaryBillsLaw`
-10. `plenaryBillsBudget`
-11. `plenaryBillsSettlement`
-12. `plenaryBillsOther`
-13. `plenaryMinutes`
-14. `liveWebcast`
+8. `billProposals`
+9. `plenarySchedule`
+10. `plenaryBillsLaw`
+11. `plenaryBillsBudget`
+12. `plenaryBillsSettlement`
+13. `plenaryBillsOther`
+14. `plenaryMinutes`
+15. `liveWebcast`

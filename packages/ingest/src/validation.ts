@@ -1,6 +1,7 @@
 import {
   accountabilitySummaryExportSchema,
   accountabilityTrendsExportSchema,
+  billProposalActivityExportSchema,
   constituencyBoundaryExportSchema,
   constituencyBoundariesIndexExportSchema,
   hexmapStaticIndexExportSchema,
@@ -17,6 +18,7 @@ import {
 import type {
   AccountabilitySummaryExport,
   AccountabilityTrendsExport,
+  BillProposalActivityExport,
   ConstituencyBoundaryExport,
   ConstituencyBoundariesIndexExport,
   HexmapStaticIndexExport,
@@ -54,6 +56,12 @@ export function validateAccountabilityTrendsExport(
   payload: AccountabilityTrendsExport
 ): AccountabilityTrendsExport {
   return accountabilityTrendsExportSchema.parse(payload);
+}
+
+export function validateBillProposalActivityExport(
+  payload: BillProposalActivityExport
+): BillProposalActivityExport {
+  return billProposalActivityExportSchema.parse(payload);
 }
 
 export function validateMemberActivityCalendarExport(

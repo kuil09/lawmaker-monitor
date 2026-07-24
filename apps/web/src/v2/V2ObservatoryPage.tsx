@@ -22,6 +22,7 @@ import {
 } from "recharts";
 
 import { V2NationalMap } from "./V2NationalMap.js";
+import { BillProposalActivitySection } from "../components/BillProposalActivitySection.js";
 import { MemberDetailLink } from "../components/MemberDetailLink.js";
 import { buildWeeklyTrendChartData } from "../lib/charts.js";
 import { convertThousandWonToEok } from "../lib/format.js";
@@ -37,6 +38,7 @@ import type { MapMetric } from "../lib/map-route.js";
 import type {
   AccountabilitySummaryExport,
   AccountabilityTrendsExport,
+  BillProposalActivityExport,
   Manifest,
   MemberActivityCalendarExport,
   MemberAssetsIndexExport
@@ -467,6 +469,9 @@ type V2ObservatoryPageProps = {
   activityCalendar: MemberActivityCalendarExport | null;
   accountabilityTrends: AccountabilityTrendsExport | null;
   memberAssetsIndex: MemberAssetsIndexExport | null;
+  billProposalActivity: BillProposalActivityExport | null;
+  billProposalActivityLoading: boolean;
+  billProposalActivityError: string | null;
   loading: boolean;
   errors: string[];
   onOpenMap: (metric: MapMetric) => void;
@@ -483,6 +488,9 @@ export function V2ObservatoryPage({
   activityCalendar,
   accountabilityTrends,
   memberAssetsIndex,
+  billProposalActivity,
+  billProposalActivityLoading,
+  billProposalActivityError,
   loading,
   errors,
   onOpenMap,
@@ -1270,6 +1278,12 @@ export function V2ObservatoryPage({
           </div>
         </section>
       </div>
+      <BillProposalActivitySection
+        data={billProposalActivity}
+        loading={billProposalActivityLoading}
+        error={billProposalActivityError}
+        onOpenMember={onOpenMember}
+      />
     </main>
   );
 }

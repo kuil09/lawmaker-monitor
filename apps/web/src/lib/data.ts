@@ -1,6 +1,7 @@
 import {
   accountabilitySummaryExportSchema,
   accountabilityTrendsExportSchema,
+  billProposalActivityExportSchema,
   constituencyBoundariesIndexExportSchema,
   hexmapStaticIndexExportSchema,
   hexmapStaticProvinceArtifactSchema,
@@ -15,6 +16,7 @@ import {
 import type {
   AccountabilitySummaryExport,
   AccountabilityTrendsExport,
+  BillProposalActivityExport,
   ConstituencyBoundariesIndexExport,
   HexmapStaticIndexExport,
   HexmapStaticProvinceArtifact,
@@ -87,6 +89,18 @@ export function loadAccountabilityTrends(
 
   return fetchOptionalJson(buildUrl(trendsPath), (payload) =>
     accountabilityTrendsExportSchema.parse(payload)
+  );
+}
+
+export function loadBillProposalActivity(
+  manifest?: Manifest | null
+): Promise<BillProposalActivityExport | null> {
+  const activityPath =
+    manifest?.exports.billProposalActivity?.path ??
+    "exports/bill_proposal_activity.json";
+
+  return fetchOptionalJson(buildUrl(activityPath), (payload) =>
+    billProposalActivityExportSchema.parse(payload)
   );
 }
 

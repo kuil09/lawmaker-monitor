@@ -57,6 +57,10 @@ type BrowserSession = {
 const fixtureOverrides = new Map<string, string>([
   ["/manifests/latest.json", resolve(fixturesRoot, "manifest.json")],
   [
+    "/exports/bill_proposal_activity.json",
+    resolve(fixturesRoot, "bill_proposal_activity.json")
+  ],
+  [
     "/exports/constituency_boundaries/index.json",
     resolve(fixturesRoot, "constituency_boundaries_index.json")
   ],

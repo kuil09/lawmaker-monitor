@@ -8,6 +8,7 @@ export type AssemblyEndpointConfig = {
   committeeOverviewPath: string;
   committeeRosterPath: string;
   billVoteSummaryPath: string;
+  billProposalsPath: string;
   votesPath: string;
   plenarySchedulePath: string;
   plenaryLawBillsPath: string;
@@ -103,6 +104,7 @@ export function resolveAssemblyApiConfig(
       committeeOverviewPath: DEFAULT_OFFICIAL_ENDPOINT_PATHS.committeeOverview,
       committeeRosterPath: DEFAULT_OFFICIAL_ENDPOINT_PATHS.committeeRoster,
       billVoteSummaryPath: DEFAULT_OFFICIAL_ENDPOINT_PATHS.billVoteSummary,
+      billProposalsPath: DEFAULT_OFFICIAL_ENDPOINT_PATHS.billProposals,
       votesPath: DEFAULT_OFFICIAL_ENDPOINT_PATHS.votes,
       plenarySchedulePath: DEFAULT_OFFICIAL_ENDPOINT_PATHS.plenarySchedule,
       plenaryLawBillsPath: DEFAULT_OFFICIAL_ENDPOINT_PATHS.plenaryBillsLaw,

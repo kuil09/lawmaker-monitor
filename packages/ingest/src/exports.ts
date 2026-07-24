@@ -5,9 +5,11 @@ import {
 } from "./tenure.js";
 import { sha256 } from "./utils.js";
 
+import type { BillProposalRecord } from "./parsers.js";
 import type {
   AccountabilitySummaryExport,
   AccountabilityTrendsExport,
+  BillProposalActivityExport,
   ConstituencyBoundariesIndexExport,
   CurrentAssembly,
   HexmapStaticIndexExport,
@@ -28,6 +30,7 @@ type BuildArtifactsInput = {
   latestVotes?: LatestVotesExport;
   accountabilitySummary?: AccountabilitySummaryExport;
   accountabilityTrends?: AccountabilityTrendsExport;
+  billProposalActivity?: BillProposalActivityExport;
   memberActivityCalendar?: MemberActivityCalendarExport;
   memberAssetsIndex?: MemberAssetsIndexExport;
   assetDisclosuresDataset?: {
@@ -1349,6 +1352,154 @@ export function buildAccountabilitySummaryExport(
   };
 }
 
+export function buildBillProposalActivityExport(args: {
+  bundle: NormalizedBundle;
+  currentAssembly: CurrentAssembly;
+  snapshotId: string;
+  billProposals: BillProposalRecord[];
+  generatedAt?: string;
+}): BillProposalActivityExport {
+  const currentMembers = buildCurrentAssemblyMembers(
+    args.bundle,
+    args.currentAssembly.assemblyNo
+  );
+  const currentMemberIds = new Set(
+    currentMembers.map((member) => member.memberId)
+  );
+  const participationByMemberId = new Map<
+    string,
+    {
+      leadBillIds: Set<string>;
+      coSponsorBillIds: Set<string>;
+      latestProposalAt: string | null;
+    }
+  >();
+  const unmatchedProposerIds = new Set<string>();
+  let proposerLinkCount = 0;
+  let matchedProposerLinkCount = 0;
+
+  const registerParticipation = (
+    memberId: string,
+    billId: string,
+    proposedAt: string | null,
+    role: "lead" | "coSponsor"
+  ) => {
+    proposerLinkCount += 1;
+    if (!currentMemberIds.has(memberId)) {
+      unmatchedProposerIds.add(memberId);
+      return;
+    }
+
+    matchedProposerLinkCount += 1;
+    const current = participationByMemberId.get(memberId) ?? {
+      leadBillIds: new Set<string>(),
+      coSponsorBillIds: new Set<string>(),
+      latestProposalAt: null
+    };
+    if (role === "lead") {
+      current.leadBillIds.add(billId);
+      current.coSponsorBillIds.delete(billId);
+    } else if (!current.leadBillIds.has(billId)) {
+      current.coSponsorBillIds.add(billId);
+    }
+    if (
+      proposedAt &&
+      (!current.latestProposalAt || proposedAt > current.latestProposalAt)
+    ) {
+      current.latestProposalAt = proposedAt;
+    }
+    participationByMemberId.set(memberId, current);
+  };
+
+  const billProposalById = new Map<string, BillProposalRecord>();
+  for (const proposal of args.billProposals.filter(
+    (candidate) => candidate.assemblyNo === args.currentAssembly.assemblyNo
+  )) {
+    const existing = billProposalById.get(proposal.billId);
+    if (!existing) {
+      billProposalById.set(proposal.billId, proposal);
+      continue;
+    }
+
+    const leadMemberIds = [
+      ...new Set([...existing.leadMemberIds, ...proposal.leadMemberIds])
+    ];
+    const leadMemberIdSet = new Set(leadMemberIds);
+    billProposalById.set(proposal.billId, {
+      ...existing,
+      proposedAt:
+        [existing.proposedAt, proposal.proposedAt]
+          .filter((value): value is string => Boolean(value))
+          .sort()
+          .at(-1) ?? null,
+      leadMemberIds,
+      coSponsorMemberIds: [
+        ...new Set([
+          ...existing.coSponsorMemberIds,
+          ...proposal.coSponsorMemberIds
+        ])
+      ].filter((memberId) => !leadMemberIdSet.has(memberId))
+    });
+  }
+  const billProposals = [...billProposalById.values()];
+  for (const proposal of billProposals) {
+    for (const memberId of new Set(proposal.leadMemberIds)) {
+      registerParticipation(
+        memberId,
+        proposal.billId,
+        proposal.proposedAt,
+        "lead"
+      );
+    }
+    for (const memberId of new Set(proposal.coSponsorMemberIds)) {
+      registerParticipation(
+        memberId,
+        proposal.billId,
+        proposal.proposedAt,
+        "coSponsor"
+      );
+    }
+  }
+
+  const items = currentMembers
+    .map((member) => {
+      const participation = participationByMemberId.get(member.memberId);
+      const leadProposalCount = participation?.leadBillIds.size ?? 0;
+      const coSponsorProposalCount = participation?.coSponsorBillIds.size ?? 0;
+      return {
+        memberId: member.memberId,
+        name: member.name,
+        party: member.party,
+        district: member.district ?? null,
+        leadProposalCount,
+        coSponsorProposalCount,
+        totalProposalCount: leadProposalCount + coSponsorProposalCount,
+        latestProposalAt: participation?.latestProposalAt ?? null
+      };
+    })
+    .sort((left, right) => {
+      if (right.totalProposalCount !== left.totalProposalCount) {
+        return right.totalProposalCount - left.totalProposalCount;
+      }
+      if (right.leadProposalCount !== left.leadProposalCount) {
+        return right.leadProposalCount - left.leadProposalCount;
+      }
+      return left.name.localeCompare(right.name, "ko-KR");
+    });
+
+  return {
+    generatedAt: args.generatedAt ?? new Date().toISOString(),
+    snapshotId: args.snapshotId,
+    assemblyNo: args.currentAssembly.assemblyNo,
+    assemblyLabel: args.currentAssembly.label,
+    billCount: billProposals.length,
+    proposerLinkCount,
+    matchedProposerLinkCount,
+    unmatchedProposerCount: unmatchedProposerIds.size,
+    items
+  };
+}
+
 export function buildAccountabilityTrendsExport(
   bundle: NormalizedBundle,
   options: ExportBuildOptions = {}
@@ -1778,6 +1929,7 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
     input.accountabilitySummary ?? buildAccountabilitySummaryExport(bundle);
   const accountabilityTrends =
     input.accountabilityTrends ?? buildAccountabilityTrendsExport(bundle);
+  const billProposalActivity = input.billProposalActivity;
   const memberActivityCalendar =
     input.memberActivityCalendar ?? buildMemberActivityCalendarExport(bundle);
   const memberAssetsIndex = input.memberAssetsIndex;
@@ -1892,6 +2044,15 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
         accountabilityTrends,
         accountabilityTrends.movers.length
       ),
+      ...(billProposalActivity
+        ? {
+            billProposalActivity: createPublishedExportFile(
+              "exports/bill_proposal_activity.json",
+              billProposalActivity,
+              billProposalActivity.items.length
+            )
+          }
+        : {}),
       memberActivityCalendar: createPublishedExportFile(
         "exports/member_activity_calendar.json",
         memberActivityCalendar,
