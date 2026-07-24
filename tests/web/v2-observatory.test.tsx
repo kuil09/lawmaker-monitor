@@ -120,14 +120,20 @@ describe("v2 observatory", () => {
     const assetsTab = screen.getByRole("tab", { name: "재산" });
     expect(assetsTab).toHaveAttribute("aria-selected", "true");
     const assetTrendHeading = screen.getByRole("heading", {
-      name: "공개 재산 상위 의원 비교"
+      name: "공개 순재산 상위 의원의 자산·부채"
     });
     const assetTrendCard = assetTrendHeading.closest("section");
     expect(assetTrendCard).not.toBeNull();
     expect(within(assetTrendCard!).getByText("의원 비교")).toBeInTheDocument();
     expect(
       within(assetTrendCard!).getByRole("img", {
-        name: "공개 재산 상위 의원 비교 대칭 로그 축 막대그래프"
+        name: "공개 순재산 상위 의원의 자산·부채 대칭 로그 축 막대그래프"
+      })
+    ).toBeInTheDocument();
+    expect(within(assetTrendCard!).getByText("부채")).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", {
+        name: "총자산 대비 부채비율"
       })
     ).toBeInTheDocument();
     expect(
@@ -330,7 +336,9 @@ describe("v2 observatory", () => {
     expect(onOpenMember).toHaveBeenCalledWith("M002");
 
     const assetTrendCard = screen
-      .getByRole("heading", { name: "공개 재산 상위 의원 비교" })
+      .getByRole("heading", {
+        name: "공개 순재산 상위 의원의 자산·부채"
+      })
       .closest("section");
     expect(assetTrendCard).not.toBeNull();
     fireEvent.click(

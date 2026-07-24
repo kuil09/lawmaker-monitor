@@ -16,8 +16,9 @@ import {
 import { formatDateTime } from "./lib/format.js";
 import { getMemberAttendanceSummary } from "./lib/member-activity.js";
 import {
-  applyMemberAssetsIndexRealEstateFallbacks,
+  applyMemberAssetsIndexFallbacks,
   buildLatestAssetAllocationSummary,
+  getLatestDebtTotalFromHistory,
   getLatestRealEstateTotalFromHistory
 } from "./lib/member-assets.js";
 
@@ -83,6 +84,12 @@ function buildLeaderboardAssetItems(args: {
       latestRealEstateTotal:
         item.latestRealEstateTotal ??
         getLatestRealEstateTotalFromHistory(
+          args.memberAssetHistories[item.memberId] ?? null
+        ) ??
+        undefined,
+      latestDebtTotal:
+        item.latestDebtTotal ??
+        getLatestDebtTotalFromHistory(
           args.memberAssetHistories[item.memberId] ?? null
         ) ??
         undefined,
@@ -198,7 +205,7 @@ export default function App() {
   );
   const resolvedMemberAssetsIndex = useMemo(
     () =>
-      applyMemberAssetsIndexRealEstateFallbacks(
+      applyMemberAssetsIndexFallbacks(
         memberAssetsState.memberAssetsIndex,
         memberAssetsState.memberAssetHistories
       ),

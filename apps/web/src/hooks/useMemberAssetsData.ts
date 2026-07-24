@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { loadMemberAssetsHistory, loadMemberAssetsIndex } from "../lib/data.js";
-import { applyMemberAssetsIndexRealEstateFallbacks } from "../lib/member-assets.js";
+import { applyMemberAssetsIndexFallbacks } from "../lib/member-assets.js";
 
 import type { RouteState } from "../lib/route-state.js";
 import type {
@@ -15,7 +15,7 @@ function buildHomePrefetchIds(
   memberAssetsIndex: MemberAssetsIndexExport | null,
   memberAssetHistories: Record<string, MemberAssetsHistoryExport | undefined>
 ): string[] {
-  const resolvedIndex = applyMemberAssetsIndexRealEstateFallbacks(
+  const resolvedIndex = applyMemberAssetsIndexFallbacks(
     memberAssetsIndex,
     memberAssetHistories
   );
@@ -304,10 +304,7 @@ export function useMemberAssetsData(args: {
 
   const resolvedMemberAssetsIndex = useMemo(
     () =>
-      applyMemberAssetsIndexRealEstateFallbacks(
-        memberAssetsIndex,
-        memberAssetHistories
-      ),
+      applyMemberAssetsIndexFallbacks(memberAssetsIndex, memberAssetHistories),
     [memberAssetsIndex, memberAssetHistories]
   );
 

@@ -24,6 +24,21 @@ export type AssetAllocationSummary = {
   realEstateShare: number;
 };
 
+export type DebtRatioStatus =
+  | "none"
+  | "below-half"
+  | "half-or-more"
+  | "assets-exceeded"
+  | "unavailable";
+
+export type DebtFocusSummary = {
+  debtAmount: number;
+  debtRatio: number | null;
+  grossAssetAmount: number;
+  netAssetAmount: number;
+  status: DebtRatioStatus;
+};
+
 export type AssetScopeMode = "familyIncluded" | "selfOnly";
 
 export type AssetHistorySnapshot = Pick<
@@ -133,6 +148,70 @@ export function getLatestRealEstateTotalFromHistory(
   );
 }
 
+export function calculateDebtRatio(
+  netAssetAmount: number,
+  debtAmount: number
+): number | null {
+  const grossAssetAmount = netAssetAmount + debtAmount;
+  if (grossAssetAmount <= 0) {
+    return null;
+  }
+
+  return debtAmount / grossAssetAmount;
+}
+
+export function getLatestDebtTotalFromHistory(
+  history: MemberAssetsHistoryExport | null,
+  scopeMode: AssetScopeMode = "familyIncluded"
+): number | null {
+  const snapshot = resolveAssetHistorySnapshot(history, scopeMode);
+  if (!snapshot || snapshot.series.length === 0) {
+    return null;
+  }
+
+  return Math.max(
+    getCategoryAmountAtDate(
+      snapshot,
+      "채무",
+      snapshot.latestSummary.reportedAt
+    ),
+    0
+  );
+}
+
+export function buildDebtFocusSummary(
+  history: MemberAssetsHistoryExport | null,
+  scopeMode: AssetScopeMode = "familyIncluded"
+): DebtFocusSummary | null {
+  const snapshot = resolveAssetHistorySnapshot(history, scopeMode);
+  const debtAmount = getLatestDebtTotalFromHistory(history, scopeMode);
+  if (!snapshot || debtAmount == null) {
+    return null;
+  }
+
+  const netAssetAmount = snapshot.latestSummary.currentAmount;
+  const grossAssetAmount = netAssetAmount + debtAmount;
+  const debtRatio = calculateDebtRatio(netAssetAmount, debtAmount);
+  const status: DebtRatioStatus =
+    debtRatio == null
+      ? "unavailable"
+      : debtAmount === 0
+        ? "none"
+        : debtRatio >= 1
+          ? "assets-exceeded"
+          : debtRatio >= 0.5
+            ? "half-or-more"
+            : "below-half";
+
+  return {
+    debtAmount,
+    debtRatio,
+    grossAssetAmount,
+    netAssetAmount,
+    status
+  };
+}
+
 export function buildLatestAssetAllocationSummary(
   history: MemberAssetsHistoryExport | null,
   scopeMode: AssetScopeMode = "familyIncluded"
@@ -175,7 +254,7 @@ export function buildLatestAssetAllocationSummary(
   };
 }
 
-export function applyMemberAssetsIndexRealEstateFallbacks(
+export function applyMemberAssetsIndexFallbacks(
   index: MemberAssetsIndexExport | null,
   histories: Record<string, MemberAssetsHistoryExport | undefined>
 ): MemberAssetsIndexExport | null {
@@ -185,21 +264,29 @@ export function applyMemberAssetsIndexRealEstateFallbacks(
 
   let hasChanges = false;
   const members = index.members.map((entry) => {
-    if (entry.latestRealEstateTotal != null) {
+    if (entry.latestRealEstateTotal != null && entry.latestDebtTotal != null) {
       return entry;
     }
 
-    const fallbackRealEstateTotal = getLatestRealEstateTotalFromHistory(
-      histories[entry.memberId] ?? null
-    );
-    if (fallbackRealEstateTotal == null) {
+    const history = histories[entry.memberId] ?? null;
+    const fallbackRealEstateTotal =
+      entry.latestRealEstateTotal ??
+      getLatestRealEstateTotalFromHistory(history);
+    const fallbackDebtTotal =
+      entry.latestDebtTotal ?? getLatestDebtTotalFromHistory(history);
+    if (fallbackRealEstateTotal == null && fallbackDebtTotal == null) {
       return entry;
     }
 
     hasChanges = true;
     return {
       ...entry,
-      latestRealEstateTotal: fallbackRealEstateTotal
+      ...(fallbackRealEstateTotal == null
+        ? {}
+        : { latestRealEstateTotal: fallbackRealEstateTotal }),
+      ...(fallbackDebtTotal == null
+        ? {}
+        : { latestDebtTotal: fallbackDebtTotal })
     };
   });
 
@@ -212,3 +299,6 @@ export function applyMemberAssetsIndexRealEstateFallbacks(
     members
   };
 }
+
+export const applyMemberAssetsIndexRealEstateFallbacks =
+  applyMemberAssetsIndexFallbacks;

@@ -1034,8 +1034,12 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
           await assetComparisonCard.locator(".v2-card-kicker").textContent()
         ).toBe("의원 비교");
         expect(await assetComparisonCard.locator("h2").textContent()).toBe(
-          "공개 재산 상위 의원 비교"
+          "공개 순재산 상위 의원의 자산·부채"
         );
+        expect(await assetComparisonCard.textContent()).toContain("부채");
+        expect(
+          await page.locator(".v2-ranking-table thead").textContent()
+        ).toContain("총자산 대비 부채비율");
         expect(
           await assetComparisonCard
             .locator(".v2-trend-scale-note")

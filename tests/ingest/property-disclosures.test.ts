@@ -156,6 +156,7 @@ describe("property disclosure pipeline", () => {
       memberId: "M001",
       latestTotal: 820000,
       latestRealEstateTotal: 510000,
+      latestDebtTotal: 0,
       totalDelta: 30000,
       historyPath: "exports/member_assets_history/M001.json"
     });

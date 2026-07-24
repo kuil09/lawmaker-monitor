@@ -35,6 +35,7 @@
       "latestDisclosureDate": "2025-04-29",
       "latestTotal": 820000,
       "latestRealEstateTotal": 510000,
+      "latestDebtTotal": 0,
       "totalDelta": 30000,
       "historyPath": "exports/member_assets_history/M001.json",
       "latestSummary": {
@@ -79,6 +80,7 @@
       "latestDisclosureDate": "2025-04-29",
       "latestTotal": 270000,
       "latestRealEstateTotal": 320000,
+      "latestDebtTotal": 90000,
       "totalDelta": 50000,
       "historyPath": "exports/member_assets_history/M002.json",
       "latestSummary": {

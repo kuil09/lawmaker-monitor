@@ -4,7 +4,9 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  applyMemberAssetsIndexRealEstateFallbacks,
+  applyMemberAssetsIndexFallbacks,
+  buildDebtFocusSummary,
+  calculateDebtRatio,
   resolveAssetHistorySnapshot
 } from "../../apps/web/src/lib/member-assets.js";
 
@@ -35,13 +37,14 @@ describe("member-assets", () => {
     );
   });
 
-  it("fills missing real-estate totals from member history exports", () => {
+  it("fills missing real-estate and debt totals from member history exports", () => {
     const legacyIndexFixture = structuredClone(memberAssetsIndexFixture);
     for (const member of legacyIndexFixture.members) {
       delete member.latestRealEstateTotal;
+      delete member.latestDebtTotal;
     }
 
-    const enrichedIndex = applyMemberAssetsIndexRealEstateFallbacks(
+    const enrichedIndex = applyMemberAssetsIndexFallbacks(
       legacyIndexFixture,
       memberAssetsHistoryFixtures
     );
@@ -49,12 +52,35 @@ describe("member-assets", () => {
     expect(
       enrichedIndex?.members.find((member) => member.memberId === "M001")
     ).toMatchObject({
-      latestRealEstateTotal: 510000
+      latestRealEstateTotal: 510000,
+      latestDebtTotal: 0
     });
     expect(
       enrichedIndex?.members.find((member) => member.memberId === "M002")
     ).toMatchObject({
-      latestRealEstateTotal: 320000
+      latestRealEstateTotal: 320000,
+      latestDebtTotal: 90000
     });
+  });
+
+  it("calculates debt against gross assets rather than net assets", () => {
+    const summary = buildDebtFocusSummary(
+      memberAssetsHistoryFixtures.M002,
+      "familyIncluded"
+    );
+
+    expect(summary).toMatchObject({
+      debtAmount: 90000,
+      grossAssetAmount: 360000,
+      netAssetAmount: 270000,
+      debtRatio: 0.25,
+      status: "below-half"
+    });
+  });
+
+  it("preserves ratios over 100% and refuses non-positive denominators", () => {
+    expect(calculateDebtRatio(-20, 100)).toBe(1.25);
+    expect(calculateDebtRatio(-100, 100)).toBeNull();
+    expect(calculateDebtRatio(-120, 100)).toBeNull();
   });
 });

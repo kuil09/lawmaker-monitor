@@ -74,6 +74,14 @@
           "increaseAmount": 0,
           "decreaseAmount": 20000,
           "currentAmount": 80000
+        },
+        {
+          "reportedAt": "2025-04-29",
+          "issueNo": "2025-5",
+          "previousAmount": 80000,
+          "increaseAmount": 10000,
+          "decreaseAmount": 0,
+          "currentAmount": 90000
         }
       ]
     }

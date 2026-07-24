@@ -13,9 +13,12 @@ import {
   formatNumber,
   formatPercent
 } from "../lib/format.js";
+import {
+  calculateDebtRatio,
+  type AssetAllocationSummary
+} from "../lib/member-assets.js";
 
 import type { MemberAttendanceSummary } from "../lib/member-activity.js";
-import type { AssetAllocationSummary } from "../lib/member-assets.js";
 import type {
   AccountabilitySummaryItem,
   MemberAssetsIndexItem
@@ -59,7 +62,7 @@ const realEstateMetricOption: LeaderboardMetricOption = {
 
 const assetTotalMetricOption: LeaderboardMetricOption = {
   value: "assetTotal",
-  label: "총재산",
+  label: "순재산",
   styleKey: "asset-total"
 };
 
@@ -155,7 +158,7 @@ export function AccountabilityLeaderboard({
   const leaderboardCopy = isAssetMetric(metric)
     ? metric === "realEstate"
       ? "최신 재산 공개 기준 건물·토지 합계로 정렬하고, 그래프에는 공개된 플러스 자산 중 부동산 비중을 함께 반영합니다."
-      : "최신 재산 공개 기준 총재산 순위를 보여 주고, 그래프에는 공개된 플러스 자산 중 부동산 비중을 함께 반영합니다."
+      : "최신 재산 공개 기준 순재산 순위를 보여 주고, 공개 채무와 총자산 대비 부채비율을 함께 표시합니다."
     : metric === "partyLine"
       ? "같은 당 의원들이 한쪽으로 표를 모았던 표결에서, 이 의원이 얼마나 다르게 투표했는지 보여 줍니다. 표결에 참여하지 않은 경우는 이탈이 아니라 미참여로 따로 집계합니다."
       : metric === "absent"
@@ -199,20 +202,26 @@ export function AccountabilityLeaderboard({
         <ol className="ranking-list">
           {rankedAssetItems.map((item, index) => {
             const metricLabel =
-              metric === "realEstate" ? "최신 부동산" : "최신 총재산";
+              metric === "realEstate" ? "최신 부동산" : "최신 순재산";
+            const debtRatio =
+              item.latestDebtTotal == null
+                ? null
+                : calculateDebtRatio(item.latestTotal, item.latestDebtTotal);
             const assetShareText = item.assetAllocation
               ? `비중 ${formatPercent(item.assetAllocation.realEstateShare)}`
               : "비중 계산 중";
             const secondaryText =
               metric === "realEstate"
-                ? `총재산 ${formatAssetEok(item.latestTotal)} · ${assetShareText}`
+                ? `순재산 ${formatAssetEok(item.latestTotal)} · ${assetShareText}`
                 : item.latestRealEstateTotal != null
-                  ? `부동산 ${formatAssetEok(item.latestRealEstateTotal)} · ${assetShareText}`
-                  : `부동산 데이터 준비 중 · ${assetShareText}`;
+                  ? `부동산 ${formatAssetEok(item.latestRealEstateTotal)} · 부채비율 ${
+                      debtRatio == null ? "산정 불가" : formatPercent(debtRatio)
+                    }`
+                  : "부동산 데이터 준비 중";
             const metaItems = [
               {
                 key: "asset-total",
-                label: "총재산",
+                label: "순재산",
                 value: formatAssetEok(item.latestTotal)
               },
               {
@@ -229,6 +238,24 @@ export function AccountabilityLeaderboard({
                 value: item.assetAllocation
                   ? formatPercent(item.assetAllocation.realEstateShare)
                   : "계산 중"
+              },
+              {
+                key: "debt-total",
+                label: "공개 채무",
+                value:
+                  item.latestDebtTotal == null
+                    ? "준비 중"
+                    : formatAssetEok(item.latestDebtTotal)
+              },
+              {
+                key: "debt-ratio",
+                label: "부채비율",
+                value:
+                  item.latestDebtTotal == null
+                    ? "준비 중"
+                    : debtRatio == null
+                      ? "산정 불가"
+                      : formatPercent(debtRatio)
               },
               {
                 key: "asset-delta",
@@ -317,8 +344,8 @@ export function AccountabilityLeaderboard({
         </ol>
       ) : metric === "partyLine" && rankedItems.length === 0 ? (
         <p className="leaderboard-panel__empty">
-          당 기준이 성립한 표결이 아직 집계되지 않았습니다. 데이터가
-          갱신되면 순위가 표시됩니다.
+          당 기준이 성립한 표결이 아직 집계되지 않았습니다. 데이터가 갱신되면
+          순위가 표시됩니다.
         </p>
       ) : (
         <ol className="ranking-list">

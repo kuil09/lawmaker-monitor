@@ -59,11 +59,13 @@ import {
   type CalendarCell
 } from "../lib/member-activity.js";
 import {
+  buildDebtFocusSummary,
   buildRealEstateFocusSummary,
   getFamilyGapLatest,
   resolveAssetHistorySnapshot,
   type AssetHistorySnapshot,
-  type AssetScopeMode
+  type AssetScopeMode,
+  type DebtRatioStatus
 } from "../lib/member-assets.js";
 
 import type {
@@ -117,6 +119,21 @@ const currentRunLabel = "현재 찬성 없이 이어진 날";
 const longestRunLabel = "가장 길게 찬성 없이 이어진 날";
 const runSummaryCopy =
   "이 화면은 표결이 있었던 날짜를 하루 단위로 묶어 보여줍니다. 같은 날 표결이 여러 건이면 그날의 대표 상태만 색으로 표시하고, 지금·최장 지표는 찬성이 나오기 전까지 이어진 날짜 수를 뜻합니다.";
+
+function describeDebtRatioStatus(status: DebtRatioStatus): string {
+  switch (status) {
+    case "none":
+      return "공개 채무 없음";
+    case "below-half":
+      return "총자산의 절반 미만";
+    case "half-or-more":
+      return "총자산의 절반 이상";
+    case "assets-exceeded":
+      return "채무가 총자산 이상";
+    case "unavailable":
+      return "비율 산정 불가";
+  }
+}
 
 type RatioDatum = {
   label: string;
@@ -722,6 +739,8 @@ function MemberAssetCompareSection({
   const rightRealEstate = buildRealEstateFocusSummary(
     resolveAssetHistorySnapshot(rightHistory, "familyIncluded")
   );
+  const leftDebt = buildDebtFocusSummary(leftHistory, "familyIncluded");
+  const rightDebt = buildDebtFocusSummary(rightHistory, "familyIncluded");
   const leftLatestTotal =
     leftHistory?.latestSummary.currentAmount ??
     leftIndexEntry?.latestTotal ??
@@ -775,6 +794,24 @@ function MemberAssetCompareSection({
         "absolute"
       )
     : null;
+  const debtAmountResolution =
+    leftDebt && rightDebt
+      ? resolveNumericComparison(
+          leftMember,
+          rightMember,
+          leftDebt.debtAmount,
+          rightDebt.debtAmount
+        )
+      : null;
+  const debtRatioResolution =
+    leftDebt?.debtRatio != null && rightDebt?.debtRatio != null
+      ? resolveNumericComparison(
+          leftMember,
+          rightMember,
+          leftDebt.debtRatio,
+          rightDebt.debtRatio
+        )
+      : null;
 
   const comparisonCards =
     leftReady && rightReady
@@ -787,8 +824,8 @@ function MemberAssetCompareSection({
                 : `차이 ${formatAssetMagnitude(latestTotalResolution.difference)}`,
             summaryText:
               latestTotalResolution.winner === "tie"
-                ? "최신 총재산이 같습니다."
-                : `${withSubjectParticle(latestTotalResolution.winnerMember?.name ?? "")} 최신 총재산이 ${formatAssetMagnitude(latestTotalResolution.difference)} 더 많습니다.`,
+                ? "최신 순재산이 같습니다."
+                : `${withSubjectParticle(latestTotalResolution.winnerMember?.name ?? "")} 최신 순재산이 ${formatAssetMagnitude(latestTotalResolution.difference)} 더 많습니다.`,
             detailText: `${leftMember.name} ${formatAssetAmount(leftLatestTotal)} · ${rightMember.name} ${formatAssetAmount(rightLatestTotal)}`
           },
           {
@@ -815,6 +852,40 @@ function MemberAssetCompareSection({
                 : `${withSubjectParticle(deltaResolution.winnerMember?.name ?? "")} 22대 누적 증감폭이 ${formatAssetMagnitude(deltaResolution.difference)} 더 큽니다.`,
             detailText: `${leftMember.name} ${formatAssetDelta(leftTotalDelta)} · ${rightMember.name} ${formatAssetDelta(rightTotalDelta)}`
           },
+          ...(debtAmountResolution && leftDebt && rightDebt
+            ? [
+                {
+                  winner: debtAmountResolution.winner,
+                  badgeText:
+                    debtAmountResolution.winner === "tie"
+                      ? "동률"
+                      : `차이 ${formatAssetMagnitude(debtAmountResolution.difference)}`,
+                  summaryText:
+                    debtAmountResolution.winner === "tie"
+                      ? "공개 채무가 같습니다."
+                      : `${withSubjectParticle(debtAmountResolution.winnerMember?.name ?? "")} 공개 채무가 ${formatAssetMagnitude(debtAmountResolution.difference)} 더 많습니다.`,
+                  detailText: `${leftMember.name} ${formatAssetAmount(leftDebt.debtAmount)} · ${rightMember.name} ${formatAssetAmount(rightDebt.debtAmount)}`
+                }
+              ]
+            : []),
+          ...(debtRatioResolution &&
+          leftDebt?.debtRatio != null &&
+          rightDebt?.debtRatio != null
+            ? [
+                {
+                  winner: debtRatioResolution.winner,
+                  badgeText:
+                    debtRatioResolution.winner === "tie"
+                      ? "동률"
+                      : `차이 ${(debtRatioResolution.difference * 100).toFixed(1)}%p`,
+                  summaryText:
+                    debtRatioResolution.winner === "tie"
+                      ? "총자산 대비 부채비율이 같습니다."
+                      : `${withSubjectParticle(debtRatioResolution.winnerMember?.name ?? "")} 총자산 대비 부채비율이 ${(debtRatioResolution.difference * 100).toFixed(1)}%p 더 높습니다.`,
+                  detailText: `${leftMember.name} ${formatPercent(leftDebt.debtRatio)} · ${rightMember.name} ${formatPercent(rightDebt.debtRatio)}`
+                }
+              ]
+            : []),
           ...(familyGapResolution
             ? [
                 {
@@ -842,8 +913,8 @@ function MemberAssetCompareSection({
           <h3>재산 공개 기준 비교</h3>
         </div>
         <p>
-          최신 총재산과 부동산, 22대 누적 증감, 가족 포함 여부에 따른 괴리를
-          함께 봅니다.
+          최신 순재산과 부동산, 공개 채무와 부채비율, 22대 누적 증감, 가족 포함
+          여부에 따른 괴리를 함께 봅니다.
         </p>
       </div>
 
@@ -889,7 +960,8 @@ function MemberAssetCompareSection({
             realEstate: leftRealEstate,
             latestTotal: leftLatestTotal,
             totalDelta: leftTotalDelta,
-            familyGap: leftFamilyGap
+            familyGap: leftFamilyGap,
+            debt: leftDebt
           },
           {
             member: rightMember,
@@ -901,7 +973,8 @@ function MemberAssetCompareSection({
             realEstate: rightRealEstate,
             latestTotal: rightLatestTotal,
             totalDelta: rightTotalDelta,
-            familyGap: rightFamilyGap
+            familyGap: rightFamilyGap,
+            debt: rightDebt
           }
         ].map((entry) => (
           <article
@@ -944,7 +1017,7 @@ function MemberAssetCompareSection({
             ) : (
               <dl className="activity-asset-compare__facts">
                 <div>
-                  <dt>최신 총재산</dt>
+                  <dt>최신 순재산</dt>
                   <dd>{formatAssetAmount(entry.latestTotal)}</dd>
                 </div>
                 <div>
@@ -968,6 +1041,22 @@ function MemberAssetCompareSection({
                   <dt>가족 차이</dt>
                   <dd>
                     <AssetTrendValue value={entry.familyGap} />
+                  </dd>
+                </div>
+                <div>
+                  <dt>공개 채무</dt>
+                  <dd>
+                    {entry.debt
+                      ? formatAssetAmount(entry.debt.debtAmount)
+                      : "자료 없음"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>부채비율</dt>
+                  <dd>
+                    {entry.debt?.debtRatio == null
+                      ? "산정 불가"
+                      : formatPercent(entry.debt.debtRatio)}
                   </dd>
                 </div>
               </dl>
@@ -1145,6 +1234,7 @@ function MemberAssetSection({
     [activeHistory]
   );
   const realEstateFocus = buildRealEstateFocusSummary(activeHistory);
+  const debtFocus = buildDebtFocusSummary(history, assetScopeMode);
   const familyGapLatest = getFamilyGapLatest(history);
   const familyIncludedTotal =
     history?.latestSummary.currentAmount ?? indexEntry?.latestTotal ?? 0;
@@ -1282,8 +1372,9 @@ function MemberAssetSection({
           <h3>22대 국회 재산 변동 흐름</h3>
         </div>
         <p>
-          총재산을 기본선으로 두고, 주요 카테고리 소계를 겹쳐 볼 수 있습니다.
-          부동산 포커스는 건물과 토지만 따로 집계합니다. 화면 표시는 억원입니다.
+          순재산을 기본선으로 두고, 부동산과 채무를 함께 비교합니다. 부채비율은
+          공개 채무를 순재산과 채무의 합으로 나눠 계산합니다. 화면 표시는
+          억원입니다.
         </p>
       </div>
 
@@ -1333,7 +1424,7 @@ function MemberAssetSection({
             <p className="section-label">표시 기준</p>
             <h4>아래 포커스와 그래프를 {activeScopeLabel} 기준으로 봅니다</h4>
             <p>
-              선택이 최신 총재산, 부동산 포커스, 카테고리 추이에 함께
+              선택이 최신 순재산, 부동산 포커스, 부채 현황, 카테고리 추이에 함께
               반영됩니다.
             </p>
           </div>
@@ -1410,9 +1501,54 @@ function MemberAssetSection({
         </div>
       ) : null}
 
+      {debtFocus ? (
+        <div className="activity-asset-debt" aria-label="부채 현황">
+          <div className="activity-asset-debt__head">
+            <div>
+              <p className="section-label">부채 현황</p>
+              <h4>공개 자산과 채무를 함께 봅니다</h4>
+            </div>
+            <span
+              className={`activity-asset-debt__status is-${debtFocus.status}`}
+            >
+              {describeDebtRatioStatus(debtFocus.status)}
+            </span>
+          </div>
+
+          <dl className="activity-asset-debt__summary">
+            <div>
+              <dt>공개 채무</dt>
+              <dd>{formatAssetAmount(debtFocus.debtAmount)}</dd>
+            </div>
+            <div>
+              <dt>총자산 추정</dt>
+              <dd>{formatAssetAmount(debtFocus.grossAssetAmount)}</dd>
+            </div>
+            <div>
+              <dt>부채비율</dt>
+              <dd>
+                {debtFocus.debtRatio == null
+                  ? "산정 불가"
+                  : formatPercent(debtFocus.debtRatio)}
+              </dd>
+            </div>
+            <div>
+              <dt>순재산</dt>
+              <dd>{formatAssetAmount(debtFocus.netAssetAmount)}</dd>
+            </div>
+          </dl>
+
+          <p className="activity-asset-debt__note">
+            {debtFocus.debtRatio == null
+              ? "순재산과 채무의 합이 0원 이하라 부채비율을 계산하지 않습니다."
+              : "부채비율 = 공개 채무 ÷ (공개 순재산 + 공개 채무). 100% 이상이면 채무가 공개 총자산 이상이라는 뜻입니다."}
+          </p>
+        </div>
+      ) : null}
+
       <dl className="activity-asset-summary">
         <div>
-          <dt>최신 총재산</dt>
+          <dt>최신 순재산</dt>
           <dd>{formatAssetAmount(activeLatestTotal)}</dd>
         </div>
         <div>
@@ -1427,12 +1563,12 @@ function MemberAssetSection({
         <div className="activity-asset-composition">
           <div className="activity-asset-composition__head">
             <div>
-              <p className="section-label">재산 구성 비중</p>
+              <p className="section-label">공개 항목 구성</p>
               <h4>{activeScopeLabel} 기준 최신 공개 금액</h4>
             </div>
             <p>
-              0원이 아니고 최신 공개 문서에서 금액이 확인된 카테고리만 비중에
-              포함합니다.
+              채무를 포함한 카테고리별 표시 비중입니다. 순재산 산식의 구성비와는
+              다릅니다.
             </p>
           </div>
 
@@ -1509,7 +1645,7 @@ function MemberAssetSection({
                 return [
                   formatAssetAmount(amount),
                   seriesKey === "total"
-                    ? `총재산 (${activeScopeLabel})`
+                    ? `순재산 (${activeScopeLabel})`
                     : (orderedCategorySeries.find(
                         (series) => series.categoryKey === seriesKey
                       )?.categoryLabel ?? seriesKey)
@@ -1520,7 +1656,7 @@ function MemberAssetSection({
             <Legend
               formatter={(value) =>
                 value === "total"
-                  ? `총재산 (${activeScopeLabel})`
+                  ? `순재산 (${activeScopeLabel})`
                   : (orderedCategorySeries.find(
                       (series) => series.categoryKey === value
                     )?.categoryLabel ?? value)

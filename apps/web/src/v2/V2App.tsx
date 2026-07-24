@@ -10,7 +10,7 @@ import { useMemberAssetsData } from "../hooks/useMemberAssetsData.js";
 import { loadAccountabilitySummary } from "../lib/data.js";
 import { buildDistributionMembers } from "../lib/distribution.js";
 import { formatDateTime } from "../lib/format.js";
-import { applyMemberAssetsIndexRealEstateFallbacks } from "../lib/member-assets.js";
+import { applyMemberAssetsIndexFallbacks } from "../lib/member-assets.js";
 import "../styles/v3-shell.css";
 
 import type { MemberSearchOption } from "../components/MemberSearchField.js";
@@ -172,7 +172,7 @@ function V2HomeExperience({ routing }: { routing: V2Routing }) {
   );
   const resolvedMemberAssetsIndex = useMemo(
     () =>
-      applyMemberAssetsIndexRealEstateFallbacks(
+      applyMemberAssetsIndexFallbacks(
         memberAssetsState.memberAssetsIndex,
         memberAssetsState.memberAssetHistories
       ),

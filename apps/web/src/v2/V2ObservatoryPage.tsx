@@ -26,6 +26,7 @@ import { MemberDetailLink } from "../components/MemberDetailLink.js";
 import { buildWeeklyTrendChartData } from "../lib/charts.js";
 import { convertThousandWonToEok } from "../lib/format.js";
 import { getMetricModulatedColor, getPartyColor } from "../lib/geo-utils.js";
+import { calculateDebtRatio } from "../lib/member-assets.js";
 import {
   getPaddedAxisDomain,
   getScatterYDomain
@@ -51,7 +52,8 @@ type ObservatoryPoint = {
   x: number;
   y: number;
   score: number;
-  supportValue: number;
+  supportValue: number | null;
+  debtAmount?: number;
   basisValue: string;
 };
 
@@ -68,7 +70,7 @@ type RankingRow = {
   name: string;
   party: string;
   score: number;
-  supportValue: number;
+  supportValue: number | null;
   basisValue: string;
   section: "top" | "bottom";
 };
@@ -139,16 +141,16 @@ const LENS_CONFIGS: LensConfig[] = [
     mapMetric: "realEstate",
     mapTitle: "지역별 공개 부동산 분포",
     mapLegendMetric: "공개 부동산액",
-    scatterTitle: "의원별 총재산·부동산 분포",
-    xLabel: "총재산 (억원)",
+    scatterTitle: "의원별 순재산·부동산 분포",
+    xLabel: "순재산 (억원)",
     yLabel: "부동산 (억원)",
     trendKicker: "의원 비교",
-    trendTitle: "공개 재산 상위 의원 비교",
-    trendSeries: ["총재산", "부동산", "재산 증감"],
+    trendTitle: "공개 순재산 상위 의원의 자산·부채",
+    trendSeries: ["순재산", "부동산", "부채"],
     trendCategoryLabel: "의원",
-    rankingTitle: "공개 총재산 상위 5 / 하위 5",
-    scoreLabel: "공개 총재산",
-    supportLabel: "부동산 비중",
+    rankingTitle: "공개 순재산 상위 5 / 하위 5",
+    scoreLabel: "공개 순재산",
+    supportLabel: "총자산 대비 부채비율",
     basisLabel: "최근 공개일"
   }
 ];
@@ -280,7 +282,8 @@ function buildAssetTrend(assets: MemberAssetsIndexExport | null): TrendPoint[] {
       label: member.name,
       primary: toEok(member.latestTotal),
       secondary: toEok(member.latestRealEstateTotal),
-      tertiary: toEok(member.totalDelta)
+      tertiary:
+        member.latestDebtTotal == null ? null : toEok(member.latestDebtTotal)
     }));
 }
 
@@ -293,7 +296,7 @@ function buildPoints(
     (assets?.members ?? []).map((member) => [member.memberId, member])
   );
 
-  return members.flatMap((member) => {
+  return members.flatMap((member): ObservatoryPoint[] => {
     const district = member.district ?? "비례대표";
     if (lens === "attendance") {
       return [
@@ -334,6 +337,12 @@ function buildPoints(
 
     const total = toEok(asset.latestTotal);
     const realEstate = toEok(asset.latestRealEstateTotal);
+    const debtAmount =
+      asset.latestDebtTotal == null ? undefined : toEok(asset.latestDebtTotal);
+    const debtRatio =
+      asset.latestDebtTotal == null
+        ? null
+        : calculateDebtRatio(asset.latestTotal, asset.latestDebtTotal);
     return [
       {
         memberId: member.memberId,
@@ -343,7 +352,8 @@ function buildPoints(
         x: total,
         y: realEstate,
         score: total,
-        supportValue: total > 0 ? (realEstate / total) * 100 : 0,
+        supportValue: debtRatio == null ? null : debtRatio * 100,
+        debtAmount,
         basisValue: asset.latestDisclosureDate.slice(0, 10)
       }
     ];
@@ -401,6 +411,17 @@ function ScatterTooltipContent({
       <span>
         {`${xLabel} ${formatValue(point.x)} · ${yLabel} ${formatValue(point.y)}`}
       </span>
+      {config.key === "assets" ? (
+        <span>
+          {point.debtAmount == null
+            ? "부채 자료 준비 중"
+            : `부채 ${formatEok(point.debtAmount)} · 부채비율 ${
+                point.supportValue == null
+                  ? "산정 불가"
+                  : formatPercentValue(point.supportValue)
+              }`}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -525,9 +546,13 @@ export function V2ObservatoryPage({
   );
   const highestSupportPoint = useMemo(
     () =>
-      [...points].sort(
-        (left, right) => right.supportValue - left.supportValue
-      )[0] ?? null,
+      points
+        .filter((point) => point.supportValue != null)
+        .sort(
+          (left, right) =>
+            (right.supportValue ?? Number.NEGATIVE_INFINITY) -
+            (left.supportValue ?? Number.NEGATIVE_INFINITY)
+        )[0] ?? null,
     [points]
   );
   const xDomain = useMemo(() => getPaddedAxisDomain(points, "x"), [points]);
@@ -575,7 +600,7 @@ export function V2ObservatoryPage({
       ? "위로 갈수록 반대·기권 비중이 높고, 오른쪽으로 갈수록 출석률이 높습니다."
       : activeLens === "voting"
         ? "오른쪽으로 갈수록 찬성 비중이 높고, 위로 갈수록 이탈 표결이 많습니다."
-        : "오른쪽으로 갈수록 총재산이 크고, 위로 갈수록 부동산 공개액이 큽니다.";
+        : "오른쪽으로 갈수록 순재산이 크고, 위로 갈수록 부동산 공개액이 큽니다. 부채는 비교 카드와 근거 목록에서 함께 확인합니다.";
 
   return (
     <main className="v2-observatory" id="v2-main-content">
@@ -832,7 +857,7 @@ export function V2ObservatoryPage({
                       name={highestSupportPoint.name}
                       onNavigate={onOpenMember}
                     />
-                    {` 의원이 현재 비교군에서 부동산 비중이 가장 높습니다.`}
+                    {` 의원이 현재 비교군에서 총자산 대비 부채비율이 가장 높습니다.`}
                   </>
                 ) : (
                   <>
@@ -875,7 +900,9 @@ export function V2ObservatoryPage({
           {showMethod ? (
             <p id="v2-method-copy" className="v2-method-copy">
               공개 기록표결, 의원 활동 캘린더, 정기 재산공개를 동일 의원
-              식별자로 연결합니다. 값이 없는 항목은 순위와 평균에서 제외합니다.
+              식별자로 연결합니다. 재산의 부채비율은 공개 채무를 순재산과 채무의
+              합으로 나눠 계산하며, 분모가 0원 이하인 경우 산정하지 않습니다.
+              값이 없는 항목은 순위와 평균에서 제외합니다.
             </p>
           ) : null}
         </aside>
@@ -1261,7 +1288,11 @@ export function V2ObservatoryPage({
                         : formatPercentValue(row.score)}
                     </td>
                     <td>{row.basisValue}</td>
-                    <td>{formatPercentValue(row.supportValue)}</td>
+                    <td>
+                      {row.supportValue == null
+                        ? "자료 없음"
+                        : formatPercentValue(row.supportValue)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

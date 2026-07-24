@@ -1202,6 +1202,23 @@ function buildLatestRealEstateTotal(
   }, 0);
 }
 
+function buildLatestDebtTotal(
+  categorySeries: MemberAssetsHistoryExport["categorySeries"],
+  reportedAt: string
+): number {
+  return categorySeries.reduce((sum, category) => {
+    if (!isDebtCategoryLabel(category.categoryLabel)) {
+      return sum;
+    }
+
+    return (
+      sum +
+      (category.points.find((point) => point.reportedAt === reportedAt)
+        ?.currentAmount ?? 0)
+    );
+  }, 0);
+}
+
 function buildSelfOnlyScopedHistory(args: {
   categoriesByDisclosureCategoryId: Map<
     string,
@@ -1452,6 +1469,10 @@ function buildMemberAssetExports(args: {
         latestDisclosureDate: latestRecord.reportedAt,
         latestTotal: latestRecord.currentAmount,
         latestRealEstateTotal: buildLatestRealEstateTotal(
+          categorySeries,
+          latestRecord.reportedAt
+        ),
+        latestDebtTotal: buildLatestDebtTotal(
           categorySeries,
           latestRecord.reportedAt
         ),
