@@ -575,6 +575,14 @@ export function normalizeCompactAssemblyDate(value: unknown): string | null {
   return normalizeDocumentDate(text);
 }
 
+export function isAssemblyMinutesViewerUrl(value: string): boolean {
+  try {
+    return new URL(value).pathname === "/assembly/viewer/minutes/xml.do";
+  } catch {
+    return false;
+  }
+}
+
 export function buildAssemblyFileServiceSourceSnapshot(
   items: AssemblyFileServiceItem[]
 ): {
@@ -1489,7 +1497,10 @@ async function main(): Promise<void> {
     );
     let mirroredMetadata = outcome.metadata;
 
-    if (config.mode === "assembly_minutes_search") {
+    if (
+      config.mode === "assembly_minutes_search" &&
+      isAssemblyMinutesViewerUrl(candidate.sourceUrl)
+    ) {
       try {
         const transcriptOutcome = await mirrorAssemblyMinutesTranscript({
           api,

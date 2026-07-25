@@ -14,6 +14,7 @@ import {
 import {
   buildAssemblyFileServiceSourceSnapshot,
   buildAssemblySearchWindows,
+  isAssemblyMinutesViewerUrl,
   normalizeCompactAssemblyDate,
   resolveMirrorDataRepoDir,
   resolveNextBackfillCursorDate,
@@ -27,6 +28,19 @@ describe("document mirror helpers", () => {
     expect(normalizeDocumentDate("2026년 2월 23일")).toBe("2026-02-23");
     expect(normalizeDocumentDate("date unavailable")).toBeNull();
     expect(normalizeCompactAssemblyDate("20250710000000")).toBe("2025-07-10");
+  });
+
+  it("limits transcript parsing to the official minutes viewer", () => {
+    expect(
+      isAssemblyMinutesViewerUrl(
+        "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=55092&type=view"
+      )
+    ).toBe(true);
+    expect(
+      isAssemblyMinutesViewerUrl(
+        "https://record.assembly.go.kr/assembly/viewer/minutes/download/apndx.do?id=1356097"
+      )
+    ).toBe(false);
   });
 
   it("builds stable document ids and storage paths", () => {
