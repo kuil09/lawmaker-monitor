@@ -157,8 +157,13 @@ Minutes summary settings:
 - `MINUTES_SUMMARY_MAX_GROUPS`
 
 The summary workflow runs an open-weight GGUF model directly on the GitHub
-Actions runner. It does not send minutes to a hosted inference API. Speaker and
-bill attribution come from the structured Assembly minutes viewer; the model is
+Actions runner. It does not send minutes to a hosted inference API. The
+Assembly search endpoint is used only as a document catalog to discover minutes
+IDs and dates. Every summary input must come from a separately downloaded
+official minutes viewer document at
+`record.assembly.go.kr/assembly/viewer/minutes/xml.do`. The pipeline splits
+those documents into member statements before the model is invoked. Speaker and
+agenda attribution come from that structured minutes document; the model is
 used only to shorten the attributed source text.
 
 Property disclosure mirror settings use the same document mirror infrastructure plus Assembly file-service specific inputs:

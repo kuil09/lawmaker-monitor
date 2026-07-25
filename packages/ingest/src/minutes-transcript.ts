@@ -33,6 +33,20 @@ function normalizeText(value: string): string {
   return value.replaceAll("\u00a0", " ").replace(/\s+/g, " ").trim();
 }
 
+export function isOfficialAssemblyMinutesViewerUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      url.hostname === "record.assembly.go.kr" &&
+      url.pathname === "/assembly/viewer/minutes/xml.do" &&
+      Boolean(url.searchParams.get("id"))
+    );
+  } catch {
+    return false;
+  }
+}
+
 function extractBillIds(value: string): string[] {
   const ids = new Set<string>();
 

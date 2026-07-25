@@ -372,7 +372,10 @@ export const memberStatementSummaryItemSchema = z
     sourceUrl: nonEmptyString.url(),
     sourceFragment: nonEmptyString,
     sourceDocumentPath: nonEmptyString,
-    sourceContentSha256: nonEmptyString
+    sourceContentSha256: nonEmptyString,
+    sourceKind: z
+      .literal("official_minutes_transcript")
+      .default("official_minutes_transcript")
   })
   .strict();
 

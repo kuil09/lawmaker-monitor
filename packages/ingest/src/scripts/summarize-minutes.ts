@@ -17,13 +17,16 @@ import {
   type MinutesDocumentSummaryArtifact,
   type MinutesSummaryMember
 } from "../minutes-summarization.js";
+import {
+  isOfficialAssemblyMinutesViewerUrl,
+  type AssemblyMinutesTranscript
+} from "../minutes-transcript.js";
 import { readJsonFile, writeJsonFile } from "../utils.js";
 
 import type {
   MirroredDocumentIndex,
   MirroredDocumentIndexItem
 } from "../document-mirror.js";
-import type { AssemblyMinutesTranscript } from "../minutes-transcript.js";
 
 type SummaryConfig = {
   dataRepoDir: string;
@@ -42,11 +45,13 @@ type SummaryState = {
   updatedAt: string;
   modelId: string;
   promptVersion: string;
+  sourceKind: "official_minutes_transcript";
   documentsVisited: number;
   documentsCompleted: number;
   groupsSummarized: number;
   groupsFailed: number;
   remainingDocuments: number;
+  membersPublished: number;
 };
 
 function readPositiveInteger(name: string, fallback: number): number {
@@ -85,8 +90,8 @@ function loadConfig(): SummaryConfig {
     endpoint:
       process.env.MINUTES_SUMMARY_ENDPOINT?.trim() ||
       "http://127.0.0.1:8080/v1/chat/completions",
-    maxDocuments: readPositiveInteger("MINUTES_SUMMARY_MAX_DOCUMENTS", 3),
-    maxGroups: readPositiveInteger("MINUTES_SUMMARY_MAX_GROUPS", 24)
+    maxDocuments: readPositiveInteger("MINUTES_SUMMARY_MAX_DOCUMENTS", 8),
+    maxGroups: readPositiveInteger("MINUTES_SUMMARY_MAX_GROUPS", 64)
   };
 }
 
@@ -103,7 +108,11 @@ function isTranscriptDocument(
   transcriptRelativePath: string;
   transcriptContentSha256: string;
 } {
-  return Boolean(item.transcriptRelativePath && item.transcriptContentSha256);
+  return Boolean(
+    item.transcriptRelativePath &&
+    item.transcriptContentSha256 &&
+    isOfficialAssemblyMinutesViewerUrl(item.sourceUrl)
+  );
 }
 
 async function readTranscript(
@@ -121,7 +130,9 @@ async function readTranscript(
   if (
     payload.schemaVersion !== 1 ||
     !Array.isArray(payload.agendaItems) ||
-    !Array.isArray(payload.statements)
+    !Array.isArray(payload.statements) ||
+    !isOfficialAssemblyMinutesViewerUrl(payload.sourceUrl) ||
+    payload.sourceUrl !== item.sourceUrl
   ) {
     throw new Error(
       `Unsupported minutes transcript: ${item.transcriptRelativePath}`
@@ -193,7 +204,8 @@ async function main(): Promise<void> {
     (member) => ({
       memberId: member.memberId,
       name: member.name,
-      party: member.party
+      party: member.party,
+      officialProfileUrl: member.officialProfileUrl ?? null
     })
   );
   const candidateDocuments = documentIndex.items.filter(isTranscriptDocument);
@@ -208,6 +220,7 @@ async function main(): Promise<void> {
       const artifact = artifactByDocumentId.get(item.documentId);
       return !(
         artifact?.complete &&
+        artifact.sourceKind === "official_minutes_transcript" &&
         artifact.sourceContentSha256 === item.transcriptContentSha256 &&
         artifact.modelId === config.modelId &&
         artifact.promptVersion === MINUTES_SUMMARY_PROMPT_VERSION
@@ -249,6 +262,7 @@ async function main(): Promise<void> {
     const existingArtifact = artifactByDocumentId.get(item.documentId);
     const canReuseExisting =
       existingArtifact?.sourceContentSha256 === item.transcriptContentSha256 &&
+      existingArtifact.sourceKind === "official_minutes_transcript" &&
       existingArtifact.modelId === config.modelId &&
       existingArtifact.promptVersion === MINUTES_SUMMARY_PROMPT_VERSION;
     const summaries = canReuseExisting ? [...existingArtifact.summaries] : [];
@@ -287,6 +301,7 @@ async function main(): Promise<void> {
           sourceFragment: group.sourceFragment,
           sourceDocumentPath: item.latestRelativePath,
           sourceContentSha256: item.transcriptContentSha256,
+          sourceKind: "official_minutes_transcript",
           memberId: group.member.memberId,
           name: group.member.name,
           party: group.member.party
@@ -312,6 +327,7 @@ async function main(): Promise<void> {
 
     const artifact: MinutesDocumentSummaryArtifact = {
       schemaVersion: 1,
+      sourceKind: "official_minutes_transcript",
       generatedAt,
       documentId: item.documentId,
       sourceContentSha256: item.transcriptContentSha256,
@@ -394,6 +410,7 @@ async function main(): Promise<void> {
     const artifact = artifactByDocumentId.get(item.documentId);
     return !(
       artifact?.complete &&
+      artifact.sourceKind === "official_minutes_transcript" &&
       artifact.sourceContentSha256 === item.transcriptContentSha256 &&
       artifact.modelId === config.modelId &&
       artifact.promptVersion === MINUTES_SUMMARY_PROMPT_VERSION
@@ -403,11 +420,13 @@ async function main(): Promise<void> {
     updatedAt: generatedAt,
     modelId: config.modelId,
     promptVersion: MINUTES_SUMMARY_PROMPT_VERSION,
+    sourceKind: "official_minutes_transcript",
     documentsVisited: pendingDocuments.length,
     documentsCompleted,
     groupsSummarized,
     groupsFailed,
-    remainingDocuments
+    remainingDocuments,
+    membersPublished: memberExports.length
   };
   await writeJsonFile(join(config.dataRepoDir, config.statePath), state);
   process.stdout.write(`${JSON.stringify(state, null, 2)}\n`);

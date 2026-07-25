@@ -63,8 +63,9 @@ describe("member statement summary section", () => {
           sourceUrl:
             "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=1&type=view",
           sourceFragment: "#spk_2",
-          sourceDocumentPath: "raw/minutes-1/latest.pdf",
-          sourceContentSha256: "hash"
+          sourceDocumentPath: "raw/minutes-1/latest.html",
+          sourceContentSha256: "hash",
+          sourceKind: "official_minutes_transcript"
         }
       ]
     });
@@ -84,9 +85,11 @@ describe("member statement summary section", () => {
       "href",
       "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=1&type=view#spk_2"
     );
-    expect(screen.getByRole("link", { name: "원문 PDF" })).toHaveAttribute(
+    expect(
+      screen.getByRole("link", { name: "수집 회의록 원문" })
+    ).toHaveAttribute(
       "href",
-      "https://data.example.test/raw/minutes-1/latest.pdf"
+      "https://data.example.test/raw/minutes-1/latest.html"
     );
     expect(dataMocks.loadMemberStatementSummaries).toHaveBeenCalledWith(
       "exports/member_statement_summaries/M001.json"

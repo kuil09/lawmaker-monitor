@@ -1,3 +1,4 @@
+import { isOfficialAssemblyMinutesViewerUrl } from "./minutes-transcript.js";
 import { sha256 } from "./utils.js";
 
 import type {
@@ -10,12 +11,13 @@ import type {
   MemberStatementSummaryItem
 } from "@lawmaker-monitor/schemas";
 
-export const MINUTES_SUMMARY_PROMPT_VERSION = "minutes-summary-v3";
+export const MINUTES_SUMMARY_PROMPT_VERSION = "minutes-summary-v4";
 
 export type MinutesSummaryMember = {
   memberId: string;
   name: string;
   party: string;
+  officialProfileUrl?: string | null;
 };
 
 export type MinutesSummaryGroup = {
@@ -42,6 +44,7 @@ export type MinutesDocumentMemberSummary = MemberStatementSummaryItem & {
 
 export type MinutesDocumentSummaryArtifact = {
   schemaVersion: 1;
+  sourceKind?: "official_minutes_transcript";
   generatedAt: string;
   documentId: string;
   sourceContentSha256: string;
@@ -63,6 +66,19 @@ export type SummarizeMinutesText = (input: {
 
 function normalizeMemberName(value: string): string {
   return value.replace(/\s+/g, "").trim();
+}
+
+function normalizeOfficialProfileUrl(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value, "https://www.assembly.go.kr");
+    return `${url.hostname.toLowerCase()}${url.pathname.replace(/\/+$/, "")}`;
+  } catch {
+    return null;
+  }
 }
 
 function normalizeAgendaReference(value: string): string {
@@ -95,11 +111,32 @@ function isPresidingOfficerStatement(statement: AssemblyMinutesStatement) {
   return normalizedRole === "의장" || normalizedRole === "부의장";
 }
 
+function isProceduralStatement(statement: AssemblyMinutesStatement): boolean {
+  const text = statement.paragraphs.join(" ").replace(/\s+/g, " ").trim();
+  if (text.length >= 80) {
+    return false;
+  }
+
+  return [
+    /개의를\s*선언/,
+    /산회를\s*선포/,
+    /정회를\s*(?:선포|하겠)/,
+    /회의를\s*속개/,
+    /(?:안건|의사일정).{0,20}상정/,
+    /법안을.{0,20}상정/,
+    /가결되었음을\s*선포/,
+    /의결되었음을\s*선포/
+  ].some((pattern) => pattern.test(text));
+}
+
 export function resolveStatementAgendaItem(args: {
   statement: AssemblyMinutesStatement;
   agendaItems: AssemblyMinutesAgendaItem[];
 }): AssemblyMinutesAgendaItem | null {
-  if (isPresidingOfficerStatement(args.statement)) {
+  if (
+    isPresidingOfficerStatement(args.statement) ||
+    isProceduralStatement(args.statement)
+  ) {
     return null;
   }
 
@@ -137,12 +174,24 @@ export function resolveStatementAgendaItem(args: {
     return first.agenda;
   }
 
-  if (matches.length === 0 && ["의원", "위원"].includes(normalizedRole)) {
+  if (matches.length === 0) {
     const declaredAgenda = args.agendaItems.find(
       (agenda) => agenda.agendaItemId === args.statement.agendaItemId
     );
-    if (declaredAgenda?.billIds.length === 1) {
+    if (declaredAgenda) {
       return declaredAgenda;
+    }
+
+    if (
+      args.statement.agendaItemId === "item0" &&
+      /(?:의원|위원|위원장|위원장대리)$/.test(normalizedRole)
+    ) {
+      return {
+        agendaItemId: "item0",
+        title: "회의 일반 발언",
+        billIds: [],
+        billDetailUrl: null
+      };
     }
   }
 
@@ -166,11 +215,59 @@ function buildUniqueMemberLookup(
   );
 }
 
+function buildUniqueProfileLookup(
+  members: MinutesSummaryMember[]
+): Map<string, MinutesSummaryMember> {
+  const grouped = new Map<string, MinutesSummaryMember[]>();
+
+  for (const member of members) {
+    const key = normalizeOfficialProfileUrl(member.officialProfileUrl);
+    if (!key) {
+      continue;
+    }
+    grouped.set(key, [...(grouped.get(key) ?? []), member]);
+  }
+
+  return new Map(
+    [...grouped.entries()].flatMap(([profileUrl, matches]) =>
+      matches.length === 1 && matches[0] ? [[profileUrl, matches[0]]] : []
+    )
+  );
+}
+
+function resolveStatementMember(args: {
+  statement: AssemblyMinutesStatement;
+  memberByName: Map<string, MinutesSummaryMember>;
+  memberByProfileUrl: Map<string, MinutesSummaryMember>;
+}): MinutesSummaryMember | null {
+  const profileKey = normalizeOfficialProfileUrl(
+    args.statement.officialProfileUrl
+  );
+  if (profileKey) {
+    const profileMatch = args.memberByProfileUrl.get(profileKey);
+    if (profileMatch) {
+      return profileMatch;
+    }
+  }
+
+  return (
+    args.memberByName.get(normalizeMemberName(args.statement.speakerName)) ??
+    null
+  );
+}
+
 export function buildMinutesSummaryGroups(args: {
   transcript: AssemblyMinutesTranscript;
   members: MinutesSummaryMember[];
 }): MinutesSummaryGroup[] {
+  if (!isOfficialAssemblyMinutesViewerUrl(args.transcript.sourceUrl)) {
+    throw new Error(
+      `Minutes summaries require an individual official minutes document URL: ${args.transcript.sourceUrl}`
+    );
+  }
+
   const memberByName = buildUniqueMemberLookup(args.members);
+  const memberByProfileUrl = buildUniqueProfileLookup(args.members);
   const grouped = new Map<
     string,
     {
@@ -188,7 +285,11 @@ export function buildMinutesSummaryGroups(args: {
       continue;
     }
 
-    const member = memberByName.get(normalizeMemberName(statement.speakerName));
+    const member = resolveStatementMember({
+      statement,
+      memberByName,
+      memberByProfileUrl
+    });
     if (!member) {
       continue;
     }
@@ -302,7 +403,7 @@ export function buildMinutesSummaryPrompt(args: {
     "다음은 대한민국 국회 회의록에서 특정 의원의 발언만 추출한 내용입니다.",
     `회의: ${args.group.meetingTitle} (${args.group.meetingDate})`,
     `안건: ${args.group.agendaTitle}`,
-    `의안번호: ${args.group.billIds.join(", ")}`,
+    `의안번호: ${args.group.billIds.join(", ") || "해당 없음"}`,
     `발언자: ${args.group.member.name}${args.group.speakerRole ? ` (${args.group.speakerRole})` : ""}`,
     "",
     partialContext,
@@ -425,6 +526,13 @@ export function buildMemberStatementSummaryExports(args: {
   const summariesByMemberId = new Map<string, MemberStatementSummaryItem[]>();
 
   for (const artifact of args.artifacts) {
+    if (
+      !isOfficialAssemblyMinutesViewerUrl(artifact.sourceUrl) ||
+      !artifact.sourceTranscriptPath.endsWith(".transcript.json")
+    ) {
+      continue;
+    }
+
     for (const summary of artifact.summaries) {
       summariesByMemberId.set(summary.memberId, [
         ...(summariesByMemberId.get(summary.memberId) ?? []),
@@ -442,7 +550,8 @@ export function buildMemberStatementSummaryExports(args: {
           sourceUrl: summary.sourceUrl,
           sourceFragment: summary.sourceFragment,
           sourceDocumentPath: summary.sourceDocumentPath,
-          sourceContentSha256: summary.sourceContentSha256
+          sourceContentSha256: summary.sourceContentSha256,
+          sourceKind: "official_minutes_transcript"
         }
       ]);
     }

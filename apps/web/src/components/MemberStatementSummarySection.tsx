@@ -77,11 +77,11 @@ export function MemberStatementSummarySection({
               경량 AI 요약
             </span>
           </div>
-          <h3>의안별 발언 핵심</h3>
+          <h3>회의록별 발언 핵심</h3>
         </div>
         <p>
-          국회가 공개한 발언자·안건 구조를 기준으로 요약했습니다. 해석이 필요한
-          경우 원문을 함께 확인하세요.
+          국회가 공개한 개별 회의록 원문을 수집해 회의·안건별로 나누고, 해당
+          의원의 발언만 분리해 요약했습니다.
         </p>
       </div>
 
@@ -137,9 +137,13 @@ export function MemberStatementSummarySection({
                     target="_blank"
                     rel="noreferrer"
                   >
-                    원문 PDF
+                    수집 회의록 원문
                   </a>
-                  <span>의안 {item.billIds.join(", ")}</span>
+                  {item.billIds.length > 0 ? (
+                    <span>의안 {item.billIds.join(", ")}</span>
+                  ) : (
+                    <span>국회 회의록 원문</span>
+                  )}
                 </div>
               </article>
             ))}

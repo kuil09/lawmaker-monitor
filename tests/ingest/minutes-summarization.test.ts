@@ -88,6 +88,105 @@ describe("minutes transcript summarization", () => {
     expect(groups.some((group) => group.agendaTitle === "개의")).toBe(false);
   });
 
+  it("keeps substantive member statements that are not tied to a bill", () => {
+    const transcript = parseAssemblyMinutesViewerHtml({
+      documentId: "minutes-general",
+      sourceUrl:
+        "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=2&type=view",
+      fallbackMeetingDate: "2025-08-01",
+      fallbackTitle: "Fallback minutes",
+      html: `
+        <div id="header">
+          <div class="tit"><h2><strong>제2차 운영위원회</strong><span class="date">(2025.08.01.)</span></h2></div>
+        </div>
+        <div class="minutes_body">
+          <p><a id="item4" class="tit">4. 현안질의</a></p>
+          <div id="spk_4" class="item4 speaker spk_mem" data-name="김민수" data-pos="위원">
+            <div class="talk"><div class="txt">
+              <span class="spk_sub">정부의 자료 제출이 지연된 이유와 향후 제출 일정을 구체적으로 밝혀 주시기 바랍니다.</span>
+            </div></div>
+          </div>
+        </div>
+      `
+    });
+
+    const groups = buildMinutesSummaryGroups({
+      transcript,
+      members: [{ memberId: "member-1", name: "김민수", party: "테스트당" }]
+    });
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({
+      member: { memberId: "member-1" },
+      agendaTitle: "4. 현안질의",
+      billIds: []
+    });
+  });
+
+  it("uses the official member profile URL to resolve duplicate names", () => {
+    const transcript = parseAssemblyMinutesViewerHtml({
+      documentId: "minutes-duplicate-name",
+      sourceUrl:
+        "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=3&type=view",
+      fallbackMeetingDate: "2025-08-01",
+      fallbackTitle: "Fallback minutes",
+      html: `
+        <div id="header">
+          <div class="tit"><h2><strong>제2차 운영위원회</strong><span class="date">(2025.08.01.)</span></h2></div>
+        </div>
+        <div class="minutes_body">
+          <p><a id="item4" class="tit">4. 현안질의</a></p>
+          <div id="spk_4" class="item4 speaker spk_mem" data-name="김민수" data-pos="위원">
+            <div class="man"><a href="https://www.assembly.go.kr/members/22nd/KIM-B"></a></div>
+            <div class="talk"><div class="txt">
+              <span class="spk_sub">중복된 이름이 있어도 공식 의원 프로필을 기준으로 해당 의원의 발언을 연결해야 합니다.</span>
+            </div></div>
+          </div>
+        </div>
+      `
+    });
+
+    const groups = buildMinutesSummaryGroups({
+      transcript,
+      members: [
+        {
+          memberId: "member-a",
+          name: "김민수",
+          party: "가당",
+          officialProfileUrl: "https://www.assembly.go.kr/members/22nd/KIM-A"
+        },
+        {
+          memberId: "member-b",
+          name: "김민수",
+          party: "나당",
+          officialProfileUrl: "https://www.assembly.go.kr/members/22nd/KIM-B"
+        }
+      ]
+    });
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.member.memberId).toBe("member-b");
+  });
+
+  it("rejects search pages as summary source documents", () => {
+    expect(() =>
+      buildMinutesSummaryGroups({
+        transcript: {
+          schemaVersion: 1,
+          documentId: "search-page",
+          sourceUrl:
+            "https://record.assembly.go.kr/assembly/mnts/search/search.do",
+          meetingTitle: "검색 결과",
+          meetingDate: "2025-08-01",
+          committeeName: null,
+          agendaItems: [],
+          statements: []
+        },
+        members: []
+      })
+    ).toThrow("individual official minutes document URL");
+  });
+
   it("reassigns a statement only when its bill reference is unambiguous", () => {
     const agendaItems = [
       {
@@ -228,11 +327,12 @@ describe("minutes transcript summarization", () => {
   it("builds schema-valid member exports from cached document artifacts", () => {
     const artifact: MinutesDocumentSummaryArtifact = {
       schemaVersion: 1,
+      sourceKind: "official_minutes_transcript",
       generatedAt: "2025-08-02T00:00:00.000Z",
       documentId: "minutes-1",
       sourceContentSha256: "hash",
       sourceTranscriptPath: "raw/minutes-1/latest.transcript.json",
-      sourceDocumentPath: "raw/minutes-1/latest.pdf",
+      sourceDocumentPath: "raw/minutes-1/latest.html",
       sourceUrl:
         "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=1&type=view",
       modelId: "Qwen/Qwen3-1.7B-GGUF:Q8_0",
@@ -254,8 +354,9 @@ describe("minutes transcript summarization", () => {
           sourceUrl:
             "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=1&type=view",
           sourceFragment: "#spk_2",
-          sourceDocumentPath: "raw/minutes-1/latest.pdf",
+          sourceDocumentPath: "raw/minutes-1/latest.html",
           sourceContentSha256: "hash",
+          sourceKind: "official_minutes_transcript",
           memberId: "member-1",
           name: "김민수",
           party: "테스트당"
