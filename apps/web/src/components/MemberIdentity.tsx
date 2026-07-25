@@ -1,8 +1,10 @@
+import { formatMemberAffiliation } from "../lib/member-affiliation.js";
 import { getOptimizedMemberPhotoUrl } from "../lib/member-photo.js";
 
 type MemberIdentityProps = {
   name: string;
   party?: string | null;
+  district?: string | null;
   photoUrl?: string | null;
   calendarHref?: string | null;
   size?: "small" | "medium" | "large";
@@ -13,6 +15,7 @@ type MemberIdentityProps = {
 export function MemberIdentity({
   name,
   party,
+  district,
   photoUrl,
   calendarHref,
   size = "medium",
@@ -47,8 +50,10 @@ export function MemberIdentity({
       )}
       <div className="member-identity__text">
         <span className="member-identity__name">{name}</span>
-        {showParty && party ? (
-          <span className="member-identity__party">{party}</span>
+        {showParty && (party || district !== undefined) ? (
+          <span className="member-identity__party">
+            {formatMemberAffiliation(party, district)}
+          </span>
         ) : null}
       </div>
     </>

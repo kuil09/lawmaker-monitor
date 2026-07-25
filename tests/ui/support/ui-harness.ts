@@ -17,8 +17,8 @@ import {
   type Page
 } from "playwright";
 
-export const appPort = 4173;
-export const dataPort = 4174;
+export const appPort = Number(process.env.UI_APP_PORT ?? 4173);
+export const dataPort = Number(process.env.UI_DATA_PORT ?? 4174);
 export const appUrl = `http://127.0.0.1:${appPort}`;
 export const dataUrl = `http://127.0.0.1:${dataPort}`;
 

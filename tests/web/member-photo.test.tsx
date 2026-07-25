@@ -66,4 +66,18 @@ describe("member photo optimization", () => {
       "member-identity__avatar--activity-card"
     );
   });
+
+  it("shows party and constituency as one affiliation line", () => {
+    const { getByText, rerender } = render(
+      <MemberIdentity name="김아라" party="진보당" district="울산 북구" />
+    );
+
+    expect(getByText("진보당 · 울산 북구")).toBeInTheDocument();
+
+    rerender(
+      <MemberIdentity name="이서진" party="더불어민주당" district={null} />
+    );
+
+    expect(getByText("더불어민주당 · 비례대표")).toBeInTheDocument();
+  });
 });

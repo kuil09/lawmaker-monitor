@@ -59,6 +59,7 @@ import {
   rankActivityMembers,
   type CalendarCell
 } from "../lib/member-activity.js";
+import { formatMemberAffiliation } from "../lib/member-affiliation.js";
 import {
   buildDebtFocusSummary,
   buildRealEstateFocusSummary,
@@ -990,7 +991,12 @@ function MemberAssetCompareSection({
                     name={entry.member.name}
                   />
                 </h4>
-                <p>{`${entry.member.party}${entry.indexEntry?.district ? ` · ${entry.indexEntry.district}` : ""}`}</p>
+                <p>
+                  {formatMemberAffiliation(
+                    entry.member.party,
+                    entry.indexEntry?.district
+                  )}
+                </p>
               </div>
             </div>
 
@@ -2665,13 +2671,29 @@ export function ActivityCalendarPage({
   const compareCandidates = rankedMembers.filter(
     (member) => member.memberId !== selectedMemberId
   );
+  const districtByMemberId = useMemo(
+    () =>
+      new Map(
+        (memberAssetsIndex?.members ?? []).map((member) => [
+          member.memberId,
+          member.district
+        ])
+      ),
+    [memberAssetsIndex]
+  );
   const memberOptions = rankedMembers.map((member) => ({
     id: member.memberId,
-    label: `${member.name} · ${member.party}`
+    label: `${member.name} · ${formatMemberAffiliation(
+      member.party,
+      districtByMemberId.get(member.memberId)
+    )}`
   }));
   const compareOptions = compareCandidates.map((member) => ({
     id: member.memberId,
-    label: `${member.name} · ${member.party}`
+    label: `${member.name} · ${formatMemberAffiliation(
+      member.party,
+      districtByMemberId.get(member.memberId)
+    )}`
   }));
 
   useEffect(() => {
@@ -3160,6 +3182,7 @@ export function ActivityCalendarPage({
                         <MemberIdentity
                           name={selectedMember.name}
                           party={selectedMember.party}
+                          district={selectedMemberAssetIndex?.district}
                           photoUrl={selectedMember.photoUrl}
                           calendarHref={buildCalendarHref({
                             memberId: selectedMember.memberId
@@ -3368,6 +3391,7 @@ export function ActivityCalendarPage({
                           <MemberIdentity
                             name={selectedMember.name}
                             party={selectedMember.party}
+                            district={selectedMemberAssetIndex?.district}
                             photoUrl={selectedMember.photoUrl}
                             calendarHref={buildCalendarHref({
                               memberId: selectedMember.memberId
@@ -3387,6 +3411,7 @@ export function ActivityCalendarPage({
                           <MemberIdentity
                             name={compareMember.name}
                             party={compareMember.party}
+                            district={compareMemberAssetIndex?.district}
                             photoUrl={compareMember.photoUrl}
                             calendarHref={buildCalendarHref({
                               memberId: compareMember.memberId

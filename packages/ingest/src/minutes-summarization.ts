@@ -1,12 +1,16 @@
 import { sha256 } from "./utils.js";
 
-import type { AssemblyMinutesTranscript } from "./minutes-transcript.js";
+import type {
+  AssemblyMinutesAgendaItem,
+  AssemblyMinutesStatement,
+  AssemblyMinutesTranscript
+} from "./minutes-transcript.js";
 import type {
   MemberStatementSummariesExport,
   MemberStatementSummaryItem
 } from "@lawmaker-monitor/schemas";
 
-export const MINUTES_SUMMARY_PROMPT_VERSION = "minutes-summary-v1";
+export const MINUTES_SUMMARY_PROMPT_VERSION = "minutes-summary-v2";
 
 export type MinutesSummaryMember = {
   memberId: string;
@@ -61,6 +65,81 @@ function normalizeMemberName(value: string): string {
   return value.replace(/\s+/g, "").trim();
 }
 
+function normalizeAgendaReference(value: string): string {
+  return value.normalize("NFKC").replace(/[^\p{L}\p{N}]/gu, "");
+}
+
+function buildAgendaReferenceKeys(title: string): string[] {
+  const subject = title
+    .replace(/^\s*\d+\.\s*/, "")
+    .split("(")[0]
+    ?.trim();
+  if (!subject) {
+    return [];
+  }
+
+  return [
+    subject,
+    subject.replace(/(?:일부|전부)?개정법률안$/, "").trim(),
+    subject.replace(/법률안$/, "").trim()
+  ]
+    .map(normalizeAgendaReference)
+    .filter(
+      (value, index, values) =>
+        value.length >= 4 && values.indexOf(value) === index
+    );
+}
+
+function isPresidingOfficerStatement(statement: AssemblyMinutesStatement) {
+  const normalizedRole = statement.speakerRole?.replace(/\s+/g, "") ?? "";
+  return normalizedRole === "의장" || normalizedRole === "부의장";
+}
+
+export function resolveStatementAgendaItem(args: {
+  statement: AssemblyMinutesStatement;
+  agendaItems: AssemblyMinutesAgendaItem[];
+}): AssemblyMinutesAgendaItem | null {
+  if (isPresidingOfficerStatement(args.statement)) {
+    return null;
+  }
+
+  const sourceText = normalizeAgendaReference(
+    args.statement.paragraphs.join(" ")
+  );
+  const matches = args.agendaItems
+    .filter((agenda) => agenda.billIds.length > 0)
+    .map((agenda) => {
+      const positions = buildAgendaReferenceKeys(agenda.title)
+        .map((key) => sourceText.indexOf(key))
+        .filter((position) => position >= 0);
+      return {
+        agenda,
+        position: positions.length > 0 ? Math.min(...positions) : -1
+      };
+    })
+    .filter((match) => match.position >= 0)
+    .sort((left, right) => left.position - right.position);
+
+  if (matches.length === 1) {
+    return matches[0]?.agenda ?? null;
+  }
+
+  const normalizedRole = args.statement.speakerRole?.replace(/\s+/g, "") ?? "";
+  const first = matches[0];
+  const second = matches[1];
+  if (
+    normalizedRole === "의원" &&
+    first &&
+    second &&
+    first.position <= 200 &&
+    second.position - first.position >= 100
+  ) {
+    return first.agenda;
+  }
+
+  return null;
+}
+
 function buildUniqueMemberLookup(
   members: MinutesSummaryMember[]
 ): Map<string, MinutesSummaryMember> {
@@ -83,9 +162,6 @@ export function buildMinutesSummaryGroups(args: {
   members: MinutesSummaryMember[];
 }): MinutesSummaryGroup[] {
   const memberByName = buildUniqueMemberLookup(args.members);
-  const agendaById = new Map(
-    args.transcript.agendaItems.map((agenda) => [agenda.agendaItemId, agenda])
-  );
   const grouped = new Map<
     string,
     {
@@ -95,8 +171,11 @@ export function buildMinutesSummaryGroups(args: {
   >();
 
   for (const statement of args.transcript.statements) {
-    const agenda = agendaById.get(statement.agendaItemId);
-    if (!agenda || agenda.billIds.length === 0) {
+    const agenda = resolveStatementAgendaItem({
+      statement,
+      agendaItems: args.transcript.agendaItems
+    });
+    if (!agenda) {
       continue;
     }
 

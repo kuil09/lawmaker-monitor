@@ -71,6 +71,7 @@ type RankingRow = {
   memberId: string;
   name: string;
   party: string;
+  district: string;
   score: number;
   supportValue: number | null;
   basisValue: string;
@@ -666,7 +667,7 @@ export function V2ObservatoryPage({
                   >
                     <span>
                       <strong>{row.name}</strong>
-                      <small>{row.party}</small>
+                      <small>{`${row.party} · ${row.district}`}</small>
                     </span>
                     <em>
                       {activeLens === "assets"
@@ -725,6 +726,7 @@ export function V2ObservatoryPage({
                   <tr>
                     <th scope="col">의원</th>
                     <th scope="col">정당</th>
+                    <th scope="col">지역구·비례</th>
                     <th scope="col">{config.xLabel}</th>
                     <th scope="col">{config.yLabel}</th>
                   </tr>
@@ -741,6 +743,7 @@ export function V2ObservatoryPage({
                         </button>
                       </th>
                       <td>{point.party}</td>
+                      <td>{point.district}</td>
                       <td>
                         {activeLens === "assets"
                           ? formatEok(point.x)
@@ -1221,6 +1224,7 @@ export function V2ObservatoryPage({
                   <th scope="col">순위</th>
                   <th scope="col">의원</th>
                   <th scope="col">정당</th>
+                  <th scope="col">지역구·비례</th>
                   <th scope="col">{config.scoreLabel}</th>
                   <th scope="col">{config.basisLabel}</th>
                   <th scope="col">{config.supportLabel}</th>
@@ -1260,6 +1264,7 @@ export function V2ObservatoryPage({
                       />
                       {row.party}
                     </td>
+                    <td>{row.district}</td>
                     <td>
                       {activeLens === "assets"
                         ? formatEok(row.score)

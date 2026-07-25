@@ -5,6 +5,7 @@ import {
   buildMemberStatementSummaryExports,
   buildMinutesSummaryGroups,
   chunkMinutesText,
+  resolveStatementAgendaItem,
   sanitizeModelSummary,
   summarizeMinutesGroup,
   type MinutesDocumentSummaryArtifact
@@ -28,12 +29,12 @@ const viewerHtml = `
     <div id="spk_2" class="item1 speaker spk_mem" data-mem_id="1" data-name="김민수" data-pos="위원">
       <div class="man"><a href="https://www.assembly.go.kr/members/22nd/KIM"></a></div>
       <div class="talk"><div class="txt">
-        <span class="spk_sub">고위험 인공지능의 영향평가를 의무화해야 합니다.</span>
+        <span class="spk_sub">인공지능책임법안은 고위험 인공지능의 영향평가를 의무화해야 합니다.</span>
         <span class="spk_sub">중소기업에는 단계적 적용과 기술 지원이 필요합니다.</span>
       </div></div>
     </div>
     <div id="spk_3" class="item1 speaker spk_mem" data-mem_id="2" data-name="박영희" data-pos="위원">
-      <div class="talk"><div class="txt"><span class="spk_sub">적용 범위를 더 명확히 해야 합니다.</span></div></div>
+      <div class="talk"><div class="txt"><span class="spk_sub">인공지능책임법안의 적용 범위를 더 명확히 해야 합니다.</span></div></div>
     </div>
   </div>
 `;
@@ -85,6 +86,60 @@ describe("minutes transcript summarization", () => {
     });
     expect(groups[0]?.text).toContain("단계적 적용");
     expect(groups.some((group) => group.agendaTitle === "개의")).toBe(false);
+  });
+
+  it("reassigns a statement only when its bill reference is unambiguous", () => {
+    const agendaItems = [
+      {
+        agendaItemId: "item18",
+        title: "15. 경찰관 직무집행법 일부개정법률안(의안번호 2208201)",
+        billIds: ["2208201"],
+        billDetailUrl: null
+      },
+      {
+        agendaItemId: "item20",
+        title:
+          "17. 의용소방대 설치 및 운영에 관한 법률 일부개정법률안(의안번호 2207948)",
+        billIds: ["2207948"],
+        billDetailUrl: null
+      }
+    ];
+
+    expect(
+      resolveStatementAgendaItem({
+        statement: {
+          statementId: "spk_50",
+          agendaItemId: "item20",
+          speakerName: "손솔",
+          speakerRole: "의원",
+          sourceMemberId: null,
+          officialProfileUrl: null,
+          paragraphs: [
+            "경찰관 직무집행법 일부개정법률안에 대한 반대 의견이 있습니다."
+          ],
+          sourceFragment: "#spk_50"
+        },
+        agendaItems
+      })?.agendaItemId
+    ).toBe("item18");
+
+    expect(
+      resolveStatementAgendaItem({
+        statement: {
+          statementId: "spk_48",
+          agendaItemId: "item20",
+          speakerName: "이성권",
+          speakerRole: "행정안전위원장대리",
+          sourceMemberId: null,
+          officialProfileUrl: null,
+          paragraphs: [
+            "경찰관 직무집행법 일부개정법률안과 의용소방대 설치 및 운영에 관한 법률 일부개정법률안을 보고드립니다."
+          ],
+          sourceFragment: "#spk_48"
+        },
+        agendaItems
+      })
+    ).toBeNull();
   });
 
   it("removes thinking traces and supports deterministic summary injection", async () => {

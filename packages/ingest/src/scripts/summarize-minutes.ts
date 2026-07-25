@@ -1,4 +1,4 @@
-import { access, readdir, readFile } from "node:fs/promises";
+import { access, readdir, readFile, unlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -376,6 +376,19 @@ async function main(): Promise<void> {
     join(config.dataRepoDir, config.memberExportDirectory, "index.json"),
     memberIndex
   );
+  const retainedExportFilenames = new Set([
+    "index.json",
+    ...memberExports.map((payload) => `${payload.memberId}.json`)
+  ]);
+  const publishedExportDirectory = join(
+    config.dataRepoDir,
+    config.memberExportDirectory
+  );
+  for (const filename of await readdir(publishedExportDirectory)) {
+    if (filename.endsWith(".json") && !retainedExportFilenames.has(filename)) {
+      await unlink(join(publishedExportDirectory, filename));
+    }
+  }
 
   const remainingDocuments = candidateDocuments.filter((item) => {
     const artifact = artifactByDocumentId.get(item.documentId);

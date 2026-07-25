@@ -928,12 +928,10 @@ export function DistributionPage({
               <MemberIdentity
                 name={selectedMember.name}
                 party={selectedMember.party}
+                district={selectedMember.district}
                 photoUrl={selectedMember.photoUrl}
                 size="large"
               />
-              <p className="distribution-focus__district">
-                {selectedMember.district ?? "지역 정보 없음"}
-              </p>
               <p className="distribution-focus__note">
                 {`${selectedMember.party} 내부에서는 ${
                   selectedMember.currentNegativeOrAbsentStreak > 0

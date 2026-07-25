@@ -2,10 +2,11 @@ import { spawn } from "node:child_process";
 
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
+const dataPort = process.env.UI_DATA_PORT ?? "4174";
 
 const sharedEnv = {
   ...process.env,
-  VITE_DATA_REPO_BASE_URL: "http://127.0.0.1:4174"
+  VITE_DATA_REPO_BASE_URL: `http://127.0.0.1:${dataPort}`
 };
 
 function run(command, args, env = sharedEnv) {

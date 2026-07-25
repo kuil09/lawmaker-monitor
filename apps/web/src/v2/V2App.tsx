@@ -10,6 +10,7 @@ import { useMemberAssetsData } from "../hooks/useMemberAssetsData.js";
 import { loadAccountabilitySummary } from "../lib/data.js";
 import { buildDistributionMembers } from "../lib/distribution.js";
 import { formatDateTime } from "../lib/format.js";
+import { formatMemberAffiliation } from "../lib/member-affiliation.js";
 import { applyMemberAssetsIndexFallbacks } from "../lib/member-assets.js";
 import "../styles/v3-shell.css";
 
@@ -266,7 +267,10 @@ export function V2App() {
     () =>
       (accountabilitySummary?.items ?? []).map((item) => ({
         id: item.memberId,
-        label: `${item.name} · ${item.party}`
+        label: `${item.name} · ${formatMemberAffiliation(
+          item.party,
+          item.district
+        )}`
       })),
     [accountabilitySummary]
   );
