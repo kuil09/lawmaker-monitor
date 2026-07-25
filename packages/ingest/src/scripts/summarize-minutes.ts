@@ -1,4 +1,4 @@
-import { access, readdir, readFile, unlink } from "node:fs/promises";
+import { readdir, readFile, unlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -232,10 +232,44 @@ async function main(): Promise<void> {
     .slice(0, config.maxDocuments);
   if (pendingDocuments.length === 0) {
     try {
-      await access(
-        join(config.dataRepoDir, config.memberExportDirectory, "index.json")
+      const memberIndex = memberStatementSummariesIndexExportSchema.parse(
+        JSON.parse(
+          await readFile(
+            join(
+              config.dataRepoDir,
+              config.memberExportDirectory,
+              "index.json"
+            ),
+            "utf8"
+          )
+        )
       );
-      process.stdout.write("No pending minutes transcripts to summarize.\n");
+      const idleState: SummaryState = {
+        updatedAt: generatedAt,
+        modelId: config.modelId,
+        promptVersion: MINUTES_SUMMARY_PROMPT_VERSION,
+        sourceKind: "official_minutes_transcript",
+        documentsVisited: 0,
+        documentsCompleted: 0,
+        groupsSummarized: 0,
+        groupsFailed: 0,
+        remainingDocuments: 0,
+        membersPublished: memberIndex.members.length
+      };
+      const stateFile = join(config.dataRepoDir, config.statePath);
+      const existingState = await readJsonFile<SummaryState | null>(
+        stateFile,
+        null
+      );
+      if (
+        existingState?.modelId !== idleState.modelId ||
+        existingState.promptVersion !== idleState.promptVersion ||
+        existingState.remainingDocuments !== 0 ||
+        existingState.membersPublished !== idleState.membersPublished
+      ) {
+        await writeJsonFile(stateFile, idleState);
+      }
+      process.stdout.write(`${JSON.stringify(idleState, null, 2)}\n`);
       return;
     } catch {
       process.stdout.write(
@@ -358,7 +392,12 @@ async function main(): Promise<void> {
     modelId: config.modelId,
     promptVersion: MINUTES_SUMMARY_PROMPT_VERSION,
     members,
-    artifacts: [...artifactByDocumentId.values()]
+    artifacts: candidateDocuments.flatMap((item) => {
+      const artifact = artifactByDocumentId.get(item.documentId);
+      return artifact?.sourceContentSha256 === item.transcriptContentSha256
+        ? [artifact]
+        : [];
+    })
   });
   for (const payload of memberExports) {
     const validated = memberStatementSummariesExportSchema.parse(payload);

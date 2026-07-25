@@ -527,6 +527,8 @@ export function buildMemberStatementSummaryExports(args: {
 
   for (const artifact of args.artifacts) {
     if (
+      artifact.modelId !== args.modelId ||
+      artifact.promptVersion !== args.promptVersion ||
       !isOfficialAssemblyMinutesViewerUrl(artifact.sourceUrl) ||
       !artifact.sourceTranscriptPath.endsWith(".transcript.json")
     ) {

@@ -377,4 +377,86 @@ describe("minutes transcript summarization", () => {
       memberStatementSummariesExportSchema.parse(payload).summaries
     ).toHaveLength(1);
   });
+
+  it("publishes only artifacts from the active model and prompt version", () => {
+    const createArtifact = (
+      overrides: Partial<MinutesDocumentSummaryArtifact>
+    ): MinutesDocumentSummaryArtifact => ({
+      schemaVersion: 1,
+      sourceKind: "official_minutes_transcript",
+      generatedAt: "2025-08-02T00:00:00.000Z",
+      documentId: "minutes-current",
+      sourceContentSha256: "hash-current",
+      sourceTranscriptPath: "raw/minutes-current/latest.transcript.json",
+      sourceDocumentPath: "raw/minutes-current/latest.html",
+      sourceUrl:
+        "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=current&type=view",
+      modelId: "Qwen/Qwen3-1.7B-GGUF:Q8_0",
+      promptVersion: "minutes-summary-v4",
+      summaryGroupCount: 1,
+      complete: true,
+      summaries: [
+        {
+          statementId: "statement-current",
+          documentId: "minutes-current",
+          meetingTitle: "제2차 법제사법위원회",
+          meetingDate: "2025-08-01",
+          committeeName: "법제사법위원회",
+          agendaTitle: "1. 인공지능책임법안(의안번호 2212345)",
+          billIds: ["2212345"],
+          speakerRole: "위원",
+          summary: "현재 버전 요약입니다.",
+          evidenceExcerpt: "현재 버전의 공식 회의록 근거입니다.",
+          sourceUrl:
+            "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=current&type=view",
+          sourceFragment: "#spk_current",
+          sourceDocumentPath: "raw/minutes-current/latest.html",
+          sourceContentSha256: "hash-current",
+          sourceKind: "official_minutes_transcript",
+          memberId: "member-1",
+          name: "김민수",
+          party: "테스트당"
+        }
+      ],
+      ...overrides
+    });
+    const currentArtifact = createArtifact({});
+    const stalePromptArtifact = createArtifact({
+      documentId: "minutes-stale-prompt",
+      promptVersion: "minutes-summary-v3",
+      summaries: [
+        {
+          ...currentArtifact.summaries[0]!,
+          statementId: "statement-stale-prompt",
+          documentId: "minutes-stale-prompt",
+          summary: "이전 프롬프트 요약입니다."
+        }
+      ]
+    });
+    const staleModelArtifact = createArtifact({
+      documentId: "minutes-stale-model",
+      modelId: "stale-model",
+      summaries: [
+        {
+          ...currentArtifact.summaries[0]!,
+          statementId: "statement-stale-model",
+          documentId: "minutes-stale-model",
+          summary: "이전 모델 요약입니다."
+        }
+      ]
+    });
+
+    const [payload] = buildMemberStatementSummaryExports({
+      generatedAt: "2025-08-02T00:00:00.000Z",
+      assemblyNo: 22,
+      assemblyLabel: "제22대 국회",
+      modelId: currentArtifact.modelId,
+      promptVersion: currentArtifact.promptVersion,
+      members: [{ memberId: "member-1", name: "김민수", party: "테스트당" }],
+      artifacts: [stalePromptArtifact, currentArtifact, staleModelArtifact]
+    });
+
+    expect(payload?.summaries).toHaveLength(1);
+    expect(payload?.summaries[0]?.statementId).toBe("statement-current");
+  });
 });
