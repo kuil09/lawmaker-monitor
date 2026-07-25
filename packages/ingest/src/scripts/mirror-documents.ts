@@ -1477,15 +1477,31 @@ async function main(): Promise<void> {
     : null;
   const page = context ? await context.newPage() : null;
   if (page) {
-    await page.goto(config.startUrl, {
-      waitUntil: "domcontentloaded",
-      timeout: config.timeoutMs
-    });
-    if (config.readySelector) {
-      await page
-        .locator(config.readySelector)
-        .first()
-        .waitFor({ timeout: config.timeoutMs });
+    const navigationAttempts = 3;
+    for (let attempt = 1; attempt <= navigationAttempts; attempt += 1) {
+      try {
+        await page.goto(config.startUrl, {
+          waitUntil: "commit",
+          timeout: config.timeoutMs
+        });
+        if (config.readySelector) {
+          await page
+            .locator(config.readySelector)
+            .first()
+            .waitFor({ timeout: config.timeoutMs });
+        }
+        break;
+      } catch (error) {
+        if (attempt === navigationAttempts) {
+          throw error;
+        }
+        process.stderr.write(
+          `Start-page navigation attempt ${attempt} failed; retrying.\n`
+        );
+        await page.waitForTimeout(
+          Math.min(config.pageDelayMs * attempt, 5_000)
+        );
+      }
     }
   }
 
