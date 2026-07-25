@@ -62,6 +62,8 @@ describe("member photo optimization", () => {
       ".member-identity__avatar--fallback"
     );
 
-    expect(fallbackAvatar).toHaveClass("member-identity__avatar--activity-card");
+    expect(fallbackAvatar).toHaveClass(
+      "member-identity__avatar--activity-card"
+    );
   });
 });

@@ -357,6 +357,60 @@ export const memberActivityCalendarMemberDetailExportSchema = z.object({
   voteRecords: z.array(memberActivityVoteRecordSchema).default([])
 });
 
+export const memberStatementSummaryItemSchema = z
+  .object({
+    statementId: nonEmptyString,
+    documentId: nonEmptyString,
+    meetingTitle: nonEmptyString,
+    meetingDate: nonEmptyString,
+    committeeName: nonEmptyString.nullable(),
+    agendaTitle: nonEmptyString,
+    billIds: z.array(nonEmptyString),
+    speakerRole: nonEmptyString.nullable(),
+    summary: nonEmptyString,
+    evidenceExcerpt: nonEmptyString,
+    sourceUrl: nonEmptyString.url(),
+    sourceFragment: nonEmptyString,
+    sourceDocumentPath: nonEmptyString,
+    sourceContentSha256: nonEmptyString
+  })
+  .strict();
+
+export const memberStatementSummariesExportSchema = z
+  .object({
+    generatedAt: nonEmptyString,
+    assemblyNo: z.number().int().positive(),
+    assemblyLabel: nonEmptyString,
+    memberId: nonEmptyString,
+    name: nonEmptyString,
+    party: nonEmptyString,
+    modelId: nonEmptyString,
+    promptVersion: nonEmptyString,
+    summaries: z.array(memberStatementSummaryItemSchema)
+  })
+  .strict();
+
+export const memberStatementSummariesIndexItemSchema = z
+  .object({
+    memberId: nonEmptyString,
+    name: nonEmptyString,
+    party: nonEmptyString,
+    summaryCount: z.number().int().positive(),
+    path: nonEmptyString
+  })
+  .strict();
+
+export const memberStatementSummariesIndexExportSchema = z
+  .object({
+    generatedAt: nonEmptyString,
+    assemblyNo: z.number().int().positive(),
+    assemblyLabel: nonEmptyString,
+    modelId: nonEmptyString,
+    promptVersion: nonEmptyString,
+    members: z.array(memberStatementSummariesIndexItemSchema)
+  })
+  .strict();
+
 export const memberAssetLatestSummarySchema = z
   .object({
     reportedAt: nonEmptyString,
@@ -683,6 +737,18 @@ export type MemberActivityCalendarExport = z.infer<
 >;
 export type MemberActivityCalendarMemberDetailExport = z.infer<
   typeof memberActivityCalendarMemberDetailExportSchema
+>;
+export type MemberStatementSummaryItem = z.infer<
+  typeof memberStatementSummaryItemSchema
+>;
+export type MemberStatementSummariesExport = z.infer<
+  typeof memberStatementSummariesExportSchema
+>;
+export type MemberStatementSummariesIndexItem = z.infer<
+  typeof memberStatementSummariesIndexItemSchema
+>;
+export type MemberStatementSummariesIndexExport = z.infer<
+  typeof memberStatementSummariesIndexExportSchema
 >;
 export type MemberAssetLatestSummary = z.infer<
   typeof memberAssetLatestSummarySchema

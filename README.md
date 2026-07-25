@@ -49,6 +49,8 @@ The frontend reads public JSON exports and validates them with the schemas packa
 - `exports/accountability_trends.json`: weekly trend points and mover windows for the overview charts
 - `exports/member_activity_calendar.json`: calendar summary payload for the current assembly
 - `exports/member_activity_calendar_members/<memberId>.json`: lazily loaded member vote record details
+- `exports/member_statement_summaries/index.json`: members with published bill-related minutes summaries and their export paths
+- `exports/member_statement_summaries/<memberId>.json`: locally generated summaries of each member's officially attributed bill-related statements with source evidence
 - `exports/member_assets_index.json`: current-member asset disclosure index with latest summary and per-member history pointers
 - `exports/member_assets_history/<memberId>.json`: lazily loaded member asset disclosure history and category subtotal series
 - `curated/asset_disclosures.parquet`: mirrored disclosure file metadata
@@ -97,6 +99,7 @@ npm run monitor:sources --workspace @lawmaker-monitor/ingest
 - `deploy-web`: builds the frontend and deploys it to GitHub Pages
 - `monitor-sources`: checks upstream source stability and opens an incident issue when parser assumptions fail
 - `mirror-documents`: mirrors public Assembly documents into the public data repository
+- `summarize-minutes`: runs a local lightweight model after document mirroring and publishes member-level bill statement summaries
 - `mirror-property-disclosures`: mirrors official property disclosure PDFs, refreshes property member context JSON caches, and publishes those raw inputs into the public data repository
 
 ## Supported Ingest Environment Variables
@@ -145,6 +148,18 @@ Public document mirror settings:
 - `MIRROR_BACKFILL_START_DATE`
 - `MIRROR_BACKFILL_DAYS`
 - `MIRROR_INCLUDE_APPENDICES`
+
+Minutes summary settings:
+
+- `LLAMA_CPP_RELEASE`
+- `MINUTES_SUMMARY_MODEL`
+- `MINUTES_SUMMARY_MAX_DOCUMENTS`
+- `MINUTES_SUMMARY_MAX_GROUPS`
+
+The summary workflow runs an open-weight GGUF model directly on the GitHub
+Actions runner. It does not send minutes to a hosted inference API. Speaker and
+bill attribution come from the structured Assembly minutes viewer; the model is
+used only to shorten the attributed source text.
 
 Property disclosure mirror settings use the same document mirror infrastructure plus Assembly file-service specific inputs:
 

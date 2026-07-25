@@ -21,6 +21,7 @@ import {
   selectExistingMirroredMetadata,
   toIndexItem
 } from "../document-mirror.js";
+import { parseAssemblyMinutesViewerHtml } from "../minutes-transcript.js";
 import {
   readJsonFile,
   readString,
@@ -561,13 +562,13 @@ function toNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function normalizeCompactAssemblyDate(value: unknown): string | null {
+export function normalizeCompactAssemblyDate(value: unknown): string | null {
   const text = readString(value);
   if (!text) {
     return null;
   }
 
-  if (/^\d{8}$/.test(text)) {
+  if (/^\d{8}(?:\d{6})?$/.test(text)) {
     return `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)}`;
   }
 
@@ -637,10 +638,18 @@ function buildAssemblyMinutesCandidate(
   }
 
   const publishedDate = normalizeCompactAssemblyDate(item.DATE);
+  const committeeName = readString(item.CMIT_NM);
+  const assemblyLabel = readString(item.TH_TEXT);
+  const sessionNo = readString(item.SESS);
   const title =
-    readString(item.ITEM_NM) ??
-    readString(item.CMIT_NM) ??
-    `Minutes ${minutesId}`;
+    [
+      assemblyLabel,
+      sessionNo ? `제${sessionNo}회` : null,
+      committeeName,
+      "회의록"
+    ]
+      .filter((value): value is string => Boolean(value))
+      .join(" ") || `Minutes ${minutesId}`;
 
   const viewerUrl = new URL(
     `/assembly/viewer/minutes/xml.do?id=${minutesId}&type=view`,
@@ -685,7 +694,14 @@ function buildAssemblyMinutesCandidate(
     sourceUrl: viewerUrl,
     downloadUrl: assetUrls[0],
     publishedDate,
-    discoveredFromUrl
+    discoveredFromUrl,
+    sourceMetadata: {
+      minutesId,
+      assemblyNo: readString(item.TH) ?? null,
+      sessionNo: sessionNo ?? null,
+      committeeName: committeeName ?? null,
+      meetingFileId: readString(item.FILE_ID) ?? null
+    }
   };
 }
 
@@ -1226,6 +1242,110 @@ async function mirrorCandidate(
   };
 }
 
+async function mirrorAssemblyMinutesTranscript(args: {
+  api: APIRequestContext;
+  candidate: MirrorCandidate;
+  config: MirrorConfig;
+  metadata: MirroredDocumentMetadata;
+  retrievedAt: string;
+}): Promise<{
+  metadata: MirroredDocumentMetadata;
+  written: boolean;
+}> {
+  const downloaded = await downloadDocument(
+    args.api,
+    args.candidate.sourceUrl,
+    args.config.timeoutMs
+  );
+  if (!downloaded.contentType.toLowerCase().includes("html")) {
+    throw new Error(
+      `Expected Assembly minutes viewer HTML, received ${downloaded.contentType}.`
+    );
+  }
+
+  const transcript = parseAssemblyMinutesViewerHtml({
+    documentId: args.metadata.documentId,
+    sourceUrl: args.candidate.sourceUrl,
+    fallbackMeetingDate: args.metadata.publishedDate,
+    fallbackTitle: args.metadata.title,
+    html: downloaded.body.toString("utf8")
+  });
+  if (transcript.statements.length === 0) {
+    throw new Error(
+      `Assembly minutes viewer returned no member statements for ${args.metadata.documentId}.`
+    );
+  }
+
+  const transcriptJson = JSON.stringify(transcript, null, 2);
+  const transcriptContentSha256 = sha256(transcriptJson);
+  if (
+    args.metadata.transcriptContentSha256 === transcriptContentSha256 &&
+    args.metadata.transcriptRelativePath
+  ) {
+    return {
+      metadata: args.metadata,
+      written: false
+    };
+  }
+
+  const documentDirectory = dirname(args.metadata.metadataRelativePath);
+  const transcriptRelativePath = join(
+    documentDirectory,
+    "latest.transcript.json"
+  );
+  const transcriptVersionRelativePath = join(
+    documentDirectory,
+    "transcript-versions",
+    `${args.retrievedAt.replace(/[:.]/g, "-")}.json`
+  );
+  await mkdir(
+    dirname(join(args.config.dataRepoDir, transcriptVersionRelativePath)),
+    {
+      recursive: true
+    }
+  );
+  await writeFile(
+    join(args.config.dataRepoDir, transcriptRelativePath),
+    transcriptJson
+  );
+  await writeFile(
+    join(args.config.dataRepoDir, transcriptVersionRelativePath),
+    transcriptJson
+  );
+
+  const transcriptVersions = [
+    ...(args.metadata.transcriptVersions ?? []),
+    {
+      retrievedAt: args.retrievedAt,
+      relativePath: transcriptVersionRelativePath,
+      contentSha256: transcriptContentSha256,
+      statementCount: transcript.statements.length
+    }
+  ].filter(
+    (version, index, versions) =>
+      versions.findIndex(
+        (candidate) => candidate.contentSha256 === version.contentSha256
+      ) === index
+  );
+  const metadata: MirroredDocumentMetadata = {
+    ...args.metadata,
+    lastMirroredAt: args.retrievedAt,
+    transcriptRelativePath,
+    transcriptContentSha256,
+    transcriptStatementCount: transcript.statements.length,
+    transcriptVersions
+  };
+  await writeJsonFile(
+    join(args.config.dataRepoDir, metadata.metadataRelativePath),
+    metadata
+  );
+
+  return {
+    metadata,
+    written: true
+  };
+}
+
 async function loadExistingMetadata(
   dataRepoDir: string,
   index: MirroredDocumentIndex
@@ -1326,6 +1446,8 @@ async function main(): Promise<void> {
   let unchangedCount = 0;
   let skippedTodayOrFuture = 0;
   let skippedWithoutDate = 0;
+  let transcriptsWritten = 0;
+  let transcriptFailures = 0;
   let remainingDownloads = config.maxDownloads;
 
   for (const candidate of collectionResult.candidates) {
@@ -1365,19 +1487,43 @@ async function main(): Promise<void> {
       existingCandidateMetadata,
       retrievedAt
     );
+    let mirroredMetadata = outcome.metadata;
+
+    if (config.mode === "assembly_minutes_search") {
+      try {
+        const transcriptOutcome = await mirrorAssemblyMinutesTranscript({
+          api,
+          candidate,
+          config,
+          metadata: outcome.metadata,
+          retrievedAt
+        });
+        mirroredMetadata = transcriptOutcome.metadata;
+        if (transcriptOutcome.written) {
+          transcriptsWritten += 1;
+        }
+      } catch (error) {
+        transcriptFailures += 1;
+        process.stderr.write(
+          `Could not mirror transcript for ${outcome.metadata.documentId}: ${
+            error instanceof Error ? error.message : String(error)
+          }\n`
+        );
+      }
+    }
 
     updatedMetadataByDocumentId.set(
-      outcome.metadata.documentId,
-      outcome.metadata
+      mirroredMetadata.documentId,
+      mirroredMetadata
     );
     updatedMetadataBySourceUrl.set(
-      outcome.metadata.sourceUrl,
-      outcome.metadata
+      mirroredMetadata.sourceUrl,
+      mirroredMetadata
     );
-    if (outcome.metadata.downloadUrl) {
+    if (mirroredMetadata.downloadUrl) {
       updatedMetadataByDownloadUrl.set(
-        outcome.metadata.downloadUrl,
-        outcome.metadata
+        mirroredMetadata.downloadUrl,
+        mirroredMetadata
       );
     }
 
@@ -1416,6 +1562,8 @@ async function main(): Promise<void> {
     unchanged: unchangedCount,
     skippedTodayOrFuture,
     skippedWithoutDate,
+    transcriptsWritten,
+    transcriptFailures,
     lastStartUrl: config.startUrl,
     recentWindowStartDate: collectionResult.recentWindowStartDate,
     recentWindowEndDate: collectionResult.recentWindowEndDate,

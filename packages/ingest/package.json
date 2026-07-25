@@ -17,10 +17,12 @@
     "ingest:live": "node ./dist/scripts/ingest-live.js",
     "mirror:documents": "node ./dist/scripts/mirror-documents.js",
     "monitor:sources": "node ./dist/scripts/monitor-sources.js",
+    "summarize:minutes": "node ./dist/scripts/summarize-minutes.js",
     "sync:property-member-context": "node ./dist/scripts/sync-property-member-context.js"
   },
   "dependencies": {
     "@lawmaker-monitor/schemas": "0.1.0",
+    "cheerio": "^1.2.0",
     "fast-xml-parser": "^5.2.5",
     "h3-js": "^4.4.0",
     "iconv-lite": "^0.7.0",

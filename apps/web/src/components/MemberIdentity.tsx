@@ -41,10 +41,7 @@ export function MemberIdentity({
           loading="lazy"
         />
       ) : (
-        <span
-          className={fallbackAvatarClassName}
-          aria-hidden="true"
-        >
+        <span className={fallbackAvatarClassName} aria-hidden="true">
           {name.slice(0, 1)}
         </span>
       )}

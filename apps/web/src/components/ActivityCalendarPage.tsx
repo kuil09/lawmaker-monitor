@@ -34,6 +34,7 @@ import {
 import { MemberDetailLink } from "./MemberDetailLink.js";
 import { MemberIdentity } from "./MemberIdentity.js";
 import { MemberSearchField } from "./MemberSearchField.js";
+import { MemberStatementSummarySection } from "./MemberStatementSummarySection.js";
 import {
   buildCalendarHref,
   type ActivityViewMode
@@ -3294,6 +3295,9 @@ export function ActivityCalendarPage({
                         ? () => onRetryMemberAssetHistory(selectedMember)
                         : null
                     }
+                  />
+                  <MemberStatementSummarySection
+                    memberId={selectedMember.memberId}
                   />
                   <ActivityCommitteeSections member={selectedMember} />
                   <ActivityVoteRecordSections

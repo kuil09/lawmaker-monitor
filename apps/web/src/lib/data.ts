@@ -10,6 +10,8 @@ import {
   memberAssetsIndexExportSchema,
   memberActivityCalendarExportSchema,
   memberActivityCalendarMemberDetailExportSchema,
+  memberStatementSummariesExportSchema,
+  memberStatementSummariesIndexExportSchema,
   manifestSchema
 } from "@lawmaker-monitor/schemas";
 
@@ -23,6 +25,8 @@ import type {
   LatestVotesExport,
   MemberActivityCalendarExport,
   MemberActivityCalendarMemberDetailExport,
+  MemberStatementSummariesExport,
+  MemberStatementSummariesIndexExport,
   MemberAssetsHistoryExport,
   MemberAssetsIndexExport,
   Manifest
@@ -127,6 +131,21 @@ export function loadMemberActivityCalendarMemberDetail(
 ): Promise<MemberActivityCalendarMemberDetailExport | null> {
   return fetchOptionalJson(buildUrl(path), (payload) =>
     memberActivityCalendarMemberDetailExportSchema.parse(payload)
+  );
+}
+
+export function loadMemberStatementSummaries(
+  path: string
+): Promise<MemberStatementSummariesExport | null> {
+  return fetchOptionalJson(buildUrl(path), (payload) =>
+    memberStatementSummariesExportSchema.parse(payload)
+  );
+}
+
+export function loadMemberStatementSummariesIndex(): Promise<MemberStatementSummariesIndexExport | null> {
+  return fetchOptionalJson(
+    buildUrl("exports/member_statement_summaries/index.json"),
+    (payload) => memberStatementSummariesIndexExportSchema.parse(payload)
   );
 }
 

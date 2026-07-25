@@ -14,6 +14,7 @@ import {
 import {
   buildAssemblyFileServiceSourceSnapshot,
   buildAssemblySearchWindows,
+  normalizeCompactAssemblyDate,
   resolveMirrorDataRepoDir,
   resolveNextBackfillCursorDate,
   shouldSkipAssemblyFileServiceRefresh
@@ -25,6 +26,7 @@ describe("document mirror helpers", () => {
     expect(normalizeDocumentDate("2026-02-23")).toBe("2026-02-23");
     expect(normalizeDocumentDate("2026년 2월 23일")).toBe("2026-02-23");
     expect(normalizeDocumentDate("date unavailable")).toBeNull();
+    expect(normalizeCompactAssemblyDate("20250710000000")).toBe("2025-07-10");
   });
 
   it("builds stable document ids and storage paths", () => {

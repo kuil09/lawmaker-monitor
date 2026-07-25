@@ -1,0 +1,138 @@
+name: summarize-minutes
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - mirror-documents
+    types:
+      - completed
+
+concurrency:
+  group: published-data-${{ vars.DATA_REPO || 'none' }}-${{ vars.DATA_REPO_BRANCH || 'main' }}
+  cancel-in-progress: false
+
+jobs:
+  summarize-minutes:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      DATA_REPO: ${{ vars.DATA_REPO }}
+      DATA_REPO_BRANCH: ${{ vars.DATA_REPO_BRANCH }}
+      DATA_REPO_PAT: ${{ secrets.DATA_REPO_PAT }}
+      LLAMA_CPP_RELEASE: ${{ vars.LLAMA_CPP_RELEASE || 'b10107' }}
+      MINUTES_SUMMARY_MODEL: ${{ vars.MINUTES_SUMMARY_MODEL || 'Qwen/Qwen3-1.7B-GGUF:Q8_0' }}
+      MINUTES_SUMMARY_MAX_DOCUMENTS: ${{ vars.MINUTES_SUMMARY_MAX_DOCUMENTS || '3' }}
+      MINUTES_SUMMARY_MAX_GROUPS: ${{ vars.MINUTES_SUMMARY_MAX_GROUPS || '24' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node and build shared workspaces
+        uses: ./.github/actions/setup-node-workspaces
+        with:
+          build-target: schemas-and-ingest
+
+      - name: Clone public data repository
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        run: |
+          REPO_URL="https://x-access-token:${DATA_REPO_PAT}@github.com/${DATA_REPO}.git"
+          TARGET_BRANCH="${DATA_REPO_BRANCH:-main}"
+          git clone --depth 1 --branch "${TARGET_BRANCH}" "${REPO_URL}" published-data
+
+      - name: Detect mirrored transcript inputs
+        id: transcript-inputs
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        run: |
+          if jq -e 'any(.items[]; (.transcriptRelativePath // "") != "")' published-data/raw/index/document_index.json >/dev/null; then
+            echo "available=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "available=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Cache local model
+        if: steps.transcript-inputs.outputs.available == 'true'
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/llama.cpp
+          key: llama-model-qwen3-1.7b-q8-v1
+
+      - name: Install llama.cpp
+        if: steps.transcript-inputs.outputs.available == 'true'
+        run: |
+          ARCHIVE="${RUNNER_TEMP}/llama.tar.gz"
+          INSTALL_DIR="${RUNNER_TEMP}/llama"
+          RELEASE_URL="https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP_RELEASE}/llama-${LLAMA_CPP_RELEASE}-bin-ubuntu-x64.tar.gz"
+          curl --fail --location --retry 3 "${RELEASE_URL}" --output "${ARCHIVE}"
+          mkdir -p "${INSTALL_DIR}"
+          tar -xzf "${ARCHIVE}" -C "${INSTALL_DIR}"
+          LLAMA_SERVER_PATH="$(find "${INSTALL_DIR}" -type f -name llama-server -print -quit)"
+          if [ -z "${LLAMA_SERVER_PATH}" ]; then
+            echo "llama-server was not found in the release archive." >&2
+            exit 1
+          fi
+          chmod +x "${LLAMA_SERVER_PATH}"
+          echo "LLAMA_SERVER_PATH=${LLAMA_SERVER_PATH}" >> "${GITHUB_ENV}"
+
+      - name: Start local summary model
+        if: steps.transcript-inputs.outputs.available == 'true'
+        run: |
+          nohup "${LLAMA_SERVER_PATH}" \
+            -hf "${MINUTES_SUMMARY_MODEL}" \
+            --host 127.0.0.1 \
+            --port 8080 \
+            --ctx-size 8192 \
+            --threads 4 \
+            --parallel 1 \
+            --jinja \
+            >"${RUNNER_TEMP}/llama-server.log" 2>&1 &
+          echo "$!" > "${RUNNER_TEMP}/llama-server.pid"
+
+          for attempt in $(seq 1 180); do
+            if curl --fail --silent http://127.0.0.1:8080/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          tail -n 200 "${RUNNER_TEMP}/llama-server.log"
+          exit 1
+
+      - name: Summarize new member statements
+        if: steps.transcript-inputs.outputs.available == 'true'
+        run: npm run summarize:minutes --workspace @lawmaker-monitor/ingest
+        env:
+          DATA_REPO_DIR: published-data
+          MINUTES_SUMMARY_ENDPOINT: http://127.0.0.1:8080/v1/chat/completions
+
+      - name: Stop local summary model
+        if: always() && steps.transcript-inputs.outputs.available == 'true'
+        run: |
+          if [ -f "${RUNNER_TEMP}/llama-server.pid" ]; then
+            kill "$(cat "${RUNNER_TEMP}/llama-server.pid")" || true
+          fi
+
+      - name: Commit and push summary changes
+        if: >-
+          steps.transcript-inputs.outputs.available == 'true' &&
+          env.DATA_REPO != '' &&
+          env.DATA_REPO_PAT != ''
+        working-directory: published-data
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          TARGET_BRANCH="${DATA_REPO_BRANCH:-main}"
+
+          if [ -n "$(git status --short)" ]; then
+            git add curated/minutes_summaries exports/member_statement_summaries manifests/minutes_summary_state.json
+            git commit -m "Summarize Assembly minutes"
+            git fetch origin "${TARGET_BRANCH}"
+            git rebase "origin/${TARGET_BRANCH}"
+            git push origin "${TARGET_BRANCH}"
+          else
+            echo "No minutes summary changes to publish."
+          fi

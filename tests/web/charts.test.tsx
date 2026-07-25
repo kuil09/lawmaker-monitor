@@ -19,9 +19,7 @@ const accountabilityTrendsFixture = JSON.parse(
 describe("weekly trend chart data", () => {
   it("marks weeks without eligible votes as gaps instead of zero-percent drops", () => {
     const data = buildWeeklyTrendChartData(accountabilityTrendsFixture);
-    const lastGapWeek = data.findLast(
-      (week) => week.eligibleVoteCount === 0
-    );
+    const lastGapWeek = data.findLast((week) => week.eligibleVoteCount === 0);
 
     expect(lastGapWeek).toMatchObject({
       weekStart: "2026-03-09",

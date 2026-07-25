@@ -1,0 +1,136 @@
+import { load } from "cheerio";
+
+export type AssemblyMinutesAgendaItem = {
+  agendaItemId: string;
+  title: string;
+  billIds: string[];
+  billDetailUrl: string | null;
+};
+
+export type AssemblyMinutesStatement = {
+  statementId: string;
+  agendaItemId: string;
+  speakerName: string;
+  speakerRole: string | null;
+  sourceMemberId: string | null;
+  officialProfileUrl: string | null;
+  paragraphs: string[];
+  sourceFragment: string;
+};
+
+export type AssemblyMinutesTranscript = {
+  schemaVersion: 1;
+  documentId: string;
+  sourceUrl: string;
+  meetingTitle: string;
+  meetingDate: string;
+  committeeName: string | null;
+  agendaItems: AssemblyMinutesAgendaItem[];
+  statements: AssemblyMinutesStatement[];
+};
+
+function normalizeText(value: string): string {
+  return value.replaceAll("\u00a0", " ").replace(/\s+/g, " ").trim();
+}
+
+function extractBillIds(value: string): string[] {
+  const ids = new Set<string>();
+
+  for (const match of value.matchAll(/의안번호\s*[:：]?\s*(\d{5,})/g)) {
+    const billId = match[1];
+    if (billId) {
+      ids.add(billId);
+    }
+  }
+
+  return [...ids];
+}
+
+function normalizeViewerDate(value: string, fallback: string): string {
+  const matched = value.match(/(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+  if (!matched?.[1] || !matched[2] || !matched[3]) {
+    return fallback;
+  }
+
+  return `${matched[1]}-${matched[2].padStart(2, "0")}-${matched[3].padStart(2, "0")}`;
+}
+
+export function parseAssemblyMinutesViewerHtml(args: {
+  documentId: string;
+  sourceUrl: string;
+  fallbackMeetingDate: string;
+  fallbackTitle: string;
+  html: string;
+}): AssemblyMinutesTranscript {
+  const $ = load(args.html);
+  const headerTitle = normalizeText($("#header .tit h2 strong").first().text());
+  const headerDate = normalizeText($("#header .tit h2 .date").first().text());
+  const meetingTitle = headerTitle || args.fallbackTitle;
+  const committeeNameMatch = meetingTitle.match(/제\d+차\s+(.+?)(?:\s*$)/);
+
+  const agendaItems: AssemblyMinutesAgendaItem[] = [];
+  $(".minutes_body a.tit[id^='item']").each((_, element) => {
+    const agendaItemId = $(element).attr("id");
+    const title = normalizeText($(element).text());
+    if (!agendaItemId || !title) {
+      return;
+    }
+
+    agendaItems.push({
+      agendaItemId,
+      title,
+      billIds: extractBillIds(title),
+      billDetailUrl: $(element).attr("href") ?? null
+    });
+  });
+
+  const statements: AssemblyMinutesStatement[] = [];
+  $(".minutes_body .speaker").each((_, element) => {
+    const speaker = $(element);
+    const statementId = speaker.attr("id");
+    const speakerName = normalizeText(speaker.attr("data-name") ?? "");
+    if (!statementId || !speakerName) {
+      return;
+    }
+
+    const agendaItemId =
+      speaker
+        .attr("class")
+        ?.split(/\s+/)
+        .find((className) => /^item\d+$/.test(className)) ?? "item0";
+    const paragraphs = speaker
+      .find(".talk .spk_sub")
+      .toArray()
+      .map((paragraph) => normalizeText($(paragraph).text()))
+      .filter(Boolean);
+
+    if (paragraphs.length === 0) {
+      return;
+    }
+
+    statements.push({
+      statementId,
+      agendaItemId,
+      speakerName,
+      speakerRole: normalizeText(speaker.attr("data-pos") ?? "") || null,
+      sourceMemberId: normalizeText(speaker.attr("data-mem_id") ?? "") || null,
+      officialProfileUrl:
+        speaker.find(".man a[href]").first().attr("href") ?? null,
+      paragraphs,
+      sourceFragment: `#${statementId}`
+    });
+  });
+
+  return {
+    schemaVersion: 1,
+    documentId: args.documentId,
+    sourceUrl: args.sourceUrl,
+    meetingTitle,
+    meetingDate: normalizeViewerDate(headerDate, args.fallbackMeetingDate),
+    committeeName: committeeNameMatch?.[1]
+      ? normalizeText(committeeNameMatch[1])
+      : null,
+    agendaItems,
+    statements
+  };
+}

@@ -13,5 +13,6 @@ import "./styles/v2-observatory.css";
 import "./styles/v3-observatory.css";
 import "./styles/v3-unified.css";
 import "./styles/bill-activity.css";
+import "./styles/minutes-summary.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<V2App />);

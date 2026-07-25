@@ -9,6 +9,13 @@ export type MirroredDocumentVersion = {
   bytes: number;
 };
 
+export type MirroredTranscriptVersion = {
+  retrievedAt: string;
+  relativePath: string;
+  contentSha256: string;
+  statementCount: number;
+};
+
 export type MirroredDocumentMetadata = {
   documentId: string;
   sourceId: string;
@@ -24,6 +31,10 @@ export type MirroredDocumentMetadata = {
   currentContentSha256: string;
   currentContentType: string;
   currentBytes: number;
+  transcriptRelativePath?: string;
+  transcriptContentSha256?: string;
+  transcriptStatementCount?: number;
+  transcriptVersions?: MirroredTranscriptVersion[];
   sourceMetadata?: Record<string, string | number | null>;
   versions: MirroredDocumentVersion[];
 };
@@ -40,6 +51,9 @@ export type MirroredDocumentIndexItem = {
   currentContentSha256: string;
   currentContentType: string;
   currentBytes: number;
+  transcriptRelativePath?: string;
+  transcriptContentSha256?: string;
+  transcriptStatementCount?: number;
   versionCount: number;
 };
 
@@ -66,6 +80,8 @@ export type DocumentMirrorState = {
   unchanged: number;
   skippedTodayOrFuture: number;
   skippedWithoutDate: number;
+  transcriptsWritten?: number;
+  transcriptFailures?: number;
   lastStartUrl: string;
   recentWindowStartDate?: string;
   recentWindowEndDate?: string;
@@ -274,6 +290,15 @@ export function toIndexItem(
     currentContentSha256: metadata.currentContentSha256,
     currentContentType: metadata.currentContentType,
     currentBytes: metadata.currentBytes,
+    ...(metadata.transcriptRelativePath
+      ? { transcriptRelativePath: metadata.transcriptRelativePath }
+      : {}),
+    ...(metadata.transcriptContentSha256
+      ? { transcriptContentSha256: metadata.transcriptContentSha256 }
+      : {}),
+    ...(metadata.transcriptStatementCount !== undefined
+      ? { transcriptStatementCount: metadata.transcriptStatementCount }
+      : {}),
     versionCount: metadata.versions.length
   };
 }
