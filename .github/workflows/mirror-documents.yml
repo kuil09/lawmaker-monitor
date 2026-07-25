@@ -22,6 +22,14 @@ on:
         required: false
         default: false
         type: boolean
+      include_appendices:
+        description: Mirror appendix files in addition to meeting minutes
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
   schedule:
     - cron: "30 15 * * *"
 
@@ -60,7 +68,7 @@ jobs:
       MIRROR_BACKFILL_CURSOR_OVERRIDE: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill_start_date || '' }}
       MIRROR_BACKFILL_WINDOWS_PER_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill_windows || vars.MIRROR_BACKFILL_WINDOWS_PER_RUN || '1' }}
       MIRROR_SKIP_RECENT: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_recent || 'false' }}
-      MIRROR_INCLUDE_APPENDICES: ${{ vars.MIRROR_INCLUDE_APPENDICES }}
+      MIRROR_INCLUDE_APPENDICES: ${{ github.event_name == 'workflow_dispatch' && inputs.include_appendices || vars.MIRROR_INCLUDE_APPENDICES }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

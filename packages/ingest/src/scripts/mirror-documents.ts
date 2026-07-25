@@ -597,11 +597,13 @@ export function resolvePublishedBackfillCursor(args: {
   proposedCursor: string | null | undefined;
   fallbackCursor: string;
   skippedWithoutDate: number;
+  downloadFailures?: number;
   transcriptFailures: number;
   reachedDownloadLimit: boolean;
 }): string | null | undefined {
   if (
     args.skippedWithoutDate > 0 ||
+    (args.downloadFailures ?? 0) > 0 ||
     args.transcriptFailures > 0 ||
     args.reachedDownloadLimit
   ) {
@@ -1534,6 +1536,7 @@ async function main(): Promise<void> {
   let unchangedCount = 0;
   let skippedTodayOrFuture = 0;
   let skippedWithoutDate = 0;
+  let downloadFailures = 0;
   let transcriptsWritten = 0;
   let transcriptFailures = 0;
   let remainingDownloads = config.maxDownloads;
@@ -1562,71 +1565,80 @@ async function main(): Promise<void> {
       break;
     }
 
-    const existingCandidateMetadata = selectExistingMirroredMetadata(
-      {
-        byDocumentId: updatedMetadataByDocumentId,
-        bySourceUrl: updatedMetadataBySourceUrl,
-        byDownloadUrl: updatedMetadataByDownloadUrl
-      },
-      candidate
-    );
-    const outcome = await mirrorCandidate(
-      candidate,
-      config,
-      api,
-      existingCandidateMetadata,
-      retrievedAt
-    );
-    let mirroredMetadata = outcome.metadata;
+    try {
+      const existingCandidateMetadata = selectExistingMirroredMetadata(
+        {
+          byDocumentId: updatedMetadataByDocumentId,
+          bySourceUrl: updatedMetadataBySourceUrl,
+          byDownloadUrl: updatedMetadataByDownloadUrl
+        },
+        candidate
+      );
+      const outcome = await mirrorCandidate(
+        candidate,
+        config,
+        api,
+        existingCandidateMetadata,
+        retrievedAt
+      );
+      let mirroredMetadata = outcome.metadata;
 
-    if (
-      config.mode === "assembly_minutes_search" &&
-      isAssemblyMinutesViewerUrl(candidate.sourceUrl)
-    ) {
-      try {
-        const transcriptOutcome = await mirrorAssemblyMinutesTranscript({
-          api,
-          candidate,
-          config,
-          metadata: outcome.metadata,
-          retrievedAt
-        });
-        mirroredMetadata = transcriptOutcome.metadata;
-        if (transcriptOutcome.written) {
-          transcriptsWritten += 1;
+      if (
+        config.mode === "assembly_minutes_search" &&
+        isAssemblyMinutesViewerUrl(candidate.sourceUrl)
+      ) {
+        try {
+          const transcriptOutcome = await mirrorAssemblyMinutesTranscript({
+            api,
+            candidate,
+            config,
+            metadata: outcome.metadata,
+            retrievedAt
+          });
+          mirroredMetadata = transcriptOutcome.metadata;
+          if (transcriptOutcome.written) {
+            transcriptsWritten += 1;
+          }
+        } catch (error) {
+          transcriptFailures += 1;
+          process.stderr.write(
+            `Could not mirror transcript for ${outcome.metadata.documentId}: ${
+              error instanceof Error ? error.message : String(error)
+            }\n`
+          );
         }
-      } catch (error) {
-        transcriptFailures += 1;
-        process.stderr.write(
-          `Could not mirror transcript for ${outcome.metadata.documentId}: ${
-            error instanceof Error ? error.message : String(error)
-          }\n`
-        );
       }
-    }
 
-    updatedMetadataByDocumentId.set(
-      mirroredMetadata.documentId,
-      mirroredMetadata
-    );
-    updatedMetadataBySourceUrl.set(
-      mirroredMetadata.sourceUrl,
-      mirroredMetadata
-    );
-    if (mirroredMetadata.downloadUrl) {
-      updatedMetadataByDownloadUrl.set(
-        mirroredMetadata.downloadUrl,
+      updatedMetadataByDocumentId.set(
+        mirroredMetadata.documentId,
         mirroredMetadata
       );
-    }
-
-    if (outcome.type === "downloaded") {
-      downloadedCount += 1;
-      if (outcome.updated) {
-        updatedCount += 1;
+      updatedMetadataBySourceUrl.set(
+        mirroredMetadata.sourceUrl,
+        mirroredMetadata
+      );
+      if (mirroredMetadata.downloadUrl) {
+        updatedMetadataByDownloadUrl.set(
+          mirroredMetadata.downloadUrl,
+          mirroredMetadata
+        );
       }
-    } else {
-      unchangedCount += 1;
+
+      if (outcome.type === "downloaded") {
+        downloadedCount += 1;
+        if (outcome.updated) {
+          updatedCount += 1;
+        }
+      } else {
+        unchangedCount += 1;
+      }
+    } catch (error) {
+      downloadFailures += 1;
+      process.stderr.write(
+        `Could not mirror ${candidate.documentId ?? candidate.sourceUrl}: ${
+          error instanceof Error ? error.message : String(error)
+        }\n`
+      );
     }
 
     remainingDownloads -= 1;
@@ -1655,6 +1667,7 @@ async function main(): Promise<void> {
     unchanged: unchangedCount,
     skippedTodayOrFuture,
     skippedWithoutDate,
+    downloadFailures,
     transcriptsWritten,
     transcriptFailures,
     lastStartUrl: config.startUrl,
@@ -1667,6 +1680,7 @@ async function main(): Promise<void> {
         existingState?.nextBackfillCursorDate ??
         config.backfillStartDate,
       skippedWithoutDate,
+      downloadFailures,
       transcriptFailures,
       reachedDownloadLimit
     }),

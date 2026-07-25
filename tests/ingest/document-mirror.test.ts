@@ -556,6 +556,18 @@ describe("document mirror helpers", () => {
         proposedCursor: "2024-06-08",
         fallbackCursor: "2024-06-01",
         skippedWithoutDate: 0,
+        downloadFailures: 1,
+        transcriptFailures: 0,
+        reachedDownloadLimit: false
+      })
+    ).toBe("2024-06-01");
+
+    expect(
+      resolvePublishedBackfillCursor({
+        proposedCursor: "2024-06-08",
+        fallbackCursor: "2024-06-01",
+        skippedWithoutDate: 0,
+        downloadFailures: 0,
         transcriptFailures: 0,
         reachedDownloadLimit: false
       })
