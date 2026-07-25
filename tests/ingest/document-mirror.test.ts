@@ -13,11 +13,15 @@ import {
 } from "../../packages/ingest/src/document-mirror.js";
 import {
   buildAssemblyFileServiceSourceSnapshot,
+  buildAssemblyMinutesParams,
   buildAssemblySearchWindows,
   isAssemblyMinutesViewerUrl,
   normalizeCompactAssemblyDate,
   resolveMirrorDataRepoDir,
   resolveNextBackfillCursorDate,
+  resolvePublishedBackfillCursor,
+  responsePageCount,
+  splitAssemblySearchWindowsByDay,
   shouldSkipAssemblyFileServiceRefresh
 } from "../../packages/ingest/src/scripts/mirror-documents.js";
 
@@ -435,6 +439,127 @@ describe("document mirror helpers", () => {
         windows
       })
     ).toBe("2024-08-31");
+  });
+
+  it("expands a bounded number of backfill windows from an override cursor", () => {
+    const windows = buildAssemblySearchWindows(
+      "2024-07-01",
+      {
+        recentDays: 3,
+        backfillStartDate: "2024-05-30",
+        backfillDays: 7
+      } as Parameters<typeof buildAssemblySearchWindows>[1],
+      null,
+      {
+        backfillCursorDate: "2024-06-01",
+        includeRecent: false,
+        maxBackfillWindows: 2
+      }
+    );
+
+    expect(windows).toEqual([
+      {
+        label: "backfill",
+        startDate: "2024-06-01",
+        endDate: "2024-06-07"
+      },
+      {
+        label: "backfill",
+        startDate: "2024-06-08",
+        endDate: "2024-06-14"
+      }
+    ]);
+  });
+
+  it("splits Assembly minutes windows into daily API searches", () => {
+    expect(
+      splitAssemblySearchWindowsByDay([
+        {
+          label: "backfill",
+          startDate: "2024-06-01",
+          endDate: "2024-06-03"
+        }
+      ])
+    ).toEqual([
+      {
+        label: "backfill",
+        startDate: "2024-06-01",
+        endDate: "2024-06-01"
+      },
+      {
+        label: "backfill",
+        startDate: "2024-06-02",
+        endDate: "2024-06-02"
+      },
+      {
+        label: "backfill",
+        startDate: "2024-06-03",
+        endDate: "2024-06-03"
+      }
+    ]);
+  });
+
+  it("removes default committee filters from broad minutes searches", () => {
+    const params = buildAssemblyMinutesParams(
+      new Map([
+        ["CMIT_CD", ["22-1-ZA", "22-2-AA"]],
+        ["SUBJ_CD", ["legacy-subject"]],
+        ["SPK_CD", ["legacy-speaker"]],
+        ["S_TH", ["24"]],
+        ["E_TH", ["24"]]
+      ]),
+      {
+        label: "backfill",
+        startDate: "2025-07-23",
+        endDate: "2025-07-23"
+      },
+      1,
+      100
+    );
+
+    expect(params.getAll("CMIT_CD")).toEqual([]);
+    expect(params.getAll("SUBJ_CD")).toEqual([]);
+    expect(params.getAll("SPK_CD")).toEqual([]);
+    expect(params.get("S_TH")).toBe("24");
+    expect(params.get("E_TH")).toBe("24");
+    expect(params.get("listCount")).toBe("100");
+  });
+
+  it("calculates search pages using the configured API page size", () => {
+    expect(
+      responsePageCount(
+        {
+          record1: {
+            totalCount: 648,
+            resultList: []
+          }
+        },
+        false,
+        100
+      )
+    ).toBe(7);
+  });
+
+  it("does not advance the backfill cursor after incomplete processing", () => {
+    expect(
+      resolvePublishedBackfillCursor({
+        proposedCursor: "2024-06-08",
+        fallbackCursor: "2024-06-01",
+        skippedWithoutDate: 0,
+        transcriptFailures: 1,
+        reachedDownloadLimit: false
+      })
+    ).toBe("2024-06-01");
+
+    expect(
+      resolvePublishedBackfillCursor({
+        proposedCursor: "2024-06-08",
+        fallbackCursor: "2024-06-01",
+        skippedWithoutDate: 0,
+        transcriptFailures: 0,
+        reachedDownloadLimit: false
+      })
+    ).toBe("2024-06-08");
   });
 
   it("resolves the mirror data repository path from the repository root instead of the workspace cwd", () => {

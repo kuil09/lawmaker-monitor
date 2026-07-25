@@ -10,7 +10,7 @@ import type {
   MemberStatementSummaryItem
 } from "@lawmaker-monitor/schemas";
 
-export const MINUTES_SUMMARY_PROMPT_VERSION = "minutes-summary-v2";
+export const MINUTES_SUMMARY_PROMPT_VERSION = "minutes-summary-v3";
 
 export type MinutesSummaryMember = {
   memberId: string;
@@ -135,6 +135,15 @@ export function resolveStatementAgendaItem(args: {
     second.position - first.position >= 100
   ) {
     return first.agenda;
+  }
+
+  if (matches.length === 0 && ["의원", "위원"].includes(normalizedRole)) {
+    const declaredAgenda = args.agendaItems.find(
+      (agenda) => agenda.agendaItemId === args.statement.agendaItemId
+    );
+    if (declaredAgenda?.billIds.length === 1) {
+      return declaredAgenda;
+    }
   }
 
   return null;

@@ -142,6 +142,49 @@ describe("minutes transcript summarization", () => {
     ).toBeNull();
   });
 
+  it("uses a single-bill committee agenda for a member statement", () => {
+    const agendaItems = [
+      {
+        agendaItemId: "item3",
+        title: "3. 농어업재해대책법 일부개정법률안(의안번호 2209001)",
+        billIds: ["2209001"],
+        billDetailUrl: null
+      }
+    ];
+
+    expect(
+      resolveStatementAgendaItem({
+        statement: {
+          statementId: "spk_12",
+          agendaItemId: "item3",
+          speakerName: "김농정",
+          speakerRole: "위원",
+          sourceMemberId: null,
+          officialProfileUrl: null,
+          paragraphs: ["피해 농가의 지원 기준을 현실화할 필요가 있습니다."],
+          sourceFragment: "#spk_12"
+        },
+        agendaItems
+      })?.agendaItemId
+    ).toBe("item3");
+
+    expect(
+      resolveStatementAgendaItem({
+        statement: {
+          statementId: "spk_13",
+          agendaItemId: "item3",
+          speakerName: "김농정",
+          speakerRole: "위원장",
+          sourceMemberId: null,
+          officialProfileUrl: null,
+          paragraphs: ["이 법안을 상정합니다."],
+          sourceFragment: "#spk_13"
+        },
+        agendaItems
+      })
+    ).toBeNull();
+  });
+
   it("removes thinking traces and supports deterministic summary injection", async () => {
     expect(
       sanitizeModelSummary(

@@ -2,6 +2,17 @@ name: summarize-minutes
 
 on:
   workflow_dispatch:
+    inputs:
+      max_documents:
+        description: Maximum transcript documents to summarize
+        required: false
+        default: "3"
+        type: string
+      max_groups:
+        description: Maximum member-agenda groups to summarize
+        required: false
+        default: "24"
+        type: string
   workflow_run:
     workflows:
       - mirror-documents
@@ -26,8 +37,8 @@ jobs:
       DATA_REPO_PAT: ${{ secrets.DATA_REPO_PAT }}
       LLAMA_CPP_RELEASE: ${{ vars.LLAMA_CPP_RELEASE || 'b10107' }}
       MINUTES_SUMMARY_MODEL: ${{ vars.MINUTES_SUMMARY_MODEL || 'Qwen/Qwen3-1.7B-GGUF:Q8_0' }}
-      MINUTES_SUMMARY_MAX_DOCUMENTS: ${{ vars.MINUTES_SUMMARY_MAX_DOCUMENTS || '3' }}
-      MINUTES_SUMMARY_MAX_GROUPS: ${{ vars.MINUTES_SUMMARY_MAX_GROUPS || '24' }}
+      MINUTES_SUMMARY_MAX_DOCUMENTS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_documents || vars.MINUTES_SUMMARY_MAX_DOCUMENTS || '3' }}
+      MINUTES_SUMMARY_MAX_GROUPS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_groups || vars.MINUTES_SUMMARY_MAX_GROUPS || '24' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

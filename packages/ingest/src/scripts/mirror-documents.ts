@@ -56,6 +56,7 @@ type MirrorConfig = {
   nextSelector?: string;
   maxPages: number;
   maxDownloads: number;
+  pageSize: number;
   pageDelayMs: number;
   timeoutMs: number;
   timeZone: string;
@@ -66,6 +67,9 @@ type MirrorConfig = {
   recentDays: number;
   backfillStartDate: string;
   backfillDays: number;
+  backfillCursorOverride?: string;
+  backfillWindowsPerRun: number;
+  skipRecent: boolean;
   includeAppendices: boolean;
   serviceInfId?: string;
   serviceInfSeq: number;
@@ -99,13 +103,13 @@ type CandidateCollectionResult = {
   sourceSnapshotUnchanged?: boolean;
 };
 
-type SearchWindow = {
+export type SearchWindow = {
   label: "recent" | "backfill";
   startDate: string;
   endDate: string;
 };
 
-type FormValueMap = Map<string, string[]>;
+export type FormValueMap = Map<string, string[]>;
 
 type AssemblySearchItem = Record<string, unknown>;
 
@@ -259,6 +263,7 @@ function loadConfig(): MirrorConfig {
       ".page_nav a.next:not([disabled])",
     maxPages: readPositiveInteger("MIRROR_MAX_PAGES", 25),
     maxDownloads: readPositiveInteger("MIRROR_MAX_DOWNLOADS", 80),
+    pageSize: readPositiveInteger("MIRROR_PAGE_SIZE", 100),
     pageDelayMs: readPositiveInteger("MIRROR_PAGE_DELAY_MS", 1000),
     timeoutMs: readPositiveInteger("MIRROR_TIMEOUT_MS", 20_000),
     timeZone: process.env.MIRROR_TIME_ZONE?.trim() || "Asia/Seoul",
@@ -278,6 +283,13 @@ function loadConfig(): MirrorConfig {
     backfillStartDate:
       process.env.MIRROR_BACKFILL_START_DATE?.trim() || "2024-05-30",
     backfillDays: readPositiveInteger("MIRROR_BACKFILL_DAYS", 7),
+    backfillCursorOverride:
+      process.env.MIRROR_BACKFILL_CURSOR_OVERRIDE?.trim() || undefined,
+    backfillWindowsPerRun: readPositiveInteger(
+      "MIRROR_BACKFILL_WINDOWS_PER_RUN",
+      1
+    ),
+    skipRecent: readBooleanEnv("MIRROR_SKIP_RECENT", false),
     includeAppendices: readBooleanEnv("MIRROR_INCLUDE_APPENDICES", true),
     serviceInfId,
     serviceInfSeq: readPositiveInteger("MIRROR_SERVICE_INF_SEQ", 1)
@@ -479,12 +491,15 @@ export function buildAssemblySearchWindows(
   existingState: DocumentMirrorState | null,
   options?: {
     includeAllBackfillWindows?: boolean;
+    backfillCursorDate?: string;
+    includeRecent?: boolean;
+    maxBackfillWindows?: number;
   }
 ): SearchWindow[] {
   const yesterday = shiftIsoDate(cutoffDate, -1);
   const windows: SearchWindow[] = [];
 
-  if (config.recentDays > 0) {
+  if (config.recentDays > 0 && options?.includeRecent !== false) {
     windows.push({
       label: "recent",
       startDate: shiftIsoDate(yesterday, -(config.recentDays - 1)),
@@ -493,11 +508,17 @@ export function buildAssemblySearchWindows(
   }
 
   const backfillCursor =
-    existingState?.nextBackfillCursorDate?.trim() || config.backfillStartDate;
+    options?.backfillCursorDate?.trim() ||
+    existingState?.nextBackfillCursorDate?.trim() ||
+    config.backfillStartDate;
   if (backfillCursor <= yesterday && config.backfillDays > 0) {
     let cursor = backfillCursor;
+    let backfillWindowCount = 0;
+    const backfillWindowLimit = options?.includeAllBackfillWindows
+      ? Number.POSITIVE_INFINITY
+      : Math.max(1, options?.maxBackfillWindows ?? 1);
 
-    while (cursor <= yesterday) {
+    while (cursor <= yesterday && backfillWindowCount < backfillWindowLimit) {
       const backfillEndDate = minIsoDate(
         shiftIsoDate(cursor, config.backfillDays - 1),
         yesterday
@@ -513,10 +534,7 @@ export function buildAssemblySearchWindows(
           startDate: cursor,
           endDate: backfillEndDate
         });
-      }
-
-      if (!options?.includeAllBackfillWindows) {
-        break;
+        backfillWindowCount += 1;
       }
 
       cursor = shiftIsoDate(backfillEndDate, 1);
@@ -532,6 +550,24 @@ export function buildAssemblySearchWindows(
   }
 
   return [...uniqueWindows.values()];
+}
+
+export function splitAssemblySearchWindowsByDay(
+  windows: SearchWindow[]
+): SearchWindow[] {
+  return windows.flatMap((window) => {
+    const dailyWindows: SearchWindow[] = [];
+    let cursor = window.startDate;
+    while (cursor <= window.endDate) {
+      dailyWindows.push({
+        label: window.label,
+        startDate: cursor,
+        endDate: cursor
+      });
+      cursor = shiftIsoDate(cursor, 1);
+    }
+    return dailyWindows;
+  });
 }
 
 export function resolveNextBackfillCursorDate(args: {
@@ -555,6 +591,23 @@ export function resolveNextBackfillCursorDate(args: {
       ? args.config.backfillStartDate
       : null)
   );
+}
+
+export function resolvePublishedBackfillCursor(args: {
+  proposedCursor: string | null | undefined;
+  fallbackCursor: string;
+  skippedWithoutDate: number;
+  transcriptFailures: number;
+  reachedDownloadLimit: boolean;
+}): string | null | undefined {
+  if (
+    args.skippedWithoutDate > 0 ||
+    args.transcriptFailures > 0 ||
+    args.reachedDownloadLimit
+  ) {
+    return args.fallbackCursor;
+  }
+  return args.proposedCursor;
 }
 
 function toNumber(value: unknown): number {
@@ -663,44 +716,11 @@ function buildAssemblyMinutesCandidate(
     `/assembly/viewer/minutes/xml.do?id=${minutesId}&type=view`,
     config.startUrl
   ).toString();
-  const assetUrls: string[] = [];
-
-  if (toNumber(item.PDF_CNT) > 0) {
-    assetUrls.push(
-      new URL(
-        `/assembly/viewer/minutes/download/pdf.do?id=${minutesId}`,
-        config.startUrl
-      ).toString()
-    );
-  }
-
-  if (toNumber(item.HWP_CNT) > 0) {
-    assetUrls.push(
-      new URL(
-        `/assembly/viewer/minutes/download/hwp.do?id=${minutesId}`,
-        config.startUrl
-      ).toString()
-    );
-  }
-
-  if (toNumber(item.IMG_CNT) > 0) {
-    assetUrls.push(
-      new URL(
-        `/assembly/viewer/minutes/download/img.do?id=${minutesId}`,
-        config.startUrl
-      ).toString()
-    );
-  }
-
-  if (assetUrls.length === 0) {
-    assetUrls.push(viewerUrl);
-  }
-
   return {
     documentId: `${config.sourceId}-minutes-${minutesId}`,
     title,
     sourceUrl: viewerUrl,
-    downloadUrl: assetUrls[0],
+    downloadUrl: viewerUrl,
     publishedDate,
     discoveredFromUrl,
     sourceMetadata: {
@@ -822,9 +842,10 @@ function collectAssemblyCandidatesFromResponse(
   return candidates;
 }
 
-function responsePageCount(
+export function responsePageCount(
   response: AssemblySearchResponse,
-  includeAppendices: boolean
+  includeAppendices: boolean,
+  pageSize = 10
 ): number {
   const keys = includeAppendices
     ? [...assemblyMinuteRecordKeys, ...assemblyAppendixRecordKeys]
@@ -833,7 +854,7 @@ function responsePageCount(
   let totalPages = 1;
   for (const key of keys) {
     const count = response[key]?.totalCount ?? 0;
-    totalPages = Math.max(totalPages, Math.ceil(count / 10));
+    totalPages = Math.max(totalPages, Math.ceil(count / pageSize));
   }
 
   return totalPages;
@@ -861,13 +882,17 @@ async function postAssemblySearch(
   return (await response.json()) as AssemblySearchResponse;
 }
 
-function buildAssemblyMinutesParams(
+export function buildAssemblyMinutesParams(
   baseValues: FormValueMap,
   window: SearchWindow,
-  pageNumber: number
+  pageNumber: number,
+  pageSize = 10
 ): URLSearchParams {
   const formValues = cloneFormValues(baseValues);
 
+  formValues.delete("CMIT_CD");
+  formValues.delete("SUBJ_CD");
+  formValues.delete("SPK_CD");
   setSingleFormValue(formValues, "startDate", compactDate(window.startDate));
   setSingleFormValue(formValues, "endDate", compactDate(window.endDate));
   setSingleFormValue(
@@ -882,7 +907,7 @@ function buildAssemblyMinutesParams(
   setSingleFormValue(formValues, "sort", "RDATE");
   setSingleFormValue(formValues, "searchField", "SPK_CNTS,ITEM_NM,ETC_CNTS");
   setSingleFormValue(formValues, "startCount", String(pageNumber));
-  setSingleFormValue(formValues, "listCount", "10");
+  setSingleFormValue(formValues, "listCount", String(pageSize));
 
   return formValuesToSearchParams(formValues);
 }
@@ -890,10 +915,14 @@ function buildAssemblyMinutesParams(
 function buildAssemblyAppendixParams(
   baseValues: FormValueMap,
   window: SearchWindow,
-  pageNumber: number
+  pageNumber: number,
+  pageSize = 10
 ): URLSearchParams {
   const formValues = cloneFormValues(baseValues);
 
+  formValues.delete("CMIT_CD");
+  formValues.delete("SUBJ_CD");
+  formValues.delete("SPK_CD");
   setSingleFormValue(formValues, "startDate", compactDate(window.startDate));
   setSingleFormValue(formValues, "endDate", compactDate(window.endDate));
   setSingleFormValue(formValues, "collection", "record_app,record_app_bo");
@@ -903,7 +932,7 @@ function buildAssemblyAppendixParams(
   setSingleFormValue(formValues, "sort", "RDATE");
   setSingleFormValue(formValues, "searchField", "");
   setSingleFormValue(formValues, "startCount", String(pageNumber));
-  setSingleFormValue(formValues, "listCount", "10");
+  setSingleFormValue(formValues, "listCount", String(pageSize));
   formValues.delete("CLASS_CD");
 
   return formValuesToSearchParams(formValues);
@@ -917,16 +946,29 @@ async function collectAssemblyCandidates(
   cutoffDate: string
 ): Promise<CandidateCollectionResult> {
   const baseValues = await extractAssemblyFormValues(page);
-  const windows = buildAssemblySearchWindows(cutoffDate, config, existingState);
+  const coarseWindows = buildAssemblySearchWindows(
+    cutoffDate,
+    config,
+    existingState,
+    {
+      backfillCursorDate: config.backfillCursorOverride,
+      includeRecent: !config.skipRecent,
+      maxBackfillWindows: config.backfillWindowsPerRun
+    }
+  );
+  const windows = splitAssemblySearchWindowsByDay(coarseWindows);
   const candidates: MirrorCandidate[] = [];
   let pagesVisited = 0;
   let discoveredCandidates = 0;
 
-  for (const window of windows) {
+  for (const [windowIndex, window] of windows.entries()) {
+    if (windowIndex > 0) {
+      await page.waitForTimeout(config.pageDelayMs);
+    }
     const minutesFirst = await postAssemblySearch(
       api,
       config,
-      buildAssemblyMinutesParams(baseValues, window, 1)
+      buildAssemblyMinutesParams(baseValues, window, 1, config.pageSize)
     );
     pagesVisited += 1;
     const minutesDiscoveryUrl = `${config.startUrl}#minutes:${window.startDate}:${window.endDate}:1`;
@@ -940,14 +982,20 @@ async function collectAssemblyCandidates(
     candidates.push(...minutesCandidates);
 
     const minutePages = Math.min(
-      responsePageCount(minutesFirst, false),
+      responsePageCount(minutesFirst, false, config.pageSize),
       config.maxPages
     );
     for (let pageNumber = 2; pageNumber <= minutePages; pageNumber += 1) {
+      await page.waitForTimeout(config.pageDelayMs);
       const response = await postAssemblySearch(
         api,
         config,
-        buildAssemblyMinutesParams(baseValues, window, pageNumber)
+        buildAssemblyMinutesParams(
+          baseValues,
+          window,
+          pageNumber,
+          config.pageSize
+        )
       );
       pagesVisited += 1;
       const discoveryUrl = `${config.startUrl}#minutes:${window.startDate}:${window.endDate}:${pageNumber}`;
@@ -962,10 +1010,11 @@ async function collectAssemblyCandidates(
     }
 
     if (config.includeAppendices) {
+      await page.waitForTimeout(config.pageDelayMs);
       const appendixFirst = await postAssemblySearch(
         api,
         config,
-        buildAssemblyAppendixParams(baseValues, window, 1)
+        buildAssemblyAppendixParams(baseValues, window, 1, config.pageSize)
       );
       pagesVisited += 1;
       const appendixDiscoveryUrl = `${config.startUrl}#appendix:${window.startDate}:${window.endDate}:1`;
@@ -979,14 +1028,20 @@ async function collectAssemblyCandidates(
       candidates.push(...appendixCandidates);
 
       const appendixPages = Math.min(
-        responsePageCount(appendixFirst, true),
+        responsePageCount(appendixFirst, true, config.pageSize),
         config.maxPages
       );
       for (let pageNumber = 2; pageNumber <= appendixPages; pageNumber += 1) {
+        await page.waitForTimeout(config.pageDelayMs);
         const response = await postAssemblySearch(
           api,
           config,
-          buildAssemblyAppendixParams(baseValues, window, pageNumber)
+          buildAssemblyAppendixParams(
+            baseValues,
+            window,
+            pageNumber,
+            config.pageSize
+          )
         );
         pagesVisited += 1;
         const discoveryUrl = `${config.startUrl}#appendix:${window.startDate}:${window.endDate}:${pageNumber}`;
@@ -1006,15 +1061,17 @@ async function collectAssemblyCandidates(
     candidates,
     pagesVisited,
     discoveredCandidates,
-    recentWindowStartDate: windows.find((window) => window.label === "recent")
-      ?.startDate,
-    recentWindowEndDate: windows.find((window) => window.label === "recent")
-      ?.endDate,
+    recentWindowStartDate: coarseWindows.find(
+      (window) => window.label === "recent"
+    )?.startDate,
+    recentWindowEndDate: coarseWindows
+      .filter((window) => window.label === "recent")
+      .at(-1)?.endDate,
     nextBackfillCursorDate: resolveNextBackfillCursorDate({
       cutoffDate,
       config,
       existingState,
-      windows
+      windows: coarseWindows
     })
   };
 }
@@ -1405,8 +1462,15 @@ async function main(): Promise<void> {
 
   const needsBrowser =
     config.mode === "generic" || config.mode === "assembly_minutes_search";
+  const chromiumExecutablePath =
+    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?.trim();
   const browser = needsBrowser
-    ? await chromium.launch({ headless: true })
+    ? await chromium.launch({
+        headless: true,
+        ...(chromiumExecutablePath
+          ? { executablePath: chromiumExecutablePath }
+          : {})
+      })
     : null;
   const context = browser
     ? await browser.newContext({ userAgent: config.userAgent })
@@ -1457,6 +1521,7 @@ async function main(): Promise<void> {
   let transcriptsWritten = 0;
   let transcriptFailures = 0;
   let remainingDownloads = config.maxDownloads;
+  let reachedDownloadLimit = false;
 
   for (const candidate of collectionResult.candidates) {
     const seenKey = candidate.documentId ?? candidate.sourceUrl;
@@ -1477,6 +1542,7 @@ async function main(): Promise<void> {
     }
 
     if (remainingDownloads <= 0) {
+      reachedDownloadLimit = true;
       break;
     }
 
@@ -1578,7 +1644,16 @@ async function main(): Promise<void> {
     lastStartUrl: config.startUrl,
     recentWindowStartDate: collectionResult.recentWindowStartDate,
     recentWindowEndDate: collectionResult.recentWindowEndDate,
-    nextBackfillCursorDate: collectionResult.nextBackfillCursorDate,
+    nextBackfillCursorDate: resolvePublishedBackfillCursor({
+      proposedCursor: collectionResult.nextBackfillCursorDate,
+      fallbackCursor:
+        config.backfillCursorOverride ??
+        existingState?.nextBackfillCursorDate ??
+        config.backfillStartDate,
+      skippedWithoutDate,
+      transcriptFailures,
+      reachedDownloadLimit
+    }),
     sourceSnapshotSha256: collectionResult.sourceSnapshotSha256,
     sourceSnapshotCount: collectionResult.sourceSnapshotCount,
     skippedBySourceSnapshot: collectionResult.sourceSnapshotUnchanged ?? false
