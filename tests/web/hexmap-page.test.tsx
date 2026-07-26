@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createLogNormalizer,
-  getMetricModulatedColor
+  getSequentialMetricColor
 } from "../../apps/web/src/lib/geo-utils.js";
 
 type MockStaticState = {
@@ -316,7 +316,7 @@ describe("HexmapPage", () => {
     );
 
     await waitFor(() => {
-      expect(getLastLayer("h3-national-absence-부산")).toBeDefined();
+      expect(getLastLayer("cartogram-national-absence")).toBeDefined();
     });
 
     expect(testState.ensureLoadMock).toHaveBeenCalledTimes(1);
@@ -331,7 +331,7 @@ describe("HexmapPage", () => {
     ).toBeInTheDocument();
     expect(screen.queryByTestId("detail-deck")).not.toBeInTheDocument();
 
-    const nationalLayer = getLastLayer("h3-national-absence-부산");
+    const nationalLayer = getLastLayer("cartogram-national-absence");
     const nationalDeck = getLastDeckProps("national");
     const onClick = nationalLayer?.props.onClick as
       | ((info: { object?: Record<string, unknown> }) => void)
@@ -345,10 +345,10 @@ describe("HexmapPage", () => {
     expect(
       testState.layerInstances.some((layer) => layer.id.startsWith("h3-bloom-"))
     ).toBe(false);
-    expect(nationalDeck?.layers).toHaveLength(2);
+    expect(nationalDeck?.layers).toHaveLength(1);
     expect(nationalDeck?.initialViewState).toMatchObject({
       pitch: 0,
-      zoom: 6.2
+      zoom: 7.1
     });
     expect(firstCell).toMatchObject({
       districtKey: "부산남구",
@@ -597,7 +597,7 @@ describe("HexmapPage", () => {
     expect(testState.ensureLoadMock).toHaveBeenCalledTimes(1);
   });
 
-  it("switches the national layer to district polygons at low zoom-out levels", async () => {
+  it("renders one equal-sized cartogram cell for each district", async () => {
     render(
       <HexmapPage
         manifest={null}
@@ -614,49 +614,35 @@ describe("HexmapPage", () => {
     );
 
     await waitFor(() => {
-      expect(getLastLayer("h3-national-absence")).toBeDefined();
+      expect(getLastLayer("cartogram-national-absence")).toBeDefined();
     });
 
-    const nationalDeck = getLastDeckProps("national");
-    const onViewStateChange = nationalDeck?.onViewStateChange as
-      | ((args: { viewState: Record<string, unknown> }) => void)
-      | undefined;
+    const cartogramLayer = getLastLayer("cartogram-national-absence");
+    const cartogramCells = cartogramLayer?.props.data as Array<{
+      districtKey: string;
+      h3Index: string;
+    }>;
 
-    onViewStateChange?.({
-      viewState: {
-        longitude: 127.8,
-        latitude: 36.5,
-        zoom: 5.2,
-        minZoom: 5,
-        maxZoom: 10,
-        pitch: 0,
-        bearing: 0
-      }
-    });
-
-    await waitFor(() => {
-      expect(getLastLayer("district-national-absence")).toBeDefined();
-    });
-
-    const districtLayer = getLastLayer("district-national-absence");
-    const firstFeature = (
-      districtLayer?.props.data as Array<Record<string, unknown>>
-    )[0];
-
-    expect(firstFeature).toMatchObject({
-      properties: {
-        districtKey: "부산남구",
-        label: "부산 남구",
-        summary: {
-          districtKey: "부산남구",
-          districtLabel: "부산 남구",
-          memberIds: ["M002"]
-        }
-      }
-    });
+    expect(cartogramCells).toHaveLength(2);
+    expect(new Set(cartogramCells.map((cell) => cell.h3Index)).size).toBe(2);
+    expect(cartogramCells.map((cell) => cell.districtKey)).toEqual([
+      "부산남구",
+      "서울중구"
+    ]);
+    expect(
+      screen.getByRole("heading", { name: "지역구 카토그램" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("한 지역구를 동일 크기 육각형 하나로 표시합니다")
+    ).toBeInTheDocument();
+    expect(
+      testState.layerInstances.some((layer) =>
+        layer.id.startsWith("district-national-")
+      )
+    ).toBe(false);
   });
 
-  it("switches to the real-estate metric and keeps party-separated colors and legend", async () => {
+  it("switches to the real-estate metric and uses a single sequential color scale", async () => {
     const onChangeRoute = vi.fn();
 
     render(
@@ -675,26 +661,27 @@ describe("HexmapPage", () => {
     );
 
     await waitFor(() => {
-      expect(getLastLayer("h3-national-absence")).toBeDefined();
+      expect(getLastLayer("cartogram-national-absence")).toBeDefined();
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "부동산" }));
 
     await waitFor(() => {
-      expect(getLastLayer("h3-national-realEstate")).toBeDefined();
+      expect(getLastLayer("cartogram-national-realEstate")).toBeDefined();
     });
 
-    const nationalLayer = getLastLayer("h3-national-realEstate-부산");
+    const nationalLayer = getLastLayer("cartogram-national-realEstate");
     const firstCell = (
       nationalLayer?.props.data as Array<Record<string, unknown>>
     )[0];
-    const assetValues = getLayers("h3-national-realEstate").flatMap((layer) =>
-      (
-        layer.props.data as Array<{
-          metric: number;
-          metricMemberCount: number;
-        }>
-      ).flatMap((cell) => (cell.metricMemberCount > 0 ? [cell.metric] : []))
+    const assetValues = getLayers("cartogram-national-realEstate").flatMap(
+      (layer) =>
+        (
+          layer.props.data as Array<{
+            metric: number;
+            metricMemberCount: number;
+          }>
+        ).flatMap((cell) => (cell.metricMemberCount > 0 ? [cell.metric] : []))
     );
     const getFillColor = nationalLayer?.props.getFillColor as
       | ((cell: Record<string, unknown>) => [number, number, number, number])
@@ -708,20 +695,20 @@ describe("HexmapPage", () => {
       memberIds: ["M002"]
     });
     expect(getFillColor?.(firstCell)).toEqual(
-      getMetricModulatedColor(
-        "미래개혁당",
+      getSequentialMetricColor(
         normalizeAssetMetric(Number(firstCell?.metric ?? 0))
       )
     );
-    expect(screen.getByLabelText("정당 범례")).toBeInTheDocument();
+    expect(getFillColor?.({ ...firstCell, party: "국민의힘" })).toEqual(
+      getFillColor?.({ ...firstCell, party: "더불어민주당" })
+    );
+    expect(screen.getByLabelText("지표 색상 범례")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "부동산 비교에서도 색상은 정당별로 나뉘며, 같은 정당 안에서는 부동산 규모가 클수록 더 진합니다."
-      )
+      screen.getByText("색이 진할수록 공개 부동산액이 큽니다.")
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /최신 공개 부동산\(건물·토지 합계\)이 클수록 더 진하게 보입니다\./
+        /최신 공개 부동산\(건물·토지 합계\)이 클수록 타일이 진해집니다\./
       )
     ).toBeInTheDocument();
     expect(
@@ -734,7 +721,7 @@ describe("HexmapPage", () => {
     });
   });
 
-  it("switches to the total-asset metric and keeps party-separated colors and legend", async () => {
+  it("switches to the total-asset metric and keeps the sequential color scale", async () => {
     const onChangeRoute = vi.fn();
 
     render(
@@ -753,26 +740,27 @@ describe("HexmapPage", () => {
     );
 
     await waitFor(() => {
-      expect(getLastLayer("h3-national-absence")).toBeDefined();
+      expect(getLastLayer("cartogram-national-absence")).toBeDefined();
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "총재산" }));
 
     await waitFor(() => {
-      expect(getLastLayer("h3-national-assetTotal")).toBeDefined();
+      expect(getLastLayer("cartogram-national-assetTotal")).toBeDefined();
     });
 
-    const nationalLayer = getLastLayer("h3-national-assetTotal-부산");
+    const nationalLayer = getLastLayer("cartogram-national-assetTotal");
     const firstCell = (
       nationalLayer?.props.data as Array<Record<string, unknown>>
     )[0];
-    const assetValues = getLayers("h3-national-assetTotal").flatMap((layer) =>
-      (
-        layer.props.data as Array<{
-          metric: number;
-          metricMemberCount: number;
-        }>
-      ).flatMap((cell) => (cell.metricMemberCount > 0 ? [cell.metric] : []))
+    const assetValues = getLayers("cartogram-national-assetTotal").flatMap(
+      (layer) =>
+        (
+          layer.props.data as Array<{
+            metric: number;
+            metricMemberCount: number;
+          }>
+        ).flatMap((cell) => (cell.metricMemberCount > 0 ? [cell.metric] : []))
     );
     const getFillColor = nationalLayer?.props.getFillColor as
       | ((cell: Record<string, unknown>) => [number, number, number, number])
@@ -786,18 +774,15 @@ describe("HexmapPage", () => {
       memberIds: ["M002"]
     });
     expect(getFillColor?.(firstCell)).toEqual(
-      getMetricModulatedColor(
-        "미래개혁당",
+      getSequentialMetricColor(
         normalizeAssetMetric(Number(firstCell?.metric ?? 0))
       )
     );
     expect(
-      screen.getByText(
-        "총재산 비교에서도 색상은 정당별로 나뉘며, 같은 정당 안에서는 재산 규모가 클수록 더 진합니다."
-      )
+      screen.getByText("색이 진할수록 공개 총재산이 큽니다.")
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/최신 공개 총재산이 클수록 더 진하게 보입니다\./)
+      screen.getByText(/최신 공개 총재산이 클수록 타일이 진해집니다\./)
     ).toBeInTheDocument();
     expect(onChangeRoute).toHaveBeenCalledWith({
       district: null,

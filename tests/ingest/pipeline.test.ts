@@ -60,6 +60,46 @@ import {
 const fixturesDir = resolve(process.cwd(), "tests/fixtures");
 
 describe("data pipeline contracts", () => {
+  it("keeps pre-outcome bill activity exports readable during rolling updates", () => {
+    const parsed = billProposalActivityExportSchema.parse({
+      generatedAt: "2026-07-24T09:00:00.000Z",
+      snapshotId: "legacy-bill-activity",
+      assemblyNo: 22,
+      assemblyLabel: "제22대 국회",
+      billCount: 1,
+      proposerLinkCount: 1,
+      matchedProposerLinkCount: 1,
+      unmatchedProposerCount: 0,
+      items: [
+        {
+          memberId: "M001",
+          name: "김아라",
+          party: "미래개혁당",
+          district: "서울 중구",
+          leadProposalCount: 1,
+          coSponsorProposalCount: 0,
+          totalProposalCount: 1,
+          latestProposalAt: "2026-07-24"
+        }
+      ]
+    });
+
+    expect(parsed).toMatchObject({
+      outcomeDataAvailable: false,
+      resultAvailableBillCount: 0,
+      passedBillCount: 0,
+      alternativeReflectedBillCount: 0
+    });
+    expect(parsed.items[0]).toMatchObject({
+      leadResultAvailableProposalCount: 0,
+      leadPassedProposalCount: 0,
+      leadAlternativeReflectedProposalCount: 0,
+      totalResultAvailableProposalCount: 0,
+      totalPassedProposalCount: 0,
+      totalAlternativeReflectedProposalCount: 0
+    });
+  });
+
   it("discovers a raw snapshot manifest and builds normalized outputs from it", async () => {
     const snapshot = await resolveRawSnapshot(fixturesDir);
     const scheduleEntry = snapshot.manifest.entries.find(
@@ -440,9 +480,19 @@ describe("data pipeline contracts", () => {
       leadProposalCount: 1,
       coSponsorProposalCount: 2,
       totalProposalCount: 3,
+      leadResultAvailableProposalCount: 0,
+      leadPassedProposalCount: 0,
+      leadAlternativeReflectedProposalCount: 0,
+      totalResultAvailableProposalCount: 2,
+      totalPassedProposalCount: 1,
+      totalAlternativeReflectedProposalCount: 1,
       latestProposalAt: "2026-03-08"
     });
     expect(billProposalActivity.billCount).toBe(3);
+    expect(billProposalActivity.outcomeDataAvailable).toBe(true);
+    expect(billProposalActivity.resultAvailableBillCount).toBe(2);
+    expect(billProposalActivity.passedBillCount).toBe(1);
+    expect(billProposalActivity.alternativeReflectedBillCount).toBe(1);
     expect(billProposalActivity.unmatchedProposerCount).toBe(1);
     expect(
       billProposalActivityExportSchema.parse(billProposalActivity)

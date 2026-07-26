@@ -99,6 +99,7 @@ export type BillProposalRecord = {
   billName: string;
   assemblyNo: number;
   proposedAt: string | null;
+  processResult: string | null;
   leadMemberIds: string[];
   coSponsorMemberIds: string[];
 };

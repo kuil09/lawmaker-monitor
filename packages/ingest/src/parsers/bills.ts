@@ -61,6 +61,13 @@ export function parseBillProposalXml(xml: string): BillProposalRecord[] {
               "ppslDt"
             ])
           ) ?? null,
+        processResult:
+          pickFirst(row, [
+            "PROC_RESULT",
+            "PROC_RESULT_CD",
+            "procResult",
+            "procResultCd"
+          ]) ?? null,
         leadMemberIds,
         coSponsorMemberIds
       }

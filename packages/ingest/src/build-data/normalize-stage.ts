@@ -122,6 +122,7 @@ function mergeBillProposalRecords(
           .filter((value): value is string => Boolean(value))
           .sort()
           .at(-1) ?? null,
+      processResult: existing.processResult ?? record.processResult,
       leadMemberIds,
       coSponsorMemberIds
     });

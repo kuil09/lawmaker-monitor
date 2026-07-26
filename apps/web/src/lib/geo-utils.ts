@@ -196,6 +196,26 @@ export function getPartyCssColor(party: string): string {
   return `rgb(${red} ${green} ${blue})`;
 }
 
+const SEQUENTIAL_METRIC_LOW: [number, number, number, number] = [
+  224, 231, 255, 235
+];
+const SEQUENTIAL_METRIC_HIGH: [number, number, number, number] = [
+  49, 46, 129, 245
+];
+
+// Maps a normalized metric value to a single-hue light-to-dark scale.
+export function getSequentialMetricColor(
+  t: number
+): [number, number, number, number] {
+  const clamped = Math.max(0, Math.min(1, t));
+
+  return SEQUENTIAL_METRIC_LOW.map((channel, index) =>
+    Math.round(
+      channel + ((SEQUENTIAL_METRIC_HIGH[index] ?? channel) - channel) * clamped
+    )
+  ) as [number, number, number, number];
+}
+
 // t is a normalized value in [0, 1].
 // t=0 -> lighter via white blend, t=0.5 -> base party color, t=1 -> darker via black blend.
 export function getMetricModulatedColor(

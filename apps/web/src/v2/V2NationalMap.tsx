@@ -1,8 +1,10 @@
+import { cellToBoundary } from "h3-js";
 import { useEffect, useMemo, useState } from "react";
 
+import { buildDistrictCartogram } from "../lib/district-cartogram.js";
 import {
   createLogNormalizer,
-  getMetricModulatedColor
+  getSequentialMetricColor
 } from "../lib/geo-utils.js";
 import { hydrateHexCells, type SummaryItem } from "../lib/hex-cells.js";
 import {
@@ -33,10 +35,11 @@ type NationalDistrictFeature = ExtrudedFeature & {
   };
 };
 
-type ColoredDistrictFeature = ExtrudedFeature & {
-  properties: ExtrudedFeature["properties"] & {
-    fillColor: string;
-  };
+type ColoredCartogramCell = {
+  districtKey: string;
+  fillColor: string;
+  h3Index: string;
+  label: string;
 };
 
 type ProjectedDistrict = {
@@ -61,31 +64,25 @@ function toMercatorPoint(position: [number, number]): [number, number] {
   ];
 }
 
-function getFeaturePolygons(feature: ColoredDistrictFeature) {
-  return feature.geometry.type === "Polygon"
-    ? [feature.geometry.coordinates]
-    : feature.geometry.coordinates;
-}
-
-function projectDistricts(
-  features: ColoredDistrictFeature[]
-): ProjectedDistrict[] {
+function projectCartogram(cells: ColoredCartogramCell[]): ProjectedDistrict[] {
   let minX = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
 
-  for (const feature of features) {
-    for (const polygon of getFeaturePolygons(feature)) {
-      for (const ring of polygon) {
-        for (const position of ring) {
-          const [x, y] = toMercatorPoint(position);
-          minX = Math.min(minX, x);
-          maxX = Math.max(maxX, x);
-          minY = Math.min(minY, y);
-          maxY = Math.max(maxY, y);
-        }
-      }
+  const boundaries = cells.map((cell) =>
+    cellToBoundary(cell.h3Index).map(
+      ([latitude, longitude]) => [longitude, latitude] as [number, number]
+    )
+  );
+
+  for (const boundary of boundaries) {
+    for (const position of boundary) {
+      const [x, y] = toMercatorPoint(position);
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
     }
   }
 
@@ -116,20 +113,14 @@ function projectDistricts(
     ] as const;
   };
 
-  return features.flatMap((feature, featureIndex) => {
-    const path = getFeaturePolygons(feature)
-      .flatMap((polygon) =>
-        polygon.map((ring) =>
-          ring
-            .map((position, positionIndex) => {
-              const [x, y] = projectPosition(position);
-              return `${positionIndex === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
-            })
-            .join(" ")
-            .concat(" Z")
-        )
-      )
-      .join(" ");
+  return cells.flatMap((cell, cellIndex) => {
+    const path = (boundaries[cellIndex] ?? [])
+      .map((position, positionIndex) => {
+        const [x, y] = projectPosition(position);
+        return `${positionIndex === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+      })
+      .join(" ")
+      .concat(" Z");
 
     if (!path || path.includes("NaN")) {
       return [];
@@ -137,9 +128,9 @@ function projectDistricts(
 
     return [
       {
-        key: `${feature.properties.districtKey}-${featureIndex}`,
-        label: feature.properties.label,
-        fillColor: feature.properties.fillColor,
+        key: cell.districtKey,
+        label: cell.label,
+        fillColor: cell.fillColor,
         path
       }
     ];
@@ -268,7 +259,7 @@ export function V2NationalMap({
     [districtSummaryByKey, staticState.entries]
   );
 
-  const coloredDistricts = useMemo<ColoredDistrictFeature[]>(() => {
+  const coloredCartogramCells = useMemo<ColoredCartogramCell[]>(() => {
     if (nationalDistricts.length === 0) {
       return [];
     }
@@ -279,30 +270,27 @@ export function V2NationalMap({
         .map((cell) => cell.metric)
     );
 
-    return nationalDistricts.map((feature) => {
-      const summary = feature.properties.summary;
-      const [red, green, blue, alpha] =
-        !summary.party || summary.metricMemberCount === 0
-          ? UNMATCHED_COLOR
-          : getMetricModulatedColor(
-              summary.party,
-              normalizeMetric(summary.metric)
-            );
+    return buildDistrictCartogram(nationalDistricts).map(
+      ({ h3Index, feature }) => {
+        const summary = feature.properties.summary;
+        const [red, green, blue, alpha] =
+          summary.memberCount === 0 || summary.metricMemberCount === 0
+            ? UNMATCHED_COLOR
+            : getSequentialMetricColor(normalizeMetric(summary.metric));
 
-      return {
-        ...feature,
-        properties: {
+        return {
           districtKey: feature.properties.districtKey,
-          label: feature.properties.label,
-          fillColor: `rgba(${red}, ${green}, ${blue}, ${alpha / 255})`
-        }
-      };
-    });
+          fillColor: `rgba(${red}, ${green}, ${blue}, ${alpha / 255})`,
+          h3Index,
+          label: feature.properties.label
+        };
+      }
+    );
   }, [nationalCells, nationalDistricts]);
 
   const projectedDistricts = useMemo(
-    () => projectDistricts(coloredDistricts),
-    [coloredDistricts]
+    () => projectCartogram(coloredCartogramCells),
+    [coloredCartogramCells]
   );
   const isStaticMapComplete =
     staticState.total > 0 &&
@@ -365,12 +353,13 @@ export function V2NationalMap({
   return (
     <div
       className="v2-national-map"
-      data-feature-count={coloredDistricts.length}
+      data-cartogram-cell-count={coloredCartogramCells.length}
+      data-feature-count={nationalDistricts.length}
       data-loaded-provinces={staticState.entries.length}
       data-rendered-feature-count={projectedDistricts.length}
-      data-renderer="svg"
+      data-renderer="svg-cartogram"
       role="img"
-      aria-label={`전국 지역구 ${distributionLabel} 분포 지도. 색상은 정당을, 같은 정당색 안에서 진할수록 ${metricLabel}이 높음을 나타냅니다. 회색은 자료 없음입니다.`}
+      aria-label={`전국 지역구 ${distributionLabel} 카토그램. 각 지역구를 같은 크기 육각형 하나로 표시하며, 색이 진할수록 ${metricLabel}이 높음을 나타냅니다. 회색은 자료 없음입니다.`}
     >
       <div className="v2-national-map__canvas" aria-hidden="true">
         <svg

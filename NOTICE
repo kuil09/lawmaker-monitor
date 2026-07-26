@@ -1,0 +1,91 @@
+Lawmaker Monitor
+Copyright remains with the respective contributors and copyright holders.
+
+This NOTICE file records project and third-party attribution information. It
+does not grant a license to the Lawmaker Monitor source code.
+
+No project-wide software license has been selected as of this revision. Unless
+a separate license notice applies to a particular file, the source code remains
+subject to applicable copyright law. Selecting an open-source license requires
+a separate decision by the copyright holder.
+
+Third-party software
+--------------------
+
+Lawmaker Monitor uses the open-source components listed below. Each component
+is governed by its own license. The package versions resolved for a build are
+recorded in package-lock.json. The license and notice files distributed with
+each installed package are authoritative and must be preserved when required.
+
+Runtime and distributed application dependencies:
+
+- deck.gl packages (@deck.gl/aggregation-layers, @deck.gl/core,
+  @deck.gl/geo-layers, @deck.gl/layers, and @deck.gl/react) — MIT
+  https://github.com/visgl/deck.gl
+- DuckDB-Wasm (@duckdb/duckdb-wasm) — MIT
+  https://github.com/duckdb/duckdb-wasm
+- Phosphor Icons for React (@phosphor-icons/react) — MIT
+  https://github.com/phosphor-icons/react
+- React and React DOM (react and react-dom) — MIT
+  https://github.com/facebook/react
+- Recharts — MIT
+  https://github.com/recharts/recharts
+- H3 for JavaScript (h3-js) — Apache-2.0
+  https://github.com/uber/h3-js
+- html-to-image — MIT
+  https://github.com/bubkoo/html-to-image
+- Proj4js (proj4) — MIT
+  https://github.com/proj4js/proj4js
+- TopoJSON Client and TopoJSON Server (topojson-client and topojson-server) — ISC
+  https://github.com/topojson/topojson-client
+  https://github.com/topojson/topojson-server
+- Cheerio — MIT
+  https://github.com/cheeriojs/cheerio
+- fast-xml-parser — MIT
+  https://github.com/NaturalIntelligence/fast-xml-parser
+- iconv-lite — MIT
+  https://github.com/ashtuchkin/iconv-lite
+- PDF.js distribution (pdfjs-dist) — Apache-2.0, with separately licensed
+  bundled codecs, color-management code, character maps, and fonts
+  https://github.com/mozilla/pdf.js
+- Playwright — Apache-2.0
+  https://github.com/microsoft/playwright
+- shapefile — BSD-3-Clause
+  https://github.com/mbostock/shapefile
+- wkx — MIT
+  https://github.com/cschwarz/wkx
+- Zod — MIT
+  https://github.com/colinhacks/zod
+
+Build, test, and development dependencies include TypeScript (Apache-2.0) and
+MIT-licensed tools such as Vite, Vitest, ESLint, Prettier, Testing Library, and
+jsdom. Type declaration packages are provided by DefinitelyTyped under the MIT
+license. See package-lock.json and each installed package's license file for the
+complete resolved dependency set.
+
+Required upstream notices
+-------------------------
+
+h3-js
+Copyright 2017-2021 Uber Technologies, Inc.
+Licensed under the Apache License, Version 2.0.
+
+Playwright
+Copyright (c) Microsoft Corporation.
+This software contains code derived from the Puppeteer project
+(https://github.com/puppeteer/puppeteer), available under the Apache License,
+Version 2.0.
+
+PDF.js may distribute additional third-party resources under BSD-style, SIL
+Open Font License 1.1, and component-specific permissive terms. When those
+resources are included in a distribution, preserve the corresponding license
+files from pdfjs-dist, including its wasm, standard_fonts, cmaps, and iccs
+directories.
+
+Public data and source material
+-------------------------------
+
+Official National Assembly records and other public source materials are not
+relicensed by this project. Their ownership, attribution, and terms remain with
+the respective source providers. Source URLs and provenance are retained in the
+published data and repository documentation.

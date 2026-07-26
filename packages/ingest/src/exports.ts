@@ -1352,6 +1352,32 @@ export function buildAccountabilitySummaryExport(
   };
 }
 
+type BillProcessOutcome =
+  | "passed"
+  | "alternative-reflected"
+  | "other-result"
+  | "pending";
+
+function classifyBillProcessOutcome(
+  processResult: string | null
+): BillProcessOutcome {
+  const normalized = processResult?.replace(/\s+/g, "").trim() ?? "";
+  if (!normalized) {
+    return "pending";
+  }
+  if (normalized.includes("대안반영")) {
+    return "alternative-reflected";
+  }
+  if (
+    normalized === "가결" ||
+    normalized.includes("원안가결") ||
+    normalized.includes("수정가결")
+  ) {
+    return "passed";
+  }
+  return "other-result";
+}
+
 export function buildBillProposalActivityExport(args: {
   bundle: NormalizedBundle;
   currentAssembly: CurrentAssembly;
@@ -1432,6 +1458,7 @@ export function buildBillProposalActivityExport(args: {
           .filter((value): value is string => Boolean(value))
           .sort()
           .at(-1) ?? null,
+      processResult: existing.processResult ?? proposal.processResult,
       leadMemberIds,
       coSponsorMemberIds: [
         ...new Set([
@@ -1442,6 +1469,40 @@ export function buildBillProposalActivityExport(args: {
     });
   }
   const billProposals = [...billProposalById.values()];
+  const outcomeByBillId = new Map(
+    billProposals.map(
+      (proposal) =>
+        [
+          proposal.billId,
+          classifyBillProcessOutcome(proposal.processResult)
+        ] as const
+    )
+  );
+  const countOutcomes = (billIds: Iterable<string>) => {
+    let resultAvailableProposalCount = 0;
+    let passedProposalCount = 0;
+    let alternativeReflectedProposalCount = 0;
+
+    for (const billId of billIds) {
+      const outcome = outcomeByBillId.get(billId) ?? "pending";
+      if (outcome !== "pending") {
+        resultAvailableProposalCount += 1;
+      }
+      if (outcome === "passed") {
+        passedProposalCount += 1;
+      }
+      if (outcome === "alternative-reflected") {
+        alternativeReflectedProposalCount += 1;
+      }
+    }
+
+    return {
+      resultAvailableProposalCount,
+      passedProposalCount,
+      alternativeReflectedProposalCount
+    };
+  };
+
   for (const proposal of billProposals) {
     for (const memberId of new Set(proposal.leadMemberIds)) {
       registerParticipation(
@@ -1466,6 +1527,11 @@ export function buildBillProposalActivityExport(args: {
       const participation = participationByMemberId.get(member.memberId);
       const leadProposalCount = participation?.leadBillIds.size ?? 0;
       const coSponsorProposalCount = participation?.coSponsorBillIds.size ?? 0;
+      const leadOutcomes = countOutcomes(participation?.leadBillIds ?? []);
+      const totalOutcomes = countOutcomes([
+        ...(participation?.leadBillIds ?? []),
+        ...(participation?.coSponsorBillIds ?? [])
+      ]);
       return {
         memberId: member.memberId,
         name: member.name,
@@ -1474,6 +1540,16 @@ export function buildBillProposalActivityExport(args: {
         leadProposalCount,
         coSponsorProposalCount,
         totalProposalCount: leadProposalCount + coSponsorProposalCount,
+        leadResultAvailableProposalCount:
+          leadOutcomes.resultAvailableProposalCount,
+        leadPassedProposalCount: leadOutcomes.passedProposalCount,
+        leadAlternativeReflectedProposalCount:
+          leadOutcomes.alternativeReflectedProposalCount,
+        totalResultAvailableProposalCount:
+          totalOutcomes.resultAvailableProposalCount,
+        totalPassedProposalCount: totalOutcomes.passedProposalCount,
+        totalAlternativeReflectedProposalCount:
+          totalOutcomes.alternativeReflectedProposalCount,
         latestProposalAt: participation?.latestProposalAt ?? null
       };
     })
@@ -1493,6 +1569,20 @@ export function buildBillProposalActivityExport(args: {
     assemblyNo: args.currentAssembly.assemblyNo,
     assemblyLabel: args.currentAssembly.label,
     billCount: billProposals.length,
+    outcomeDataAvailable: true,
+    resultAvailableBillCount: billProposals.filter(
+      (proposal) =>
+        classifyBillProcessOutcome(proposal.processResult) !== "pending"
+    ).length,
+    passedBillCount: billProposals.filter(
+      (proposal) =>
+        classifyBillProcessOutcome(proposal.processResult) === "passed"
+    ).length,
+    alternativeReflectedBillCount: billProposals.filter(
+      (proposal) =>
+        classifyBillProcessOutcome(proposal.processResult) ===
+        "alternative-reflected"
+    ).length,
     proposerLinkCount,
     matchedProposerLinkCount,
     unmatchedProposerCount: unmatchedProposerIds.size,

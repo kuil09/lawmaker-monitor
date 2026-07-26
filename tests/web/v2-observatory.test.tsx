@@ -106,13 +106,14 @@ describe("v2 observatory", () => {
       screen.getByRole("img", { name: "전국 지역구 결석률 분포 지도" })
     ).toBeInTheDocument();
     const mapLegend = screen.getByLabelText(
-      "지도 범례: 색상으로 정당을 구분합니다. 같은 정당색 안에서는 진할수록 결석률이 높습니다. 회색은 자료 없음입니다."
+      "지도 범례: 지역구 한 곳을 같은 크기 육각형 하나로 표시합니다. 색이 진할수록 결석률이 높고, 회색은 자료 없음입니다."
     );
+    expect(within(mapLegend).getByText("결석률 분포")).toBeInTheDocument();
     expect(
-      within(mapLegend).getByText("색상으로 정당 구분")
+      within(mapLegend).getByText("지역구 1곳 = 육각형 1개")
     ).toBeInTheDocument();
     expect(
-      within(mapLegend).getByText("같은 색에서 진할수록 결석률 높음")
+      within(mapLegend).getByText("색이 진할수록 결석률 높음")
     ).toBeInTheDocument();
     expect(within(mapLegend).getByText("자료 없음")).toBeInTheDocument();
     expect(mapLegend.querySelectorAll(".v2-map-legend__ramp")).toHaveLength(0);
@@ -397,7 +398,11 @@ describe("v2 observatory", () => {
       .closest("section");
     expect(section).not.toBeNull();
     expect(within(section!).getByText("집계 법안")).toBeInTheDocument();
-    expect(within(section!).getAllByText("3건")).toHaveLength(2);
+    expect(within(section!).getByText("처리결과 공개")).toBeInTheDocument();
+    expect(within(section!).getByText("원안·수정 가결")).toBeInTheDocument();
+    expect(within(section!).getByText("대안반영폐기")).toBeInTheDocument();
+    expect(within(section!).getByText("2건")).toBeInTheDocument();
+    expect(within(section!).getAllByText("1건")).toHaveLength(2);
     expect(
       within(section!).getByRole("img", {
         name: "전체 법안 참여 상위 12명의 대표발의와 공동발의 참여 누적 막대그래프"
@@ -411,6 +416,18 @@ describe("v2 observatory", () => {
       name: "이수 의원 상세 보기"
     });
     expect(memberLink).toHaveAttribute("href", "#calendar?member=M003");
+    expect(
+      within(section!).getByRole("columnheader", { name: "결과 확인" })
+    ).toBeInTheDocument();
+    expect(
+      within(section!).getByRole("columnheader", { name: "가결 비중" })
+    ).toBeInTheDocument();
+    const passedMemberLink = within(section!).getByRole("link", {
+      name: "김아라 의원 상세 보기"
+    });
+    const passedMemberRow = passedMemberLink.closest("tr");
+    expect(passedMemberRow).not.toBeNull();
+    expect(within(passedMemberRow!).getByText("100.0%")).toBeInTheDocument();
     fireEvent.click(memberLink);
     expect(onOpenMember).toHaveBeenCalledWith("M003");
   });

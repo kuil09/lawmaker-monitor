@@ -607,7 +607,7 @@
   width: 70px;
   height: 5px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #dce5ed 0%, #8394a6 52%, #34495f 100%);
+  background: linear-gradient(90deg, #e0e7ff 0%, #312e81 100%);
 }
 
 .v2-map-detail-link {

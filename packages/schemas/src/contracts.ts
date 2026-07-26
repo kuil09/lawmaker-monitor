@@ -126,6 +126,24 @@ export const billProposalActivityItemSchema = z
     leadProposalCount: z.number().int().nonnegative(),
     coSponsorProposalCount: z.number().int().nonnegative(),
     totalProposalCount: z.number().int().nonnegative(),
+    leadResultAvailableProposalCount: z.number().int().nonnegative().default(0),
+    leadPassedProposalCount: z.number().int().nonnegative().default(0),
+    leadAlternativeReflectedProposalCount: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(0),
+    totalResultAvailableProposalCount: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(0),
+    totalPassedProposalCount: z.number().int().nonnegative().default(0),
+    totalAlternativeReflectedProposalCount: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(0),
     latestProposalAt: nonEmptyString.nullable().optional()
   })
   .refine(
@@ -137,19 +155,69 @@ export const billProposalActivityItemSchema = z
         "totalProposalCount must equal leadProposalCount + coSponsorProposalCount",
       path: ["totalProposalCount"]
     }
+  )
+  .refine(
+    (item) =>
+      item.leadResultAvailableProposalCount <= item.leadProposalCount &&
+      item.leadPassedProposalCount +
+        item.leadAlternativeReflectedProposalCount <=
+        item.leadResultAvailableProposalCount,
+    {
+      message:
+        "lead outcome counts must not exceed representative proposal counts",
+      path: ["leadResultAvailableProposalCount"]
+    }
+  )
+  .refine(
+    (item) =>
+      item.totalResultAvailableProposalCount <= item.totalProposalCount &&
+      item.totalPassedProposalCount +
+        item.totalAlternativeReflectedProposalCount <=
+        item.totalResultAvailableProposalCount,
+    {
+      message: "total outcome counts must not exceed proposal counts",
+      path: ["totalResultAvailableProposalCount"]
+    }
+  )
+  .refine(
+    (item) =>
+      item.leadResultAvailableProposalCount <=
+        item.totalResultAvailableProposalCount &&
+      item.leadPassedProposalCount <= item.totalPassedProposalCount &&
+      item.leadAlternativeReflectedProposalCount <=
+        item.totalAlternativeReflectedProposalCount,
+    {
+      message: "representative outcome counts must not exceed total outcomes",
+      path: ["leadResultAvailableProposalCount"]
+    }
   );
 
-export const billProposalActivityExportSchema = z.object({
-  generatedAt: nonEmptyString,
-  snapshotId: nonEmptyString,
-  assemblyNo: z.number().int().positive(),
-  assemblyLabel: nonEmptyString,
-  billCount: z.number().int().nonnegative(),
-  proposerLinkCount: z.number().int().nonnegative(),
-  matchedProposerLinkCount: z.number().int().nonnegative(),
-  unmatchedProposerCount: z.number().int().nonnegative(),
-  items: z.array(billProposalActivityItemSchema)
-});
+export const billProposalActivityExportSchema = z
+  .object({
+    generatedAt: nonEmptyString,
+    snapshotId: nonEmptyString,
+    assemblyNo: z.number().int().positive(),
+    assemblyLabel: nonEmptyString,
+    billCount: z.number().int().nonnegative(),
+    outcomeDataAvailable: z.boolean().default(false),
+    resultAvailableBillCount: z.number().int().nonnegative().default(0),
+    passedBillCount: z.number().int().nonnegative().default(0),
+    alternativeReflectedBillCount: z.number().int().nonnegative().default(0),
+    proposerLinkCount: z.number().int().nonnegative(),
+    matchedProposerLinkCount: z.number().int().nonnegative(),
+    unmatchedProposerCount: z.number().int().nonnegative(),
+    items: z.array(billProposalActivityItemSchema)
+  })
+  .refine(
+    (data) =>
+      data.resultAvailableBillCount <= data.billCount &&
+      data.passedBillCount + data.alternativeReflectedBillCount <=
+        data.resultAvailableBillCount,
+    {
+      message: "bill outcome counts must not exceed the exported bill count",
+      path: ["resultAvailableBillCount"]
+    }
+  );
 
 export const weeklyAssemblyTrendPointSchema = z.object({
   weekStart: nonEmptyString,

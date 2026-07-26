@@ -15,6 +15,13 @@ function formatCount(value: number): string {
   return `${new Intl.NumberFormat("ko-KR").format(value)}건`;
 }
 
+function formatRate(numerator: number, denominator: number): string {
+  if (denominator <= 0) {
+    return "—";
+  }
+  return `${((numerator / denominator) * 100).toFixed(1)}%`;
+}
+
 function getMedian(values: number[]): number {
   if (values.length === 0) {
     return 0;
@@ -31,12 +38,14 @@ function getMedian(values: number[]): number {
 function BillActivityTooltip({
   active,
   payload,
+  outcomeDataAvailable,
   onOpenMember
 }: {
   active?: boolean;
   payload?: Array<{
     payload?: BillProposalActivityItem;
   }>;
+  outcomeDataAvailable: boolean;
   onOpenMember: (memberId: string) => void;
 }) {
   const item = payload?.[0]?.payload;
@@ -54,6 +63,15 @@ function BillActivityTooltip({
       <span>{`${item.party} · ${item.district ?? "비례대표"}`}</span>
       <span>{`대표발의 ${formatCount(item.leadProposalCount)}`}</span>
       <span>{`공동발의 참여 ${formatCount(item.coSponsorProposalCount)}`}</span>
+      {outcomeDataAvailable ? (
+        <>
+          <span>{`대표발의 결과 확인 ${formatCount(item.leadResultAvailableProposalCount)}`}</span>
+          <span>{`대표발의 가결 ${formatCount(item.leadPassedProposalCount)} · 대안반영 ${formatCount(item.leadAlternativeReflectedProposalCount)}`}</span>
+          <span>{`공개 결과 중 가결 ${formatRate(item.leadPassedProposalCount, item.leadResultAvailableProposalCount)}`}</span>
+        </>
+      ) : (
+        <span>처리결과 집계 준비 중</span>
+      )}
       <strong>{`전체 참여 ${formatCount(item.totalProposalCount)}`}</strong>
     </div>
   );
@@ -111,7 +129,7 @@ export function BillProposalActivitySection({
           <h2 id="bill-activity-title">의원별 법안 발의 참여 실적</h2>
           <p>
             공식 발의법률안의 의원 식별자를 역집계해 대표발의와 공동발의 참여를
-            분리했습니다.
+            분리하고, 공개된 처리 결과를 함께 비교합니다.
           </p>
         </div>
         <button
@@ -147,16 +165,28 @@ export function BillProposalActivitySection({
               <dd>{formatCount(data.billCount)}</dd>
             </div>
             <div>
-              <dt>현재 의원 대표발의</dt>
-              <dd>{formatCount(representativeProposalCount)}</dd>
+              <dt>처리결과 공개</dt>
+              <dd>
+                {data.outcomeDataAvailable
+                  ? formatCount(data.resultAvailableBillCount)
+                  : "준비 중"}
+              </dd>
             </div>
             <div>
-              <dt>참여 의원</dt>
-              <dd>{`${activeItems.length}명`}</dd>
+              <dt>원안·수정 가결</dt>
+              <dd>
+                {data.outcomeDataAvailable
+                  ? formatCount(data.passedBillCount)
+                  : "—"}
+              </dd>
             </div>
             <div>
-              <dt>대표발의 중앙값</dt>
-              <dd>{formatCount(medianLeadCount)}</dd>
+              <dt>대안반영폐기</dt>
+              <dd>
+                {data.outcomeDataAvailable
+                  ? formatCount(data.alternativeReflectedBillCount)
+                  : "—"}
+              </dd>
             </div>
           </dl>
 
@@ -170,6 +200,10 @@ export function BillProposalActivitySection({
                     <th scope="col">의원</th>
                     <th scope="col">정당</th>
                     <th scope="col">대표발의</th>
+                    <th scope="col">결과 확인</th>
+                    <th scope="col">가결</th>
+                    <th scope="col">대안반영</th>
+                    <th scope="col">가결 비중</th>
                     <th scope="col">공동발의 참여</th>
                     <th scope="col">전체 참여</th>
                   </tr>
@@ -187,6 +221,31 @@ export function BillProposalActivitySection({
                       </th>
                       <td>{item.party}</td>
                       <td>{formatCount(item.leadProposalCount)}</td>
+                      <td>
+                        {data.outcomeDataAvailable
+                          ? formatCount(item.leadResultAvailableProposalCount)
+                          : "—"}
+                      </td>
+                      <td>
+                        {data.outcomeDataAvailable
+                          ? formatCount(item.leadPassedProposalCount)
+                          : "—"}
+                      </td>
+                      <td>
+                        {data.outcomeDataAvailable
+                          ? formatCount(
+                              item.leadAlternativeReflectedProposalCount
+                            )
+                          : "—"}
+                      </td>
+                      <td>
+                        {data.outcomeDataAvailable
+                          ? formatRate(
+                              item.leadPassedProposalCount,
+                              item.leadResultAvailableProposalCount
+                            )
+                          : "—"}
+                      </td>
                       <td>{formatCount(item.coSponsorProposalCount)}</td>
                       <td>
                         <strong>{formatCount(item.totalProposalCount)}</strong>
@@ -240,7 +299,10 @@ export function BillProposalActivitySection({
                     <Tooltip
                       wrapperStyle={{ pointerEvents: "auto" }}
                       content={
-                        <BillActivityTooltip onOpenMember={onOpenMember} />
+                        <BillActivityTooltip
+                          outcomeDataAvailable={data.outcomeDataAvailable}
+                          onOpenMember={onOpenMember}
+                        />
                       }
                     />
                     <Bar
@@ -262,20 +324,21 @@ export function BillProposalActivitySection({
 
               <aside className="bill-activity-card__method">
                 <FileTextIcon size={26} weight="duotone" />
-                <h3>건수는 활동량입니다</h3>
+                <h3>발의량과 처리 결과는 다릅니다</h3>
                 <p>
                   대표발의는 법안별 대표발의자, 공동발의 참여는 그 외 공개
-                  발의자 연결을 각각 한 번만 셉니다.
+                  발의자 연결을 각각 한 번만 셉니다. 가결은 원안가결과 수정가결,
+                  대안반영은 대안반영폐기를 별도로 집계합니다.
                 </p>
                 <div>
                   <InfoIcon size={18} />
                   <p>
-                    발의 건수만으로 법안의 품질, 통과 가능성 또는 정책 성과를
-                    판단할 수 없습니다.
+                    가결 비중은 처리결과가 공개된 대표발의안만 분모로 삼습니다.
+                    미처리 법안은 실패로 계산하지 않습니다.
                   </p>
                 </div>
                 <small>
-                  {`현재 의원 식별자 연결률 ${coveragePercent.toFixed(1)}% · 현재 의원과 연결되지 않은 식별자 ${data.unmatchedProposerCount}개`}
+                  {`현재 의원 대표발의 ${formatCount(representativeProposalCount)} · 참여 의원 ${activeItems.length}명 · 대표발의 중앙값 ${formatCount(medianLeadCount)} · 식별자 연결률 ${coveragePercent.toFixed(1)}% · 미연결 식별자 ${data.unmatchedProposerCount}개`}
                 </small>
               </aside>
             </div>

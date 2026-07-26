@@ -194,11 +194,23 @@ Lawmaker Monitor is built around official Assembly sources for vote, meeting, me
 
 ## Open Source Dependencies
 
-Lawmaker Monitor depends on a small set of open source tools and libraries.
+Lawmaker Monitor depends on open-source tools and libraries across the web
+application, geospatial visualization, data ingestion, and test pipeline.
 
-- [React](https://react.dev/)
-- [Vite](https://vite.dev/)
-- [Recharts](https://recharts.org/)
-- [Zod](https://zod.dev/)
-- [Vitest](https://vitest.dev/)
-- [TypeScript](https://www.typescriptlang.org/)
+- UI and visualization: [React](https://react.dev/),
+  [deck.gl](https://deck.gl/), [Recharts](https://recharts.org/), and
+  [Phosphor Icons](https://phosphoricons.com/)
+- Geospatial and analytical processing:
+  [H3](https://h3geo.org/), [TopoJSON](https://github.com/topojson/topojson),
+  [Proj4js](https://proj4js.org/), and
+  [DuckDB-Wasm](https://duckdb.org/docs/stable/clients/wasm/overview)
+- Data ingestion: [PDF.js](https://mozilla.github.io/pdf.js/),
+  [Playwright](https://playwright.dev/),
+  [Cheerio](https://cheerio.js.org/), and
+  [fast-xml-parser](https://github.com/NaturalIntelligence/fast-xml-parser)
+- Contracts and tooling: [Zod](https://zod.dev/),
+  [Vite](https://vite.dev/), [Vitest](https://vitest.dev/),
+  [TypeScript](https://www.typescriptlang.org/), ESLint, and Prettier
+
+See [NOTICE](./NOTICE) for the dependency license index, required upstream
+attributions, and the current project-license status.

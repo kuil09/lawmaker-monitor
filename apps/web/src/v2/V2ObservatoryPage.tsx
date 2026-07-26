@@ -770,11 +770,11 @@ export function V2ObservatoryPage({
                 />
                 <div
                   className="v2-map-legend"
-                  aria-label={`지도 범례: 색상으로 정당을 구분합니다. 같은 정당색 안에서는 진할수록 ${config.mapLegendMetric}이 높습니다. 회색은 자료 없음입니다.`}
+                  aria-label={`지도 범례: 지역구 한 곳을 같은 크기 육각형 하나로 표시합니다. 색이 진할수록 ${config.mapLegendMetric}이 높고, 회색은 자료 없음입니다.`}
                 >
                   <div className="v2-map-legend__header">
                     <span className="v2-map-legend__title">
-                      색상으로 정당 구분
+                      {config.mapLegendMetric} 분포
                     </span>
                     <span className="v2-map-legend__missing">
                       <i aria-hidden="true" />
@@ -782,7 +782,10 @@ export function V2ObservatoryPage({
                     </span>
                   </div>
                   <span className="v2-map-legend__metric">
-                    같은 색에서 진할수록 {config.mapLegendMetric} 높음
+                    지역구 1곳 = 육각형 1개
+                  </span>
+                  <span className="v2-map-legend__metric">
+                    색이 진할수록 {config.mapLegendMetric} 높음
                   </span>
                   <div className="v2-map-legend__axis">
                     <span>옅음</span>

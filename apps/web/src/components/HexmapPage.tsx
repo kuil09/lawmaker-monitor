@@ -1,5 +1,4 @@
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
-import { GeoJsonLayer } from "@deck.gl/layers";
 import DeckGL from "@deck.gl/react";
 import { ArrowRightIcon } from "@phosphor-icons/react/dist/csr/ArrowRight";
 import {
@@ -13,11 +12,12 @@ import {
 
 import { MemberDetailLink } from "./MemberDetailLink.js";
 import { normalizeConstituencyLookupKey } from "../lib/constituency-map.js";
+import { buildDistrictCartogram } from "../lib/district-cartogram.js";
 import { formatAssetEok, formatPercent } from "../lib/format.js";
 import {
   createLogNormalizer,
-  getMetricModulatedColor,
-  getPartyColor
+  getPartyColor,
+  getSequentialMetricColor
 } from "../lib/geo-utils.js";
 import {
   endPerformanceSpan,
@@ -41,9 +41,9 @@ import type {
 } from "@lawmaker-monitor/schemas";
 
 const INITIAL_VIEW_STATE = {
-  longitude: 127.8,
-  latitude: 36.5,
-  zoom: 6.2,
+  longitude: 127.75,
+  latitude: 36.05,
+  zoom: 7.1,
   minZoom: 5,
   maxZoom: 10,
   pitch: 0,
@@ -53,7 +53,6 @@ const INITIAL_VIEW_STATE = {
 const UNMATCHED_CELL_COLOR: [number, number, number, number] = [
   204, 210, 216, 190
 ];
-const NATIONAL_POLYGON_MAX_ZOOM = 5.8;
 
 type TooltipDatum = Omit<H3DataCell, "h3Index">;
 type NationalDistrictFeature = ExtrudedFeature & {
@@ -138,28 +137,28 @@ const VIZ_CONFIGS: VizConfig[] = [
     key: "absence",
     label: "결석 핫스팟",
     description:
-      "타일 색 진하기 = 결석률 평균(로그 정규화). 색상 hue는 셀 내 다수당을 따르며, 같은 정당 안에서는 값이 높을수록 더 진합니다.",
+      "모든 지역을 한 가지 색으로 표시합니다. 결석률 평균이 높을수록 타일이 진해집니다(로그 정규화).",
     tooltipLabel: (cell) => `결석률 ${(cell.metric * 100).toFixed(1)}%`
   },
   {
     key: "negative",
     label: "반대·기권 인덱스",
     description:
-      "타일 색 진하기 = 반대·기권율 평균(로그 정규화). 색상 hue는 셀 내 다수당을 따르며, 같은 정당 안에서는 값이 높을수록 더 진합니다.",
+      "모든 지역을 한 가지 색으로 표시합니다. 반대·기권율 평균이 높을수록 타일이 진해집니다(로그 정규화).",
     tooltipLabel: (cell) => `반대·기권율 ${(cell.metric * 100).toFixed(1)}%`
   },
   {
     key: "realEstate",
     label: "부동산",
     description:
-      "타일 색 hue는 셀 내 다수당을 따르며, 같은 정당 안에서는 최신 공개 부동산(건물·토지 합계)이 클수록 더 진하게 보입니다. 재산 공개가 없는 지역구는 회색으로 둡니다.",
+      "모든 지역을 한 가지 색으로 표시합니다. 최신 공개 부동산(건물·토지 합계)이 클수록 타일이 진해집니다. 공개 데이터가 없는 지역구는 회색입니다.",
     tooltipLabel: (cell) => `최신 부동산 ${formatAssetEok(cell.metric)}`
   },
   {
     key: "assetTotal",
     label: "총재산",
     description:
-      "타일 색 hue는 셀 내 다수당을 따르며, 같은 정당 안에서는 최신 공개 총재산이 클수록 더 진하게 보입니다. 재산 공개가 없는 지역구는 회색으로 둡니다.",
+      "모든 지역을 한 가지 색으로 표시합니다. 최신 공개 총재산이 클수록 타일이 진해집니다. 공개 데이터가 없는 지역구는 회색입니다.",
     tooltipLabel: (cell) => `최신 총재산 ${formatAssetEok(cell.metric)}`
   }
 ];
@@ -202,8 +201,6 @@ export function HexmapPage({
   const [nationalTooltip, setNationalTooltip] = useState<TooltipInfo | null>(
     null
   );
-  const [nationalViewState, setNationalViewState] =
-    useState(INITIAL_VIEW_STATE);
   const [isNationalMapRendered, setIsNationalMapRendered] = useState(false);
 
   const onChangeRouteRef = useRef(onChangeRoute);
@@ -406,24 +403,6 @@ export function HexmapPage({
     VIZ_CONFIGS.find((config) => config.key === activeMetric) ??
     VIZ_CONFIGS[0]!;
 
-  const partiesPresent = useMemo(() => {
-    const seen = new Map<string, [number, number, number, number]>();
-
-    for (const cell of nationalCells) {
-      if (cell.memberCount === 0 || !cell.party) {
-        continue;
-      }
-
-      if (!seen.has(cell.party)) {
-        seen.set(cell.party, getPartyColor(cell.party));
-      }
-    }
-
-    return [...seen.entries()]
-      .sort((left, right) => left[0].localeCompare(right[0], "ko"))
-      .map(([party, color]) => ({ party, color }));
-  }, [nationalCells]);
-
   const districtSummaryByKey = useMemo(() => {
     const summaryByKey = new Map<string, TooltipDatum>();
 
@@ -464,6 +443,15 @@ export function HexmapPage({
     );
   }, [districtSummaryByKey, staticState.entries]);
 
+  const nationalCartogramCells = useMemo<H3DataCell[]>(
+    () =>
+      buildDistrictCartogram(nationalDistricts).map(({ h3Index, feature }) => ({
+        h3Index,
+        ...feature.properties.summary
+      })),
+    [nationalDistricts]
+  );
+
   const getCellFillColor = useCallback(
     (
       cell: TooltipDatum,
@@ -477,7 +465,7 @@ export function HexmapPage({
         return UNMATCHED_CELL_COLOR;
       }
 
-      return getMetricModulatedColor(cell.party, normalizeMetric(cell.metric));
+      return getSequentialMetricColor(normalizeMetric(cell.metric));
     },
     [activeMetric]
   );
@@ -506,119 +494,50 @@ export function HexmapPage({
   }, [activeMetric, selectedProvinceFilter]);
 
   const nationalLayers = useMemo(() => {
-    if (nationalCells.length === 0) {
+    if (nationalCartogramCells.length === 0) {
       return [];
     }
 
     const normalizeMetric = createLogNormalizer(
-      nationalCells
+      nationalCartogramCells
         .filter((cell) => cell.metricMemberCount > 0)
         .map((cell) => cell.metric)
     );
 
-    if (
-      nationalViewState.zoom <= NATIONAL_POLYGON_MAX_ZOOM &&
-      nationalDistricts.length > 0
-    ) {
-      return [
-        new GeoJsonLayer<NationalDistrictFeature>({
-          id: `district-national-${activeMetric}`,
-          data: nationalDistricts,
-          filled: true,
-          stroked: true,
-          getFillColor: (feature) =>
-            getCellFillColor(
-              (feature as unknown as NationalDistrictFeature).properties
-                .summary,
-              normalizeMetric
-            ),
-          getLineColor: [255, 255, 255, 110],
-          lineWidthMinPixels: 1,
-          pickable: true,
-          onHover: (info) => {
-            const feature = info.object as unknown as
-              | NationalDistrictFeature
-              | undefined;
-            if (feature && info.x !== undefined && info.y !== undefined) {
-              setNationalTooltip({
-                x: info.x,
-                y: info.y,
-                datum: feature.properties.summary
-              });
-              return;
-            }
-
-            setNationalTooltip(null);
-          },
-          onClick: (info) => {
-            const feature = info.object as unknown as
-              | NationalDistrictFeature
-              | undefined;
-            if (!feature) {
-              return;
-            }
-
-            districtPanelSpanRef.current = startPerformanceSpan(
-              "hexmap:districtPanelReady"
-            );
-            setSelectedDistrictKey(null);
-            setSelectedProvinceFilter(
-              feature.properties.summary.provinceShortName
-            );
-            setNationalTooltip(null);
+    return [
+      new H3HexagonLayer<H3DataCell>({
+        id: `cartogram-national-${activeMetric}`,
+        data: nationalCartogramCells,
+        getHexagon: (cell) => cell.h3Index,
+        getFillColor: (cell) => getCellFillColor(cell, normalizeMetric),
+        getLineColor: [255, 255, 255, 180],
+        lineWidthMinPixels: 1,
+        extruded: false,
+        pickable: true,
+        onHover: (info) => {
+          if (info.object && info.x !== undefined && info.y !== undefined) {
+            const { h3Index: _h3Index, ...datum } = info.object;
+            setNationalTooltip({ x: info.x, y: info.y, datum });
+            return;
           }
-        })
-      ];
-    }
 
-    const cellsByProvince = new Map<string, H3DataCell[]>();
-    for (const cell of nationalCells) {
-      const provinceCells = cellsByProvince.get(cell.provinceShortName) ?? [];
-      provinceCells.push(cell);
-      cellsByProvince.set(cell.provinceShortName, provinceCells);
-    }
-
-    return [...cellsByProvince.entries()].map(
-      ([provinceShortName, provinceCells]) =>
-        new H3HexagonLayer<H3DataCell>({
-          id: `h3-national-${activeMetric}-${provinceShortName}`,
-          data: provinceCells,
-          getHexagon: (cell) => cell.h3Index,
-          getFillColor: (cell) => getCellFillColor(cell, normalizeMetric),
-          getLineColor: [255, 255, 255, 40],
-          lineWidthMinPixels: 1,
-          extruded: false,
-          pickable: true,
-          onHover: (info) => {
-            if (info.object && info.x !== undefined && info.y !== undefined) {
-              const { h3Index: _h3Index, ...datum } = info.object;
-              setNationalTooltip({ x: info.x, y: info.y, datum });
-              return;
-            }
-
-            setNationalTooltip(null);
-          },
-          onClick: (info) => {
-            if (!info.object) {
-              return;
-            }
-
-            districtPanelSpanRef.current = startPerformanceSpan(
-              "hexmap:districtPanelReady"
-            );
-            setSelectedDistrictKey(null);
-            setSelectedProvinceFilter(info.object.provinceShortName);
-            setNationalTooltip(null);
+          setNationalTooltip(null);
+        },
+        onClick: (info) => {
+          if (!info.object) {
+            return;
           }
-        })
-    );
-  }, [
-    activeMetric,
-    getCellFillColor,
-    nationalCells,
-    nationalDistricts,
-    nationalViewState.zoom
-  ]);
+
+          districtPanelSpanRef.current = startPerformanceSpan(
+            "hexmap:districtPanelReady"
+          );
+          setSelectedDistrictKey(null);
+          setSelectedProvinceFilter(info.object.provinceShortName);
+          setNationalTooltip(null);
+        }
+      })
+    ];
+  }, [activeMetric, getCellFillColor, nationalCartogramCells]);
 
   const detailPanelLabel = selectedProvinceFilter;
   const isFilterPending =
@@ -641,13 +560,13 @@ export function HexmapPage({
   const isNationalMapPending =
     !nationalMapError &&
     (!isStaticMapComplete ||
-      nationalCells.length === 0 ||
+      nationalCartogramCells.length === 0 ||
       !isNationalMapRendered);
   const handleNationalMapAfterRender = useCallback(() => {
-    if (isStaticMapComplete && nationalCells.length > 0) {
+    if (isStaticMapComplete && nationalCartogramCells.length > 0) {
       setIsNationalMapRendered(true);
     }
-  }, [isStaticMapComplete, nationalCells.length]);
+  }, [isStaticMapComplete, nationalCartogramCells.length]);
   const summaryItemsByMemberId = useMemo(
     () => new Map(summaryItems.map((item) => [item.memberId, item] as const)),
     [summaryItems]
@@ -688,11 +607,14 @@ export function HexmapPage({
       ).size,
     [detailMemberOptions]
   );
-  const partyLegendDescription = isAssetMetric(activeMetric)
-    ? `${getAssetMetricLabel(activeMetric)} 비교에서도 색상은 정당별로 나뉘며, 같은 정당 안에서는 ${
-        activeMetric === "realEstate" ? "부동산 규모" : "재산 규모"
-      }가 클수록 더 진합니다.`
-    : "색상은 정당별로 구분되며, 같은 정당 안에서는 값이 높을수록 더 진합니다.";
+  const metricLegendDescription =
+    activeMetric === "absence"
+      ? "색이 진할수록 결석률이 높습니다."
+      : activeMetric === "negative"
+        ? "색이 진할수록 반대·기권률이 높습니다."
+        : activeMetric === "realEstate"
+          ? "색이 진할수록 공개 부동산액이 큽니다."
+          : "색이 진할수록 공개 총재산이 큽니다.";
 
   useEffect(() => {
     if (
@@ -813,8 +735,12 @@ export function HexmapPage({
             </dd>
           </div>
           <div>
-            <dt>상세 셀</dt>
-            <dd>{nationalCells.length > 0 ? nationalCells.length : "—"}</dd>
+            <dt>지역구 셀</dt>
+            <dd>
+              {nationalCartogramCells.length > 0
+                ? nationalCartogramCells.length
+                : "—"}
+            </dd>
           </div>
         </dl>
       </header>
@@ -874,37 +800,37 @@ export function HexmapPage({
             </div>
           </section>
 
-          {partiesPresent.length > 0 ? (
-            <section
-              className="hexmap-sidebar__section hexmap-party-legend"
-              aria-label="정당 범례"
+          <section
+            className="hexmap-sidebar__section hexmap-metric-legend"
+            aria-label="지표 색상 범례"
+          >
+            <div className="hexmap-metric-legend__copy">
+              <h2 className="hexmap-metric-legend__heading">색상 기준</h2>
+              <span className="hexmap-metric-legend__description">
+                {metricLegendDescription}
+              </span>
+            </div>
+            <div
+              className="hexmap-metric-legend__axis"
+              aria-label={`${vizConfig.label} 낮음에서 높음`}
             >
-              <div className="hexmap-party-legend__copy">
-                <h2 className="hexmap-party-legend__heading">색상 기준</h2>
-                <span className="hexmap-party-legend__description">
-                  {partyLegendDescription}
-                </span>
-              </div>
-              <div className="hexmap-party-legend__items">
-                {partiesPresent.map(({ party, color: [red, green, blue] }) => (
-                  <span key={party} className="hexmap-party-legend__item">
-                    <span
-                      className="hexmap-party-legend__dot"
-                      style={{ background: `rgb(${red},${green},${blue})` }}
-                      aria-hidden="true"
-                    />
-                    {party}
-                  </span>
-                ))}
-              </div>
-            </section>
-          ) : null}
+              <span>낮음</span>
+              <i aria-hidden="true" />
+              <span>높음</span>
+            </div>
+            <span className="hexmap-metric-legend__missing">
+              <i aria-hidden="true" />
+              자료 없음
+            </span>
+          </section>
 
           <details className="hexmap-disclaimer">
             <summary>표시 기준과 제한</summary>
             <p>
-              비례대표 의원은 지역구가 없어 표시되지 않으며, 공석 또는 매칭되지
-              않은 지역은 회색 타일로 유지합니다.
+              각 육각형은 실제 면적과 무관한 지역구 1곳이며, 위치는 전국의
+              대략적 방향을 유지하도록 재배치했습니다. 비례대표 의원은 지역구가
+              없어 표시되지 않으며, 공석 또는 매칭되지 않은 지역은 회색 타일로
+              유지합니다.
               {isAssetMetric(activeMetric) &&
                 ` ${getAssetMetricLabel(activeMetric)} 비교는 ${
                   activeMetric === "realEstate"
@@ -922,9 +848,9 @@ export function HexmapPage({
           <div className="hexmap-section__heading">
             <div>
               <p>전국 보기</p>
-              <h2 id="hexmap-national-title">지역구 분포</h2>
+              <h2 id="hexmap-national-title">지역구 카토그램</h2>
             </div>
-            <span>확대 수준에 따라 지역 경계와 H3 셀이 전환됩니다</span>
+            <span>한 지역구를 동일 크기 육각형 하나로 표시합니다</span>
           </div>
           <div
             className={`hexmap-map-container${
@@ -945,14 +871,9 @@ export function HexmapPage({
               </div>
             ) : (
               <>
-                {nationalCells.length > 0 ? (
+                {nationalCartogramCells.length > 0 ? (
                   <DeckGL
                     initialViewState={INITIAL_VIEW_STATE}
-                    onViewStateChange={({ viewState }) => {
-                      setNationalViewState(
-                        viewState as typeof INITIAL_VIEW_STATE
-                      );
-                    }}
                     onAfterRender={handleNationalMapAfterRender}
                     controller
                     layers={nationalLayers}
@@ -988,8 +909,8 @@ export function HexmapPage({
             )}
 
             {nationalTooltip &&
-              nationalCells.length > 0 &&
-              renderTooltipContent(nationalTooltip, "클릭 → 지역 확대")}
+              nationalCartogramCells.length > 0 &&
+              renderTooltipContent(nationalTooltip, "클릭 → 지역 선택")}
           </div>
         </section>
 

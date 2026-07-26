@@ -152,7 +152,8 @@
       "runtimeStatus": "active",
       "notes": [
         "The National Assembly Secretariat publishes this feed through the official Public Data Portal as a real-time XML OpenAPI.",
-        "Runtime aggregates representative and co-sponsor member identifiers separately and does not treat proposal volume as legislative quality."
+        "Runtime aggregates representative and co-sponsor member identifiers separately.",
+        "PROC_RESULT supplies the official processing result. Original and amended passage are counted separately from alternative-bill reflection, and proposals without a published result are excluded from result-rate denominators."
       ]
     },
     {

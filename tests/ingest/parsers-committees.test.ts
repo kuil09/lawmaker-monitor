@@ -30,8 +30,17 @@ describe("committee and bill-summary parsers", () => {
           billId: "PRC_L3",
           assemblyNo: 22,
           proposedAt: "2026-03-08",
+          processResult: null,
           leadMemberIds: ["M003"],
           coSponsorMemberIds: ["M001", "X999"]
+        }),
+        expect.objectContaining({
+          billId: "PRC_L1",
+          processResult: "원안가결"
+        }),
+        expect.objectContaining({
+          billId: "PRC_L2",
+          processResult: "대안반영폐기"
         })
       ])
     );

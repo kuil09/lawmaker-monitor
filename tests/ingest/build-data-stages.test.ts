@@ -34,8 +34,14 @@ describe("build-data pipeline stages", () => {
     expect(
       normalized.billProposals.find((proposal) => proposal.billId === "PRC_L3")
     ).toMatchObject({
+      processResult: null,
       leadMemberIds: ["M003"],
       coSponsorMemberIds: ["M001", "X999", "M002"]
+    });
+    expect(
+      normalized.billProposals.find((proposal) => proposal.billId === "PRC_L1")
+    ).toMatchObject({
+      processResult: "원안가결"
     });
     expect(
       normalized.propertyMemberContext.currentMembers.map(

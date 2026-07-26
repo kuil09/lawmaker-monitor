@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   getPartyColor,
-  getPartyCssColor
+  getPartyCssColor,
+  getSequentialMetricColor
 } from "../../apps/web/src/lib/geo-utils.js";
 
 describe("party visualization colors", () => {
@@ -18,5 +19,12 @@ describe("party visualization colors", () => {
   it("uses neutral gray for an unknown party instead of a major-party color", () => {
     expect(getPartyColor("알 수 없는 정당")).toEqual([130, 130, 130, 230]);
     expect(getPartyCssColor("알 수 없는 정당")).toBe("rgb(130 130 130)");
+  });
+
+  it("uses a party-independent sequential scale for geographic metrics", () => {
+    expect(getSequentialMetricColor(0)).toEqual([224, 231, 255, 235]);
+    expect(getSequentialMetricColor(1)).toEqual([49, 46, 129, 245]);
+    expect(getSequentialMetricColor(-1)).toEqual(getSequentialMetricColor(0));
+    expect(getSequentialMetricColor(2)).toEqual(getSequentialMetricColor(1));
   });
 });

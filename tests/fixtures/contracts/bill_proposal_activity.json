@@ -4,6 +4,10 @@
   "assemblyNo": 22,
   "assemblyLabel": "제22대 국회",
   "billCount": 3,
+  "outcomeDataAvailable": true,
+  "resultAvailableBillCount": 2,
+  "passedBillCount": 1,
+  "alternativeReflectedBillCount": 1,
   "proposerLinkCount": 10,
   "matchedProposerLinkCount": 9,
   "unmatchedProposerCount": 1,
@@ -16,6 +20,12 @@
       "leadProposalCount": 1,
       "coSponsorProposalCount": 2,
       "totalProposalCount": 3,
+      "leadResultAvailableProposalCount": 0,
+      "leadPassedProposalCount": 0,
+      "leadAlternativeReflectedProposalCount": 0,
+      "totalResultAvailableProposalCount": 2,
+      "totalPassedProposalCount": 1,
+      "totalAlternativeReflectedProposalCount": 1,
       "latestProposalAt": "2026-03-08"
     },
     {
@@ -26,6 +36,12 @@
       "leadProposalCount": 1,
       "coSponsorProposalCount": 2,
       "totalProposalCount": 3,
+      "leadResultAvailableProposalCount": 1,
+      "leadPassedProposalCount": 1,
+      "leadAlternativeReflectedProposalCount": 0,
+      "totalResultAvailableProposalCount": 2,
+      "totalPassedProposalCount": 1,
+      "totalAlternativeReflectedProposalCount": 1,
       "latestProposalAt": "2026-03-08"
     },
     {
@@ -36,6 +52,12 @@
       "leadProposalCount": 1,
       "coSponsorProposalCount": 2,
       "totalProposalCount": 3,
+      "leadResultAvailableProposalCount": 1,
+      "leadPassedProposalCount": 0,
+      "leadAlternativeReflectedProposalCount": 1,
+      "totalResultAvailableProposalCount": 2,
+      "totalPassedProposalCount": 1,
+      "totalAlternativeReflectedProposalCount": 1,
       "latestProposalAt": "2026-03-08"
     }
   ]
