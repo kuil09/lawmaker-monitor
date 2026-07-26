@@ -290,6 +290,16 @@ describe("minutes transcript summarization", () => {
         "<think>internal reasoning</think>\n요약: 영향평가 의무화와 중소기업 지원을 제안했습니다."
       )
     ).toBe("영향평가 의무화와 중소기업 지원을 제안했습니다.");
+    expect(() =>
+      sanitizeModelSummary(
+        "문대림委员主张 해양 시추 계획을 추진해야 한다고 밝혔습니다."
+      )
+    ).toThrow("non-Korean CJK script");
+    expect(() =>
+      sanitizeModelSummary(
+        "문대림 의원은 해양 시추 계획을 추진해야 한다고 밝혔습니다"
+      )
+    ).toThrow("unfinished summary");
 
     const transcript = parseAssemblyMinutesViewerHtml({
       documentId: "minutes-1",

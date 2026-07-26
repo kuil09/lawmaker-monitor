@@ -153,11 +153,15 @@ Minutes summary settings:
 
 - `LLAMA_CPP_RELEASE`
 - `MINUTES_SUMMARY_MODEL`
+- `MINUTES_SUMMARY_CHAT_TEMPLATE_URL`
 - `MINUTES_SUMMARY_MAX_DOCUMENTS`
 - `MINUTES_SUMMARY_MAX_GROUPS`
 
 The summary workflow runs an open-weight GGUF model directly on the GitHub
-Actions runner. It does not send minutes to a hosted inference API. The
+Actions runner. The default is the official EXAONE 4.0 1.2B Q8 GGUF with its
+pinned chat template. Generated text is rejected before publication when it
+contains non-Korean CJK scripts, lacks sufficient Hangul, is overlong, or ends
+mid-sentence. It does not send minutes to a hosted inference API. The
 Assembly search endpoint is used only as a document catalog to discover minutes
 IDs and dates. Every summary input must come from a separately downloaded
 official minutes viewer document at

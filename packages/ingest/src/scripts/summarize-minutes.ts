@@ -12,6 +12,7 @@ import {
   buildMemberStatementSummaryExports,
   buildMinutesSummaryGroups,
   createLlamaServerSummarizer,
+  DEFAULT_MINUTES_SUMMARY_MODEL,
   MINUTES_SUMMARY_PROMPT_VERSION,
   summarizeMinutesGroup,
   type MinutesDocumentSummaryArtifact,
@@ -86,7 +87,8 @@ function loadConfig(): SummaryConfig {
       process.env.MINUTES_SUMMARY_STATE_PATH?.trim() ||
       "manifests/minutes_summary_state.json",
     modelId:
-      process.env.MINUTES_SUMMARY_MODEL?.trim() || "Qwen/Qwen3-1.7B-GGUF:Q8_0",
+      process.env.MINUTES_SUMMARY_MODEL?.trim() ||
+      DEFAULT_MINUTES_SUMMARY_MODEL,
     endpoint:
       process.env.MINUTES_SUMMARY_ENDPOINT?.trim() ||
       "http://127.0.0.1:8080/v1/chat/completions",

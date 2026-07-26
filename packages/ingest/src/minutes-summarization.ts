@@ -11,7 +11,9 @@ import type {
   MemberStatementSummaryItem
 } from "@lawmaker-monitor/schemas";
 
-export const MINUTES_SUMMARY_PROMPT_VERSION = "minutes-summary-v4";
+export const DEFAULT_MINUTES_SUMMARY_MODEL =
+  "LGAI-EXAONE/EXAONE-4.0-1.2B-GGUF:Q8_0";
+export const MINUTES_SUMMARY_PROMPT_VERSION = "minutes-summary-v5";
 
 export type MinutesSummaryMember = {
   memberId: string;
@@ -386,7 +388,27 @@ export function sanitizeModelSummary(value: string): string {
     throw new Error("The local model returned an empty or unusable summary.");
   }
 
-  return normalized.slice(0, 600);
+  if (normalized.length > 600) {
+    throw new Error("The local model returned an overlong summary.");
+  }
+
+  if (
+    /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(normalized)
+  ) {
+    throw new Error("The local model returned a non-Korean CJK script.");
+  }
+
+  const hangulCount = normalized.match(/[가-힣]/g)?.length ?? 0;
+  const letterCount = normalized.match(/\p{L}/gu)?.length ?? 0;
+  if (hangulCount < 10 || hangulCount / Math.max(letterCount, 1) < 0.5) {
+    throw new Error("The local model returned insufficient Korean text.");
+  }
+
+  if (!/[.!?]$/.test(normalized)) {
+    throw new Error("The local model returned an unfinished summary.");
+  }
+
+  return normalized;
 }
 
 export function buildMinutesSummaryPrompt(args: {
@@ -412,6 +434,8 @@ export function buildMinutesSummaryPrompt(args: {
     "",
     "원문에 명시된 입장, 제안, 근거만 사용해 한국어 2~3문장으로 요약하세요.",
     "추측, 평가, 배경지식, 새로운 숫자를 추가하지 마세요.",
+    "현대 한국어 한글 문장으로만 작성하고 한자, 중국어, 일본어를 섞지 마세요.",
+    "각 문장은 완결된 종결어미와 문장부호로 끝내세요.",
     "제목이나 글머리표 없이 요약문만 출력하세요."
   ].join("\n");
 }
@@ -429,52 +453,72 @@ export function createLlamaServerSummarizer(args: {
     );
 
     try {
-      const response = await fetch(args.endpoint, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json"
+      const messages = [
+        {
+          role: "system",
+          content:
+            "대한민국 국회 회의록의 의원 발언을 제공된 원문만 사용해 현대 한국어로 충실히 요약하세요. 발언자나 원문에 없는 사실을 추론하지 마세요."
         },
-        body: JSON.stringify({
-          model: args.modelId,
-          messages: [
-            {
-              role: "system",
-              content:
-                "You faithfully summarize Korean National Assembly statements using only the supplied text. Never infer speaker identity or unsupported facts."
-            },
+        {
+          role: "user",
+          content: buildMinutesSummaryPrompt(input)
+        }
+      ];
+
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const response = await fetch(args.endpoint, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json"
+          },
+          body: JSON.stringify({
+            model: args.modelId,
+            messages,
+            temperature: 0.1,
+            max_tokens: 220,
+            stream: false,
+            chat_template_kwargs: {
+              enable_thinking: false
+            }
+          }),
+          signal: controller.signal
+        });
+        if (!response.ok) {
+          throw new Error(
+            `Local model request failed: ${response.status} ${response.statusText}`
+          );
+        }
+
+        const payload = (await response.json()) as {
+          choices?: Array<{
+            message?: {
+              content?: unknown;
+            };
+          }>;
+        };
+        const content = payload.choices?.[0]?.message?.content;
+        if (typeof content !== "string") {
+          throw new Error("Local model response did not contain text.");
+        }
+
+        try {
+          return sanitizeModelSummary(content);
+        } catch (error) {
+          if (attempt > 0) {
+            throw error;
+          }
+          messages.push(
+            { role: "assistant", content },
             {
               role: "user",
-              content: buildMinutesSummaryPrompt(input)
+              content:
+                "방금 답변은 한국어 요약 형식을 충족하지 못했습니다. 한자, 중국어, 일본어 없이 현대 한국어 한글로만 2~3개의 완결된 문장을 다시 작성하세요."
             }
-          ],
-          temperature: 0.1,
-          max_tokens: 220,
-          stream: false,
-          chat_template_kwargs: {
-            enable_thinking: false
-          }
-        }),
-        signal: controller.signal
-      });
-      if (!response.ok) {
-        throw new Error(
-          `Local model request failed: ${response.status} ${response.statusText}`
-        );
+          );
+        }
       }
 
-      const payload = (await response.json()) as {
-        choices?: Array<{
-          message?: {
-            content?: unknown;
-          };
-        }>;
-      };
-      const content = payload.choices?.[0]?.message?.content;
-      if (typeof content !== "string") {
-        throw new Error("Local model response did not contain text.");
-      }
-
-      return sanitizeModelSummary(content);
+      throw new Error("The local model did not return a valid Korean summary.");
     } finally {
       clearTimeout(timeoutHandle);
     }
