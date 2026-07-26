@@ -117,6 +117,16 @@ vi.mock("@deck.gl/layers", () => ({
       this.props = props;
       testState.layerInstances.push({ id: this.id, props });
     }
+  },
+  TextLayer: class {
+    id: string;
+    props: Record<string, unknown>;
+
+    constructor(props: Record<string, unknown>) {
+      this.id = String(props.id);
+      this.props = props;
+      testState.layerInstances.push({ id: this.id, props });
+    }
   }
 }));
 
@@ -332,6 +342,8 @@ describe("HexmapPage", () => {
     expect(screen.queryByTestId("detail-deck")).not.toBeInTheDocument();
 
     const nationalLayer = getLastLayer("cartogram-national-absence");
+    const provinceBoundaryLayer = getLastLayer("cartogram-province-boundaries");
+    const provinceLabelLayer = getLastLayer("cartogram-province-labels");
     const nationalDeck = getLastDeckProps("national");
     const onClick = nationalLayer?.props.onClick as
       | ((info: { object?: Record<string, unknown> }) => void)
@@ -345,7 +357,18 @@ describe("HexmapPage", () => {
     expect(
       testState.layerInstances.some((layer) => layer.id.startsWith("h3-bloom-"))
     ).toBe(false);
-    expect(nationalDeck?.layers).toHaveLength(1);
+    expect(nationalDeck?.layers).toHaveLength(3);
+    expect(provinceBoundaryLayer?.props.getLineWidth).toBe(3);
+    expect(provinceBoundaryLayer?.props.pickable).toBe(false);
+    expect(provinceLabelLayer?.props.pickable).toBe(false);
+    expect(
+      provinceLabelLayer?.props.data as Array<{ provinceShortName: string }>
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ provinceShortName: "부산" }),
+        expect.objectContaining({ provinceShortName: "서울" })
+      ])
+    );
     expect(nationalDeck?.initialViewState).toMatchObject({
       latitude: 35.95,
       pitch: 0,
@@ -634,7 +657,9 @@ describe("HexmapPage", () => {
       screen.getByRole("heading", { name: "지역구 카토그램" })
     ).toBeInTheDocument();
     expect(
-      screen.getByText("한 지역구를 동일 크기 육각형 하나로 표시합니다")
+      screen.getByText(
+        "지역구 1곳은 육각형 1개, 굵은 선과 라벨은 시·도 경계입니다"
+      )
     ).toBeInTheDocument();
     expect(
       testState.layerInstances.some((layer) =>

@@ -106,7 +106,7 @@ describe("v2 observatory", () => {
       screen.getByRole("img", { name: "전국 지역구 결석률 분포 지도" })
     ).toBeInTheDocument();
     const mapLegend = screen.getByLabelText(
-      "지도 범례: 지역구 한 곳을 같은 크기 육각형 하나로 표시합니다. 색이 진할수록 결석률이 높고, 회색은 자료 없음입니다."
+      "지도 범례: 지역구 한 곳을 같은 크기 육각형 하나로 표시합니다. 굵은 선과 라벨은 시·도 경계입니다. 색이 진할수록 결석률이 높고, 회색은 자료 없음입니다."
     );
     expect(within(mapLegend).getByText("결석률 분포")).toBeInTheDocument();
     expect(
@@ -114,6 +114,9 @@ describe("v2 observatory", () => {
     ).toBeInTheDocument();
     expect(
       within(mapLegend).getByText("색이 진할수록 결석률 높음")
+    ).toBeInTheDocument();
+    expect(
+      within(mapLegend).getByText("굵은 선·라벨 = 시·도 경계")
     ).toBeInTheDocument();
     expect(within(mapLegend).getByText("자료 없음")).toBeInTheDocument();
     expect(mapLegend.querySelectorAll(".v2-map-legend__ramp")).toHaveLength(0);

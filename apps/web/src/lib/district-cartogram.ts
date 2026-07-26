@@ -1,6 +1,12 @@
-import { cellToLatLng, gridDisk, latLngToCell } from "h3-js";
+import {
+  cellsToMultiPolygon,
+  cellToLatLng,
+  gridDisk,
+  latLngToCell
+} from "h3-js";
 
 import type { ExtrudedFeature } from "./geo-utils.js";
+import type { CoordPair } from "h3-js";
 
 export const DISTRICT_CARTOGRAM_RESOLUTION = 5;
 const DENSITY_RADIUS = 2;
@@ -13,6 +19,21 @@ const LAYOUT_SCALE = { latitude: 0.54, longitude: 0.5 };
 export type DistrictCartogramCell<TFeature extends ExtrudedFeature> = {
   h3Index: string;
   feature: TFeature;
+};
+
+export type CartogramProvinceCell = {
+  h3Index: string;
+  provinceShortName: string;
+};
+
+export type CartogramProvinceRegion = {
+  center: [longitude: number, latitude: number];
+  districtCount: number;
+  geometry: {
+    type: "MultiPolygon";
+    coordinates: CoordPair[][][];
+  };
+  provinceShortName: string;
 };
 
 type GeographicAnchor = {
@@ -208,4 +229,41 @@ export function buildDistrictCartogram<TFeature extends ExtrudedFeature>(
     const h3Index = assignedByDistrictKey.get(feature.properties.districtKey);
     return h3Index ? [{ h3Index, feature }] : [];
   });
+}
+
+export function buildCartogramProvinceRegions(
+  cells: readonly CartogramProvinceCell[]
+): CartogramProvinceRegion[] {
+  const cellsByProvince = new Map<string, CartogramProvinceCell[]>();
+
+  for (const cell of cells) {
+    const provinceCells = cellsByProvince.get(cell.provinceShortName) ?? [];
+    provinceCells.push(cell);
+    cellsByProvince.set(cell.provinceShortName, provinceCells);
+  }
+
+  return [...cellsByProvince.entries()]
+    .sort(([left], [right]) => left.localeCompare(right, "ko"))
+    .map(([provinceShortName, provinceCells]) => {
+      const centers = provinceCells.map((cell) => cellToLatLng(cell.h3Index));
+      const latitude =
+        centers.reduce((sum, [cellLatitude]) => sum + cellLatitude, 0) /
+        centers.length;
+      const longitude =
+        centers.reduce((sum, [, cellLongitude]) => sum + cellLongitude, 0) /
+        centers.length;
+
+      return {
+        center: [longitude, latitude],
+        districtCount: provinceCells.length,
+        geometry: {
+          type: "MultiPolygon" as const,
+          coordinates: cellsToMultiPolygon(
+            provinceCells.map((cell) => cell.h3Index),
+            true
+          )
+        },
+        provinceShortName
+      };
+    });
 }

@@ -2,6 +2,7 @@ import { cellToLatLng, getResolution } from "h3-js";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildCartogramProvinceRegions,
   buildDistrictCartogram,
   DISTRICT_CARTOGRAM_RESOLUTION
 } from "../../apps/web/src/lib/district-cartogram.js";
@@ -145,5 +146,32 @@ describe("district cartogram", () => {
     expect(busan.latitude - jeju.latitude).toBeGreaterThan(0.8);
     expect(gangwon.longitude).toBeGreaterThan(seoul.longitude);
     expect(busan.longitude).toBeGreaterThan(seoul.longitude);
+  });
+
+  it("groups district cells into labeled province outlines", () => {
+    const cells = buildDistrictCartogram([
+      createDistrict("서울갑", "서울 갑", 126.98, 37.57),
+      createDistrict("서울을", "서울 을", 127.02, 37.55),
+      createDistrict("부산갑", "부산 갑", 129.08, 35.18)
+    ]).map(({ h3Index, feature }) => ({
+      h3Index,
+      provinceShortName: feature.properties.districtKey.startsWith("서울")
+        ? "서울"
+        : "부산"
+    }));
+    const regions = buildCartogramProvinceRegions(cells);
+    const seoul = regions.find((region) => region.provinceShortName === "서울");
+    const busan = regions.find((region) => region.provinceShortName === "부산");
+
+    expect(regions.map((region) => region.provinceShortName)).toEqual([
+      "부산",
+      "서울"
+    ]);
+    expect(seoul).toMatchObject({
+      districtCount: 2,
+      geometry: { type: "MultiPolygon" }
+    });
+    expect(seoul?.geometry.coordinates.length).toBeGreaterThan(0);
+    expect(seoul?.center[1]).toBeGreaterThan(busan?.center[1] ?? 0);
   });
 });

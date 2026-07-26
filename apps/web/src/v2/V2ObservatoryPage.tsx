@@ -770,7 +770,7 @@ export function V2ObservatoryPage({
                 />
                 <div
                   className="v2-map-legend"
-                  aria-label={`지도 범례: 지역구 한 곳을 같은 크기 육각형 하나로 표시합니다. 색이 진할수록 ${config.mapLegendMetric}이 높고, 회색은 자료 없음입니다.`}
+                  aria-label={`지도 범례: 지역구 한 곳을 같은 크기 육각형 하나로 표시합니다. 굵은 선과 라벨은 시·도 경계입니다. 색이 진할수록 ${config.mapLegendMetric}이 높고, 회색은 자료 없음입니다.`}
                 >
                   <div className="v2-map-legend__header">
                     <span className="v2-map-legend__title">
@@ -786,6 +786,9 @@ export function V2ObservatoryPage({
                   </span>
                   <span className="v2-map-legend__metric">
                     색이 진할수록 {config.mapLegendMetric} 높음
+                  </span>
+                  <span className="v2-map-legend__metric">
+                    굵은 선·라벨 = 시·도 경계
                   </span>
                   <div className="v2-map-legend__axis">
                     <span>옅음</span>

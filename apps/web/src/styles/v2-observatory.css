@@ -491,6 +491,26 @@
   height: 100%;
 }
 
+.v2-national-map__province-boundary {
+  pointer-events: none;
+  stroke: rgba(24, 43, 64, 0.88);
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+}
+
+.v2-national-map__province-label {
+  pointer-events: none;
+  fill: #172b43;
+  stroke: rgba(247, 250, 251, 0.96);
+  stroke-linejoin: round;
+  stroke-width: 3px;
+  paint-order: stroke fill;
+  font-family: inherit;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
 .v2-map-state,
 .v2-analysis-loading,
 .v2-empty-state {

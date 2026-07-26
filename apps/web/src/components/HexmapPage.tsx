@@ -1,4 +1,5 @@
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
+import { GeoJsonLayer, TextLayer } from "@deck.gl/layers";
 import DeckGL from "@deck.gl/react";
 import { ArrowRightIcon } from "@phosphor-icons/react/dist/csr/ArrowRight";
 import {
@@ -12,7 +13,10 @@ import {
 
 import { MemberDetailLink } from "./MemberDetailLink.js";
 import { normalizeConstituencyLookupKey } from "../lib/constituency-map.js";
-import { buildDistrictCartogram } from "../lib/district-cartogram.js";
+import {
+  buildCartogramProvinceRegions,
+  buildDistrictCartogram
+} from "../lib/district-cartogram.js";
 import { formatAssetEok, formatPercent } from "../lib/format.js";
 import {
   createLogNormalizer,
@@ -451,6 +455,10 @@ export function HexmapPage({
       })),
     [nationalDistricts]
   );
+  const nationalProvinceRegions = useMemo(
+    () => buildCartogramProvinceRegions(nationalCartogramCells),
+    [nationalCartogramCells]
+  );
 
   const getCellFillColor = useCallback(
     (
@@ -535,9 +543,56 @@ export function HexmapPage({
           setSelectedProvinceFilter(info.object.provinceShortName);
           setNationalTooltip(null);
         }
+      }),
+      new GeoJsonLayer({
+        id: "cartogram-province-boundaries",
+        data: {
+          type: "FeatureCollection",
+          features: nationalProvinceRegions.map((region) => ({
+            type: "Feature" as const,
+            geometry: region.geometry,
+            properties: {
+              districtCount: region.districtCount,
+              provinceShortName: region.provinceShortName
+            }
+          }))
+        },
+        filled: false,
+        stroked: true,
+        getLineColor: [24, 43, 64, 235],
+        getLineWidth: 3,
+        lineWidthUnits: "pixels",
+        lineWidthMinPixels: 2,
+        lineWidthMaxPixels: 4,
+        pickable: false
+      }),
+      new TextLayer({
+        id: "cartogram-province-labels",
+        data: nationalProvinceRegions,
+        getPosition: (region) => region.center,
+        getText: (region) => region.provinceShortName,
+        getSize: (region) => (region.districtCount <= 3 ? 11 : 13),
+        getColor: [18, 40, 64, 255],
+        getTextAnchor: "middle",
+        getAlignmentBaseline: "center",
+        fontFamily:
+          "SUIT Variable, Pretendard Variable, Apple SD Gothic Neo, sans-serif",
+        fontWeight: 800,
+        characterSet: "auto",
+        fontSettings: { sdf: true },
+        outlineWidth: 3,
+        outlineColor: [247, 250, 251, 245],
+        billboard: true,
+        sizeUnits: "pixels",
+        pickable: false
       })
     ];
-  }, [activeMetric, getCellFillColor, nationalCartogramCells]);
+  }, [
+    activeMetric,
+    getCellFillColor,
+    nationalCartogramCells,
+    nationalProvinceRegions
+  ]);
 
   const detailPanelLabel = selectedProvinceFilter;
   const isFilterPending =
@@ -850,7 +905,9 @@ export function HexmapPage({
               <p>전국 보기</p>
               <h2 id="hexmap-national-title">지역구 카토그램</h2>
             </div>
-            <span>한 지역구를 동일 크기 육각형 하나로 표시합니다</span>
+            <span>
+              지역구 1곳은 육각형 1개, 굵은 선과 라벨은 시·도 경계입니다
+            </span>
           </div>
           <div
             className={`hexmap-map-container${

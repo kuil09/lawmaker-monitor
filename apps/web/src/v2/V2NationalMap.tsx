@@ -1,7 +1,10 @@
 import { cellToBoundary } from "h3-js";
 import { useEffect, useMemo, useState } from "react";
 
-import { buildDistrictCartogram } from "../lib/district-cartogram.js";
+import {
+  buildCartogramProvinceRegions,
+  buildDistrictCartogram
+} from "../lib/district-cartogram.js";
 import {
   createLogNormalizer,
   getSequentialMetricColor
@@ -40,6 +43,7 @@ type ColoredCartogramCell = {
   fillColor: string;
   h3Index: string;
   label: string;
+  provinceShortName: string;
 };
 
 type ProjectedDistrict = {
@@ -47,6 +51,19 @@ type ProjectedDistrict = {
   label: string;
   fillColor: string;
   path: string;
+};
+
+type ProjectedProvinceRegion = {
+  center: readonly [x: number, y: number];
+  districtCount: number;
+  key: string;
+  label: string;
+  path: string;
+};
+
+type ProjectedCartogram = {
+  districts: ProjectedDistrict[];
+  provinces: ProjectedProvinceRegion[];
 };
 
 function toMercatorPoint(position: [number, number]): [number, number] {
@@ -64,7 +81,7 @@ function toMercatorPoint(position: [number, number]): [number, number] {
   ];
 }
 
-function projectCartogram(cells: ColoredCartogramCell[]): ProjectedDistrict[] {
+function projectCartogram(cells: ColoredCartogramCell[]): ProjectedCartogram {
   let minX = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
@@ -95,7 +112,7 @@ function projectCartogram(cells: ColoredCartogramCell[]): ProjectedDistrict[] {
     contentWidth <= 0 ||
     contentHeight <= 0
   ) {
-    return [];
+    return { districts: [], provinces: [] };
   }
 
   const scale = Math.min(
@@ -113,8 +130,8 @@ function projectCartogram(cells: ColoredCartogramCell[]): ProjectedDistrict[] {
     ] as const;
   };
 
-  return cells.flatMap((cell, cellIndex) => {
-    const path = (boundaries[cellIndex] ?? [])
+  const projectLoop = (positions: [number, number][]) =>
+    positions
       .map((position, positionIndex) => {
         const [x, y] = projectPosition(position);
         return `${positionIndex === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
@@ -122,19 +139,39 @@ function projectCartogram(cells: ColoredCartogramCell[]): ProjectedDistrict[] {
       .join(" ")
       .concat(" Z");
 
-    if (!path || path.includes("NaN")) {
-      return [];
-    }
-
-    return [
-      {
-        key: cell.districtKey,
-        label: cell.label,
-        fillColor: cell.fillColor,
-        path
-      }
-    ];
+  const districts = cells.flatMap((cell, cellIndex) => {
+    const path = projectLoop(boundaries[cellIndex] ?? []);
+    return path && !path.includes("NaN")
+      ? [
+          {
+            key: cell.districtKey,
+            label: cell.label,
+            fillColor: cell.fillColor,
+            path
+          }
+        ]
+      : [];
   });
+  const provinces = buildCartogramProvinceRegions(cells).flatMap((region) => {
+    const path = region.geometry.coordinates
+      .flatMap((polygon) => polygon.map(projectLoop))
+      .join(" ");
+    const center = projectPosition(region.center);
+
+    return path && !path.includes("NaN")
+      ? [
+          {
+            center,
+            districtCount: region.districtCount,
+            key: region.provinceShortName,
+            label: region.provinceShortName,
+            path
+          }
+        ]
+      : [];
+  });
+
+  return { districts, provinces };
 }
 
 type V2NationalMapProps = {
@@ -282,13 +319,14 @@ export function V2NationalMap({
           districtKey: feature.properties.districtKey,
           fillColor: `rgba(${red}, ${green}, ${blue}, ${alpha / 255})`,
           h3Index,
-          label: feature.properties.label
+          label: feature.properties.label,
+          provinceShortName: summary.provinceShortName
         };
       }
     );
   }, [nationalCells, nationalDistricts]);
 
-  const projectedDistricts = useMemo(
+  const projectedCartogram = useMemo(
     () => projectCartogram(coloredCartogramCells),
     [coloredCartogramCells]
   );
@@ -341,7 +379,7 @@ export function V2NationalMap({
     );
   }
 
-  if (projectedDistricts.length === 0) {
+  if (projectedCartogram.districts.length === 0) {
     return (
       <div className="v2-map-state" role="status">
         <strong>지도 경계를 완성하지 못했습니다.</strong>
@@ -356,10 +394,11 @@ export function V2NationalMap({
       data-cartogram-cell-count={coloredCartogramCells.length}
       data-feature-count={nationalDistricts.length}
       data-loaded-provinces={staticState.entries.length}
-      data-rendered-feature-count={projectedDistricts.length}
+      data-rendered-feature-count={projectedCartogram.districts.length}
+      data-rendered-province-count={projectedCartogram.provinces.length}
       data-renderer="svg-cartogram"
       role="img"
-      aria-label={`전국 지역구 ${distributionLabel} 카토그램. 각 지역구를 같은 크기 육각형 하나로 표시하며, 색이 진할수록 ${metricLabel}이 높음을 나타냅니다. 회색은 자료 없음입니다.`}
+      aria-label={`전국 지역구 ${distributionLabel} 카토그램. 각 지역구를 같은 크기 육각형 하나로 표시하며, 굵은 선과 라벨은 시·도 경계입니다. 색이 진할수록 ${metricLabel}이 높음을 나타냅니다. 회색은 자료 없음입니다.`}
     >
       <div className="v2-national-map__canvas" aria-hidden="true">
         <svg
@@ -368,7 +407,7 @@ export function V2NationalMap({
           preserveAspectRatio="xMidYMid meet"
           aria-hidden="true"
         >
-          {projectedDistricts.map((district) => (
+          {projectedCartogram.districts.map((district) => (
             <path
               key={district.key}
               d={district.path}
@@ -379,6 +418,31 @@ export function V2NationalMap({
               vectorEffect="non-scaling-stroke"
               data-district-label={district.label}
             />
+          ))}
+          {projectedCartogram.provinces.map((province) => (
+            <path
+              key={`${province.key}-boundary`}
+              className="v2-national-map__province-boundary"
+              d={province.path}
+              fill="none"
+              fillRule="evenodd"
+              vectorEffect="non-scaling-stroke"
+              data-province-boundary={province.label}
+            />
+          ))}
+          {projectedCartogram.provinces.map((province) => (
+            <text
+              key={`${province.key}-label`}
+              className="v2-national-map__province-label"
+              x={province.center[0]}
+              y={province.center[1]}
+              textAnchor="middle"
+              dominantBaseline="central"
+              data-district-count={province.districtCount}
+              data-province-label={province.label}
+            >
+              {province.label}
+            </text>
           ))}
         </svg>
       </div>
