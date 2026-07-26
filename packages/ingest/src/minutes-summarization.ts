@@ -388,10 +388,6 @@ export function sanitizeModelSummary(value: string): string {
     throw new Error("The local model returned an empty or unusable summary.");
   }
 
-  if (normalized.length > 600) {
-    throw new Error("The local model returned an overlong summary.");
-  }
-
   if (
     /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(normalized)
   ) {
@@ -404,11 +400,20 @@ export function sanitizeModelSummary(value: string): string {
     throw new Error("The local model returned insufficient Korean text.");
   }
 
-  if (!/[.!?]$/.test(normalized)) {
+  const completedSummary = /[.!?]$/.test(normalized)
+    ? normalized
+    : /(?:다|요|함|임|됨|음)$/.test(normalized)
+      ? `${normalized}.`
+      : null;
+  if (!completedSummary) {
     throw new Error("The local model returned an unfinished summary.");
   }
 
-  return normalized;
+  if (completedSummary.length > 600) {
+    throw new Error("The local model returned an overlong summary.");
+  }
+
+  return completedSummary;
 }
 
 export function buildMinutesSummaryPrompt(args: {

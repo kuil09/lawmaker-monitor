@@ -295,10 +295,13 @@ describe("minutes transcript summarization", () => {
         "문대림委员主张 해양 시추 계획을 추진해야 한다고 밝혔습니다."
       )
     ).toThrow("non-Korean CJK script");
-    expect(() =>
+    expect(
       sanitizeModelSummary(
         "문대림 의원은 해양 시추 계획을 추진해야 한다고 밝혔습니다"
       )
+    ).toBe("문대림 의원은 해양 시추 계획을 추진해야 한다고 밝혔습니다.");
+    expect(() =>
+      sanitizeModelSummary("문대림 의원은 해양 시추 계획을 추진")
     ).toThrow("unfinished summary");
 
     const transcript = parseAssemblyMinutesViewerHtml({
