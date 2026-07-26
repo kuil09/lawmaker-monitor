@@ -42,8 +42,8 @@ import type {
 
 const INITIAL_VIEW_STATE = {
   longitude: 127.75,
-  latitude: 36.05,
-  zoom: 7.1,
+  latitude: 35.95,
+  zoom: 6.45,
   minZoom: 5,
   maxZoom: 10,
   pitch: 0,

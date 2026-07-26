@@ -347,8 +347,9 @@ describe("HexmapPage", () => {
     ).toBe(false);
     expect(nationalDeck?.layers).toHaveLength(1);
     expect(nationalDeck?.initialViewState).toMatchObject({
+      latitude: 35.95,
       pitch: 0,
-      zoom: 7.1
+      zoom: 6.45
     });
     expect(firstCell).toMatchObject({
       districtKey: "부산남구",

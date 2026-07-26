@@ -6,7 +6,9 @@ export const DISTRICT_CARTOGRAM_RESOLUTION = 5;
 const DENSITY_RADIUS = 2;
 const MAX_SEARCH_RADIUS = 12;
 const LAYOUT_CENTER = { latitude: 36.1, longitude: 127.75 };
-const LAYOUT_SCALE = { latitude: 0.4, longitude: 0.45 };
+// Keep the peninsula recognizable while compressing enough for adjacent
+// district cells to form a continuous cartogram.
+const LAYOUT_SCALE = { latitude: 0.54, longitude: 0.5 };
 
 export type DistrictCartogramCell<TFeature extends ExtrudedFeature> = {
   h3Index: string;
@@ -184,7 +186,9 @@ export function buildDistrictCartogram<TFeature extends ExtrudedFeature>(
     })
     .sort(
       (left, right) =>
-        left.density - right.density ||
+        // Anchor dense metropolitan clusters first so collision resolution
+        // expands their surrounding regions instead of displacing the cores.
+        right.density - left.density ||
         left.feature.properties.label.localeCompare(
           right.feature.properties.label,
           "ko"

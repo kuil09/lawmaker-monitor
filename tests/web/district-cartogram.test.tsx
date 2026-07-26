@@ -83,4 +83,67 @@ describe("district cartogram", () => {
       latitudeByDistrict.get("제주갑")!
     );
   });
+
+  it("preserves enough regional separation to retain the national silhouette", () => {
+    const districts = [
+      ...Array.from({ length: 24 }, (_, index) =>
+        createDistrict(
+          `서울${index}`,
+          `서울 ${index}`,
+          126.98 + (index % 6) * 0.01,
+          37.57 + Math.floor(index / 6) * 0.01
+        )
+      ),
+      ...Array.from({ length: 8 }, (_, index) =>
+        createDistrict(
+          `강원${index}`,
+          `강원 ${index}`,
+          128.2 + (index % 4) * 0.04,
+          37.35 + Math.floor(index / 4) * 0.04
+        )
+      ),
+      ...Array.from({ length: 18 }, (_, index) =>
+        createDistrict(
+          `부산${index}`,
+          `부산 ${index}`,
+          129.08 + (index % 6) * 0.01,
+          35.18 + Math.floor(index / 6) * 0.01
+        )
+      ),
+      ...Array.from({ length: 3 }, (_, index) =>
+        createDistrict(
+          `제주${index}`,
+          `제주 ${index}`,
+          126.53 + index * 0.03,
+          33.5
+        )
+      )
+    ];
+    const cells = buildDistrictCartogram(districts);
+    const meanPosition = (prefix: string) => {
+      const positions = cells
+        .filter((cell) =>
+          cell.feature.properties.districtKey.startsWith(prefix)
+        )
+        .map((cell) => cellToLatLng(cell.h3Index));
+
+      return {
+        latitude:
+          positions.reduce((sum, [latitude]) => sum + latitude, 0) /
+          positions.length,
+        longitude:
+          positions.reduce((sum, [, longitude]) => sum + longitude, 0) /
+          positions.length
+      };
+    };
+    const seoul = meanPosition("서울");
+    const gangwon = meanPosition("강원");
+    const busan = meanPosition("부산");
+    const jeju = meanPosition("제주");
+
+    expect(seoul.latitude - busan.latitude).toBeGreaterThan(1.2);
+    expect(busan.latitude - jeju.latitude).toBeGreaterThan(0.8);
+    expect(gangwon.longitude).toBeGreaterThan(seoul.longitude);
+    expect(busan.longitude).toBeGreaterThan(seoul.longitude);
+  });
 });
