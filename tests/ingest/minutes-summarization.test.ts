@@ -1,10 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { memberStatementSummariesExportSchema } from "../../packages/schemas/src/index.js";
 import {
   buildMemberStatementSummaryExports,
   buildMinutesSummaryGroups,
   chunkMinutesText,
+  createLlamaServerSummarizer,
   resolveStatementAgendaItem,
   sanitizeModelSummary,
   summarizeMinutesGroup,
@@ -40,6 +41,10 @@ const viewerHtml = `
 `;
 
 describe("minutes transcript summarization", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("extracts official agenda, bill, speaker, and source anchors", () => {
     const transcript = parseAssemblyMinutesViewerHtml({
       documentId: "minutes-1",
@@ -303,6 +308,17 @@ describe("minutes transcript summarization", () => {
     expect(() =>
       sanitizeModelSummary("문대림 의원은 해양 시추 계획을 추진")
     ).toThrow("unfinished summary");
+    expect(() =>
+      sanitizeModelSummary(
+        "문대림 의원은 해양 시추 계획을 추진해야 한다고 밝혔습니다..."
+      )
+    ).toThrow("unfinished summary");
+    expect(
+      sanitizeModelSummary(
+        "문대림 의원은 해양 시추 계획을 검토했습니다. 추가 협의를 진행",
+        { allowTrailingFragment: true }
+      )
+    ).toBe("문대림 의원은 해양 시추 계획을 검토했습니다.");
 
     const transcript = parseAssemblyMinutesViewerHtml({
       documentId: "minutes-1",
@@ -328,12 +344,121 @@ describe("minutes transcript summarization", () => {
 
   it("keeps the complete source when bounding long statements", () => {
     const source = `${"가".repeat(6_000)}\n${"나".repeat(6_000)}\n마지막 근거`;
-    const chunks = chunkMinutesText(source, 5_000, 2);
+    const chunks = chunkMinutesText(source, 5_000);
 
-    expect(chunks.length).toBeLessThanOrEqual(2);
+    expect(chunks).toHaveLength(3);
+    expect(chunks.every((chunk) => chunk.length <= 5_000)).toBe(true);
     expect(chunks.join("\n")).toContain("마지막 근거");
     expect(chunks.join("\n").replaceAll("\n", "")).toBe(
       source.replaceAll("\n", "")
+    );
+  });
+
+  it("keeps every local-model request within the text context boundary", async () => {
+    const observedLengths: number[] = [];
+    const summary = await summarizeMinutesGroup({
+      group: {
+        groupId: "long-group",
+        member: {
+          memberId: "member-1",
+          name: "김민수",
+          party: "테스트당"
+        },
+        documentId: "minutes-long",
+        meetingTitle: "긴 회의록",
+        meetingDate: "2025-08-01",
+        committeeName: "법제사법위원회",
+        agendaTitle: "긴 발언 안건",
+        billIds: [],
+        speakerRole: "위원",
+        text: "긴 발언입니다. ".repeat(9_000),
+        statementIds: ["statement-1"],
+        sourceUrl:
+          "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=1&type=view",
+        sourceFragment: "#statement-1"
+      },
+      summarize: async (input) => {
+        observedLengths.push(input.text.length);
+        return "김민수 의원은 해당 안건에 관한 의견을 제시했습니다.";
+      }
+    });
+
+    expect(summary).toBe("김민수 의원은 해당 안건에 관한 의견을 제시했습니다.");
+    expect(Math.max(...observedLengths)).toBeLessThanOrEqual(5_000);
+    expect(observedLengths.length).toBeGreaterThan(4);
+  });
+
+  it("retries token-limited local-model output with a fresh larger request", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: "김민수 의원은 제도 개선 필요성을 강조하며"
+                },
+                finish_reason: "length"
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: "김민수 의원은 제도 개선 필요성을 강조했습니다."
+                },
+                finish_reason: "stop"
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const summarize = createLlamaServerSummarizer({
+      endpoint: "http://127.0.0.1:8080/v1/chat/completions",
+      modelId: "test-model"
+    });
+
+    await expect(
+      summarize({
+        group: {
+          groupId: "group-1",
+          member: {
+            memberId: "member-1",
+            name: "김민수",
+            party: "테스트당"
+          },
+          documentId: "minutes-1",
+          meetingTitle: "테스트 회의",
+          meetingDate: "2025-08-01",
+          committeeName: "법제사법위원회",
+          agendaTitle: "테스트 안건",
+          billIds: [],
+          speakerRole: "위원",
+          text: "제도 개선이 필요합니다.",
+          statementIds: ["statement-1"],
+          sourceUrl:
+            "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=1&type=view",
+          sourceFragment: "#statement-1"
+        },
+        text: "제도 개선이 필요합니다."
+      })
+    ).resolves.toBe("김민수 의원은 제도 개선 필요성을 강조했습니다.");
+
+    const requestBodies = fetchMock.mock.calls.map((call) =>
+      JSON.parse(String((call[1] as RequestInit).body))
+    );
+    expect(requestBodies.map((body) => body.max_tokens)).toEqual([384, 512]);
+    expect(requestBodies.every((body) => body.messages.length === 2)).toBe(
+      true
     );
   });
 

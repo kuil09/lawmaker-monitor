@@ -141,6 +141,10 @@ jobs:
           echo "documents_completed=$(jq -r '.documentsCompleted // 0' "${STATE_FILE}")" >> "${GITHUB_OUTPUT}"
           echo "groups_summarized=$(jq -r '.groupsSummarized // 0' "${STATE_FILE}")" >> "${GITHUB_OUTPUT}"
 
+      - name: Show local summary model diagnostics
+        if: failure() && steps.transcript-inputs.outputs.available == 'true'
+        run: tail -n 200 "${RUNNER_TEMP}/llama-server.log"
+
       - name: Stop local summary model
         if: always() && steps.transcript-inputs.outputs.available == 'true'
         run: |

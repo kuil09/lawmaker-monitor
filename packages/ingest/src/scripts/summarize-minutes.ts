@@ -144,20 +144,6 @@ async function readTranscript(
   return payload;
 }
 
-async function retrySummary<T>(task: () => Promise<T>): Promise<T> {
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      return await task();
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  throw lastError;
-}
-
 async function loadAllArtifacts(
   config: SummaryConfig
 ): Promise<MinutesDocumentSummaryArtifact[]> {
@@ -316,12 +302,10 @@ async function main(): Promise<void> {
 
       remainingGroupBudget -= 1;
       try {
-        const summary = await retrySummary(() =>
-          summarizeMinutesGroup({
-            group,
-            summarize
-          })
-        );
+        const summary = await summarizeMinutesGroup({
+          group,
+          summarize
+        });
         summaries.push({
           statementId: group.groupId,
           documentId: group.documentId,

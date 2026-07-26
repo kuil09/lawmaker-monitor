@@ -347,32 +347,32 @@ export function buildMinutesSummaryGroups(args: {
 
 export function chunkMinutesText(
   value: string,
-  maxCharacters = 5_000,
-  maxChunks = 4
+  maxCharacters = 5_000
 ): string[] {
-  const normalizedMaxChunks = Math.max(1, Math.floor(maxChunks));
+  const normalizedMaxCharacters = Math.max(1, Math.floor(maxCharacters));
   const normalizedText = value
     .split(/\n+/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean)
     .join("\n");
-  const effectiveMaxCharacters = Math.max(
-    maxCharacters,
-    Math.ceil(normalizedText.length / normalizedMaxChunks)
-  );
   const chunks: string[] = [];
   for (
     let offset = 0;
     offset < normalizedText.length;
-    offset += effectiveMaxCharacters
+    offset += normalizedMaxCharacters
   ) {
-    chunks.push(normalizedText.slice(offset, offset + effectiveMaxCharacters));
+    chunks.push(normalizedText.slice(offset, offset + normalizedMaxCharacters));
   }
 
   return chunks;
 }
 
-export function sanitizeModelSummary(value: string): string {
+export function sanitizeModelSummary(
+  value: string,
+  options?: {
+    allowTrailingFragment?: boolean;
+  }
+): string {
   const withoutThinking = value
     .replace(/<think>[\s\S]*?<\/think>/gi, "")
     .replace(/<\/?think>/gi, "")
@@ -400,11 +400,28 @@ export function sanitizeModelSummary(value: string): string {
     throw new Error("The local model returned insufficient Korean text.");
   }
 
-  const completedSummary = /[.!?]$/.test(normalized)
-    ? normalized
-    : /(?:다|요|함|임|됨|음)$/.test(normalized)
-      ? `${normalized}.`
-      : null;
+  const endsWithEllipsis = /(?:\.{2,}|…+)$/.test(normalized);
+  let completedSummary =
+    !endsWithEllipsis && /[.!?]$/.test(normalized)
+      ? normalized
+      : !endsWithEllipsis && /(?:다|요|함|임|됨|음)$/.test(normalized)
+        ? `${normalized}.`
+        : null;
+  if (!completedSummary && options?.allowTrailingFragment) {
+    const withoutTrailingEllipsis = normalized
+      .replace(/\s*(?:\.{2,}|…+)$/, "")
+      .trim();
+    const finalBoundary = Math.max(
+      withoutTrailingEllipsis.lastIndexOf("."),
+      withoutTrailingEllipsis.lastIndexOf("!"),
+      withoutTrailingEllipsis.lastIndexOf("?")
+    );
+    if (finalBoundary >= 9) {
+      completedSummary = withoutTrailingEllipsis
+        .slice(0, finalBoundary + 1)
+        .trim();
+    }
+  }
   if (!completedSummary) {
     throw new Error("The local model returned an unfinished summary.");
   }
@@ -421,9 +438,12 @@ export function buildMinutesSummaryPrompt(args: {
   text: string;
   partialSummaries?: string[];
 }): string {
-  const partialContext = args.partialSummaries?.length
-    ? `부분 요약:\n${args.partialSummaries.map((summary) => `- ${summary}`).join("\n")}\n\n`
-    : "";
+  const sourceLabel = args.partialSummaries?.length
+    ? "부분 요약:"
+    : "발언 원문:";
+  const sourceText = args.partialSummaries?.length
+    ? args.partialSummaries.map((summary) => `- ${summary}`).join("\n")
+    : args.text;
 
   return [
     "/no_think",
@@ -433,9 +453,8 @@ export function buildMinutesSummaryPrompt(args: {
     `의안번호: ${args.group.billIds.join(", ") || "해당 없음"}`,
     `발언자: ${args.group.member.name}${args.group.speakerRole ? ` (${args.group.speakerRole})` : ""}`,
     "",
-    partialContext,
-    "발언 원문:",
-    args.text,
+    sourceLabel,
+    sourceText,
     "",
     "원문에 명시된 입장, 제안, 근거만 사용해 한국어 2~3문장으로 요약하세요.",
     "추측, 평가, 배경지식, 새로운 숫자를 추가하지 마세요.",
@@ -451,13 +470,13 @@ export function createLlamaServerSummarizer(args: {
   timeoutMs?: number;
 }): SummarizeMinutesText {
   return async (input) => {
-    const controller = new AbortController();
-    const timeoutHandle = setTimeout(
-      () => controller.abort(),
-      args.timeoutMs ?? 120_000
-    );
+    let lastContent: string | null = null;
+    let lastError: unknown;
+    const timeoutMs = args.timeoutMs ?? 120_000;
 
-    try {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const controller = new AbortController();
+      const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
       const messages = [
         {
           role: "system",
@@ -466,11 +485,18 @@ export function createLlamaServerSummarizer(args: {
         },
         {
           role: "user",
-          content: buildMinutesSummaryPrompt(input)
+          content: [
+            buildMinutesSummaryPrompt(input),
+            attempt > 0
+              ? "이전 시도는 형식을 충족하지 못했습니다. 반드시 완결된 문장으로 끝내세요."
+              : ""
+          ]
+            .filter(Boolean)
+            .join("\n\n")
         }
       ];
 
-      for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
         const response = await fetch(args.endpoint, {
           method: "POST",
           headers: {
@@ -480,7 +506,7 @@ export function createLlamaServerSummarizer(args: {
             model: args.modelId,
             messages,
             temperature: 0.1,
-            max_tokens: 220,
+            max_tokens: attempt === 0 ? 384 : 512,
             stream: false,
             chat_template_kwargs: {
               enable_thinking: false
@@ -489,8 +515,11 @@ export function createLlamaServerSummarizer(args: {
           signal: controller.signal
         });
         if (!response.ok) {
+          const responseBody = (await response.text()).replace(/\s+/g, " ");
           throw new Error(
-            `Local model request failed: ${response.status} ${response.statusText}`
+            `Local model request failed: ${response.status} ${response.statusText}${
+              responseBody ? ` — ${responseBody.slice(0, 500)}` : ""
+            }`
           );
         }
 
@@ -499,35 +528,82 @@ export function createLlamaServerSummarizer(args: {
             message?: {
               content?: unknown;
             };
+            finish_reason?: unknown;
           }>;
         };
         const content = payload.choices?.[0]?.message?.content;
         if (typeof content !== "string") {
           throw new Error("Local model response did not contain text.");
         }
+        lastContent = content;
 
-        try {
-          return sanitizeModelSummary(content);
-        } catch (error) {
-          if (attempt > 0) {
-            throw error;
-          }
-          messages.push(
-            { role: "assistant", content },
-            {
-              role: "user",
-              content:
-                "방금 답변은 한국어 요약 형식을 충족하지 못했습니다. 한자, 중국어, 일본어 없이 현대 한국어 한글로만 2~3개의 완결된 문장을 다시 작성하세요."
-            }
-          );
+        if (payload.choices?.[0]?.finish_reason === "length") {
+          throw new Error("The local model reached its output token limit.");
         }
-      }
 
-      throw new Error("The local model did not return a valid Korean summary.");
-    } finally {
-      clearTimeout(timeoutHandle);
+        return sanitizeModelSummary(content);
+      } catch (error) {
+        lastError = controller.signal.aborted
+          ? new Error(`Local model request timed out after ${timeoutMs}ms.`)
+          : error;
+      } finally {
+        clearTimeout(timeoutHandle);
+      }
     }
+
+    if (lastContent) {
+      try {
+        return sanitizeModelSummary(lastContent, {
+          allowTrailingFragment: true
+        });
+      } catch {
+        // Fall through to the exact-source fallback for already concise text.
+      }
+    }
+
+    const conciseSource = input.text.replace(/\s+/g, " ").trim();
+    if (conciseSource.length <= 240) {
+      try {
+        return sanitizeModelSummary(conciseSource);
+      } catch {
+        // Preserve the model error when the source is not publishable as-is.
+      }
+    }
+
+    throw (
+      lastError ??
+      new Error("The local model did not return a valid Korean summary.")
+    );
   };
+}
+
+function groupPartialSummaries(
+  summaries: string[],
+  maxCharacters = 5_000
+): string[][] {
+  const batches: string[][] = [];
+  let currentBatch: string[] = [];
+  let currentLength = 0;
+
+  for (const summary of summaries) {
+    const addedLength = summary.length + (currentBatch.length > 0 ? 1 : 0);
+    if (
+      currentBatch.length > 0 &&
+      currentLength + addedLength > maxCharacters
+    ) {
+      batches.push(currentBatch);
+      currentBatch = [];
+      currentLength = 0;
+    }
+    currentBatch.push(summary);
+    currentLength += summary.length + (currentBatch.length > 1 ? 1 : 0);
+  }
+
+  if (currentBatch.length > 0) {
+    batches.push(currentBatch);
+  }
+
+  return batches;
 }
 
 export async function summarizeMinutesGroup(args: {
@@ -546,7 +622,7 @@ export async function summarizeMinutesGroup(args: {
     });
   }
 
-  const partialSummaries: string[] = [];
+  let partialSummaries: string[] = [];
   for (const chunk of chunks) {
     partialSummaries.push(
       await args.summarize({
@@ -554,6 +630,20 @@ export async function summarizeMinutesGroup(args: {
         text: chunk
       })
     );
+  }
+
+  while (partialSummaries.join("\n").length > 5_000) {
+    const reducedSummaries: string[] = [];
+    for (const batch of groupPartialSummaries(partialSummaries)) {
+      reducedSummaries.push(
+        await args.summarize({
+          group: args.group,
+          text: batch.join("\n"),
+          partialSummaries: batch
+        })
+      );
+    }
+    partialSummaries = reducedSummaries;
   }
 
   return args.summarize({
