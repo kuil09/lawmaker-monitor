@@ -567,10 +567,8 @@ async function openDistributionFlow(viewportName: string): Promise<void> {
       })
       .waitFor();
     await expect
-      .poll(async () =>
-        page.locator(".distribution-focus__district").textContent()
-      )
-      .toBe("부산 남구");
+      .poll(async () => page.locator(".distribution-focus").textContent())
+      .toContain("부산 남구");
     await page
       .getByText(
         "정당 평균을 눌러 차트를 해당 정당만 남기는 강조 모드로 전환합니다."
@@ -647,10 +645,8 @@ async function openDistributionFlow(viewportName: string): Promise<void> {
       .poll(() => new URL(page.url()).hash)
       .toBe("#distribution?member=M001");
     await expect
-      .poll(async () =>
-        page.locator(".distribution-focus__district").textContent()
-      )
-      .toBe("서울 중구");
+      .poll(async () => page.locator(".distribution-focus").textContent())
+      .toContain("서울 중구");
 
     const distributionScreenshot = await saveScreenshot(
       page,
@@ -762,21 +758,17 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
         const mapLayout = await page
           .locator(".v2-map-panel")
           .evaluate((element) => {
-            const map = element.querySelector(
-              ".v2-national-map"
-            ) as HTMLElement | null;
             const legend = element.querySelector(
-              ".v2-map-legend"
+              ".v2-national-map__severity-legend"
             ) as HTMLElement | null;
             const mapDistricts = Array.from(
               element.querySelectorAll("[data-district-label]")
             ) as SVGPathElement[];
 
-            if (!map || !legend || mapDistricts.length === 0) {
+            if (!legend || mapDistricts.length === 0) {
               return null;
             }
 
-            const mapRect = map.getBoundingClientRect();
             const legendRect = legend.getBoundingClientRect();
             const districtRects = mapDistricts.map((district) =>
               district.getBoundingClientRect()
@@ -800,17 +792,12 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
 
             return {
               legendPosition: window.getComputedStyle(legend).position,
-              legendTop: legendRect.top,
-              mapBottom: mapRect.bottom,
               overlapArea: overlapWidth * overlapHeight
             };
           });
 
         expect(mapLayout).not.toBeNull();
         expect(mapLayout?.legendPosition).toBe("static");
-        expect(mapLayout?.legendTop ?? 0).toBeGreaterThanOrEqual(
-          (mapLayout?.mapBottom ?? 1) - 1
-        );
         expect(mapLayout?.overlapArea).toBe(0);
 
         const trendHeadingLayout = await page
@@ -916,99 +903,57 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
 
       if (route.id === "map") {
         await expect
-          .poll(async () => page.locator(".hexmap-region-list button").count())
+          .poll(async () => page.locator(".ledger-region-tabs button").count())
           .toBeGreaterThanOrEqual(2);
-        await page.locator(".hexmap-region-list button").first().click();
-        const regionalMemberList = page.locator(".hexmap-detail-member-list");
+        const busanRegionButton = page
+          .locator(".ledger-region-tabs button")
+          .filter({ hasText: "부산" });
+        await busanRegionButton.click();
+        const regionalMemberList = page.locator(".ledger-district-board");
         await regionalMemberList.waitFor();
         await expect
           .poll(async () =>
-            regionalMemberList.locator(".hexmap-detail-member-card").count()
+            regionalMemberList.locator(".ledger-member-card").count()
           )
           .toBeGreaterThan(0);
-        await expect.poll(async () => page.locator("canvas").count()).toBe(1);
-        expect(
-          await page.locator(".hexmap-section--detail canvas").count()
-        ).toBe(0);
+        await expect.poll(async () => page.locator("canvas").count()).toBe(0);
         const firstRegionalMember = regionalMemberList
-          .locator(".hexmap-detail-member-card")
+          .locator(".ledger-member-card")
           .first();
-        expect(await firstRegionalMember.textContent()).toContain("결석률");
-        expect(await firstRegionalMember.textContent()).toContain("반대·기권");
-        expect(await firstRegionalMember.textContent()).toContain("부동산");
-        expect(await firstRegionalMember.textContent()).toContain(
-          "공개 순재산"
-        );
-        if (viewportName === "desktop") {
-          const stressedRegionalLayout = await page.evaluate(() => {
-            const list = document.querySelector(".hexmap-detail-member-list");
-            const sourceItem = list?.firstElementChild;
-            const clones: Element[] = [];
-
-            if (!list || !sourceItem) {
-              return null;
-            }
-
-            for (let index = 0; index < 16; index += 1) {
-              const clone = sourceItem.cloneNode(true) as Element;
-              clone.setAttribute("data-layout-stress-clone", "");
-              list.append(clone);
-              clones.push(clone);
-            }
-
-            const result = {
-              listClientHeight: list.clientHeight,
-              listScrollHeight: list.scrollHeight,
-              nationalHeight:
-                document
-                  .querySelector(".hexmap-section--national")
-                  ?.getBoundingClientRect().height ?? 0,
-              detailHeight:
-                document
-                  .querySelector(".hexmap-section--detail")
-                  ?.getBoundingClientRect().height ?? 0
-            };
-
-            clones.forEach((clone) => clone.remove());
-            return result;
-          });
-
-          expect(stressedRegionalLayout).not.toBeNull();
-          expect(stressedRegionalLayout?.listScrollHeight ?? 0).toBeGreaterThan(
-            stressedRegionalLayout?.listClientHeight ?? 0
-          );
-          expect(
-            stressedRegionalLayout?.nationalHeight ?? 0
-          ).toBeLessThanOrEqual(720);
-          expect(stressedRegionalLayout?.detailHeight ?? 0).toBeLessThanOrEqual(
-            720
-          );
-        }
-        const nationalMapContainer = page.locator(
-          ".hexmap-section--national .hexmap-map-container"
-        );
-        expect(await nationalMapContainer.getAttribute("aria-busy")).toBe(
-          "false"
-        );
+        await firstRegionalMember.click();
         expect(
-          await nationalMapContainer.locator(".hexmap-map-loading").count()
-        ).toBe(0);
-        expect(
-          await nationalMapContainer.evaluate((element) => {
-            const canvas = element.querySelector("canvas");
-            if (!canvas) {
-              return null;
-            }
+          await page.locator(".ledger-evidence-panel").textContent()
+        ).toContain("선택한 의원의 기록");
 
-            return {
-              canvasCount: element.querySelectorAll("canvas").length,
-              opacity: window.getComputedStyle(canvas.parentElement!).opacity
-            };
-          })
-        ).toMatchObject({
-          canvasCount: 1,
-          opacity: "1"
+        await page.getByRole("button", { name: "시·도 요약" }).click();
+        const provinceMatrix = page.locator(".ledger-province-matrix");
+        await provinceMatrix.waitFor();
+        expect(
+          await provinceMatrix.locator("button").count()
+        ).toBeGreaterThanOrEqual(2);
+        const renderedSeverities = await provinceMatrix
+          .locator("button")
+          .evaluateAll((buttons) => [
+            ...new Set(
+              buttons.map((button) => button.getAttribute("data-severity"))
+            )
+          ]);
+        expect(renderedSeverities.length).toBeGreaterThanOrEqual(2);
+        const summaryScreenshot = await saveScreenshot(
+          page,
+          `${viewportName}/v2-map-summary.png`
+        );
+        scenarioManifest.push({
+          viewport: viewportName,
+          scenario: "v2-map-summary",
+          screenshot: summaryScreenshot
         });
+        await provinceMatrix.locator('button[data-province="부산"]').click();
+        await expect
+          .poll(async () =>
+            page.locator(".ledger-primary__header h2").textContent()
+          )
+          .toContain("부산");
       }
 
       if (route.id === "votes") {
