@@ -270,14 +270,307 @@
 }
 
 .v2-national-map {
+  display: grid;
   min-height: 394px;
+  grid-template-rows: minmax(310px, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid #d6dde5;
   border-radius: 7px;
-  background:
-    linear-gradient(rgba(242, 246, 249, 0.7), rgba(242, 246, 249, 0.7)), #f4f7f9;
+  background: #f4f7f9;
 }
 
 .v2-national-map__canvas {
-  inset: -1% -6% 0;
+  position: relative;
+  inset: auto;
+  min-height: 310px;
+  overflow: hidden;
+}
+
+.v2-national-map__svg {
+  position: absolute;
+  top: -1%;
+  left: -6%;
+  width: 112%;
+  height: 102%;
+}
+
+.v2-national-map__district {
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-linejoin: round;
+  stroke-width: 0.65;
+  cursor: pointer;
+  transition:
+    stroke 120ms ease,
+    stroke-width 120ms ease,
+    filter 120ms ease;
+}
+
+.v2-national-map__district.is-moderate {
+  stroke-dasharray: 1.2 0.8;
+  stroke-width: 0.85;
+}
+
+.v2-national-map__district.is-caution {
+  stroke-dasharray: 2.4 1;
+  stroke-width: 1.1;
+}
+
+.v2-national-map__district.is-high {
+  stroke: rgba(25, 51, 62, 0.88);
+  stroke-width: 1.45;
+}
+
+.v2-national-map__district.is-missing {
+  stroke: rgba(119, 131, 142, 0.38);
+  stroke-dasharray: 1 1;
+}
+
+.v2-national-map__district:hover,
+.v2-national-map__district:focus-visible,
+.v2-national-map__district.is-active {
+  outline: none;
+  stroke: #005f5c;
+  stroke-dasharray: none;
+  stroke-width: 2.35;
+  filter: brightness(1.04);
+}
+
+.v2-national-map__severity-marker {
+  pointer-events: none;
+  fill: #14283a;
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-linejoin: round;
+  stroke-width: 0.9px;
+  paint-order: stroke fill;
+  font-family: inherit;
+  font-size: 5.1px;
+  font-weight: 850;
+}
+
+.v2-national-map__severity-marker.is-low {
+  opacity: 0.7;
+}
+
+.v2-national-map__severity-marker.is-moderate {
+  opacity: 0.82;
+}
+
+.v2-national-map__severity-marker.is-caution {
+  opacity: 0.95;
+}
+
+.v2-national-map__severity-marker.is-high {
+  fill: #fff;
+  stroke: rgba(20, 40, 58, 0.9);
+  stroke-width: 1.15px;
+}
+
+.v2-national-map__province-metric {
+  fill: #31536a;
+  font-size: 6.1px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.v2-national-map__evidence {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  width: min(214px, calc(100% - 20px));
+  padding: 0.72rem;
+  gap: 0.55rem;
+  border: 1px solid #bbc8d1;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 8px 24px rgba(27, 45, 59, 0.12);
+  color: #556675;
+  font-size: 0.62rem;
+  pointer-events: none;
+}
+
+.v2-national-map__evidence-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.v2-national-map__evidence-heading > div {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.v2-national-map__evidence-heading span {
+  color: #71808d;
+  font-size: 0.55rem;
+}
+
+.v2-national-map__evidence-heading strong {
+  color: #1f3242;
+  font-size: 0.78rem;
+}
+
+.v2-national-map__evidence-heading em {
+  padding: 0.16rem 0.34rem;
+  border: 1px solid #c9d3da;
+  border-radius: 4px;
+  background: #f0f4f5;
+  color: #435563;
+  font-size: 0.54rem;
+  font-style: normal;
+  font-weight: 780;
+}
+
+.v2-national-map__evidence-heading em.is-caution {
+  border-color: #9d8453;
+  background: #fff8e7;
+  color: #70541d;
+}
+
+.v2-national-map__evidence-heading em.is-high {
+  border-color: #9f4c52;
+  background: #fff0f1;
+  color: #8e2831;
+}
+
+.v2-national-map__evidence dl {
+  display: grid;
+  margin: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid #e0e6ea;
+  border-bottom: 1px solid #e0e6ea;
+}
+
+.v2-national-map__evidence dl div {
+  min-width: 0;
+  padding: 0.42rem 0.25rem;
+  border-right: 1px solid #e0e6ea;
+}
+
+.v2-national-map__evidence dl div:last-child {
+  border-right: 0;
+}
+
+.v2-national-map__evidence dt {
+  color: #7b8893;
+  font-size: 0.48rem;
+}
+
+.v2-national-map__evidence dd {
+  margin: 0.15rem 0 0;
+  color: #163745;
+  font-size: 0.62rem;
+  font-weight: 780;
+  font-variant-numeric: tabular-nums;
+}
+
+.v2-national-map__evidence p,
+.v2-national-map__evidence > span {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.v2-national-map__evidence > span {
+  color: #276968;
+  font-weight: 720;
+}
+
+.v2-national-map__severity-legend {
+  display: grid;
+  padding: 0.58rem 0.68rem;
+  grid-template-columns: minmax(150px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.7rem;
+  border-top: 1px solid #d6dde5;
+  background: #fff;
+}
+
+.v2-national-map__severity-legend > div {
+  display: grid;
+  gap: 0.14rem;
+}
+
+.v2-national-map__severity-legend > div strong {
+  color: #263a49;
+  font-size: 0.62rem;
+}
+
+.v2-national-map__severity-legend > div span {
+  color: #74818b;
+  font-size: 0.52rem;
+  line-height: 1.35;
+}
+
+.v2-national-map__severity-legend ol {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.25rem;
+  list-style: none;
+}
+
+.v2-national-map__severity-legend li {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.3rem;
+}
+
+.v2-national-map__severity-legend li b {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  grid-row: 1 / span 2;
+  place-items: center;
+  border: 1px solid #b9c6cf;
+  border-radius: 4px;
+  background: #eef2f5;
+  color: #263c4d;
+  font-size: 0.56rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.v2-national-map__severity-legend li b.is-moderate {
+  border-style: dashed;
+  background: #dce6ed;
+}
+
+.v2-national-map__severity-legend li b.is-caution {
+  border-color: #8d7b57;
+  border-style: dashed;
+  background: #c9d7de;
+}
+
+.v2-national-map__severity-legend li b.is-high {
+  border: 2px solid #213b48;
+  background: #5a7480;
+  color: #fff;
+}
+
+.v2-national-map__severity-legend li b.is-missing {
+  background: #cdd3da;
+  color: #5d6974;
+}
+
+.v2-national-map__severity-legend li span {
+  overflow: hidden;
+  color: #344956;
+  font-size: 0.54rem;
+  font-weight: 740;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v2-national-map__severity-legend li small {
+  overflow: hidden;
+  color: #7a8791;
+  font-size: 0.46rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .v2-map-legend {
@@ -605,13 +898,39 @@
   }
 
   .v2-national-map {
-    min-height: 300px;
+    min-height: 390px;
+    grid-template-rows: minmax(280px, 1fr) auto;
   }
 
-  .v2-map-legend {
-    margin-top: 7px;
-    transform: scale(0.9);
-    transform-origin: top left;
+  .v2-national-map__canvas {
+    min-height: 280px;
+  }
+
+  .v2-national-map__severity-marker {
+    font-size: 5.5px;
+  }
+
+  .v2-national-map__province-label {
+    font-size: 10.5px;
+  }
+
+  .v2-national-map__province-metric {
+    font-size: 6.3px;
+  }
+
+  .v2-national-map__evidence {
+    top: 7px;
+    right: 7px;
+    width: min(190px, calc(100% - 14px));
+  }
+
+  .v2-national-map__severity-legend {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.45rem;
+  }
+
+  .v2-national-map__severity-legend ol {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .v3-scatter-card__axis {

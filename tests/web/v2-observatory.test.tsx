@@ -11,9 +11,27 @@ import { buildDistributionMembers } from "../../apps/web/src/lib/distribution.js
 import { getScatterYDomain } from "../../apps/web/src/lib/scatter-domain.js";
 
 vi.mock("../../apps/web/src/v2/V2NationalMap.js", () => ({
-  V2NationalMap: () => (
-    <div role="img" aria-label="전국 지역구 결석률 분포 지도" />
-  )
+  V2NationalMap: ({ metric }: { metric: string }) => {
+    const metricLabel =
+      metric === "absence"
+        ? "결석률"
+        : metric === "negative"
+          ? "반대·기권률"
+          : "공개 부동산액";
+    return (
+      <div role="region" aria-label={`전국 지역구 ${metricLabel} 카토그램`}>
+        <div
+          aria-label={`${metricLabel} 비교 단계. 실제 값과 전국 순위를 함께 확인할 수 있습니다.`}
+        >
+          <span>1 낮음 · 전국 하위 50%</span>
+          <span>2 보통 · 전국 50–75백분위</span>
+          <span>3 주의 · 전국 상위 25%</span>
+          <span>4 높음 · 전국 상위 10%</span>
+          <span>자료 없음</span>
+        </div>
+      </div>
+    );
+  }
 }));
 
 const fixturesDir = resolve(process.cwd(), "tests/fixtures/contracts");
@@ -103,27 +121,29 @@ describe("v2 observatory", () => {
       screen.queryByRole("region", { name: "지역별 출석률 분포" })
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: "전국 지역구 결석률 분포 지도" })
+      screen.getByRole("region", {
+        name: "전국 지역구 결석률 카토그램"
+      })
     ).toBeInTheDocument();
     const mapLegend = screen.getByLabelText(
-      "지도 범례: 지역구 한 곳을 같은 크기 육각형 하나로 표시합니다. 굵은 선과 라벨은 시·도 경계입니다. 색이 진할수록 결석률이 높고, 회색은 자료 없음입니다."
+      "결석률 비교 단계. 실제 값과 전국 순위를 함께 확인할 수 있습니다."
     );
-    expect(within(mapLegend).getByText("결석률 분포")).toBeInTheDocument();
     expect(
-      within(mapLegend).getByText("지역구 1곳 = 육각형 1개")
+      within(mapLegend).getByText("1 낮음 · 전국 하위 50%")
     ).toBeInTheDocument();
     expect(
-      within(mapLegend).getByText("색이 진할수록 결석률 높음")
+      within(mapLegend).getByText("2 보통 · 전국 50–75백분위")
     ).toBeInTheDocument();
     expect(
-      within(mapLegend).getByText("굵은 선·라벨 = 시·도 경계")
+      within(mapLegend).getByText("3 주의 · 전국 상위 25%")
+    ).toBeInTheDocument();
+    expect(
+      within(mapLegend).getByText("4 높음 · 전국 상위 10%")
     ).toBeInTheDocument();
     expect(within(mapLegend).getByText("자료 없음")).toBeInTheDocument();
-    expect(mapLegend.querySelectorAll(".v2-map-legend__ramp")).toHaveLength(0);
     expect(
-      mapLegend.querySelectorAll(".v2-map-legend__intensity")
-    ).toHaveLength(1);
-    expect(within(mapLegend).queryByText("미래개혁당")).toBeNull();
+      screen.queryByText("색이 진할수록 결석률 높음")
+    ).not.toBeInTheDocument();
 
     fireEvent.keyDown(attendanceTab, { key: "ArrowRight" });
 

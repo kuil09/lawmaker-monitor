@@ -84,7 +84,6 @@ type LensConfig = {
   icon: typeof UsersThreeIcon;
   mapMetric: MapMetric;
   mapTitle: string;
-  mapLegendMetric: string;
   scatterTitle: string;
   xLabel: string;
   yLabel: string;
@@ -105,7 +104,6 @@ const LENS_CONFIGS: LensConfig[] = [
     icon: UsersThreeIcon,
     mapMetric: "absence",
     mapTitle: "지역별 결석률 분포",
-    mapLegendMetric: "결석률",
     scatterTitle: "정당별 의원 분포",
     xLabel: "출석률",
     yLabel: "반대·기권 비중",
@@ -124,7 +122,6 @@ const LENS_CONFIGS: LensConfig[] = [
     icon: ScalesIcon,
     mapMetric: "negative",
     mapTitle: "지역별 반대·기권 분포",
-    mapLegendMetric: "반대·기권률",
     scatterTitle: "의원별 찬성·이탈 분포",
     xLabel: "찬성 비중",
     yLabel: "반대·기권·불참",
@@ -143,7 +140,6 @@ const LENS_CONFIGS: LensConfig[] = [
     icon: CurrencyKrwIcon,
     mapMetric: "realEstate",
     mapTitle: "지역별 공개 부동산 분포",
-    mapLegendMetric: "공개 부동산액",
     scatterTitle: "의원별 순재산·부동산 분포",
     xLabel: "순재산 (억원)",
     yLabel: "부동산 (억원)",
@@ -767,38 +763,8 @@ export function V2ObservatoryPage({
                   accountabilitySummary={accountabilitySummary}
                   memberAssetsIndex={memberAssetsIndex}
                   metric={config.mapMetric}
+                  onOpenMember={onOpenMember}
                 />
-                <div
-                  className="v2-map-legend"
-                  aria-label={`지도 범례: 지역구 한 곳을 같은 크기 육각형 하나로 표시합니다. 굵은 선과 라벨은 시·도 경계입니다. 색이 진할수록 ${config.mapLegendMetric}이 높고, 회색은 자료 없음입니다.`}
-                >
-                  <div className="v2-map-legend__header">
-                    <span className="v2-map-legend__title">
-                      {config.mapLegendMetric} 분포
-                    </span>
-                    <span className="v2-map-legend__missing">
-                      <i aria-hidden="true" />
-                      자료 없음
-                    </span>
-                  </div>
-                  <span className="v2-map-legend__metric">
-                    지역구 1곳 = 육각형 1개
-                  </span>
-                  <span className="v2-map-legend__metric">
-                    색이 진할수록 {config.mapLegendMetric} 높음
-                  </span>
-                  <span className="v2-map-legend__metric">
-                    굵은 선·라벨 = 시·도 경계
-                  </span>
-                  <div className="v2-map-legend__axis">
-                    <span>옅음</span>
-                    <i
-                      className="v2-map-legend__intensity"
-                      aria-hidden="true"
-                    />
-                    <span>진함</span>
-                  </div>
-                </div>
                 <button
                   type="button"
                   className="v2-map-detail-link"
