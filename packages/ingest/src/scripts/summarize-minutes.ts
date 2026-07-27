@@ -53,6 +53,11 @@ type SummaryState = {
   groupsFailed: number;
   remainingDocuments: number;
   membersPublished: number;
+  mirroredDocuments: number;
+  transcriptDocuments: number;
+  summarizedDocuments: number;
+  latestMirroredMeetingDate: string | null;
+  latestSummarizedMeetingDate: string | null;
 };
 
 function readPositiveInteger(name: string, fallback: number): number {
@@ -115,6 +120,66 @@ function isTranscriptDocument(
     item.transcriptContentSha256 &&
     isOfficialAssemblyMinutesViewerUrl(item.sourceUrl)
   );
+}
+
+function isCurrentSummaryArtifact(
+  item: MirroredDocumentIndexItem & {
+    transcriptContentSha256: string;
+  },
+  artifact: MinutesDocumentSummaryArtifact | undefined,
+  config: Pick<SummaryConfig, "modelId">
+): boolean {
+  return Boolean(
+    artifact?.complete &&
+    artifact.sourceKind === "official_minutes_transcript" &&
+    artifact.sourceContentSha256 === item.transcriptContentSha256 &&
+    artifact.modelId === config.modelId &&
+    artifact.promptVersion === MINUTES_SUMMARY_PROMPT_VERSION
+  );
+}
+
+function buildSummaryCoverage(args: {
+  documentIndex: MirroredDocumentIndex;
+  candidateDocuments: Array<
+    MirroredDocumentIndexItem & {
+      transcriptRelativePath: string;
+      transcriptContentSha256: string;
+    }
+  >;
+  artifactByDocumentId: Map<string, MinutesDocumentSummaryArtifact>;
+  config: Pick<SummaryConfig, "modelId">;
+}): Pick<
+  SummaryState,
+  | "mirroredDocuments"
+  | "transcriptDocuments"
+  | "summarizedDocuments"
+  | "remainingDocuments"
+  | "latestMirroredMeetingDate"
+  | "latestSummarizedMeetingDate"
+> {
+  const summarizedDocuments = args.candidateDocuments.filter((item) =>
+    isCurrentSummaryArtifact(
+      item,
+      args.artifactByDocumentId.get(item.documentId),
+      args.config
+    )
+  );
+
+  return {
+    mirroredDocuments: args.documentIndex.items.length,
+    transcriptDocuments: args.candidateDocuments.length,
+    summarizedDocuments: summarizedDocuments.length,
+    remainingDocuments:
+      args.candidateDocuments.length - summarizedDocuments.length,
+    latestMirroredMeetingDate:
+      args.documentIndex.items
+        .map((item) => item.publishedDate)
+        .sort((left, right) => right.localeCompare(left))[0] ?? null,
+    latestSummarizedMeetingDate:
+      summarizedDocuments
+        .map((item) => item.publishedDate)
+        .sort((left, right) => right.localeCompare(left))[0] ?? null
+  };
 }
 
 async function readTranscript(
@@ -204,16 +269,14 @@ async function main(): Promise<void> {
     ])
   );
   const pendingDocuments = candidateDocuments
-    .filter((item) => {
-      const artifact = artifactByDocumentId.get(item.documentId);
-      return !(
-        artifact?.complete &&
-        artifact.sourceKind === "official_minutes_transcript" &&
-        artifact.sourceContentSha256 === item.transcriptContentSha256 &&
-        artifact.modelId === config.modelId &&
-        artifact.promptVersion === MINUTES_SUMMARY_PROMPT_VERSION
-      );
-    })
+    .filter(
+      (item) =>
+        !isCurrentSummaryArtifact(
+          item,
+          artifactByDocumentId.get(item.documentId),
+          config
+        )
+    )
     .sort((left, right) =>
       right.publishedDate.localeCompare(left.publishedDate)
     )
@@ -241,8 +304,13 @@ async function main(): Promise<void> {
         documentsCompleted: 0,
         groupsSummarized: 0,
         groupsFailed: 0,
-        remainingDocuments: 0,
-        membersPublished: memberIndex.members.length
+        membersPublished: memberIndex.members.length,
+        ...buildSummaryCoverage({
+          documentIndex,
+          candidateDocuments,
+          artifactByDocumentId,
+          config
+        })
       };
       const stateFile = join(config.dataRepoDir, config.statePath);
       const existingState = await readJsonFile<SummaryState | null>(
@@ -252,8 +320,12 @@ async function main(): Promise<void> {
       if (
         existingState?.modelId !== idleState.modelId ||
         existingState.promptVersion !== idleState.promptVersion ||
-        existingState.remainingDocuments !== 0 ||
-        existingState.membersPublished !== idleState.membersPublished
+        existingState.remainingDocuments !== idleState.remainingDocuments ||
+        existingState.membersPublished !== idleState.membersPublished ||
+        existingState.latestMirroredMeetingDate !==
+          idleState.latestMirroredMeetingDate ||
+        existingState.latestSummarizedMeetingDate !==
+          idleState.latestSummarizedMeetingDate
       ) {
         await writeJsonFile(stateFile, idleState);
       }
@@ -431,16 +503,6 @@ async function main(): Promise<void> {
     }
   }
 
-  const remainingDocuments = candidateDocuments.filter((item) => {
-    const artifact = artifactByDocumentId.get(item.documentId);
-    return !(
-      artifact?.complete &&
-      artifact.sourceKind === "official_minutes_transcript" &&
-      artifact.sourceContentSha256 === item.transcriptContentSha256 &&
-      artifact.modelId === config.modelId &&
-      artifact.promptVersion === MINUTES_SUMMARY_PROMPT_VERSION
-    );
-  }).length;
   const state: SummaryState = {
     updatedAt: generatedAt,
     modelId: config.modelId,
@@ -450,8 +512,13 @@ async function main(): Promise<void> {
     documentsCompleted,
     groupsSummarized,
     groupsFailed,
-    remainingDocuments,
-    membersPublished: memberExports.length
+    membersPublished: memberExports.length,
+    ...buildSummaryCoverage({
+      documentIndex,
+      candidateDocuments,
+      artifactByDocumentId,
+      config
+    })
   };
   await writeJsonFile(join(config.dataRepoDir, config.statePath), state);
   process.stdout.write(`${JSON.stringify(state, null, 2)}\n`);

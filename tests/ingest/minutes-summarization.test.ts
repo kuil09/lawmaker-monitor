@@ -66,6 +66,26 @@ describe("minutes transcript summarization", () => {
     });
   });
 
+  it("keeps trusted catalog metadata when the viewer header is inconsistent", () => {
+    const transcript = parseAssemblyMinutesViewerHtml({
+      documentId: "minutes-stale-header",
+      sourceUrl:
+        "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=52038&type=view",
+      fallbackMeetingDate: "2024-06-05",
+      fallbackTitle: "제22대국회 제415회 국회본회의 회의록",
+      html: viewerHtml.replace(
+        "제22대국회 제430회 (임시회) 제2차 법제사법위원회",
+        "제22대국회 제434회 (임시회) 제1차 국정조사특별위원회"
+      )
+    });
+
+    expect(transcript.meetingDate).toBe("2024-06-05");
+    expect(transcript.meetingTitle).toBe(
+      "제22대국회 제415회 국회본회의 회의록"
+    );
+    expect(transcript.committeeName).toBe("국회본회의");
+  });
+
   it("builds bill-scoped groups only for unambiguous current members", () => {
     const transcript = parseAssemblyMinutesViewerHtml({
       documentId: "minutes-1",

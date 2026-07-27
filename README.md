@@ -145,9 +145,21 @@ Public document mirror settings:
 - `MIRROR_TIMEOUT_MS`
 - `MIRROR_TIME_ZONE`
 - `MIRROR_RECENT_DAYS`
+- `MIRROR_MIN_RECENT_DAYS`
 - `MIRROR_BACKFILL_START_DATE`
 - `MIRROR_BACKFILL_DAYS`
+- `MIRROR_BACKFILL_WINDOWS_PER_RUN`
+- `MIRROR_CATCHUP_WINDOWS_PER_RUN`
 - `MIRROR_INCLUDE_APPENDICES`
+
+The scheduled minutes mirror always applies `MIRROR_MIN_RECENT_DAYS` as a
+freshness floor, even when `MIRROR_RECENT_DAYS` is configured to a smaller
+value. This rolling overlap captures minutes that are published after their
+meeting date. Historical coverage advances independently from
+`MIRROR_BACKFILL_START_DATE`; successful runs dispatch bounded catch-up runs
+without repeating the recent window until the backfill reaches current
+coverage. Mirror state reports the latest discovered and mirrored meeting
+dates, whether backfill remains, and transcript parser refresh counts.
 
 Minutes summary settings:
 

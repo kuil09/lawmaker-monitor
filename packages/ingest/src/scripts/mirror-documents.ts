@@ -11,6 +11,16 @@ import {
 } from "playwright";
 
 import {
+  buildAssemblySearchWindows,
+  hasPendingBackfill,
+  resolveEffectiveRecentDays,
+  resolveNextBackfillCursorDate,
+  resolvePublishedBackfillCursor,
+  sortDatedItemsNewestFirst,
+  splitAssemblySearchWindowsByDay,
+  type AssemblySearchWindow
+} from "../assembly-mirror-policy.js";
+import {
   buildDocumentId,
   buildDocumentPaths,
   dateInTimeZone,
@@ -21,7 +31,11 @@ import {
   selectExistingMirroredMetadata,
   toIndexItem
 } from "../document-mirror.js";
-import { parseAssemblyMinutesViewerHtml } from "../minutes-transcript.js";
+import {
+  ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION,
+  isOfficialAssemblyMinutesViewerUrl,
+  parseAssemblyMinutesViewerHtml
+} from "../minutes-transcript.js";
 import {
   readJsonFile,
   readString,
@@ -101,12 +115,6 @@ type CandidateCollectionResult = {
   sourceSnapshotSha256?: string;
   sourceSnapshotCount?: number;
   sourceSnapshotUnchanged?: boolean;
-};
-
-export type SearchWindow = {
-  label: "recent" | "backfill";
-  startDate: string;
-  endDate: string;
 };
 
 export type FormValueMap = Map<string, string[]>;
@@ -195,23 +203,6 @@ function compactDate(date: string): string {
   return date.replaceAll("-", "");
 }
 
-function shiftIsoDate(date: string, days: number): string {
-  const [year, month, day] = date
-    .split("-")
-    .map((part) => Number.parseInt(part, 10));
-  if (!year || !month || !day) {
-    throw new Error(`Invalid ISO date: ${date}`);
-  }
-
-  const value = new Date(Date.UTC(year, month - 1, day));
-  value.setUTCDate(value.getUTCDate() + days);
-  return value.toISOString().slice(0, 10);
-}
-
-function minIsoDate(left: string, right: string): string {
-  return left <= right ? left : right;
-}
-
 function parseServiceInfId(startUrl: string): string | undefined {
   const matched = startUrl.match(/\/selectServicePage\.do\/([^/?#]+)/);
   return matched?.[1];
@@ -237,13 +228,15 @@ function loadConfig(): MirrorConfig {
     | undefined;
   const serviceInfId =
     process.env.MIRROR_SERVICE_INF_ID?.trim() || parseServiceInfId(startUrl);
+  const mode: MirrorMode =
+    configuredMode ??
+    (startUrl.includes("/mnts/minutes/search.do")
+      ? "assembly_minutes_search"
+      : "generic");
+  const configuredRecentDays = readPositiveInteger("MIRROR_RECENT_DAYS", 3);
 
   return {
-    mode:
-      configuredMode ??
-      (startUrl.includes("/mnts/minutes/search.do")
-        ? "assembly_minutes_search"
-        : "generic"),
+    mode,
     sourceId:
       process.env.MIRROR_SOURCE_ID?.trim() || "assembly-public-documents",
     startUrl,
@@ -279,7 +272,13 @@ function loadConfig(): MirrorConfig {
     userAgent:
       process.env.MIRROR_USER_AGENT?.trim() ||
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    recentDays: readPositiveInteger("MIRROR_RECENT_DAYS", 3),
+    recentDays:
+      mode === "assembly_minutes_search"
+        ? resolveEffectiveRecentDays(
+            configuredRecentDays,
+            readPositiveInteger("MIRROR_MIN_RECENT_DAYS", 30)
+          )
+        : configuredRecentDays,
     backfillStartDate:
       process.env.MIRROR_BACKFILL_START_DATE?.trim() || "2024-05-30",
     backfillDays: readPositiveInteger("MIRROR_BACKFILL_DAYS", 7),
@@ -483,133 +482,6 @@ async function extractAssemblyFormValues(page: Page): Promise<FormValueMap> {
   }
 
   return formValues;
-}
-
-export function buildAssemblySearchWindows(
-  cutoffDate: string,
-  config: MirrorConfig,
-  existingState: DocumentMirrorState | null,
-  options?: {
-    includeAllBackfillWindows?: boolean;
-    backfillCursorDate?: string;
-    includeRecent?: boolean;
-    maxBackfillWindows?: number;
-  }
-): SearchWindow[] {
-  const yesterday = shiftIsoDate(cutoffDate, -1);
-  const windows: SearchWindow[] = [];
-
-  if (config.recentDays > 0 && options?.includeRecent !== false) {
-    windows.push({
-      label: "recent",
-      startDate: shiftIsoDate(yesterday, -(config.recentDays - 1)),
-      endDate: yesterday
-    });
-  }
-
-  const backfillCursor =
-    options?.backfillCursorDate?.trim() ||
-    existingState?.nextBackfillCursorDate?.trim() ||
-    config.backfillStartDate;
-  if (backfillCursor <= yesterday && config.backfillDays > 0) {
-    let cursor = backfillCursor;
-    let backfillWindowCount = 0;
-    const backfillWindowLimit = options?.includeAllBackfillWindows
-      ? Number.POSITIVE_INFINITY
-      : Math.max(1, options?.maxBackfillWindows ?? 1);
-
-    while (cursor <= yesterday && backfillWindowCount < backfillWindowLimit) {
-      const backfillEndDate = minIsoDate(
-        shiftIsoDate(cursor, config.backfillDays - 1),
-        yesterday
-      );
-      const overlapsRecent = windows.some(
-        (window) =>
-          cursor >= window.startDate && backfillEndDate <= window.endDate
-      );
-
-      if (!overlapsRecent) {
-        windows.push({
-          label: "backfill",
-          startDate: cursor,
-          endDate: backfillEndDate
-        });
-        backfillWindowCount += 1;
-      }
-
-      cursor = shiftIsoDate(backfillEndDate, 1);
-    }
-  }
-
-  const uniqueWindows = new Map<string, SearchWindow>();
-  for (const window of windows) {
-    uniqueWindows.set(
-      `${window.label}:${window.startDate}:${window.endDate}`,
-      window
-    );
-  }
-
-  return [...uniqueWindows.values()];
-}
-
-export function splitAssemblySearchWindowsByDay(
-  windows: SearchWindow[]
-): SearchWindow[] {
-  return windows.flatMap((window) => {
-    const dailyWindows: SearchWindow[] = [];
-    let cursor = window.startDate;
-    while (cursor <= window.endDate) {
-      dailyWindows.push({
-        label: window.label,
-        startDate: cursor,
-        endDate: cursor
-      });
-      cursor = shiftIsoDate(cursor, 1);
-    }
-    return dailyWindows;
-  });
-}
-
-export function resolveNextBackfillCursorDate(args: {
-  cutoffDate: string;
-  config: Pick<MirrorConfig, "backfillStartDate">;
-  existingState: Pick<DocumentMirrorState, "nextBackfillCursorDate"> | null;
-  windows: SearchWindow[];
-}): string | null {
-  const yesterday = shiftIsoDate(args.cutoffDate, -1);
-  const latestBackfillWindow = args.windows
-    .filter((window) => window.label === "backfill")
-    .at(-1);
-
-  if (latestBackfillWindow) {
-    return shiftIsoDate(latestBackfillWindow.endDate, 1);
-  }
-
-  return (
-    args.existingState?.nextBackfillCursorDate ??
-    (args.config.backfillStartDate <= yesterday
-      ? args.config.backfillStartDate
-      : null)
-  );
-}
-
-export function resolvePublishedBackfillCursor(args: {
-  proposedCursor: string | null | undefined;
-  fallbackCursor: string;
-  skippedWithoutDate: number;
-  downloadFailures?: number;
-  transcriptFailures: number;
-  reachedDownloadLimit: boolean;
-}): string | null | undefined {
-  if (
-    args.skippedWithoutDate > 0 ||
-    (args.downloadFailures ?? 0) > 0 ||
-    args.transcriptFailures > 0 ||
-    args.reachedDownloadLimit
-  ) {
-    return args.fallbackCursor;
-  }
-  return args.proposedCursor;
 }
 
 function toNumber(value: unknown): number {
@@ -886,7 +758,7 @@ async function postAssemblySearch(
 
 export function buildAssemblyMinutesParams(
   baseValues: FormValueMap,
-  window: SearchWindow,
+  window: AssemblySearchWindow,
   pageNumber: number,
   pageSize = 10
 ): URLSearchParams {
@@ -916,7 +788,7 @@ export function buildAssemblyMinutesParams(
 
 function buildAssemblyAppendixParams(
   baseValues: FormValueMap,
-  window: SearchWindow,
+  window: AssemblySearchWindow,
   pageNumber: number,
   pageSize = 10
 ): URLSearchParams {
@@ -1078,7 +950,10 @@ async function collectAssemblyCandidates(
   };
 }
 
-function isDateWithinSearchWindow(date: string, window: SearchWindow): boolean {
+function isDateWithinSearchWindow(
+  date: string,
+  window: AssemblySearchWindow
+): boolean {
   return date >= window.startDate && date <= window.endDate;
 }
 
@@ -1347,7 +1222,9 @@ async function mirrorAssemblyMinutesTranscript(args: {
   const transcriptContentSha256 = sha256(transcriptJson);
   if (
     args.metadata.transcriptContentSha256 === transcriptContentSha256 &&
-    args.metadata.transcriptRelativePath
+    args.metadata.transcriptRelativePath &&
+    args.metadata.transcriptParserVersion ===
+      ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION
   ) {
     return {
       metadata: args.metadata,
@@ -1400,6 +1277,7 @@ async function mirrorAssemblyMinutesTranscript(args: {
     transcriptRelativePath,
     transcriptContentSha256,
     transcriptStatementCount: transcript.statements.length,
+    transcriptParserVersion: ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION,
     transcriptVersions
   };
   await writeJsonFile(
@@ -1436,6 +1314,30 @@ async function loadExistingMetadata(
   }
 
   return { byDocumentId, bySourceUrl, byDownloadUrl };
+}
+
+function buildTranscriptRefreshCandidates(
+  metadataByDocumentId: Map<string, MirroredDocumentMetadata>
+): MirrorCandidate[] {
+  return [...metadataByDocumentId.values()]
+    .filter(
+      (metadata) =>
+        isOfficialAssemblyMinutesViewerUrl(metadata.sourceUrl) &&
+        metadata.transcriptParserVersion !==
+          ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION
+    )
+    .sort((left, right) =>
+      right.publishedDate.localeCompare(left.publishedDate)
+    )
+    .map((metadata) => ({
+      documentId: metadata.documentId,
+      title: metadata.title,
+      sourceUrl: metadata.sourceUrl,
+      downloadUrl: metadata.downloadUrl,
+      publishedDate: metadata.publishedDate,
+      discoveredFromUrl: metadata.discoveredFromUrl,
+      sourceMetadata: metadata.sourceMetadata
+    }));
 }
 
 async function main(): Promise<void> {
@@ -1529,6 +1431,27 @@ async function main(): Promise<void> {
             cutoffDate
           )
         : await collectGenericCandidates(page!, config);
+  const transcriptRefreshCandidates =
+    config.mode === "assembly_minutes_search"
+      ? buildTranscriptRefreshCandidates(existingMetadata.byDocumentId)
+      : [];
+  const staleTranscriptDocumentIds = new Set(
+    transcriptRefreshCandidates
+      .map((candidate) => candidate.documentId)
+      .filter((documentId): documentId is string => Boolean(documentId))
+  );
+  const workItems = [
+    ...sortDatedItemsNewestFirst(collectionResult.candidates).map(
+      (candidate) => ({
+        kind: "discovered" as const,
+        candidate
+      })
+    ),
+    ...transcriptRefreshCandidates.map((candidate) => ({
+      kind: "transcript-refresh" as const,
+      candidate
+    }))
+  ];
 
   const seenCandidateKeys = new Set<string>();
   let downloadedCount = 0;
@@ -1542,7 +1465,8 @@ async function main(): Promise<void> {
   let remainingDownloads = config.maxDownloads;
   let reachedDownloadLimit = false;
 
-  for (const candidate of collectionResult.candidates) {
+  for (const workItem of workItems) {
+    const { candidate } = workItem;
     const seenKey = candidate.documentId ?? candidate.sourceUrl;
     if (seenCandidateKeys.has(seenKey)) {
       continue;
@@ -1561,7 +1485,9 @@ async function main(): Promise<void> {
     }
 
     if (remainingDownloads <= 0) {
-      reachedDownloadLimit = true;
+      if (workItem.kind === "discovered") {
+        reachedDownloadLimit = true;
+      }
       break;
     }
 
@@ -1655,6 +1581,33 @@ async function main(): Promise<void> {
     ),
     retrievedAt
   );
+  const previousBackfillCursorDate =
+    config.backfillCursorOverride ??
+    existingState?.nextBackfillCursorDate ??
+    config.backfillStartDate;
+  const nextBackfillCursorDate = resolvePublishedBackfillCursor({
+    proposedCursor: collectionResult.nextBackfillCursorDate,
+    fallbackCursor: previousBackfillCursorDate,
+    skippedWithoutDate,
+    downloadFailures,
+    transcriptFailures,
+    reachedDownloadLimit
+  });
+  const latestDiscoveredDocumentDate =
+    collectionResult.candidates
+      .map((candidate) => candidate.publishedDate)
+      .filter((date): date is string => Boolean(date))
+      .sort((left, right) => right.localeCompare(left))[0] ?? null;
+  const staleTranscriptsRefreshed = [...staleTranscriptDocumentIds].filter(
+    (documentId) =>
+      updatedMetadataByDocumentId.get(documentId)?.transcriptParserVersion ===
+      ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION
+  ).length;
+  const recentWindowStartDate =
+    collectionResult.recentWindowStartDate ??
+    existingState?.recentWindowStartDate;
+  const recentWindowEndDate =
+    collectionResult.recentWindowEndDate ?? existingState?.recentWindowEndDate;
 
   const state: DocumentMirrorState = {
     sourceId: config.sourceId,
@@ -1671,19 +1624,22 @@ async function main(): Promise<void> {
     transcriptsWritten,
     transcriptFailures,
     lastStartUrl: config.startUrl,
-    recentWindowStartDate: collectionResult.recentWindowStartDate,
-    recentWindowEndDate: collectionResult.recentWindowEndDate,
-    nextBackfillCursorDate: resolvePublishedBackfillCursor({
-      proposedCursor: collectionResult.nextBackfillCursorDate,
-      fallbackCursor:
-        config.backfillCursorOverride ??
-        existingState?.nextBackfillCursorDate ??
-        config.backfillStartDate,
-      skippedWithoutDate,
-      downloadFailures,
-      transcriptFailures,
-      reachedDownloadLimit
+    recentWindowStartDate,
+    recentWindowEndDate,
+    effectiveRecentDays: config.recentDays,
+    nextBackfillCursorDate,
+    pendingBackfill: hasPendingBackfill({
+      nextBackfillCursorDate,
+      recentWindowStartDate
     }),
+    backfillAdvanced: Boolean(
+      nextBackfillCursorDate &&
+      nextBackfillCursorDate > previousBackfillCursorDate
+    ),
+    latestDiscoveredDocumentDate,
+    latestMirroredDocumentDate: index.items[0]?.publishedDate ?? null,
+    staleTranscriptsQueued: staleTranscriptDocumentIds.size,
+    staleTranscriptsRefreshed,
     sourceSnapshotSha256: collectionResult.sourceSnapshotSha256,
     sourceSnapshotCount: collectionResult.sourceSnapshotCount,
     skippedBySourceSnapshot: collectionResult.sourceSnapshotUnchanged ?? false

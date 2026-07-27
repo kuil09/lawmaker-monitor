@@ -12,20 +12,55 @@ import {
   slugifySegment
 } from "../../packages/ingest/src/document-mirror.js";
 import {
+  buildAssemblySearchWindows,
+  hasPendingBackfill,
+  resolveEffectiveRecentDays,
+  resolveNextBackfillCursorDate,
+  resolvePublishedBackfillCursor,
+  sortDatedItemsNewestFirst,
+  splitAssemblySearchWindowsByDay
+} from "../../packages/ingest/src/assembly-mirror-policy.js";
+import {
   buildAssemblyFileServiceSourceSnapshot,
   buildAssemblyMinutesParams,
-  buildAssemblySearchWindows,
   isAssemblyMinutesViewerUrl,
   normalizeCompactAssemblyDate,
   resolveMirrorDataRepoDir,
-  resolveNextBackfillCursorDate,
-  resolvePublishedBackfillCursor,
   responsePageCount,
-  splitAssemblySearchWindowsByDay,
   shouldSkipAssemblyFileServiceRefresh
 } from "../../packages/ingest/src/scripts/mirror-documents.js";
 
 describe("document mirror helpers", () => {
+  it("enforces a safe recent-window floor for minutes discovery", () => {
+    expect(resolveEffectiveRecentDays(3, 30)).toBe(30);
+    expect(resolveEffectiveRecentDays(45, 30)).toBe(45);
+  });
+
+  it("reports whether the historical backfill has reached the recent window", () => {
+    expect(
+      hasPendingBackfill({
+        nextBackfillCursorDate: "2024-07-11",
+        recentWindowStartDate: "2026-06-27"
+      })
+    ).toBe(true);
+    expect(
+      hasPendingBackfill({
+        nextBackfillCursorDate: "2026-06-27",
+        recentWindowStartDate: "2026-06-27"
+      })
+    ).toBe(false);
+  });
+
+  it("processes the newest discovered minutes before older backfill items", () => {
+    expect(
+      sortDatedItemsNewestFirst([
+        { id: "old", publishedDate: "2024-07-01" },
+        { id: "unknown", publishedDate: null },
+        { id: "latest", publishedDate: "2026-07-14" }
+      ]).map((item) => item.id)
+    ).toEqual(["latest", "old", "unknown"]);
+  });
+
   it("normalizes multiple public document date formats", () => {
     expect(normalizeDocumentDate("2026.02.23.")).toBe("2026-02-23");
     expect(normalizeDocumentDate("2026-02-23")).toBe("2026-02-23");

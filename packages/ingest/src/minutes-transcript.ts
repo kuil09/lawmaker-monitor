@@ -29,6 +29,8 @@ export type AssemblyMinutesTranscript = {
   statements: AssemblyMinutesStatement[];
 };
 
+export const ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION = "2";
+
 function normalizeText(value: string): string {
   return value.replaceAll("\u00a0", " ").replace(/\s+/g, " ").trim();
 }
@@ -60,13 +62,25 @@ function extractBillIds(value: string): string[] {
   return [...ids];
 }
 
-function normalizeViewerDate(value: string, fallback: string): string {
+function normalizeViewerDate(value: string): string | null {
   const matched = value.match(/(20\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
   if (!matched?.[1] || !matched[2] || !matched[3]) {
-    return fallback;
+    return null;
   }
 
   return `${matched[1]}-${matched[2].padStart(2, "0")}-${matched[3].padStart(2, "0")}`;
+}
+
+function extractCommitteeName(meetingTitle: string): string | null {
+  const viewerMatch = meetingTitle.match(/제\d+차\s+(.+?)(?:\s*$)/);
+  if (viewerMatch?.[1]) {
+    return normalizeText(viewerMatch[1]);
+  }
+
+  const catalogMatch = meetingTitle.match(
+    /제\d+대(?:국회)?\s+제\d+회\s+(.+?)\s+회의록$/
+  );
+  return catalogMatch?.[1] ? normalizeText(catalogMatch[1]) : null;
 }
 
 export function parseAssemblyMinutesViewerHtml(args: {
@@ -79,8 +93,11 @@ export function parseAssemblyMinutesViewerHtml(args: {
   const $ = load(args.html);
   const headerTitle = normalizeText($("#header .tit h2 strong").first().text());
   const headerDate = normalizeText($("#header .tit h2 .date").first().text());
-  const meetingTitle = headerTitle || args.fallbackTitle;
-  const committeeNameMatch = meetingTitle.match(/제\d+차\s+(.+?)(?:\s*$)/);
+  const normalizedHeaderDate = normalizeViewerDate(headerDate);
+  const headerMatchesCatalog =
+    normalizedHeaderDate === args.fallbackMeetingDate;
+  const meetingTitle =
+    headerMatchesCatalog && headerTitle ? headerTitle : args.fallbackTitle;
 
   const agendaItems: AssemblyMinutesAgendaItem[] = [];
   $(".minutes_body a.tit[id^='item']").each((_, element) => {
@@ -140,10 +157,8 @@ export function parseAssemblyMinutesViewerHtml(args: {
     documentId: args.documentId,
     sourceUrl: args.sourceUrl,
     meetingTitle,
-    meetingDate: normalizeViewerDate(headerDate, args.fallbackMeetingDate),
-    committeeName: committeeNameMatch?.[1]
-      ? normalizeText(committeeNameMatch[1])
-      : null,
+    meetingDate: args.fallbackMeetingDate,
+    committeeName: extractCommitteeName(meetingTitle),
     agendaItems,
     statements
   };

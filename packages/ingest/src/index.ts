@@ -1,4 +1,5 @@
 export * from "./assembly-api.js";
+export * from "./assembly-mirror-policy.js";
 export * from "./constituency-boundary-runtime.js";
 export * from "./constituency-boundaries.js";
 export * from "./document-mirror.js";
