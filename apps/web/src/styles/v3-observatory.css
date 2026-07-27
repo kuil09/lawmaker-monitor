@@ -681,6 +681,13 @@
   margin-top: 5px;
 }
 
+.v3-scatter-card__note {
+  margin: 8px 0 0;
+  color: #687786;
+  font-size: 0.63rem;
+  line-height: 1.45;
+}
+
 .v2-trend-card {
   grid-area: trend;
   min-height: 338px;

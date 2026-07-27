@@ -21,6 +21,10 @@ export type DistributionMemberPoint = {
   noCount: number;
   abstainCount: number;
   absentVoteCount: number;
+  partyLineOpportunityCount: number;
+  partyLineParticipationCount: number;
+  partyLineDefectionCount: number;
+  partyLineDefectionRate: number;
   yesRate: number;
   noRate: number;
   abstainRate: number;
@@ -242,6 +246,10 @@ export function buildDistributionMembers(
           noCount: item.noCount,
           abstainCount: item.abstainCount,
           absentVoteCount: item.absentCount,
+          partyLineOpportunityCount: item.partyLineOpportunityCount,
+          partyLineParticipationCount: item.partyLineParticipationCount,
+          partyLineDefectionCount: item.partyLineDefectionCount,
+          partyLineDefectionRate: item.partyLineDefectionRate,
           yesRate:
             item.totalRecordedVotes > 0
               ? yesCount / item.totalRecordedVotes

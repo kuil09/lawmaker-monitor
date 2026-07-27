@@ -33,6 +33,10 @@ describe("distribution helpers", () => {
       memberId: "M002",
       negativeRate: 0.5,
       absentRate: 0.5,
+      partyLineOpportunityCount: 0,
+      partyLineParticipationCount: 0,
+      partyLineDefectionCount: 0,
+      partyLineDefectionRate: 0,
       attendanceRate: 2 / 3,
       currentNegativeOrAbsentStreak: 3
     });

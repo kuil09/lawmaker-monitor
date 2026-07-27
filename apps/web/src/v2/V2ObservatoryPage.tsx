@@ -32,6 +32,7 @@ import {
   getPaddedAxisDomain,
   getScatterYDomain
 } from "../lib/scatter-domain.js";
+import { spreadPercentageScatterPoints } from "../lib/scatter-overlap.js";
 
 import type { DistributionMemberPoint } from "../lib/distribution.js";
 import type { MapMetric } from "../lib/map-route.js";
@@ -56,7 +57,18 @@ type ObservatoryPoint = {
   score: number;
   supportValue: number | null;
   debtAmount?: number;
+  pointWeight: number;
+  partyLineOpportunityCount?: number;
+  partyLineParticipationCount?: number;
+  partyLineDefectionCount?: number;
   basisValue: string;
+};
+
+type ObservatoryPlotPoint = ObservatoryPoint & {
+  plotX: number;
+  plotY: number;
+  overlapCount: number;
+  plotAdjusted: boolean;
 };
 
 type TrendPoint = {
@@ -124,15 +136,15 @@ const LENS_CONFIGS: LensConfig[] = [
     mapTitle: "지역별 반대·기권 분포",
     scatterTitle: "의원별 찬성·이탈 분포",
     xLabel: "찬성 비중",
-    yLabel: "반대·기권·불참",
+    yLabel: "당내 이탈률",
     trendKicker: "시간 흐름",
     trendTitle: "최근 12주 표결 구성 추이",
     trendSeries: ["찬성", "반대", "불참"],
     trendCategoryLabel: "기간",
     rankingTitle: "찬성 비중 상위 5 / 하위 5",
     scoreLabel: "찬성 비중",
-    supportLabel: "반대·기권·불참",
-    basisLabel: "기록 표결"
+    supportLabel: "당내 이탈률",
+    basisLabel: "당 기준 표결"
   },
   {
     key: "assets",
@@ -287,12 +299,17 @@ function buildPoints(
           y: member.negativeRate * 100,
           score: member.attendanceRate * 100,
           supportValue: member.negativeRate * 100,
+          pointWeight: 1,
           basisValue: `${member.attendedDays}일`
         }
       ];
     }
 
     if (lens === "voting") {
+      if (member.partyLineParticipationCount === 0) {
+        return [];
+      }
+
       return [
         {
           memberId: member.memberId,
@@ -300,10 +317,14 @@ function buildPoints(
           party: member.party,
           district,
           x: member.yesRate * 100,
-          y: member.disruptionRate * 100,
+          y: member.partyLineDefectionRate * 100,
           score: member.yesRate * 100,
-          supportValue: member.disruptionRate * 100,
-          basisValue: `${member.totalRecordedVotes}건`
+          supportValue: member.partyLineDefectionRate * 100,
+          pointWeight: member.partyLineParticipationCount,
+          partyLineOpportunityCount: member.partyLineOpportunityCount,
+          partyLineParticipationCount: member.partyLineParticipationCount,
+          partyLineDefectionCount: member.partyLineDefectionCount,
+          basisValue: `${member.partyLineParticipationCount}건`
         }
       ];
     }
@@ -332,6 +353,7 @@ function buildPoints(
         score: total,
         supportValue: debtRatio == null ? null : debtRatio * 100,
         debtAmount,
+        pointWeight: 1,
         basisValue: asset.latestDisclosureDate.slice(0, 10)
       }
     ];
@@ -365,7 +387,7 @@ function ScatterTooltipContent({
   onOpenMember
 }: {
   active?: boolean;
-  payload?: Array<{ payload?: ObservatoryPoint }>;
+  payload?: Array<{ payload?: ObservatoryPlotPoint }>;
   config: LensConfig;
   onOpenMember: (memberId: string) => void;
 }) {
@@ -389,6 +411,16 @@ function ScatterTooltipContent({
       <span>
         {`${xLabel} ${formatValue(point.x)} · ${yLabel} ${formatValue(point.y)}`}
       </span>
+      {point.overlapCount > 1 ? (
+        <span>{`동일 좌표 ${point.overlapCount}명 · 점 위치를 펼쳐 표시`}</span>
+      ) : null}
+      {config.key === "voting" ? (
+        <span>
+          {`당 기준 표결 ${point.partyLineParticipationCount ?? 0}건 · 이탈 ${
+            point.partyLineDefectionCount ?? 0
+          }건`}
+        </span>
+      ) : null}
       {config.key === "assets" ? (
         <span>
           {point.debtAmount == null
@@ -533,13 +565,33 @@ export function V2ObservatoryPage({
         )[0] ?? null,
     [points]
   );
-  const xDomain = useMemo(() => getPaddedAxisDomain(points, "x"), [points]);
-  const resolvedXDomain =
-    activeLens === "assets" ? xDomain : ([0, 100] as [number, number]);
+  const resolvedXDomain = useMemo<[number, number]>(
+    () =>
+      activeLens === "assets" ? getPaddedAxisDomain(points, "x") : [0, 100],
+    [activeLens, points]
+  );
   const resolvedYDomain = useMemo(
     () => getScatterYDomain(points, activeLens !== "assets"),
     [activeLens, points]
   );
+  const plotPoints = useMemo<ObservatoryPlotPoint[]>(
+    () =>
+      activeLens === "assets"
+        ? points.map((point) => ({
+            ...point,
+            plotX: point.x,
+            plotY: point.y,
+            overlapCount: 1,
+            plotAdjusted: false
+          }))
+        : spreadPercentageScatterPoints(points, {
+            xDomain: resolvedXDomain,
+            yDomain: resolvedYDomain
+          }),
+    [activeLens, points, resolvedXDomain, resolvedYDomain]
+  );
+  const excludedVotingPointCount =
+    activeLens === "voting" ? members.length - points.length : 0;
   const latestTrendPoint = trendData[trendData.length - 1] ?? null;
 
   function selectLens(lens: ObservatoryLens, focus = false) {
@@ -577,7 +629,7 @@ export function V2ObservatoryPage({
     activeLens === "attendance"
       ? "위로 갈수록 반대·기권 비중이 높고, 오른쪽으로 갈수록 출석률이 높습니다."
       : activeLens === "voting"
-        ? "오른쪽으로 갈수록 찬성 비중이 높고, 위로 갈수록 이탈 표결이 많습니다."
+        ? "오른쪽으로 갈수록 찬성 비중이 높고, 위로 갈수록 당 기준과 다른 표결 비중이 높습니다."
         : "오른쪽으로 갈수록 순재산이 크고, 위로 갈수록 부동산 공개액이 큽니다. 부채는 비교 카드와 근거 목록에서 함께 확인합니다.";
 
   return (
@@ -853,9 +905,11 @@ export function V2ObservatoryPage({
           {showMethod ? (
             <p id="v2-method-copy" className="v2-method-copy">
               공개 기록표결, 의원 활동 캘린더, 정기 재산공개를 동일 의원
-              식별자로 연결합니다. 재산의 부채비율은 공개 채무를 순재산과 채무의
-              합으로 나눠 계산하며, 분모가 0원 이하인 경우 산정하지 않습니다.
-              값이 없는 항목은 순위와 평균에서 제외합니다.
+              식별자로 연결합니다. 당내 이탈률은 정당별 다수 방향이 형성된
+              표결에 참여한 건 중 다수 방향과 다른 선택을 한 비중입니다. 재산의
+              부채비율은 공개 채무를 순재산과 채무의 합으로 나눠 계산하며,
+              분모가 0원 이하인 경우 산정하지 않습니다. 값이 없는 항목은 순위와
+              평균에서 제외합니다.
             </p>
           ) : null}
         </aside>
@@ -883,7 +937,7 @@ export function V2ObservatoryPage({
               <CartesianGrid stroke="#e2e7ec" strokeDasharray="2 2" />
               <XAxis
                 type="number"
-                dataKey="x"
+                dataKey="plotX"
                 domain={resolvedXDomain}
                 scale={activeLens === "assets" ? "symlog" : "auto"}
                 tick={{ fontSize: 11, fill: "#66717d" }}
@@ -902,7 +956,7 @@ export function V2ObservatoryPage({
               />
               <YAxis
                 type="number"
-                dataKey="y"
+                dataKey="plotY"
                 domain={resolvedYDomain}
                 scale={activeLens === "assets" ? "symlog" : "auto"}
                 width={42}
@@ -913,7 +967,10 @@ export function V2ObservatoryPage({
                     : `${Math.round(value)}%`
                 }
               />
-              <ZAxis range={[45, 45]} />
+              <ZAxis
+                dataKey="pointWeight"
+                range={activeLens === "voting" ? [42, 84] : [45, 45]}
+              />
               <Tooltip
                 cursor={{ strokeDasharray: "3 3" }}
                 wrapperStyle={{ pointerEvents: "auto" }}
@@ -924,12 +981,14 @@ export function V2ObservatoryPage({
                   />
                 }
               />
-              <Scatter data={points}>
-                {points.map((point) => (
+              <Scatter data={plotPoints}>
+                {plotPoints.map((point) => (
                   <Cell
                     key={point.memberId}
                     fill={getPartyCssColor(point.party)}
                     fillOpacity={0.82}
+                    stroke="#ffffff"
+                    strokeWidth={0.8}
                   />
                 ))}
               </Scatter>
@@ -946,6 +1005,14 @@ export function V2ObservatoryPage({
               </span>
             ))}
           </div>
+          {activeLens === "voting" ? (
+            <p className="v3-scatter-card__note">
+              점 크기는 당 기준이 형성된 표결의 참여 건수입니다.
+              {excludedVotingPointCount > 0
+                ? ` 참여 표본이 없는 ${excludedVotingPointCount}명은 제외했습니다.`
+                : ""}
+            </p>
+          ) : null}
         </section>
 
         <section className="v2-trend-card" aria-labelledby="v2-trend-title">

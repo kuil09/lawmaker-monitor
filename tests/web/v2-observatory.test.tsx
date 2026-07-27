@@ -196,6 +196,73 @@ describe("v2 observatory", () => {
     ).toBeInTheDocument();
   });
 
+  it("compares support share with party-line defection and explains the sample", () => {
+    const votingMembers = members.map((member, index) => ({
+      ...member,
+      partyLineOpportunityCount: index === 0 ? 24 : 0,
+      partyLineParticipationCount: index === 0 ? 20 : 0,
+      partyLineDefectionCount: index === 0 ? 3 : 0,
+      partyLineDefectionRate: index === 0 ? 0.15 : 0
+    }));
+
+    render(
+      <V2ObservatoryPage
+        assemblyLabel="제22대 국회"
+        freshnessText="2026년 7월 24일"
+        manifest={manifest}
+        accountabilitySummary={accountabilitySummary}
+        members={votingMembers}
+        activityCalendar={activityCalendar}
+        accountabilityTrends={accountabilityTrends}
+        memberAssetsIndex={memberAssetsIndex}
+        billProposalActivity={billProposalActivity}
+        billProposalActivityLoading={false}
+        billProposalActivityError={null}
+        loading={false}
+        errors={[]}
+        onOpenMap={vi.fn()}
+        onOpenDistribution={vi.fn()}
+        onOpenMember={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "표결 성향" }));
+
+    const scatterCard = screen
+      .getByRole("heading", { name: "의원별 찬성·이탈 분포" })
+      .closest("section");
+    expect(scatterCard).not.toBeNull();
+    expect(
+      within(scatterCard!).getByText("세로 당내 이탈률 · 가로 찬성 비중")
+    ).toBeInTheDocument();
+    expect(scatterCard).toHaveTextContent(
+      "점 크기는 당 기준이 형성된 표결의 참여 건수입니다."
+    );
+    expect(scatterCard).toHaveTextContent(
+      "참여 표본이 없는 1명은 제외했습니다."
+    );
+    expect(
+      within(scatterCard!).getByRole("img", {
+        name: "1명 의원의 의원별 찬성·이탈 분포"
+      })
+    ).toBeInTheDocument();
+
+    const analysisRegion = screen.getByRole("region", {
+      name: "지역별 반대·기권 분포"
+    });
+    fireEvent.click(
+      within(analysisRegion).getByRole("button", { name: "목록 보기" })
+    );
+    const table = screen.getByRole("table", {
+      name: "표결 성향 분석 데이터"
+    });
+    expect(
+      within(table).getByRole("columnheader", { name: "당내 이탈률" })
+    ).toBeInTheDocument();
+    expect(within(table).getByText("15.0%")).toBeInTheDocument();
+    expect(within(table).getAllByRole("row")).toHaveLength(2);
+  });
+
   it("submits a selected member through the v2 navigation search", () => {
     const onSelectSearchMemberId = vi.fn();
     const onSubmitSearch = vi.fn();
