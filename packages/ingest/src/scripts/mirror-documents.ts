@@ -1590,7 +1590,6 @@ async function main(): Promise<void> {
     fallbackCursor: previousBackfillCursorDate,
     skippedWithoutDate,
     downloadFailures,
-    transcriptFailures,
     reachedDownloadLimit
   });
   const latestDiscoveredDocumentDate =

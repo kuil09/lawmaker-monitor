@@ -160,13 +160,13 @@ export function resolvePublishedBackfillCursor(args: {
   fallbackCursor: string;
   skippedWithoutDate: number;
   downloadFailures?: number;
-  transcriptFailures: number;
   reachedDownloadLimit: boolean;
 }): string | null | undefined {
+  // Transcript failures remain eligible for the independent stale-transcript
+  // retry queue, so they must not pin the document discovery cursor.
   if (
     args.skippedWithoutDate > 0 ||
     (args.downloadFailures ?? 0) > 0 ||
-    args.transcriptFailures > 0 ||
     args.reachedDownloadLimit
   ) {
     return args.fallbackCursor;

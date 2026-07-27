@@ -575,24 +575,24 @@ describe("document mirror helpers", () => {
     ).toBe(7);
   });
 
-  it("does not advance the backfill cursor after incomplete processing", () => {
+  it("advances the backfill cursor when only transcript parsing fails", () => {
     expect(
       resolvePublishedBackfillCursor({
         proposedCursor: "2024-06-08",
         fallbackCursor: "2024-06-01",
         skippedWithoutDate: 0,
-        transcriptFailures: 1,
         reachedDownloadLimit: false
       })
-    ).toBe("2024-06-01");
+    ).toBe("2024-06-08");
+  });
 
+  it("does not advance the backfill cursor after incomplete document mirroring", () => {
     expect(
       resolvePublishedBackfillCursor({
         proposedCursor: "2024-06-08",
         fallbackCursor: "2024-06-01",
         skippedWithoutDate: 0,
         downloadFailures: 1,
-        transcriptFailures: 0,
         reachedDownloadLimit: false
       })
     ).toBe("2024-06-01");
@@ -603,7 +603,6 @@ describe("document mirror helpers", () => {
         fallbackCursor: "2024-06-01",
         skippedWithoutDate: 0,
         downloadFailures: 0,
-        transcriptFailures: 0,
         reachedDownloadLimit: false
       })
     ).toBe("2024-06-08");
