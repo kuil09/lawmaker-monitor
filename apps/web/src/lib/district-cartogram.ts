@@ -15,6 +15,7 @@ const LAYOUT_CENTER = { latitude: 36.1, longitude: 127.75 };
 // Keep the peninsula recognizable while compressing enough for adjacent
 // district cells to form a continuous cartogram.
 const LAYOUT_SCALE = { latitude: 0.54, longitude: 0.5 };
+const COMPACT_LAYOUT_SCALE = { latitude: 0.12, longitude: 0.12 };
 
 export type DistrictCartogramCell<TFeature extends ExtrudedFeature> = {
   h3Index: string;
@@ -182,10 +183,13 @@ function findAvailableCell(
 
 export function buildDistrictCartogram<TFeature extends ExtrudedFeature>(
   features: readonly TFeature[],
-  resolution = DISTRICT_CARTOGRAM_RESOLUTION
+  resolution = DISTRICT_CARTOGRAM_RESOLUTION,
+  getLayoutAnchor: (
+    feature: TFeature
+  ) => GeographicAnchor = getCartogramLayoutAnchor
 ): DistrictCartogramCell<TFeature>[] {
   const targetDistricts = features.map((feature) => {
-    const anchor = getCartogramLayoutAnchor(feature);
+    const anchor = getLayoutAnchor(feature);
     return {
       anchor,
       feature,
@@ -228,6 +232,43 @@ export function buildDistrictCartogram<TFeature extends ExtrudedFeature>(
   return features.flatMap((feature) => {
     const h3Index = assignedByDistrictKey.get(feature.properties.districtKey);
     return h3Index ? [{ h3Index, feature }] : [];
+  });
+}
+
+export function buildCompactDistrictCartogram<TFeature extends ExtrudedFeature>(
+  features: readonly TFeature[],
+  resolution = DISTRICT_CARTOGRAM_RESOLUTION
+): DistrictCartogramCell<TFeature>[] {
+  if (features.length === 0) {
+    return [];
+  }
+
+  const geographicAnchors = new Map(
+    features.map((feature) => [feature, getDistrictGeographicAnchor(feature)])
+  );
+  const center = {
+    latitude:
+      [...geographicAnchors.values()].reduce(
+        (sum, anchor) => sum + anchor.latitude,
+        0
+      ) / geographicAnchors.size,
+    longitude:
+      [...geographicAnchors.values()].reduce(
+        (sum, anchor) => sum + anchor.longitude,
+        0
+      ) / geographicAnchors.size
+  };
+
+  return buildDistrictCartogram(features, resolution, (feature) => {
+    const anchor = geographicAnchors.get(feature) ?? center;
+    return {
+      latitude:
+        center.latitude +
+        (anchor.latitude - center.latitude) * COMPACT_LAYOUT_SCALE.latitude,
+      longitude:
+        center.longitude +
+        (anchor.longitude - center.longitude) * COMPACT_LAYOUT_SCALE.longitude
+    };
   });
 }
 

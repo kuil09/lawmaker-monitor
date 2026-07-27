@@ -1,8 +1,9 @@
-import { cellToLatLng, getResolution } from "h3-js";
+import { cellToLatLng, getResolution, gridDistance } from "h3-js";
 import { describe, expect, it } from "vitest";
 
 import {
   buildCartogramProvinceRegions,
+  buildCompactDistrictCartogram,
   buildDistrictCartogram,
   DISTRICT_CARTOGRAM_RESOLUTION
 } from "../../apps/web/src/lib/district-cartogram.js";
@@ -146,6 +147,32 @@ describe("district cartogram", () => {
     expect(busan.latitude - jeju.latitude).toBeGreaterThan(0.8);
     expect(gangwon.longitude).toBeGreaterThan(seoul.longitude);
     expect(busan.longitude).toBeGreaterThan(seoul.longitude);
+  });
+
+  it("compacts one province into a readable cluster while keeping unique cells", () => {
+    const districts = [
+      createDistrict("강원1", "강원 1", 127.2, 38.2),
+      createDistrict("강원2", "강원 2", 128.8, 38.1),
+      createDistrict("강원3", "강원 3", 129.1, 37.5),
+      createDistrict("강원4", "강원 4", 127.4, 37.7),
+      createDistrict("강원5", "강원 5", 128.1, 37.4),
+      createDistrict("강원6", "강원 6", 127.8, 36.9),
+      createDistrict("강원7", "강원 7", 128.7, 36.8),
+      createDistrict("강원8", "강원 8", 129.0, 36.5)
+    ];
+
+    const cells = buildCompactDistrictCartogram(districts);
+    const pairDistances = cells.flatMap((left, leftIndex) =>
+      cells
+        .slice(leftIndex + 1)
+        .map((right) => gridDistance(left.h3Index, right.h3Index))
+    );
+
+    expect(cells).toHaveLength(districts.length);
+    expect(new Set(cells.map((cell) => cell.h3Index)).size).toBe(
+      districts.length
+    );
+    expect(Math.max(...pairDistances)).toBeLessThanOrEqual(4);
   });
 
   it("groups district cells into labeled province outlines", () => {

@@ -108,7 +108,17 @@ vi.mock("@deck.gl/geo-layers", () => ({
 }));
 
 vi.mock("@deck.gl/layers", () => ({
-  GeoJsonLayer: class {
+  IconLayer: class {
+    id: string;
+    props: Record<string, unknown>;
+
+    constructor(props: Record<string, unknown>) {
+      this.id = String(props.id);
+      this.props = props;
+      testState.layerInstances.push({ id: this.id, props });
+    }
+  },
+  ScatterplotLayer: class {
     id: string;
     props: Record<string, unknown>;
 
@@ -200,12 +210,6 @@ function getLastLayer(idPrefix: string) {
     layer.id.startsWith(idPrefix)
   );
   return matches.at(-1);
-}
-
-function getLayers(idPrefix: string) {
-  return testState.layerInstances.filter((layer) =>
-    layer.id.startsWith(idPrefix)
-  );
 }
 
 function getLastDeckProps(kind: "national" | "detail") {
@@ -306,7 +310,7 @@ describe("HexmapPage", () => {
     testState.ensureLoadMock.mockResolvedValue(undefined);
   });
 
-  it("renders one national map and replaces a selected region with a detailed member directory", async () => {
+  it("renders province mini cartograms and keeps the selected province member directory interactive", async () => {
     const onChangeRoute = vi.fn();
     const onNavigateToMember = vi.fn();
 
@@ -326,24 +330,21 @@ describe("HexmapPage", () => {
     );
 
     await waitFor(() => {
-      expect(getLastLayer("cartogram-national-absence")).toBeDefined();
+      expect(getLastLayer("cartogram-province-서울-absence")).toBeDefined();
     });
 
     expect(testState.ensureLoadMock).toHaveBeenCalledTimes(1);
     expect(testState.ensureLoadMock).toHaveBeenCalledWith(null, {
       source: "map"
     });
-    expect(screen.getByText("지역을 선택해 주세요")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "전국 지도나 시·도 바로가기에서 지역을 선택하면 소속 의원 목록을 보여드립니다."
-      )
+      screen.getByRole("img", { name: "서울 지역구 미니 카토그램" })
     ).toBeInTheDocument();
-    expect(screen.queryByTestId("detail-deck")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "부산 지역구 미니 카토그램" })
+    ).toBeInTheDocument();
 
-    const nationalLayer = getLastLayer("cartogram-national-absence");
-    const provinceBoundaryLayer = getLastLayer("cartogram-province-boundaries");
-    const provinceLabelLayer = getLastLayer("cartogram-province-labels");
+    const nationalLayer = getLastLayer("cartogram-province-서울-absence");
     const nationalDeck = getLastDeckProps("national");
     const onClick = nationalLayer?.props.onClick as
       | ((info: { object?: Record<string, unknown> }) => void)
@@ -357,35 +358,36 @@ describe("HexmapPage", () => {
     expect(
       testState.layerInstances.some((layer) => layer.id.startsWith("h3-bloom-"))
     ).toBe(false);
-    expect(nationalDeck?.layers).toHaveLength(3);
-    expect(provinceBoundaryLayer?.props.getLineWidth).toBe(3);
-    expect(provinceBoundaryLayer?.props.pickable).toBe(false);
-    expect(provinceLabelLayer?.props.pickable).toBe(false);
-    expect(
-      provinceLabelLayer?.props.data as Array<{ provinceShortName: string }>
-    ).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ provinceShortName: "부산" }),
-        expect.objectContaining({ provinceShortName: "서울" })
-      ])
-    );
+    expect(nationalDeck?.layers).toHaveLength(5);
+    expect(getLastLayer("cartogram-member-backplates-서울")).toBeDefined();
+    expect(getLastLayer("cartogram-member-photos-서울")).toBeDefined();
+    expect(getLastLayer("cartogram-member-initials-서울")).toBeDefined();
+    expect(getLastLayer("cartogram-member-names-서울")).toBeDefined();
     expect(nationalDeck?.initialViewState).toMatchObject({
-      latitude: 35.95,
-      pitch: 0,
-      zoom: 6.45
+      latitude: 35.15,
+      zoom: 8.6
     });
     expect(firstCell).toMatchObject({
-      districtKey: "부산남구",
-      districtLabel: "부산 남구",
-      memberIds: ["M002"]
+      districtKey: "서울중구",
+      districtLabel: "서울 중구",
+      memberIds: ["M001"]
     });
 
     onClick?.({ object: firstCell });
 
     await waitFor(() => {
       expect(
-        screen.getByRole("link", { name: "박민 의원 상세 보기" })
-      ).toBeInTheDocument();
+        screen.getAllByRole("link", { name: "김아라 의원 상세 보기" }).length
+      ).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /부산/ }));
+
+    await waitFor(() => {
+      expect(
+        screen.getAllByRole("link", { name: "박민 의원 상세 보기" }).length
+      ).toBeGreaterThan(0);
+      expect(getLastLayer("cartogram-province-부산-absence")).toBeDefined();
     });
 
     expect(
@@ -397,19 +399,14 @@ describe("HexmapPage", () => {
       province: "부산",
       metric: "absence"
     });
-    expect(
-      screen.getByText(
-        "부산 지역 의원의 지역구·정당과 핵심 지표를 비교합니다. 의원을 선택하면 상세 활동 화면으로 이동합니다."
-      )
-    ).toBeInTheDocument();
     expect(screen.getByLabelText("부산 의원 목록")).toBeInTheDocument();
-    expect(screen.getByText("부산 남구")).toBeInTheDocument();
-    expect(screen.getAllByText("50.0%")).toHaveLength(2);
-    expect(screen.getByText("3.2억원")).toBeInTheDocument();
-    expect(screen.getByText("2.7억원")).toBeInTheDocument();
-    const accessibleMemberLink = screen.getByRole("link", {
+    expect(screen.getAllByText("부산 남구").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("50.0%")).toHaveLength(4);
+    expect(screen.getAllByText("3.2억원").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("2.7억원").length).toBeGreaterThan(0);
+    const accessibleMemberLink = screen.getAllByRole("link", {
       name: "박민 의원 상세 보기"
-    });
+    })[0]!;
     expect(accessibleMemberLink).toHaveAttribute(
       "href",
       "#calendar?member=M002"
@@ -444,19 +441,14 @@ describe("HexmapPage", () => {
 
     const initialLoadingStatus = screen.getByRole("status");
     expect(initialLoadingStatus).toHaveTextContent(
-      "전국 지도를 준비하고 있습니다."
+      "지역 지도를 준비하고 있습니다."
     );
     expect(
       document.querySelector(".hexmap-section--national .hexmap-map-container")
     ).toHaveAttribute("aria-busy", "true");
-    expect(screen.getByTestId("national-deck")).toHaveStyle({ opacity: "0" });
-
-    const loadingDeck = getLastDeckProps("national");
-    act(() => {
-      (loadingDeck?.onAfterRender as (() => void) | undefined)?.();
-    });
+    expect(screen.queryByTestId("national-deck")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(
-      "전국 지도를 준비하고 있습니다."
+      "지역 지도를 준비하고 있습니다."
     );
 
     act(() => {
@@ -506,6 +498,7 @@ describe("HexmapPage", () => {
     });
 
     await waitFor(() => {
+      expect(screen.getByTestId("national-deck")).toBeInTheDocument();
       expect(
         (
           getLastDeckProps("national")?.style as
@@ -550,8 +543,8 @@ describe("HexmapPage", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole("link", { name: "박민 의원 상세 보기" })
-      ).toBeInTheDocument();
+        screen.getAllByRole("link", { name: "박민 의원 상세 보기" }).length
+      ).toBeGreaterThan(0);
     });
 
     await waitFor(() => {
@@ -584,28 +577,25 @@ describe("HexmapPage", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole("link", { name: "박민 의원 상세 보기" })
-      ).toBeInTheDocument();
+        screen.getAllByRole("link", { name: "박민 의원 상세 보기" }).length
+      ).toBeGreaterThan(0);
     });
 
     expect(screen.queryByText(/셀 높이/)).not.toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "부산 지역 의원의 지역구·정당과 핵심 지표를 비교합니다. 의원을 선택하면 상세 활동 화면으로 이동합니다."
-      )
-    ).toBeInTheDocument();
     expect(screen.queryByTestId("detail-deck")).not.toBeInTheDocument();
     expect(
       testState.layerInstances.some((layer) => layer.id.startsWith("h3-panel-"))
     ).toBe(false);
-    expect(screen.getByText("박민")).toBeInTheDocument();
-    expect(screen.getByText("부산 남구")).toBeInTheDocument();
-    expect(screen.getByText("반대·기권")).toBeInTheDocument();
+    expect(screen.getAllByText("박민").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("부산 남구").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("반대·기권").length).toBeGreaterThan(0);
     expect(
       document.querySelector(".hexmap-detail-member-card__metrics > .is-active")
     ).toHaveTextContent("반대·기권50.0%");
 
-    fireEvent.click(screen.getByRole("link", { name: "박민 의원 상세 보기" }));
+    fireEvent.click(
+      screen.getAllByRole("link", { name: "박민 의원 상세 보기" })[0]!
+    );
     expect(onNavigateToMember).toHaveBeenCalledWith("M002");
 
     fireEvent.click(screen.getByRole("tab", { name: "결석 핫스팟" }));
@@ -638,27 +628,32 @@ describe("HexmapPage", () => {
     );
 
     await waitFor(() => {
-      expect(getLastLayer("cartogram-national-absence")).toBeDefined();
+      expect(getLastLayer("cartogram-province-서울-absence")).toBeDefined();
     });
 
-    const cartogramLayer = getLastLayer("cartogram-national-absence");
-    const cartogramCells = cartogramLayer?.props.data as Array<{
+    const seoulLayer = getLastLayer("cartogram-province-서울-absence");
+    const seoulCells = seoulLayer?.props.data as Array<{
       districtKey: string;
       h3Index: string;
     }>;
 
-    expect(cartogramCells).toHaveLength(2);
-    expect(new Set(cartogramCells.map((cell) => cell.h3Index)).size).toBe(2);
-    expect(cartogramCells.map((cell) => cell.districtKey)).toEqual([
-      "부산남구",
-      "서울중구"
-    ]);
+    expect(seoulCells).toHaveLength(1);
+    expect(seoulCells[0]?.districtKey).toBe("서울중구");
+    fireEvent.click(screen.getByRole("button", { name: /부산/ }));
+    await waitFor(() => {
+      expect(getLastLayer("cartogram-province-부산-absence")).toBeDefined();
+    });
+    const busanCells = getLastLayer("cartogram-province-부산-absence")?.props
+      .data as Array<{ districtKey: string; h3Index: string }>;
+    expect(busanCells).toHaveLength(1);
+    expect(busanCells[0]?.districtKey).toBe("부산남구");
     expect(
-      screen.getByRole("heading", { name: "지역구 카토그램" })
-    ).toBeInTheDocument();
+      new Set([...seoulCells, ...busanCells].map((cell) => cell.h3Index)).size
+    ).toBe(2);
+    expect(screen.getByRole("heading", { name: "부산" })).toBeInTheDocument();
     expect(
       screen.getByText(
-        "지역구 1곳은 육각형 1개, 굵은 선과 라벨은 시·도 경계입니다"
+        "프로필과 이름을 선택하면 오른쪽에서 근거 정보를 확인합니다"
       )
     ).toBeInTheDocument();
     expect(
@@ -687,38 +682,29 @@ describe("HexmapPage", () => {
     );
 
     await waitFor(() => {
-      expect(getLastLayer("cartogram-national-absence")).toBeDefined();
+      expect(getLastLayer("cartogram-province-서울-absence")).toBeDefined();
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "부동산" }));
 
     await waitFor(() => {
-      expect(getLastLayer("cartogram-national-realEstate")).toBeDefined();
+      expect(getLastLayer("cartogram-province-서울-realEstate")).toBeDefined();
     });
 
-    const nationalLayer = getLastLayer("cartogram-national-realEstate");
+    const nationalLayer = getLastLayer("cartogram-province-서울-realEstate");
     const firstCell = (
       nationalLayer?.props.data as Array<Record<string, unknown>>
     )[0];
-    const assetValues = getLayers("cartogram-national-realEstate").flatMap(
-      (layer) =>
-        (
-          layer.props.data as Array<{
-            metric: number;
-            metricMemberCount: number;
-          }>
-        ).flatMap((cell) => (cell.metricMemberCount > 0 ? [cell.metric] : []))
-    );
     const getFillColor = nationalLayer?.props.getFillColor as
       | ((cell: Record<string, unknown>) => [number, number, number, number])
       | undefined;
-    const normalizeAssetMetric = createLogNormalizer(assetValues);
+    const normalizeAssetMetric = createLogNormalizer([320000, 510000]);
 
     expect(firstCell).toMatchObject({
-      districtKey: "부산남구",
-      metric: 320000,
+      districtKey: "서울중구",
+      metric: 510000,
       metricMemberCount: 1,
-      memberIds: ["M002"]
+      memberIds: ["M001"]
     });
     expect(getFillColor?.(firstCell)).toEqual(
       getSequentialMetricColor(
@@ -733,16 +719,11 @@ describe("HexmapPage", () => {
       screen.getByText("색이 진할수록 공개 부동산액이 큽니다.")
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        /최신 공개 부동산\(건물·토지 합계\)이 클수록 타일이 진해집니다\./
-      )
-    ).toBeInTheDocument();
-    expect(
       screen.getByText(/부동산 비교는 최신 공개 건물·토지 합계 기준이며/)
     ).toBeInTheDocument();
     expect(onChangeRoute).toHaveBeenCalledWith({
       district: null,
-      province: null,
+      province: "서울",
       metric: "realEstate"
     });
   });
@@ -766,38 +747,29 @@ describe("HexmapPage", () => {
     );
 
     await waitFor(() => {
-      expect(getLastLayer("cartogram-national-absence")).toBeDefined();
+      expect(getLastLayer("cartogram-province-서울-absence")).toBeDefined();
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "총재산" }));
 
     await waitFor(() => {
-      expect(getLastLayer("cartogram-national-assetTotal")).toBeDefined();
+      expect(getLastLayer("cartogram-province-서울-assetTotal")).toBeDefined();
     });
 
-    const nationalLayer = getLastLayer("cartogram-national-assetTotal");
+    const nationalLayer = getLastLayer("cartogram-province-서울-assetTotal");
     const firstCell = (
       nationalLayer?.props.data as Array<Record<string, unknown>>
     )[0];
-    const assetValues = getLayers("cartogram-national-assetTotal").flatMap(
-      (layer) =>
-        (
-          layer.props.data as Array<{
-            metric: number;
-            metricMemberCount: number;
-          }>
-        ).flatMap((cell) => (cell.metricMemberCount > 0 ? [cell.metric] : []))
-    );
     const getFillColor = nationalLayer?.props.getFillColor as
       | ((cell: Record<string, unknown>) => [number, number, number, number])
       | undefined;
-    const normalizeAssetMetric = createLogNormalizer(assetValues);
+    const normalizeAssetMetric = createLogNormalizer([270000, 820000]);
 
     expect(firstCell).toMatchObject({
-      districtKey: "부산남구",
-      metric: 270000,
+      districtKey: "서울중구",
+      metric: 820000,
       metricMemberCount: 1,
-      memberIds: ["M002"]
+      memberIds: ["M001"]
     });
     expect(getFillColor?.(firstCell)).toEqual(
       getSequentialMetricColor(
@@ -808,11 +780,11 @@ describe("HexmapPage", () => {
       screen.getByText("색이 진할수록 공개 총재산이 큽니다.")
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/최신 공개 총재산이 클수록 타일이 진해집니다\./)
+      screen.getByText(/총재산 비교는 최신 공개 총재산 기준이며/)
     ).toBeInTheDocument();
     expect(onChangeRoute).toHaveBeenCalledWith({
       district: null,
-      province: null,
+      province: "서울",
       metric: "assetTotal"
     });
   });

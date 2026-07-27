@@ -12,6 +12,7 @@ export type SummaryItem = {
   name: string;
   party: string;
   district: string;
+  photoUrl?: string | null;
   absentRate: number;
   noRate: number;
   abstainRate: number;

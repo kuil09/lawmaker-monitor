@@ -1,7 +1,9 @@
+import { WebMercatorViewport } from "@deck.gl/core";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
-import { GeoJsonLayer, TextLayer } from "@deck.gl/layers";
+import { IconLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import DeckGL from "@deck.gl/react";
 import { ArrowRightIcon } from "@phosphor-icons/react/dist/csr/ArrowRight";
+import { cellToLatLng } from "h3-js";
 import {
   type KeyboardEvent,
   useCallback,
@@ -12,11 +14,9 @@ import {
 } from "react";
 
 import { MemberDetailLink } from "./MemberDetailLink.js";
+import { ProvinceMiniCartogram } from "./ProvinceMiniCartogram.js";
 import { normalizeConstituencyLookupKey } from "../lib/constituency-map.js";
-import {
-  buildCartogramProvinceRegions,
-  buildDistrictCartogram
-} from "../lib/district-cartogram.js";
+import { buildCompactDistrictCartogram } from "../lib/district-cartogram.js";
 import { formatAssetEok, formatPercent } from "../lib/format.js";
 import {
   createLogNormalizer,
@@ -25,6 +25,7 @@ import {
 } from "../lib/geo-utils.js";
 import {
   endPerformanceSpan,
+  getHexCellsBounds,
   hydrateHexCells,
   startPerformanceSpan,
   type SummaryItem
@@ -35,6 +36,7 @@ import {
   getHexmapStaticState,
   subscribeHexmapStaticState
 } from "../lib/hexmap-static-loader.js";
+import { getOptimizedMemberPhotoUrl } from "../lib/member-photo.js";
 
 import type { ExtrudedFeature, H3DataCell } from "../lib/geo-utils.js";
 import type { MapMetric, MapRouteArgs } from "../lib/map-route.js";
@@ -53,6 +55,8 @@ const INITIAL_VIEW_STATE = {
   pitch: 0,
   bearing: 0
 };
+
+const CARTOGRAM_VIEW_SIZE = { width: 760, height: 580 };
 
 const UNMATCHED_CELL_COLOR: [number, number, number, number] = [
   204, 210, 216, 190
@@ -76,10 +80,22 @@ type DetailMemberSummary = {
   name: string;
   party: string;
   district: string | null;
+  photoUrl: string | null;
   absentRate: number;
   negativeRate: number;
   realEstateTotal: number | null;
   assetTotal: number | null;
+};
+
+type MemberCartogramPoint = {
+  cell: H3DataCell;
+  district: string;
+  memberCount: number;
+  memberId: string;
+  name: string;
+  party: string;
+  photoUrl: string | null;
+  position: [longitude: number, latitude: number];
 };
 
 type DetailMemberMetricSummary = {
@@ -107,6 +123,38 @@ function getAssetMetricLabel(metric: "realEstate" | "assetTotal"): string {
 
 function formatOptionalAssetMetric(value: number | null): string {
   return value != null ? formatAssetEok(value) : "공개 데이터 없음";
+}
+
+function toCssColor([red, green, blue, alpha]: [
+  number,
+  number,
+  number,
+  number
+]): string {
+  return `rgba(${red}, ${green}, ${blue}, ${alpha / 255})`;
+}
+
+function getProvinceViewState(cells: readonly H3DataCell[]) {
+  const bounds = getHexCellsBounds(cells);
+  if (!bounds) {
+    return INITIAL_VIEW_STATE;
+  }
+
+  const viewport = new WebMercatorViewport(CARTOGRAM_VIEW_SIZE).fitBounds(
+    bounds,
+    { padding: 72 }
+  );
+  const zoom = Math.min(12, viewport.zoom + 0.35);
+
+  return {
+    longitude: viewport.longitude,
+    latitude: viewport.latitude,
+    zoom,
+    minZoom: Math.max(4, zoom - 0.75),
+    maxZoom: Math.min(12, zoom + 2.65),
+    pitch: 0,
+    bearing: 0
+  };
 }
 
 function buildDetailMemberMetrics(
@@ -206,6 +254,9 @@ export function HexmapPage({
     null
   );
   const [isNationalMapRendered, setIsNationalMapRendered] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [partyFilter, setPartyFilter] = useState("all");
 
   const onChangeRouteRef = useRef(onChangeRoute);
   onChangeRouteRef.current = onChangeRoute;
@@ -251,6 +302,7 @@ export function HexmapPage({
 
     setSelectedDistrictKey(nextDistrictKey);
     setSelectedProvinceFilter(nextProvince);
+    setSelectedMemberId(null);
     setNationalTooltip(null);
   }, [initialDistrict, initialProvince]);
 
@@ -285,6 +337,7 @@ export function HexmapPage({
           name: item.name,
           party: item.party,
           district: item.district,
+          photoUrl: item.photoUrl ?? null,
           absentRate: item.absentRate,
           noRate: item.noRate,
           abstainRate: item.abstainRate,
@@ -299,6 +352,32 @@ export function HexmapPage({
     setStaticState(getHexmapStaticState(manifest));
     return subscribeHexmapStaticState(manifest, setStaticState);
   }, [manifest, sessionKey]);
+
+  useEffect(() => {
+    if (
+      selectedProvinceFilter ||
+      selectedDistrictKey ||
+      staticState.entries.length === 0
+    ) {
+      return;
+    }
+
+    const seoulProvince = staticState.entries.find(
+      (entry) => entry.provinceShortName === "서울"
+    )?.provinceShortName;
+    if (!seoulProvince && staticState.isLoading) {
+      return;
+    }
+
+    const defaultProvince =
+      seoulProvince ?? staticState.entries[0]?.provinceShortName ?? null;
+    setSelectedProvinceFilter(defaultProvince);
+  }, [
+    selectedDistrictKey,
+    selectedProvinceFilter,
+    staticState.entries,
+    staticState.isLoading
+  ]);
 
   useEffect(() => {
     setNationalTooltip(null);
@@ -447,19 +526,6 @@ export function HexmapPage({
     );
   }, [districtSummaryByKey, staticState.entries]);
 
-  const nationalCartogramCells = useMemo<H3DataCell[]>(
-    () =>
-      buildDistrictCartogram(nationalDistricts).map(({ h3Index, feature }) => ({
-        h3Index,
-        ...feature.properties.summary
-      })),
-    [nationalDistricts]
-  );
-  const nationalProvinceRegions = useMemo(
-    () => buildCartogramProvinceRegions(nationalCartogramCells),
-    [nationalCartogramCells]
-  );
-
   const getCellFillColor = useCallback(
     (
       cell: TooltipDatum,
@@ -476,6 +542,64 @@ export function HexmapPage({
       return getSequentialMetricColor(normalizeMetric(cell.metric));
     },
     [activeMetric]
+  );
+
+  const provinceCartogramCellsByName = useMemo(() => {
+    const cartograms = new Map<string, H3DataCell[]>();
+
+    for (const entry of staticState.entries) {
+      const provinceDistricts = nationalDistricts.filter(
+        (district) =>
+          district.properties.summary.provinceShortName ===
+          entry.provinceShortName
+      );
+      cartograms.set(
+        entry.provinceShortName,
+        buildCompactDistrictCartogram(provinceDistricts).map(
+          ({ h3Index, feature }) => ({
+            h3Index,
+            ...feature.properties.summary
+          })
+        )
+      );
+    }
+
+    return cartograms;
+  }, [nationalDistricts, staticState.entries]);
+  const nationalCartogramCells = useMemo(
+    () => [...provinceCartogramCellsByName.values()].flat(),
+    [provinceCartogramCellsByName]
+  );
+  const selectedCartogramCells = useMemo(
+    () =>
+      selectedProvinceFilter
+        ? (provinceCartogramCellsByName.get(selectedProvinceFilter) ?? [])
+        : [],
+    [provinceCartogramCellsByName, selectedProvinceFilter]
+  );
+  const nationalMetricNormalizer = useMemo(
+    () =>
+      createLogNormalizer(
+        nationalCartogramCells
+          .filter((cell) => cell.metricMemberCount > 0)
+          .map((cell) => cell.metric)
+      ),
+    [nationalCartogramCells]
+  );
+  const miniCartogramCellsByName = useMemo(
+    () =>
+      new Map(
+        [...provinceCartogramCellsByName].map(([province, cells]) => [
+          province,
+          cells.map((cell) => ({
+            h3Index: cell.h3Index,
+            fillColor: toCssColor(
+              getCellFillColor(cell, nationalMetricNormalizer)
+            )
+          }))
+        ])
+      ),
+    [getCellFillColor, nationalMetricNormalizer, provinceCartogramCellsByName]
   );
 
   const detailCells = useMemo(() => {
@@ -501,25 +625,82 @@ export function HexmapPage({
     });
   }, [activeMetric, selectedProvinceFilter]);
 
+  useEffect(() => {
+    setIsNationalMapRendered(false);
+    setNationalTooltip(null);
+    setSelectedMemberId(null);
+    setMemberSearch("");
+    setPartyFilter("all");
+  }, [activeMetric, selectedProvinceFilter]);
+
+  const summaryItemsByMemberId = useMemo(
+    () => new Map(summaryItems.map((item) => [item.memberId, item] as const)),
+    [summaryItems]
+  );
+  const memberCartogramPoints = useMemo<MemberCartogramPoint[]>(
+    () =>
+      selectedCartogramCells.flatMap((cell) => {
+        const memberId = cell.memberIds[0];
+        const member = memberId
+          ? summaryItemsByMemberId.get(memberId)
+          : undefined;
+        if (!member) {
+          return [];
+        }
+
+        const [latitude, longitude] = cellToLatLng(cell.h3Index);
+        return [
+          {
+            cell,
+            district: member.district,
+            memberCount: cell.memberCount,
+            memberId: member.memberId,
+            name: member.name,
+            party: member.party,
+            photoUrl: getOptimizedMemberPhotoUrl(member.photoUrl),
+            position: [longitude, latitude] as [number, number]
+          }
+        ];
+      }),
+    [selectedCartogramCells, summaryItemsByMemberId]
+  );
+  const filteredMemberCartogramPoints = useMemo(() => {
+    const normalizedSearch = memberSearch.trim().toLocaleLowerCase("ko");
+    return memberCartogramPoints.filter(
+      (point) =>
+        (partyFilter === "all" || point.party === partyFilter) &&
+        (!normalizedSearch ||
+          point.name.toLocaleLowerCase("ko").includes(normalizedSearch) ||
+          point.district.toLocaleLowerCase("ko").includes(normalizedSearch))
+    );
+  }, [memberCartogramPoints, memberSearch, partyFilter]);
+  const selectedProvinceViewState = useMemo(
+    () => getProvinceViewState(selectedCartogramCells),
+    [selectedCartogramCells]
+  );
+
   const nationalLayers = useMemo(() => {
-    if (nationalCartogramCells.length === 0) {
+    if (selectedCartogramCells.length === 0) {
       return [];
     }
 
-    const normalizeMetric = createLogNormalizer(
-      nationalCartogramCells
-        .filter((cell) => cell.metricMemberCount > 0)
-        .map((cell) => cell.metric)
-    );
+    const selectMember = (point: MemberCartogramPoint) => {
+      setSelectedMemberId(point.memberId);
+      setNationalTooltip(null);
+    };
 
     return [
       new H3HexagonLayer<H3DataCell>({
-        id: `cartogram-national-${activeMetric}`,
-        data: nationalCartogramCells,
+        id: `cartogram-province-${selectedProvinceFilter}-${activeMetric}`,
+        data: selectedCartogramCells,
         getHexagon: (cell) => cell.h3Index,
-        getFillColor: (cell) => getCellFillColor(cell, normalizeMetric),
-        getLineColor: [255, 255, 255, 180],
-        lineWidthMinPixels: 1,
+        getFillColor: (cell) =>
+          getCellFillColor(cell, nationalMetricNormalizer),
+        getLineColor: (cell) =>
+          selectedMemberId && cell.memberIds.includes(selectedMemberId)
+            ? [31, 88, 190, 255]
+            : [255, 255, 255, 205],
+        lineWidthMinPixels: selectedMemberId ? 1.25 : 1,
         extruded: false,
         pickable: true,
         onHover: (info) => {
@@ -536,43 +717,67 @@ export function HexmapPage({
             return;
           }
 
-          districtPanelSpanRef.current = startPerformanceSpan(
-            "hexmap:districtPanelReady"
-          );
-          setSelectedDistrictKey(null);
-          setSelectedProvinceFilter(info.object.provinceShortName);
+          const memberId = info.object.memberIds[0];
+          if (memberId) {
+            setSelectedMemberId(memberId);
+          }
           setNationalTooltip(null);
         }
       }),
-      new GeoJsonLayer({
-        id: "cartogram-province-boundaries",
-        data: {
-          type: "FeatureCollection",
-          features: nationalProvinceRegions.map((region) => ({
-            type: "Feature" as const,
-            geometry: region.geometry,
-            properties: {
-              districtCount: region.districtCount,
-              provinceShortName: region.provinceShortName
-            }
-          }))
+      new ScatterplotLayer<MemberCartogramPoint>({
+        id: `cartogram-member-backplates-${selectedProvinceFilter}`,
+        data: filteredMemberCartogramPoints,
+        getPosition: (point) => point.position,
+        getRadius: (point) =>
+          selectedMemberId === point.memberId ? 18.5 : 16.5,
+        radiusUnits: "pixels",
+        getFillColor: [250, 252, 255, 246],
+        getLineColor: (point) => {
+          const [red, green, blue] = getPartyColor(point.party);
+          return [red, green, blue, 255];
         },
-        filled: false,
+        lineWidthMinPixels: 1.5,
         stroked: true,
-        getLineColor: [24, 43, 64, 235],
-        getLineWidth: 3,
-        lineWidthUnits: "pixels",
-        lineWidthMinPixels: 2,
-        lineWidthMaxPixels: 4,
-        pickable: false
+        pickable: true,
+        onClick: (info) => {
+          if (info.object) {
+            selectMember(info.object);
+          }
+        }
       }),
-      new TextLayer({
-        id: "cartogram-province-labels",
-        data: nationalProvinceRegions,
-        getPosition: (region) => region.center,
-        getText: (region) => region.provinceShortName,
-        getSize: (region) => (region.districtCount <= 3 ? 11 : 13),
-        getColor: [18, 40, 64, 255],
+      new IconLayer<MemberCartogramPoint>({
+        id: `cartogram-member-photos-${selectedProvinceFilter}`,
+        data: filteredMemberCartogramPoints.filter(
+          (point) => point.photoUrl != null
+        ),
+        getPosition: (point) => point.position,
+        getIcon: (point) => ({
+          url: point.photoUrl!,
+          width: 96,
+          height: 96,
+          anchorX: 48,
+          anchorY: 48
+        }),
+        getSize: (point) => (selectedMemberId === point.memberId ? 32 : 28),
+        sizeUnits: "pixels",
+        sizeMinPixels: 24,
+        sizeMaxPixels: 36,
+        pickable: true,
+        onClick: (info) => {
+          if (info.object) {
+            selectMember(info.object);
+          }
+        }
+      }),
+      new TextLayer<MemberCartogramPoint>({
+        id: `cartogram-member-initials-${selectedProvinceFilter}`,
+        data: filteredMemberCartogramPoints.filter(
+          (point) => point.photoUrl == null
+        ),
+        getPosition: (point) => point.position,
+        getText: (point) => point.name.slice(0, 1),
+        getSize: 13,
+        getColor: [36, 55, 77, 255],
         getTextAnchor: "middle",
         getAlignmentBaseline: "center",
         fontFamily:
@@ -580,18 +785,51 @@ export function HexmapPage({
         fontWeight: 800,
         characterSet: "auto",
         fontSettings: { sdf: true },
-        outlineWidth: 3,
+        pickable: true,
+        onClick: (info) => {
+          if (info.object) {
+            selectMember(info.object);
+          }
+        }
+      }),
+      new TextLayer<MemberCartogramPoint>({
+        id: `cartogram-member-names-${selectedProvinceFilter}`,
+        data: filteredMemberCartogramPoints,
+        getPosition: (point) => point.position,
+        getText: (point) =>
+          point.memberCount > 1
+            ? `${point.name} 외 ${point.memberCount - 1}`
+            : point.name,
+        getSize: 10.5,
+        getColor: [24, 43, 64, 255],
+        getTextAnchor: "middle",
+        getAlignmentBaseline: "top",
+        getPixelOffset: [0, 19],
+        fontFamily:
+          "SUIT Variable, Pretendard Variable, Apple SD Gothic Neo, sans-serif",
+        fontWeight: 800,
+        characterSet: "auto",
+        fontSettings: { sdf: true },
+        outlineWidth: 2.5,
         outlineColor: [247, 250, 251, 245],
         billboard: true,
         sizeUnits: "pixels",
-        pickable: false
+        pickable: true,
+        onClick: (info) => {
+          if (info.object) {
+            selectMember(info.object);
+          }
+        }
       })
     ];
   }, [
     activeMetric,
+    filteredMemberCartogramPoints,
     getCellFillColor,
-    nationalCartogramCells,
-    nationalProvinceRegions
+    nationalMetricNormalizer,
+    selectedCartogramCells,
+    selectedMemberId,
+    selectedProvinceFilter
   ]);
 
   const detailPanelLabel = selectedProvinceFilter;
@@ -615,17 +853,13 @@ export function HexmapPage({
   const isNationalMapPending =
     !nationalMapError &&
     (!isStaticMapComplete ||
-      nationalCartogramCells.length === 0 ||
+      selectedCartogramCells.length === 0 ||
       !isNationalMapRendered);
   const handleNationalMapAfterRender = useCallback(() => {
-    if (isStaticMapComplete && nationalCartogramCells.length > 0) {
+    if (isStaticMapComplete && selectedCartogramCells.length > 0) {
       setIsNationalMapRendered(true);
     }
-  }, [isStaticMapComplete, nationalCartogramCells.length]);
-  const summaryItemsByMemberId = useMemo(
-    () => new Map(summaryItems.map((item) => [item.memberId, item] as const)),
-    [summaryItems]
-  );
+  }, [isStaticMapComplete, selectedCartogramCells.length]);
   const detailMemberOptions = useMemo(
     () =>
       [...new Set(detailCells.flatMap((cell) => cell.memberIds))]
@@ -638,6 +872,7 @@ export function HexmapPage({
                   name: member.name,
                   party: member.party,
                   district: member.district ?? null,
+                  photoUrl: getOptimizedMemberPhotoUrl(member.photoUrl),
                   absentRate: member.absentRate,
                   negativeRate: member.noRate + member.abstainRate,
                   realEstateTotal: member.realEstateTotal ?? null,
@@ -653,6 +888,43 @@ export function HexmapPage({
         ),
     [detailCells, summaryItemsByMemberId]
   );
+  const provinceParties = useMemo(
+    () =>
+      [...new Set(detailMemberOptions.map((member) => member.party))].sort(
+        (left, right) => left.localeCompare(right, "ko")
+      ),
+    [detailMemberOptions]
+  );
+  const visibleDetailMembers = useMemo(() => {
+    const normalizedSearch = memberSearch.trim().toLocaleLowerCase("ko");
+    return detailMemberOptions.filter(
+      (member) =>
+        (partyFilter === "all" || member.party === partyFilter) &&
+        (!normalizedSearch ||
+          member.name.toLocaleLowerCase("ko").includes(normalizedSearch) ||
+          (member.district ?? "")
+            .toLocaleLowerCase("ko")
+            .includes(normalizedSearch))
+    );
+  }, [detailMemberOptions, memberSearch, partyFilter]);
+  const selectedMember =
+    detailMemberOptions.find(
+      (member) => member.memberId === selectedMemberId
+    ) ??
+    visibleDetailMembers[0] ??
+    detailMemberOptions[0] ??
+    null;
+
+  useEffect(() => {
+    if (!selectedMember) {
+      setSelectedMemberId(null);
+      return;
+    }
+
+    if (selectedMember.memberId !== selectedMemberId) {
+      setSelectedMemberId(selectedMember.memberId);
+    }
+  }, [selectedMember, selectedMemberId]);
   const detailDistrictCount = useMemo(
     () =>
       new Set(
@@ -686,6 +958,11 @@ export function HexmapPage({
 
   function renderTooltipContent(info: TooltipInfo, hint: string | null) {
     const { datum: cell } = info;
+    const tooltipMemberId = cell.memberIds[0];
+    const tooltipMember = tooltipMemberId
+      ? summaryItemsByMemberId.get(tooltipMemberId)
+      : null;
+    const tooltipPhotoUrl = getOptimizedMemberPhotoUrl(tooltipMember?.photoUrl);
     const [red, green, blue] =
       cell.memberCount > 0 ? getPartyColor(cell.party) : UNMATCHED_CELL_COLOR;
     const dotStyle = { background: `rgb(${red},${green},${blue})` };
@@ -702,17 +979,35 @@ export function HexmapPage({
         {cell.memberCount > 0 ? (
           <>
             <div className="hexmap-tooltip__member">
-              <span
-                className="hexmap-tooltip__party-dot"
-                style={dotStyle}
-                aria-hidden="true"
-              />
-              <span className="hexmap-tooltip__name">
-                {`의원 ${cell.memberCount}명`}
+              {tooltipPhotoUrl ? (
+                <img
+                  className="hexmap-tooltip__photo"
+                  src={tooltipPhotoUrl}
+                  alt=""
+                />
+              ) : (
+                <span
+                  className="hexmap-tooltip__photo hexmap-tooltip__photo--fallback"
+                  aria-hidden="true"
+                >
+                  {tooltipMember?.name.slice(0, 1) ?? "국"}
+                </span>
+              )}
+              <span>
+                <span className="hexmap-tooltip__name">
+                  {tooltipMember?.name ?? `의원 ${cell.memberCount}명`}
+                </span>
+                <span className="hexmap-tooltip__party">
+                  <i
+                    className="hexmap-tooltip__party-dot"
+                    style={dotStyle}
+                    aria-hidden="true"
+                  />
+                  {cell.memberCount === 1
+                    ? cell.party
+                    : `다수당: ${cell.party}`}
+                </span>
               </span>
-            </div>
-            <div className="hexmap-tooltip__party">
-              {cell.memberCount === 1 ? cell.party : `다수당: ${cell.party}`}
             </div>
             <div className="hexmap-tooltip__value">
               {assetMetricLabel && cell.metricMemberCount === 0
@@ -800,38 +1095,63 @@ export function HexmapPage({
         </dl>
       </header>
 
+      <section className="hexmap-atlas-toolbar" aria-label="지역 탐색 필터">
+        <div>
+          <span className="hexmap-atlas-toolbar__label">지표 선택</span>
+          <div
+            className="hexmap-metric-selector"
+            role="tablist"
+            aria-label="시각화 지표 선택"
+          >
+            {VIZ_CONFIGS.map((config, index) => (
+              <button
+                key={config.key}
+                type="button"
+                role="tab"
+                aria-selected={activeMetric === config.key}
+                tabIndex={activeMetric === config.key ? 0 : -1}
+                className={`hexmap-metric-tab${activeMetric === config.key ? " hexmap-metric-tab--active" : ""}`}
+                onClick={() => selectMetric(config.key)}
+                onKeyDown={(event) => handleMetricKeyDown(event, index)}
+              >
+                {config.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <label className="hexmap-atlas-toolbar__field">
+          <span>정당 필터</span>
+          <select
+            value={partyFilter}
+            onChange={(event) => setPartyFilter(event.currentTarget.value)}
+          >
+            <option value="all">전체 정당</option>
+            {provinceParties.map((party) => (
+              <option key={party} value={party}>
+                {party}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="hexmap-atlas-toolbar__field">
+          <span>의원 검색</span>
+          <input
+            type="search"
+            value={memberSearch}
+            onChange={(event) => setMemberSearch(event.currentTarget.value)}
+            placeholder="이름 또는 지역구"
+          />
+        </label>
+        <div className="hexmap-atlas-toolbar__mode" aria-label="현재 보기">
+          <span>전체 시·도</span>
+          <strong>선택 지역</strong>
+        </div>
+      </section>
+
       <div className="hexmap-workspace">
         <aside className="hexmap-sidebar" aria-label="지도 탐색 조건">
           <section className="hexmap-sidebar__section">
-            <h2>비교 기준</h2>
-            <div
-              className="hexmap-metric-selector"
-              role="tablist"
-              aria-label="시각화 지표 선택"
-            >
-              {VIZ_CONFIGS.map((config, index) => (
-                <button
-                  key={config.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeMetric === config.key}
-                  tabIndex={activeMetric === config.key ? 0 : -1}
-                  className={`hexmap-metric-tab${activeMetric === config.key ? " hexmap-metric-tab--active" : ""}`}
-                  onClick={() => selectMetric(config.key)}
-                  onKeyDown={(event) => handleMetricKeyDown(event, index)}
-                >
-                  {config.label}
-                </button>
-              ))}
-            </div>
-            <p className="hexmap-viz-description">{vizConfig.description}</p>
-            {isAssetMetric(activeMetric) && memberAssetsIndexError ? (
-              <p className="hexmap-viz-warning">{memberAssetsIndexError}</p>
-            ) : null}
-          </section>
-
-          <section className="hexmap-sidebar__section">
-            <h2>시·도 바로가기</h2>
+            <h2>지역 선택</h2>
             <div className="hexmap-region-list">
               {staticState.entries.map((entry) => {
                 const selected =
@@ -845,10 +1165,23 @@ export function HexmapPage({
                     onClick={() => {
                       setSelectedDistrictKey(null);
                       setSelectedProvinceFilter(entry.provinceShortName);
+                      setSelectedMemberId(null);
                       setNationalTooltip(null);
                     }}
                   >
-                    {entry.provinceShortName}
+                    <ProvinceMiniCartogram
+                      cells={
+                        miniCartogramCellsByName.get(entry.provinceShortName) ??
+                        []
+                      }
+                      label={entry.provinceShortName}
+                    />
+                    <span>{entry.provinceShortName}</span>
+                    <small>
+                      {provinceCartogramCellsByName.get(entry.provinceShortName)
+                        ?.length ?? 0}
+                      석
+                    </small>
                   </button>
                 );
               })}
@@ -879,6 +1212,10 @@ export function HexmapPage({
             </span>
           </section>
 
+          {isAssetMetric(activeMetric) && memberAssetsIndexError ? (
+            <p className="hexmap-viz-warning">{memberAssetsIndexError}</p>
+          ) : null}
+
           <details className="hexmap-disclaimer">
             <summary>표시 기준과 제한</summary>
             <p>
@@ -902,11 +1239,13 @@ export function HexmapPage({
         >
           <div className="hexmap-section__heading">
             <div>
-              <p>전국 보기</p>
-              <h2 id="hexmap-national-title">지역구 카토그램</h2>
+              <p>선택 지역</p>
+              <h2 id="hexmap-national-title">
+                {selectedProvinceFilter ?? "지역을 선택하세요"}
+              </h2>
             </div>
             <span>
-              지역구 1곳은 육각형 1개, 굵은 선과 라벨은 시·도 경계입니다
+              프로필과 이름을 선택하면 오른쪽에서 근거 정보를 확인합니다
             </span>
           </div>
           <div
@@ -928,9 +1267,10 @@ export function HexmapPage({
               </div>
             ) : (
               <>
-                {nationalCartogramCells.length > 0 ? (
+                {selectedCartogramCells.length > 0 ? (
                   <DeckGL
-                    initialViewState={INITIAL_VIEW_STATE}
+                    key={`${selectedProvinceFilter}-${activeMetric}`}
+                    initialViewState={selectedProvinceViewState}
                     onAfterRender={handleNationalMapAfterRender}
                     controller
                     layers={nationalLayers}
@@ -947,7 +1287,7 @@ export function HexmapPage({
                     role="status"
                     aria-live="polite"
                   >
-                    <strong>전국 지도를 준비하고 있습니다.</strong>
+                    <strong>지역 지도를 준비하고 있습니다.</strong>
                     <span>
                       {!accountabilitySummary
                         ? "활동 데이터를 불러오고 있습니다."
@@ -956,7 +1296,7 @@ export function HexmapPage({
                           : "선거구 경계 데이터를 불러오는 중입니다."}
                     </span>
                     <progress
-                      aria-label="전국 상세 지도 준비 진행률"
+                      aria-label="지역 상세 지도 준비 진행률"
                       max={loadProgress?.total ?? 1}
                       value={loadProgress?.done}
                     />
@@ -966,8 +1306,8 @@ export function HexmapPage({
             )}
 
             {nationalTooltip &&
-              nationalCartogramCells.length > 0 &&
-              renderTooltipContent(nationalTooltip, "클릭 → 지역 선택")}
+              selectedCartogramCells.length > 0 &&
+              renderTooltipContent(nationalTooltip, "클릭 → 의원 선택")}
           </div>
         </section>
 
@@ -977,29 +1317,27 @@ export function HexmapPage({
         >
           <div className="hexmap-detail-header">
             <div>
-              <p>선택 지역</p>
+              <p>선택 의원 정보</p>
               <h2 id="hexmap-detail-title" className="hexmap-section-title">
-                {detailPanelLabel ?? "지역을 선택하세요"}
+                {selectedMember?.name ??
+                  detailPanelLabel ??
+                  "지역을 선택하세요"}
               </h2>
               <p className="hexmap-section-desc">
-                {selectedProvinceFilter
-                  ? `${selectedProvinceFilter} 지역 의원의 지역구·정당과 핵심 지표를 비교합니다.`
-                  : selectedDistrictKey
-                    ? "선택한 지역구의 상위 시·도 범위를 불러오는 중입니다."
-                    : "전국 지도나 시·도 바로가기에서 지역을 선택하세요."}{" "}
-                의원을 선택하면 상세 활동 화면으로 이동합니다.
+                카토그램에서 의원을 선택하면 정당·지역구와 공개 지표를
+                확인합니다.
               </p>
             </div>
-            {(selectedDistrictKey || selectedProvinceFilter) && (
+            {(memberSearch || partyFilter !== "all") && (
               <button
                 type="button"
                 className="hexmap-detail-reset"
                 onClick={() => {
-                  setSelectedDistrictKey(null);
-                  setSelectedProvinceFilter(null);
+                  setMemberSearch("");
+                  setPartyFilter("all");
                 }}
               >
-                선택 해제
+                필터 초기화
               </button>
             )}
           </div>
@@ -1044,33 +1382,92 @@ export function HexmapPage({
               className="hexmap-detail-directory"
               aria-label={`${detailPanelLabel ?? "선택 지역"} 의원 목록`}
             >
+              {selectedMember ? (
+                <article className="hexmap-member-focus">
+                  <div className="hexmap-member-focus__identity">
+                    {selectedMember.photoUrl ? (
+                      <img
+                        src={selectedMember.photoUrl}
+                        alt=""
+                        className="hexmap-member-focus__photo"
+                      />
+                    ) : (
+                      <span
+                        className="hexmap-member-focus__photo hexmap-member-focus__photo--fallback"
+                        aria-hidden="true"
+                      >
+                        {selectedMember.name.slice(0, 1)}
+                      </span>
+                    )}
+                    <div>
+                      <strong>{selectedMember.name}</strong>
+                      <span>{selectedMember.party}</span>
+                      <small>
+                        {selectedMember.district ?? "지역구 정보 없음"}
+                      </small>
+                    </div>
+                  </div>
+                  <dl className="hexmap-member-focus__metrics">
+                    {buildDetailMemberMetrics(selectedMember).map((metric) => (
+                      <div
+                        key={metric.key}
+                        className={
+                          metric.key === activeMetric ? "is-active" : undefined
+                        }
+                      >
+                        <dt>{metric.label}</dt>
+                        <dd>{metric.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <MemberDetailLink
+                    className="hexmap-member-focus__action"
+                    memberId={selectedMember.memberId}
+                    name={selectedMember.name}
+                    onNavigate={onNavigateToMember}
+                  >
+                    의원 상세 보기
+                    <ArrowRightIcon size={15} aria-hidden="true" />
+                  </MemberDetailLink>
+                </article>
+              ) : null}
               <div className="hexmap-detail-directory__heading">
                 <div>
-                  <span>지역 의원</span>
-                  <strong>{detailMemberOptions.length}명</strong>
+                  <span>지역 의원 전체</span>
+                  <strong>{visibleDetailMembers.length}명</strong>
                 </div>
-                <p>지역구와 활동·재산 지표를 함께 봅니다.</p>
+                <p>목록에서도 의원 상세로 바로 이동합니다.</p>
               </div>
               <ul className="hexmap-detail-member-list">
-                {detailMemberOptions.map((member) => (
+                {visibleDetailMembers.map((member) => (
                   <li key={member.memberId}>
                     <MemberDetailLink
-                      className="hexmap-detail-member-card"
+                      className={`hexmap-detail-member-card${
+                        selectedMember?.memberId === member.memberId
+                          ? " is-selected"
+                          : ""
+                      }`}
                       memberId={member.memberId}
                       name={member.name}
                       onNavigate={onNavigateToMember}
                     >
                       <span className="hexmap-detail-member-card__top">
                         <span className="hexmap-detail-member-card__identity">
-                          <span
-                            className="hexmap-detail-member-card__party-dot"
-                            style={{
-                              background: `rgb(${getPartyColor(member.party)
-                                .slice(0, 3)
-                                .join(",")})`
-                            }}
-                            aria-hidden="true"
-                          />
+                          {member.photoUrl ? (
+                            <img
+                              src={member.photoUrl}
+                              alt=""
+                              className="hexmap-detail-member-card__photo"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <span
+                              className="hexmap-detail-member-card__photo hexmap-detail-member-card__photo--fallback"
+                              aria-hidden="true"
+                            >
+                              {member.name.slice(0, 1)}
+                            </span>
+                          )}
                           <span>
                             <strong>{member.name}</strong>
                             <small>{member.party}</small>
@@ -1103,6 +1500,11 @@ export function HexmapPage({
                   </li>
                 ))}
               </ul>
+              {visibleDetailMembers.length === 0 ? (
+                <div className="hexmap-detail-filter-empty" role="status">
+                  현재 필터에 해당하는 의원이 없습니다.
+                </div>
+              ) : null}
             </div>
           )}
         </section>
