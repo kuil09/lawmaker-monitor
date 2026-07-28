@@ -13,6 +13,7 @@ import {
   buildMinutesSummaryGroups,
   createLlamaServerSummarizer,
   DEFAULT_MINUTES_SUMMARY_MODEL,
+  isPublishableMinutesSummary,
   MINUTES_SUMMARY_PROMPT_VERSION,
   summarizeMinutesGroup,
   type MinutesDocumentSummaryArtifact,
@@ -134,7 +135,10 @@ function isCurrentSummaryArtifact(
     artifact.sourceKind === "official_minutes_transcript" &&
     artifact.sourceContentSha256 === item.transcriptContentSha256 &&
     artifact.modelId === config.modelId &&
-    artifact.promptVersion === MINUTES_SUMMARY_PROMPT_VERSION
+    artifact.promptVersion === MINUTES_SUMMARY_PROMPT_VERSION &&
+    artifact.summaries.every((summary) =>
+      isPublishableMinutesSummary(summary.summary)
+    )
   );
 }
 
@@ -359,7 +363,11 @@ async function main(): Promise<void> {
       existingArtifact.sourceKind === "official_minutes_transcript" &&
       existingArtifact.modelId === config.modelId &&
       existingArtifact.promptVersion === MINUTES_SUMMARY_PROMPT_VERSION;
-    const summaries = canReuseExisting ? [...existingArtifact.summaries] : [];
+    const summaries = canReuseExisting
+      ? existingArtifact.summaries.filter((summary) =>
+          isPublishableMinutesSummary(summary.summary)
+        )
+      : [];
     const completedGroupIds = new Set(
       summaries.map((summary) => summary.statementId)
     );

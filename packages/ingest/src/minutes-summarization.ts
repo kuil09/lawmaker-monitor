@@ -371,6 +371,7 @@ export function sanitizeModelSummary(
   value: string,
   options?: {
     allowTrailingFragment?: boolean;
+    sourceText?: string;
   }
 ): string {
   const withoutThinking = value
@@ -392,6 +393,24 @@ export function sanitizeModelSummary(
     /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(normalized)
   ) {
     throw new Error("The local model returned a non-Korean CJK script.");
+  }
+
+  if (/[a-z]/.test(normalized)) {
+    throw new Error("The local model returned lowercase Latin text.");
+  }
+
+  if (options?.sourceText) {
+    const sourceLatinTokens = new Set(
+      options.sourceText.match(/[A-Z][A-Z0-9]*(?:[&+._-][A-Z0-9]+)*/g) ?? []
+    );
+    const unexpectedLatinTokens = (
+      normalized.match(/[A-Z][A-Z0-9]*(?:[&+._-][A-Z0-9]+)*/g) ?? []
+    ).filter((token) => !sourceLatinTokens.has(token));
+    if (unexpectedLatinTokens.length > 0) {
+      throw new Error(
+        "The local model introduced Latin text not in the source."
+      );
+    }
   }
 
   const hangulCount = normalized.match(/[가-힣]/g)?.length ?? 0;
@@ -433,6 +452,15 @@ export function sanitizeModelSummary(
   return completedSummary;
 }
 
+export function isPublishableMinutesSummary(value: string): boolean {
+  try {
+    sanitizeModelSummary(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function buildMinutesSummaryPrompt(args: {
   group: MinutesSummaryGroup;
   text: string;
@@ -458,7 +486,9 @@ export function buildMinutesSummaryPrompt(args: {
     "",
     "원문에 명시된 입장, 제안, 근거만 사용해 한국어 2~3문장으로 요약하세요.",
     "추측, 평가, 배경지식, 새로운 숫자를 추가하지 마세요.",
-    "현대 한국어 한글 문장으로만 작성하고 한자, 중국어, 일본어를 섞지 마세요.",
+    "영어 일반 단어를 쓰거나 영어 단어에 한국어 조사를 붙이지 말고 자연스러운 한국어로 풀어 쓰세요.",
+    "영문 알파벳은 원문에 실제로 나온 공식 대문자 약어 또는 고유명사에만 사용하세요.",
+    "현대 한국어 문장으로 작성하고 한자, 중국어, 일본어를 섞지 마세요.",
     "각 문장은 완결된 종결어미와 문장부호로 끝내세요.",
     "제목이나 글머리표 없이 요약문만 출력하세요."
   ].join("\n");
@@ -481,14 +511,14 @@ export function createLlamaServerSummarizer(args: {
         {
           role: "system",
           content:
-            "대한민국 국회 회의록의 의원 발언을 제공된 원문만 사용해 현대 한국어로 충실히 요약하세요. 발언자나 원문에 없는 사실을 추론하지 마세요."
+            "대한민국 국회 회의록의 의원 발언을 제공된 원문만 사용해 자연스러운 현대 한국어로 충실히 요약하세요. 영어 일반 단어를 섞지 말고, 영문 알파벳은 원문에 실제로 나온 공식 대문자 약어나 고유명사에만 사용하세요. 발언자나 원문에 없는 사실을 추론하지 마세요."
         },
         {
           role: "user",
           content: [
             buildMinutesSummaryPrompt(input),
             attempt > 0
-              ? "이전 시도는 형식을 충족하지 못했습니다. 반드시 완결된 문장으로 끝내세요."
+              ? "이전 시도는 형식을 충족하지 못했습니다. 영어 일반 단어와 원문에 없는 영문 표현을 모두 제거하고, 반드시 자연스러운 한국어 완결문으로 끝내세요."
               : ""
           ]
             .filter(Boolean)
@@ -541,7 +571,13 @@ export function createLlamaServerSummarizer(args: {
           throw new Error("The local model reached its output token limit.");
         }
 
-        return sanitizeModelSummary(content);
+        return sanitizeModelSummary(content, {
+          sourceText: [
+            input.group.meetingTitle,
+            input.group.agendaTitle,
+            input.text
+          ].join("\n")
+        });
       } catch (error) {
         lastError = controller.signal.aborted
           ? new Error(`Local model request timed out after ${timeoutMs}ms.`)
@@ -554,7 +590,12 @@ export function createLlamaServerSummarizer(args: {
     if (lastContent) {
       try {
         return sanitizeModelSummary(lastContent, {
-          allowTrailingFragment: true
+          allowTrailingFragment: true,
+          sourceText: [
+            input.group.meetingTitle,
+            input.group.agendaTitle,
+            input.text
+          ].join("\n")
         });
       } catch {
         // Fall through to the exact-source fallback for already concise text.
@@ -564,7 +605,9 @@ export function createLlamaServerSummarizer(args: {
     const conciseSource = input.text.replace(/\s+/g, " ").trim();
     if (conciseSource.length <= 240) {
       try {
-        return sanitizeModelSummary(conciseSource);
+        return sanitizeModelSummary(conciseSource, {
+          sourceText: conciseSource
+        });
       } catch {
         // Preserve the model error when the source is not publishable as-is.
       }
@@ -675,6 +718,9 @@ export function buildMemberStatementSummaryExports(args: {
     }
 
     for (const summary of artifact.summaries) {
+      if (!isPublishableMinutesSummary(summary.summary)) {
+        continue;
+      }
       summariesByMemberId.set(summary.memberId, [
         ...(summariesByMemberId.get(summary.memberId) ?? []),
         {

@@ -6,6 +6,7 @@ import {
   buildMinutesSummaryGroups,
   chunkMinutesText,
   createLlamaServerSummarizer,
+  isPublishableMinutesSummary,
   resolveStatementAgendaItem,
   sanitizeModelSummary,
   summarizeMinutesGroup,
@@ -320,6 +321,26 @@ describe("minutes transcript summarization", () => {
         "문대림委员主张 해양 시추 계획을 추진해야 한다고 밝혔습니다."
       )
     ).toThrow("non-Korean CJK script");
+    expect(() =>
+      sanitizeModelSummary(
+        "위원들의 thorough한 심의를 통해 개선을 추진하겠다고 밝혔습니다."
+      )
+    ).toThrow("lowercase Latin text");
+    expect(() =>
+      sanitizeModelSummary("인공지능 AI 도입을 확대하겠다고 밝혔습니다.", {
+        sourceText: "인공지능 도입을 확대해야 합니다."
+      })
+    ).toThrow("Latin text not in the source");
+    expect(
+      sanitizeModelSummary("인공지능 AI 도입을 확대하겠다고 밝혔습니다.", {
+        sourceText: "AI 기반 인공지능 도입을 확대해야 합니다."
+      })
+    ).toBe("인공지능 AI 도입을 확대하겠다고 밝혔습니다.");
+    expect(
+      isPublishableMinutesSummary(
+        "위원들의 thorough한 심의를 통해 개선을 추진하겠다고 밝혔습니다."
+      )
+    ).toBe(false);
     expect(
       sanitizeModelSummary(
         "문대림 의원은 해양 시추 계획을 추진해야 한다고 밝혔습니다"
@@ -563,7 +584,7 @@ describe("minutes transcript summarization", () => {
           agendaTitle: "1. 인공지능책임법안(의안번호 2212345)",
           billIds: ["2212345"],
           speakerRole: "위원",
-          summary: "현재 버전 요약입니다.",
+          summary: "현재 프롬프트 버전에서 생성한 정상 요약입니다.",
           evidenceExcerpt: "현재 버전의 공식 회의록 근거입니다.",
           sourceUrl:
             "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=current&type=view",
@@ -603,6 +624,18 @@ describe("minutes transcript summarization", () => {
         }
       ]
     });
+    const contaminatedArtifact = createArtifact({
+      documentId: "minutes-contaminated",
+      summaries: [
+        {
+          ...currentArtifact.summaries[0]!,
+          statementId: "statement-contaminated",
+          documentId: "minutes-contaminated",
+          summary:
+            "위원들의 thorough한 심의를 통해 개선을 추진하겠다고 밝혔습니다."
+        }
+      ]
+    });
 
     const [payload] = buildMemberStatementSummaryExports({
       generatedAt: "2025-08-02T00:00:00.000Z",
@@ -611,7 +644,12 @@ describe("minutes transcript summarization", () => {
       modelId: currentArtifact.modelId,
       promptVersion: currentArtifact.promptVersion,
       members: [{ memberId: "member-1", name: "김민수", party: "테스트당" }],
-      artifacts: [stalePromptArtifact, currentArtifact, staleModelArtifact]
+      artifacts: [
+        stalePromptArtifact,
+        currentArtifact,
+        staleModelArtifact,
+        contaminatedArtifact
+      ]
     });
 
     expect(payload?.summaries).toHaveLength(1);
