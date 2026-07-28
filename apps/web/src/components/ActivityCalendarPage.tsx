@@ -33,6 +33,7 @@ import {
 
 import { MemberDetailLink } from "./MemberDetailLink.js";
 import { MemberIdentity } from "./MemberIdentity.js";
+import { MemberPublicSupportSection } from "./MemberPublicSupportSection.js";
 import { MemberSearchField } from "./MemberSearchField.js";
 import { MemberStatementSummarySection } from "./MemberStatementSummarySection.js";
 import {
@@ -3111,6 +3112,9 @@ export function ActivityCalendarPage({
                     />
                   </section>
                   <ActivityRatioChart member={selectedMember} />
+                  <MemberPublicSupportSection
+                    memberName={selectedMember.name}
+                  />
                   <MemberAssetSection
                     indexEntry={selectedMemberAssetIndex}
                     indexError={memberAssetsIndexError}
