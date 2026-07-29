@@ -1,15 +1,21 @@
+import { ChangeDocket } from "./ChangeDocket.js";
 import { VisualizationOverview } from "./VisualizationOverview.js";
 import "../styles/v3-evidence.css";
 
-import type { AccountabilityTrendsExport } from "@lawmaker-monitor/schemas";
+import type {
+  AccountabilitySummaryExport,
+  AccountabilityTrendsExport
+} from "@lawmaker-monitor/schemas";
 
 type TrendsPageProps = {
   accountabilityTrends: AccountabilityTrendsExport | null;
+  accountabilitySummary: AccountabilitySummaryExport | null;
   assemblyLabel: string;
 };
 
 export function TrendsPage({
   accountabilityTrends,
+  accountabilitySummary,
   assemblyLabel
 }: TrendsPageProps) {
   const observedWeekCount = accountabilityTrends?.weeks.length ?? 0;
@@ -19,10 +25,10 @@ export function TrendsPage({
       <header className="v3-page-header">
         <div className="v3-page-header__copy">
           <p className="v3-kicker">ACCOUNTABILITY TRENDS</p>
-          <h1>출석과 당내 이탈 흐름</h1>
+          <h1>변화 전후 책임 원장</h1>
           <p>
-            표결 참여 구성과 당 기준 이탈을 같은 주간 축에서 비교하고, 이상
-            구간의 근거를 수치와 표로 확인합니다.
+            잘한 변화와 추가 확인이 필요한 변화를 같은 기간·같은 분모로 비교하고
+            원자료까지 추적합니다.
           </p>
         </div>
         <p className="v3-page-header__stamp">
@@ -34,6 +40,11 @@ export function TrendsPage({
           </strong>
         </p>
       </header>
+
+      <ChangeDocket
+        accountabilityTrends={accountabilityTrends}
+        accountabilitySummary={accountabilitySummary}
+      />
 
       <VisualizationOverview
         accountabilityTrends={accountabilityTrends}

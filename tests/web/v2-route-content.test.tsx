@@ -120,7 +120,7 @@ describe("v2 evidence routes", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole("heading", { name: /최신 본회의 표결/ })
+        screen.getByRole("heading", { name: /쟁점·표결 대조/ })
       ).toBeInTheDocument();
     });
   });
@@ -133,7 +133,7 @@ describe("v2 evidence routes", () => {
       expect(
         screen.getByRole("heading", {
           level: 1,
-          name: /출석과 당내 이탈 흐름/
+          name: /변화 전후 책임 원장/
         })
       ).toBeInTheDocument();
     });

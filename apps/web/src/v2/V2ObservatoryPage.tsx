@@ -24,6 +24,7 @@ import {
 import { V2NationalMap } from "./V2NationalMap.js";
 import { BillProposalActivitySection } from "../components/BillProposalActivitySection.js";
 import { MemberDetailLink } from "../components/MemberDetailLink.js";
+import { WatchQueueSnapshot } from "../components/WatchQueueSnapshot.js";
 import { buildWeeklyTrendChartData } from "../lib/charts.js";
 import { convertThousandWonToEok } from "../lib/format.js";
 import { getPartyCssColor } from "../lib/geo-utils.js";
@@ -637,13 +638,14 @@ export function V2ObservatoryPage({
       <header className="v2-observatory__hero">
         <div>
           <p className="v2-observatory__eyebrow">
-            시민을 위한 {assemblyLabel} 공식 기록
+            WATCH QUEUE · {assemblyLabel} 공식 기록
           </p>
           <h1 className="v2-observatory__title" tabIndex={-1}>
-            국회 움직임 탐색기
+            실시간 국회 감시 큐
           </h1>
           <p className="v2-observatory__intro">
-            지역, 의원, 표결 근거를 한 화면에서 비교하고 원문까지 확인하세요.
+            최근 발언·의안·표결의 변화와 행위 부재를 근거 단위로 비교하고
+            원문까지 확인하세요.
           </p>
         </div>
 
@@ -690,6 +692,15 @@ export function V2ObservatoryPage({
           ))}
         </div>
       ) : null}
+
+      <WatchQueueSnapshot
+        accountabilitySummary={accountabilitySummary}
+        accountabilityTrends={accountabilityTrends}
+        billProposalActivity={billProposalActivity}
+        loading={loading || billProposalActivityLoading}
+        unavailable={errors.length > 0 || Boolean(billProposalActivityError)}
+        onOpenMember={onOpenMember}
+      />
 
       <div
         id="v2-observatory-panel"

@@ -205,6 +205,7 @@ export function V2RouteContent() {
       <Suspense fallback={<RouteLoadingFallback title="출석 추이" />}>
         <TrendsPage
           accountabilityTrends={accountabilityTrends}
+          accountabilitySummary={accountabilitySummary}
           assemblyLabel={currentAssemblyLabel}
         />
       </Suspense>

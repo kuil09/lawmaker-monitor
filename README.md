@@ -212,6 +212,8 @@ application, geospatial visualization, data ingestion, and test pipeline.
 - UI and visualization: [React](https://react.dev/),
   [deck.gl](https://deck.gl/), [Recharts](https://recharts.org/), and
   [Phosphor Icons](https://phosphoricons.com/)
+- Social preview rendering: [resvg-js](https://github.com/yisibl/resvg-js) and
+  [Noto Sans KR via Expo Google Fonts](https://github.com/expo/google-fonts)
 - Geospatial and analytical processing:
   [H3](https://h3geo.org/), [TopoJSON](https://github.com/topojson/topojson),
   [Proj4js](https://proj4js.org/), and

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { V2GlobalNav } from "./V2GlobalNav.js";
 import { V2ObservatoryPage } from "./V2ObservatoryPage.js";
 import { V2RouteContent } from "./V2RouteContent.js";
+import { WatchQueueVisualFilters } from "../components/WatchQueueVisualFilters.js";
 import { useActivityCalendarData } from "../hooks/useActivityCalendarData.js";
 import { useAppBootstrapData } from "../hooks/useAppBootstrapData.js";
 import { useHashRoute } from "../hooks/useHashRoute.js";
@@ -66,18 +67,18 @@ function useRouteAccessibility(route: RouteState) {
   useEffect(() => {
     const pageLabel =
       route.route === "home"
-        ? "오늘의 변화"
+        ? "감시 큐"
         : route.route === "calendar"
-          ? "의원 찾기"
+          ? "의원 대장"
           : route.route === "distribution"
-            ? "의원 찾기"
+            ? "의원 대장"
             : route.route === "votes"
-              ? "표결 기록"
+              ? "쟁점·표결"
               : route.route === "trends"
-                ? "추세"
-                : "지역 탐색";
+                ? "변화 전후"
+                : "지역 감시";
 
-    document.title = `${pageLabel} · 국회 책임성 모니터`;
+    document.title = `${pageLabel} · 감시 큐`;
     const shouldMoveFocus =
       previousRouteRef.current !== null &&
       previousRouteRef.current !== route.route;
@@ -294,7 +295,11 @@ export function V2App() {
   }, [routedMemberId, searchOptions]);
 
   return (
-    <div className="v2-app v3-shell">
+    <div
+      className="v2-app v3-shell watch-queue-shell"
+      data-watch-route={routing.routeState.route}
+    >
+      <WatchQueueVisualFilters />
       <V2GlobalNav
         route={routing.routeState.route}
         assemblyLabel={accountabilitySummary?.assemblyLabel}

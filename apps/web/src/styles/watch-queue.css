@@ -1,0 +1,1087 @@
+/*
+ * Watch Queue editorial design system.
+ *
+ * This file intentionally loads after every route stylesheet. It is the final
+ * presentation layer for the six production routes and keeps their existing
+ * data, semantics, and interactions intact.
+ */
+
+.v2-app.v3-shell.watch-queue-shell {
+  --wq-paper: #eee8da;
+  --wq-paper-deep: #e1d9c8;
+  --wq-sheet: #faf7ef;
+  --wq-sheet-muted: #f3eee2;
+  --wq-ink: #1d1b18;
+  --wq-ink-soft: #625d54;
+  --wq-rule: #c8bead;
+  --wq-rule-strong: #575148;
+  --wq-alert: #a52a22;
+  --wq-alert-strong: #741913;
+  --wq-alert-soft: #f2dfd8;
+  --wq-positive: #3f6455;
+  --wq-warning: #95622d;
+  --wq-focus: #b2382e;
+  --watch-paper: var(--wq-paper);
+  --watch-paper-strong: var(--wq-sheet);
+  --watch-ink: var(--wq-ink);
+  --watch-muted: var(--wq-ink-soft);
+  --watch-rule: var(--wq-rule);
+  --watch-red: var(--wq-alert);
+  --watch-teal: var(--wq-positive);
+  --watch-amber: var(--wq-warning);
+  --font-editorial: "Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", serif;
+  --v3-accent: var(--wq-alert);
+  --v3-accent-strong: var(--wq-alert-strong);
+  --v3-accent-soft: var(--wq-alert-soft);
+  --activity-blue: var(--wq-alert);
+  --activity-blue-strong: var(--wq-alert-strong);
+  --activity-blue-soft: var(--wq-alert-soft);
+  --distribution-blue: var(--wq-alert);
+  --distribution-blue-strong: var(--wq-alert-strong);
+  --distribution-blue-soft: var(--wq-alert-soft);
+  --canvas: var(--wq-paper);
+  --canvas-strong: var(--wq-paper-deep);
+  --surface: var(--wq-sheet);
+  --surface-strong: var(--wq-sheet);
+  --surface-raised: var(--wq-sheet);
+  --surface-accent: var(--wq-sheet-muted);
+  --text: var(--wq-ink);
+  --text-muted: var(--wq-ink-soft);
+  --accent: var(--wq-alert);
+  --accent-strong: var(--wq-alert-strong);
+  --positive: var(--wq-positive);
+  --negative: var(--wq-alert);
+  --warning: var(--wq-warning);
+  --neutral: #777066;
+  --border: var(--wq-rule);
+  --border-strong: var(--wq-rule-strong);
+  --shadow-soft: none;
+  --shadow-card: none;
+  --radius-panel: 2px;
+  --radius-card: 2px;
+  --radius-pill: 2px;
+  min-height: 100vh;
+  background: var(--wq-paper);
+  color: var(--wq-ink);
+  font-family:
+    "Pretendard Variable", "SUIT Variable", "Apple SD Gothic Neo",
+    "Noto Sans KR", sans-serif;
+}
+
+html:has(.watch-queue-shell),
+body:has(.watch-queue-shell) {
+  background: #eee8da;
+}
+
+.watch-queue-shell::selection {
+  background: #a52a22;
+  color: #fffaf1;
+}
+
+.watch-queue-visual-filters {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Product-wide newspaper portrait treatment. */
+.watch-queue-shell
+  :where(
+    .member-identity__avatar:not(.member-identity__avatar--fallback),
+    .ledger-member-card__photo:not(.ledger-member-card__photo--fallback),
+    .ledger-member-focus__photo:not(.ledger-member-focus__photo--fallback),
+    .distribution-chart__point image
+  ) {
+  background: #d8d0c0;
+  filter: grayscale(1) contrast(1.12) brightness(0.98);
+  mix-blend-mode: multiply;
+}
+
+@supports (filter: url("#watch-queue-newsprint-portrait")) {
+  .watch-queue-shell
+    :where(
+      .member-identity__avatar:not(.member-identity__avatar--fallback),
+      .ledger-member-card__photo:not(.ledger-member-card__photo--fallback),
+      .ledger-member-focus__photo:not(.ledger-member-focus__photo--fallback),
+      .distribution-chart__point image
+    ) {
+    filter: url("#watch-queue-newsprint-portrait");
+  }
+}
+
+.watch-queue-shell
+  :where(
+    .member-identity__avatar--fallback,
+    .ledger-member-card__photo--fallback,
+    .ledger-member-focus__photo--fallback
+  ) {
+  border-color: var(--wq-rule-strong);
+  background: var(--wq-paper-deep);
+  color: var(--wq-ink);
+  box-shadow: none;
+}
+
+/* Masthead and editorial route index. */
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  min-height: 70px;
+  border: 0;
+  border-top: 4px solid var(--wq-alert);
+  border-bottom: 1px solid var(--wq-rule-strong);
+  background: color-mix(in srgb, var(--wq-sheet) 96%, transparent);
+  color: var(--wq-ink);
+  box-shadow: none;
+  backdrop-filter: blur(12px);
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__inner {
+  width: min(1480px, calc(100% - 48px));
+  min-height: 66px;
+  grid-template-columns: minmax(126px, auto) minmax(0, 1fr);
+  gap: clamp(1.4rem, 2.6vw, 3.4rem);
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__masthead {
+  min-height: 66px;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__brand {
+  color: var(--wq-ink);
+  text-decoration: none;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__brand:hover {
+  color: var(--wq-alert);
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__brand-lockup {
+  display: grid;
+  gap: 0.02rem;
+  min-width: 7.2rem;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__brand-kicker {
+  color: var(--wq-alert);
+  font-size: 0.58rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__brand-lockup strong {
+  font-family: "Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", serif;
+  font-size: 1.45rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.08em;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__menu {
+  grid-template-columns:
+    minmax(470px, 1fr)
+    minmax(250px, 390px)
+    max-content;
+  gap: clamp(1rem, 1.8vw, 2rem);
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__primary {
+  gap: clamp(0.85rem, 1.45vw, 1.65rem);
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__link {
+  position: relative;
+  gap: 0.34rem;
+  padding: 0;
+  color: var(--wq-ink-soft);
+  font-size: 0.84rem;
+  font-weight: 760;
+  letter-spacing: -0.025em;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__link-copy {
+  display: grid;
+  gap: 0.02rem;
+  line-height: 1.08;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__link-copy strong {
+  color: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__link-copy small {
+  color: #8a8276;
+  font-size: 0.58rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__link-index {
+  color: #948b7c;
+  font-family: ui-monospace, "SFMono-Regular", monospace;
+  font-size: 0.57rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__link[aria-current="page"] {
+  color: var(--wq-alert);
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  .v2-global-nav__link[aria-current="page"]
+  .v2-global-nav__link-copy
+  small {
+  color: color-mix(in srgb, var(--wq-alert) 68%, var(--wq-ink-soft));
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  .v2-global-nav__link[aria-current="page"]::after {
+  right: 0;
+  bottom: -20px;
+  left: 0;
+  height: 3px;
+  border-radius: 0;
+  background: var(--wq-alert);
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__search {
+  align-self: center;
+  height: 38px;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  border: 1px solid var(--wq-rule);
+  border-radius: 2px;
+  background: var(--wq-sheet);
+  box-shadow: none;
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  .v2-global-nav__search-field
+  input.member-search-field__input {
+  height: 36px;
+  color: var(--wq-ink);
+  font-size: 0.8rem;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__search:focus-within {
+  border-color: var(--wq-alert);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--wq-alert) 20%, transparent);
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__search-submit {
+  width: 44px;
+  height: 36px;
+  border-radius: 0;
+  background: var(--wq-alert);
+  color: #fffaf1;
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  .v2-global-nav__search-submit:hover:not(:disabled) {
+  background: var(--wq-alert-strong);
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__search-submit:disabled {
+  background: #b9afa0;
+  color: #f8f3e9;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__assembly {
+  border-color: var(--wq-rule);
+  color: #7b7469;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__assembly strong {
+  color: var(--wq-ink);
+  font-size: 0.76rem;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__menu-button {
+  border: 1px solid var(--wq-rule-strong);
+  border-radius: 2px;
+  background: var(--wq-sheet);
+  color: var(--wq-ink);
+  box-shadow: none;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-global-nav__skip-link {
+  border: 2px solid var(--wq-alert);
+  border-radius: 0;
+  background: var(--wq-sheet);
+  color: var(--wq-alert-strong);
+}
+
+/* Shared editorial hierarchy and flat evidence surfaces. */
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .v2-observatory,
+    .v2-route-content,
+    .v3-evidence-page,
+    .activity-page,
+    .distribution-page,
+    .hexmap-page
+  ) {
+  background: var(--wq-paper);
+  color: var(--wq-ink);
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .v2-global-nav__inner,
+    .v2-observatory,
+    .hexmap-page,
+    .v2-route-content > .app-shell
+  ) {
+  width: min(1480px, calc(100% - 48px));
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .v2-observatory__title,
+    .hexmap-page__title,
+    .v3-page-header h1,
+    .activity-page__masthead h1,
+    .distribution-page__headline h1,
+    .distribution-page__empty h1
+  ) {
+  color: var(--wq-ink);
+  font-family: "Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", serif;
+  font-size: clamp(1.75rem, 2.5vw, 2.35rem);
+  font-weight: 900;
+  line-height: 1.15;
+  letter-spacing: -0.06em;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-observatory__title {
+  font-size: clamp(1.45rem, 2.1vw, 1.85rem);
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .v2-observatory__eyebrow,
+    .v2-card-kicker,
+    .v3-kicker,
+    .hexmap-page__eyebrow,
+    .distribution-chart__eyebrow,
+    .distribution-map__eyebrow,
+    .ledger-evidence-panel__heading p
+  ) {
+  color: var(--wq-alert);
+  font-family: ui-monospace, "SFMono-Regular", monospace;
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .v2-observatory__hero,
+    .v3-page-header,
+    .activity-page__masthead,
+    .distribution-page__masthead,
+    .hexmap-page__header
+  ) {
+  border: 0;
+  border-top: 3px solid var(--wq-ink);
+  border-bottom: 1px solid var(--wq-rule-strong);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .v2-analysis-card,
+    .v2-insight-card,
+    .v2-trend-card,
+    .v2-ranking-card,
+    .v3-rank-rail,
+    .v3-scatter-card,
+    .v3-evidence-panel,
+    .v3-method-note,
+    .activity-page__panel,
+    .activity-drawer__main,
+    .activity-asset-card,
+    .activity-ratio-card,
+    .activity-vote-records,
+    .activity-committee-card,
+    .activity-compare__summary-card,
+    .distribution-chart,
+    .distribution-focus,
+    .distribution-map,
+    .distribution-signal-card,
+    .ledger-primary,
+    .ledger-evidence-panel,
+    .ledger-region-focus,
+    .ledger-member-focus,
+    .bill-activity-card,
+    .watch-queue-snapshot,
+    .change-docket,
+    .issue-comparison
+  ) {
+  border-color: var(--wq-rule);
+  border-radius: 2px;
+  background: var(--wq-sheet);
+  background-image: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.v2-app.v3-shell.watch-queue-shell .watch-queue-snapshot {
+  width: min(1480px, calc(100% - 48px));
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .v2-card-heading,
+    .v3-evidence-panel__header,
+    .activity-drawer__section-head,
+    .activity-ratio-card__header,
+    .distribution-chart__header,
+    .distribution-map__header,
+    .ledger-primary__header,
+    .ledger-evidence-panel__heading
+  ) {
+  border-color: var(--wq-rule);
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .v2-card-heading h2,
+    .v2-insight-card__heading h2,
+    .v3-evidence-panel__header h2,
+    .v3-section-heading h2,
+    .activity-page__panel h2,
+    .distribution-chart__header h2,
+    .distribution-map__header h2,
+    .hexmap-section__heading h2,
+    .ledger-primary__header h2
+  ) {
+  color: var(--wq-ink);
+  font-family: "Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", serif;
+  font-weight: 850;
+  letter-spacing: -0.045em;
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .v2-observatory__intro,
+    .v2-observatory__freshness,
+    .v3-page-header__copy > p,
+    .v3-page-header__stamp,
+    .activity-page__copy > p,
+    .distribution-page__copy,
+    .hexmap-footer-note,
+    .v2-method-copy,
+    .v3-source-line
+  ) {
+  color: var(--wq-ink-soft);
+}
+
+/* Buttons, filters, inputs, and focus stay compact and explicit. */
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    button,
+    input,
+    select,
+    textarea,
+    .v2-button,
+    .ledger-primary-action,
+    .distribution-focus__action,
+    .activity-page__action-button
+  ) {
+  border-radius: 2px;
+  box-shadow: none;
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    button,
+    .v2-button,
+    .ledger-primary-action,
+    .distribution-focus__action,
+    .activity-page__action-button
+  ) {
+  border-color: var(--wq-rule);
+  background: var(--wq-sheet);
+  color: var(--wq-ink);
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    button,
+    .v2-button,
+    .ledger-primary-action,
+    .distribution-focus__action,
+    .activity-page__action-button
+  ):hover:not(:disabled) {
+  border-color: var(--wq-alert);
+  background: var(--wq-alert-soft);
+  color: var(--wq-alert-strong);
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .v2-button--primary,
+    .distribution-focus__action--primary,
+    .ledger-primary-action
+  ) {
+  border-color: var(--wq-alert);
+  background: var(--wq-alert);
+  color: #fffaf1;
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .v2-button--primary,
+    .distribution-focus__action--primary,
+    .ledger-primary-action
+  ):hover:not(:disabled) {
+  border-color: var(--wq-alert-strong);
+  background: var(--wq-alert-strong);
+  color: #fffaf1;
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .v2-lens-tabs button.is-active,
+    .v3-filter-buttons button[aria-pressed="true"],
+    .v3-window-selector button[aria-pressed="true"],
+    .activity-drawer__tab[aria-selected="true"],
+    .hexmap-metric-tab--active,
+    .hexmap-region-list button.is-active,
+    .ledger-metric-tabs button.is-active,
+    .ledger-region-tabs button.is-active,
+    .distribution-map__metric-button.is-active,
+    .distribution-map__province-button.is-active
+  ) {
+  border-color: var(--wq-alert);
+  background: var(--wq-alert);
+  color: #fffaf1;
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(input, select, textarea, .member-search-field__input) {
+  border-color: var(--wq-rule);
+  background: #fffaf3;
+  color: var(--wq-ink);
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(button, a, input, select, textarea, summary):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--wq-focus) 58%, transparent);
+  outline-offset: 2px;
+}
+
+/* Evidence tables and charts use ink rules rather than floating cards. */
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .v2-data-table-wrap,
+    .v2-ranking-table-wrap,
+    .v3-data-table-wrap,
+    .v3-chart,
+    .v2-chart-frame,
+    .distribution-chart__surface,
+    .distribution-map__surface,
+    .ledger-district-board
+  ) {
+  border-color: var(--wq-rule);
+  border-radius: 1px;
+  background: #fffaf3;
+  box-shadow: none;
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(.v2-data-table, .v2-ranking-table, .v3-data-table) {
+  border-collapse: collapse;
+  color: var(--wq-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(.v2-data-table, .v2-ranking-table, .v3-data-table)
+  thead {
+  background: var(--wq-paper-deep);
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(.v2-data-table, .v2-ranking-table, .v3-data-table)
+  :where(th, td) {
+  border-color: var(--wq-rule);
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(.v2-data-table, .v2-ranking-table, .v3-data-table)
+  tbody
+  tr:hover {
+  background: var(--wq-alert-soft);
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(.v2-chart-tooltip, .v3-chart-tooltip, .distribution-chart__tooltip) {
+  border: 1px solid var(--wq-rule-strong);
+  border-radius: 1px;
+  background: #fffaf3;
+  color: var(--wq-ink);
+  box-shadow: 4px 4px 0 rgba(87, 81, 72, 0.16);
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(.v2-map-panel, .v2-national-map__canvas, .distribution-map__surface) {
+  border-color: var(--wq-rule);
+  border-radius: 1px;
+  background: #e8e1d4;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-national-map__province-boundary {
+  stroke: var(--wq-ink);
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .v2-map-legend,
+    .ledger-severity-legend,
+    .distribution-chart__legend,
+    .distribution-map__legend
+  ) {
+  border-color: var(--wq-rule);
+  border-radius: 1px;
+  background: #fffaf3;
+  box-shadow: none;
+}
+
+/* Home queue: visibly prioritized, compact, and rule-led. */
+.v2-app.v3-shell.watch-queue-shell .v2-observatory {
+  padding-top: clamp(1.1rem, 2vw, 1.8rem);
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-observatory__hero {
+  padding-block: clamp(1.05rem, 2.2vw, 1.8rem);
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-observatory__grid {
+  gap: 0.85rem;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v3-rank-rail__rank {
+  border-color: var(--wq-rule-strong);
+  border-radius: 0;
+  background: transparent;
+  color: var(--wq-alert);
+}
+
+.v2-app.v3-shell.watch-queue-shell .v3-rank-rail__list li {
+  border-color: var(--wq-rule);
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-insight-card {
+  border-top: 4px solid var(--wq-alert);
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-insight-card__lead {
+  color: var(--wq-ink);
+  font-family: "Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", serif;
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(.v2-insight-note, .v3-insight-rail, .v3-method-note) {
+  border-left: 3px solid var(--wq-alert);
+  border-radius: 0;
+  background: var(--wq-alert-soft);
+  color: var(--wq-ink);
+}
+
+/* Member ledger and comparison workbench. */
+.v2-app.v3-shell.watch-queue-shell .activity-page {
+  padding-top: clamp(1rem, 2vw, 1.65rem);
+}
+
+.v2-app.v3-shell.watch-queue-shell .activity-page__masthead {
+  padding-block: 1.2rem;
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .activity-drawer__tabs,
+    .activity-drawer__toolbar,
+    .activity-drawer__header,
+    .activity-drawer__section-head,
+    .activity-committee-sections__group,
+    .activity-vote-records__group,
+    .activity-asset-compare__panel
+  ) {
+  border-color: var(--wq-rule);
+  border-radius: 1px;
+  background-image: none;
+  box-shadow: none;
+}
+
+.v2-app.v3-shell.watch-queue-shell .contribution-calendar__cell {
+  border-radius: 0;
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .activity-drawer__committee-alert,
+    .activity-asset-debt,
+    .activity-compare__summary-card--left,
+    .activity-compare__summary-card--right
+  ) {
+  border-color: var(--wq-rule);
+  border-radius: 1px;
+  background: var(--wq-sheet-muted);
+}
+
+/* Member distribution and regional accountability workspaces. */
+.v2-app.v3-shell.watch-queue-shell .distribution-page {
+  padding-top: clamp(1rem, 2vw, 1.65rem);
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .distribution-chart__filter-pill,
+    .distribution-chart__legend-button,
+    .distribution-party-list,
+    .distribution-focus__metric,
+    .distribution-map__metric-button,
+    .distribution-map__province-button,
+    .distribution-signal-list__button
+  ) {
+  border-color: var(--wq-rule);
+  border-radius: 1px;
+  background: var(--wq-sheet-muted);
+  box-shadow: none;
+}
+
+.v2-app.v3-shell.watch-queue-shell .distribution-chart__point image {
+  opacity: 0.96;
+}
+
+.v2-app.v3-shell.watch-queue-shell .hexmap-page {
+  padding-top: clamp(1rem, 2vw, 1.65rem);
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .ledger-toolbar,
+    .ledger-province-matrix,
+    .ledger-region-picker,
+    .ledger-region-stats,
+    .ledger-district-cluster,
+    .ledger-member-card,
+    .ledger-focus-metric,
+    .ledger-secondary-metrics
+  ) {
+  border-color: var(--wq-rule);
+  border-radius: 1px;
+  background: var(--wq-sheet-muted);
+  background-image: none;
+  box-shadow: none;
+}
+
+.v2-app.v3-shell.watch-queue-shell .ledger-member-card {
+  overflow: hidden;
+}
+
+.v2-app.v3-shell.watch-queue-shell .ledger-member-card:hover {
+  border-color: var(--wq-alert);
+  background: var(--wq-alert-soft);
+}
+
+.v2-app.v3-shell.watch-queue-shell .ledger-member-card__photo,
+.v2-app.v3-shell.watch-queue-shell .ledger-member-focus__photo {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Vote and trend pages remain dense and comparable. */
+.v2-app.v3-shell.watch-queue-shell
+  :where(
+    .v3-vote-toolbar,
+    .v3-trend-toolbar,
+    .v3-results-bar,
+    .v3-summary-strip,
+    .v3-metric-strip,
+    .v3-vote-timeline__group,
+    .vote-card,
+    .v3-mover-list li
+  ) {
+  border-color: var(--wq-rule);
+  border-radius: 1px;
+  background: var(--wq-sheet);
+  background-image: none;
+  box-shadow: none;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v3-vote-timeline__date {
+  color: var(--wq-alert);
+  font-family: ui-monospace, "SFMono-Regular", monospace;
+}
+
+.v2-app.v3-shell.watch-queue-shell .vote-card__eyebrow {
+  color: var(--wq-alert);
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  :where(.v3-metric-strip__alert, .vote-card__stat--no) {
+  color: var(--wq-alert);
+}
+
+@media (max-width: 1180px) {
+  .v2-app.v3-shell.watch-queue-shell .v2-global-nav__inner {
+    gap: 1rem;
+  }
+
+  .v2-app.v3-shell.watch-queue-shell .v2-global-nav__menu {
+    grid-template-columns:
+      minmax(410px, 1fr)
+      minmax(230px, 310px);
+  }
+
+  .v2-app.v3-shell.watch-queue-shell .v2-global-nav__assembly {
+    display: none;
+  }
+}
+
+@media (max-width: 1060px) {
+  .v2-app.v3-shell.watch-queue-shell .v2-global-nav {
+    min-height: 64px;
+  }
+
+  .v2-app.v3-shell.watch-queue-shell .v2-global-nav__inner {
+    width: min(calc(100% - 28px), 920px);
+    min-height: 60px;
+  }
+
+  .v2-app.v3-shell.watch-queue-shell .v2-global-nav__masthead {
+    min-height: 60px;
+  }
+
+  .v2-app.v3-shell.watch-queue-shell .v2-global-nav__menu {
+    position: absolute;
+    top: calc(100% + 1px);
+    display: none;
+    grid-template-columns: 1fr;
+    padding: 0.85rem;
+    border: 1px solid var(--wq-rule-strong);
+    border-top: 0;
+    border-radius: 0;
+    background: var(--wq-sheet);
+    box-shadow: 4px 5px 0 rgba(87, 81, 72, 0.14);
+  }
+
+  .v2-app.v3-shell.watch-queue-shell .v2-global-nav__menu[data-open="true"] {
+    display: grid;
+  }
+
+  .v2-app.v3-shell.watch-queue-shell .v2-global-nav__primary {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1px;
+    border: 1px solid var(--wq-rule);
+    background: var(--wq-rule);
+  }
+
+  .v2-app.v3-shell.watch-queue-shell .v2-global-nav__link {
+    min-height: 46px;
+    justify-content: center;
+    border-radius: 0;
+    background: var(--wq-sheet-muted);
+    text-align: center;
+  }
+
+  .v2-app.v3-shell.watch-queue-shell .v2-global-nav__link[aria-current="page"] {
+    background: var(--wq-alert);
+    color: #fffaf1;
+  }
+
+  .v2-app.v3-shell.watch-queue-shell
+    .v2-global-nav__link[aria-current="page"]
+    .v2-global-nav__link-index {
+    color: #f4c9bf;
+  }
+
+  .v2-app.v3-shell.watch-queue-shell
+    .v2-global-nav__link[aria-current="page"]
+    .v2-global-nav__link-copy
+    small {
+    color: #f5d0c8;
+  }
+
+  .v2-app.v3-shell.watch-queue-shell
+    .v2-global-nav__link[aria-current="page"]::after {
+    display: none;
+  }
+
+  .v2-app.v3-shell.watch-queue-shell .v2-global-nav__search {
+    width: 100%;
+  }
+}
+
+@media (max-width: 860px) {
+  .v2-app.v3-shell.watch-queue-shell
+    :where(
+      .v2-global-nav__inner,
+      .v2-observatory,
+      .hexmap-page,
+      .v2-route-content > .app-shell
+    ) {
+    width: min(100% - 28px, 720px);
+  }
+
+  .v2-app.v3-shell.watch-queue-shell
+    :where(
+      .v2-observatory__hero,
+      .v3-page-header,
+      .activity-page__masthead,
+      .distribution-page__masthead,
+      .hexmap-page__header
+    ) {
+    padding-inline: 0;
+  }
+
+  .v2-app.v3-shell.watch-queue-shell .watch-queue-snapshot {
+    width: min(100% - 28px, 720px);
+  }
+}
+
+@media (max-width: 620px) {
+  .v2-app.v3-shell.watch-queue-shell
+    :where(
+      .v2-global-nav__inner,
+      .v2-observatory,
+      .hexmap-page,
+      .v2-route-content > .app-shell
+    ) {
+    width: calc(100% - 20px);
+  }
+
+  .v2-app.v3-shell.watch-queue-shell .watch-queue-snapshot {
+    width: calc(100% - 20px);
+  }
+
+  .v2-app.v3-shell.watch-queue-shell .v2-global-nav__primary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .v2-app.v3-shell.watch-queue-shell .v2-global-nav__primary li:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .v2-app.v3-shell.watch-queue-shell
+    :where(
+      .v2-observatory__title,
+      .hexmap-page__title,
+      .v3-page-header h1,
+      .activity-page__masthead h1,
+      .distribution-page__headline h1,
+      .distribution-page__empty h1
+    ) {
+    font-size: 1.55rem;
+  }
+
+  .v2-app.v3-shell.watch-queue-shell .v2-observatory__title {
+    font-size: 1.4rem;
+  }
+
+  .v2-app.v3-shell.watch-queue-shell
+    :where(
+      .v2-analysis-card,
+      .v2-insight-card,
+      .v2-trend-card,
+      .v2-ranking-card,
+      .v3-rank-rail,
+      .v3-scatter-card,
+      .v3-evidence-panel,
+      .activity-page__panel,
+      .distribution-chart,
+      .distribution-focus,
+      .distribution-map,
+      .ledger-primary,
+      .ledger-evidence-panel
+    ) {
+    border-right-color: var(--wq-rule);
+    border-left-color: var(--wq-rule);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .watch-queue-shell *,
+  .watch-queue-shell *::before,
+  .watch-queue-shell *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  .watch-queue-shell
+    :where(
+      .member-identity__avatar:not(.member-identity__avatar--fallback),
+      .ledger-member-card__photo:not(.ledger-member-card__photo--fallback),
+      .ledger-member-focus__photo:not(.ledger-member-focus__photo--fallback),
+      .distribution-chart__point image
+    ) {
+    filter: grayscale(1) contrast(1.08);
+  }
+}
+
+@media (forced-colors: active) {
+  .watch-queue-shell
+    :where(
+      .member-identity__avatar,
+      .ledger-member-card__photo,
+      .ledger-member-focus__photo,
+      .distribution-chart__point image
+    ) {
+    filter: none;
+    mix-blend-mode: normal;
+  }
+}
+
+@media print {
+  html:has(.watch-queue-shell),
+  body:has(.watch-queue-shell),
+  .v2-app.v3-shell.watch-queue-shell,
+  .v2-app.v3-shell.watch-queue-shell
+    :where(
+      .v2-observatory,
+      .v2-route-content,
+      .v3-evidence-page,
+      .activity-page,
+      .distribution-page,
+      .hexmap-page
+    ) {
+    background: #fff;
+    color: #000;
+  }
+
+  .v2-app.v3-shell.watch-queue-shell .v2-global-nav {
+    position: static;
+    border-top-color: #000;
+    background: #fff;
+    backdrop-filter: none;
+  }
+
+  .v2-app.v3-shell.watch-queue-shell .v2-global-nav__menu-button,
+  .v2-app.v3-shell.watch-queue-shell .v2-global-nav__search {
+    display: none;
+  }
+
+  .watch-queue-shell
+    :where(
+      .member-identity__avatar:not(.member-identity__avatar--fallback),
+      .ledger-member-card__photo:not(.ledger-member-card__photo--fallback),
+      .ledger-member-focus__photo:not(.ledger-member-focus__photo--fallback),
+      .distribution-chart__point image
+    ) {
+    filter: grayscale(1) contrast(1.15);
+    mix-blend-mode: normal;
+  }
+}

@@ -8,6 +8,7 @@ import {
   latestVotesExportSchema,
   memberAssetsHistoryExportSchema,
   memberAssetsIndexExportSchema,
+  memberSponsorshipAccountsExportSchema,
   memberActivityCalendarExportSchema,
   memberActivityCalendarMemberDetailExportSchema,
   memberStatementSummariesExportSchema,
@@ -29,6 +30,7 @@ import type {
   MemberStatementSummariesIndexExport,
   MemberAssetsHistoryExport,
   MemberAssetsIndexExport,
+  MemberSponsorshipAccountsExport,
   Manifest
 } from "@lawmaker-monitor/schemas";
 
@@ -166,6 +168,18 @@ export function loadMemberAssetsHistory(
 ): Promise<MemberAssetsHistoryExport | null> {
   return fetchOptionalJson(buildUrl(path), (payload) =>
     memberAssetsHistoryExportSchema.parse(payload)
+  );
+}
+
+export function loadMemberSponsorshipAccounts(
+  manifest?: Manifest | null
+): Promise<MemberSponsorshipAccountsExport | null> {
+  const accountsPath =
+    manifest?.exports.memberSponsorshipAccounts?.path ??
+    "exports/member_sponsorship_accounts.json";
+
+  return fetchOptionalJson(buildUrl(accountsPath), (payload) =>
+    memberSponsorshipAccountsExportSchema.parse(payload)
   );
 }
 

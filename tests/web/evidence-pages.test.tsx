@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { TrendsPage } from "../../apps/web/src/components/TrendsPage.js";
@@ -47,16 +47,26 @@ describe("evidence exploration pages", () => {
       { target: { value: "예산" } }
     );
 
-    expect(screen.getByText(/예산 조정 동의안/)).toBeInTheDocument();
-    expect(screen.queryByText(/시민투명성법안/)).not.toBeInTheDocument();
+    const voteTimeline = document.querySelector(".v3-vote-timeline");
+    expect(voteTimeline).not.toBeNull();
+    expect(
+      within(voteTimeline as HTMLElement).getByText(/예산 조정 동의안/)
+    ).toBeInTheDocument();
+    expect(
+      within(voteTimeline as HTMLElement).queryByText(/시민투명성법안/)
+    ).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByRole("searchbox", { name: "안건 검색" }), {
       target: { value: "" }
     });
     fireEvent.click(screen.getByRole("button", { name: /불참 있음/ }));
 
-    expect(screen.getByText(/시민투명성법안/)).toBeInTheDocument();
-    expect(screen.queryByText(/예산 조정 동의안/)).not.toBeInTheDocument();
+    expect(
+      within(voteTimeline as HTMLElement).getByText(/시민투명성법안/)
+    ).toBeInTheDocument();
+    expect(
+      within(voteTimeline as HTMLElement).queryByText(/예산 조정 동의안/)
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText(/전체 2건 중 현재 조건과 일치/)
     ).toBeInTheDocument();
@@ -66,6 +76,7 @@ describe("evidence exploration pages", () => {
     render(
       <TrendsPage
         accountabilityTrends={accountabilityTrendsFixture}
+        accountabilitySummary={null}
         assemblyLabel="제22대 국회"
       />
     );

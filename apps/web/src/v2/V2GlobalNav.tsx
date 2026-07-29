@@ -31,7 +31,9 @@ export type V2GlobalNavProps = {
 };
 
 type PrimaryNavigationItem = {
+  index: string;
   label: string;
+  accessibleLabel: string;
   href: string;
   target: "home" | "distribution" | "map" | "votes" | "trends";
   activeRoutes: V2GlobalNavRoute[];
@@ -39,31 +41,41 @@ type PrimaryNavigationItem = {
 
 const primaryNavigationItems: PrimaryNavigationItem[] = [
   {
-    label: "오늘의 변화",
+    index: "01",
+    label: "감시 큐",
+    accessibleLabel: "오늘의 변화",
     href: "#",
     target: "home",
     activeRoutes: ["home"]
   },
   {
-    label: "의원 찾기",
+    index: "02",
+    label: "의원 대장",
+    accessibleLabel: "의원 찾기",
     href: "#distribution",
     target: "distribution",
     activeRoutes: ["calendar", "distribution"]
   },
   {
-    label: "지역 탐색",
+    index: "03",
+    label: "지역 감시",
+    accessibleLabel: "지역 탐색",
     href: "#map",
     target: "map",
     activeRoutes: ["map"]
   },
   {
-    label: "표결 기록",
+    index: "04",
+    label: "쟁점·표결",
+    accessibleLabel: "표결 기록",
     href: "#votes",
     target: "votes",
     activeRoutes: ["votes"]
   },
   {
-    label: "추세",
+    index: "05",
+    label: "변화 전후",
+    accessibleLabel: "추세",
     href: "#trends",
     target: "trends",
     activeRoutes: ["trends"]
@@ -147,7 +159,12 @@ export function V2GlobalNav({
             aria-label="국회 책임성 모니터 홈"
             onClick={(event) => handleNavigation(event, "home")}
           >
-            <span>국회 책임성 모니터</span>
+            <span className="v2-global-nav__brand-lockup" aria-hidden="true">
+              <span className="v2-global-nav__brand-kicker">
+                국회 책임성 모니터
+              </span>
+              <strong>감시 큐</strong>
+            </span>
           </a>
 
           <button
@@ -178,12 +195,22 @@ export function V2GlobalNav({
                 <a
                   className="v2-global-nav__link"
                   href={item.href}
+                  aria-label={item.accessibleLabel}
                   aria-current={
                     item.activeRoutes.includes(route) ? "page" : undefined
                   }
                   onClick={(event) => handleNavigation(event, item.target)}
                 >
-                  {item.label}
+                  <span
+                    className="v2-global-nav__link-index"
+                    aria-hidden="true"
+                  >
+                    {item.index}
+                  </span>
+                  <span className="v2-global-nav__link-copy" aria-hidden="true">
+                    <strong>{item.label}</strong>
+                    <small>{item.accessibleLabel}</small>
+                  </span>
                 </a>
               </li>
             ))}
@@ -201,7 +228,7 @@ export function V2GlobalNav({
               options={searchOptions}
               selectedId={selectedSearchMemberId}
               onSelect={onSelectSearchMemberId}
-              placeholder="의원 이름 또는 정당을 검색하세요"
+              placeholder="의원·정당·지역구 검색"
               disabled={searchOptions.length === 0}
             />
             <button
@@ -215,13 +242,13 @@ export function V2GlobalNav({
               }
             >
               <MagnifyingGlassIcon aria-hidden="true" size={19} weight="bold" />
-              <span>의원 보기</span>
+              <span>기록 열기</span>
             </button>
           </form>
 
           {assemblyLabel ? (
             <span className="v2-global-nav__assembly">
-              <span>공식 기록 기준</span>
+              <span>수집 기준</span>
               <strong>{assemblyLabel}</strong>
             </span>
           ) : null}

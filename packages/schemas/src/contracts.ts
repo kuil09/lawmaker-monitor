@@ -11,6 +11,19 @@ import {
 } from "./records.js";
 
 const nonEmptyString = z.string().trim().min(1);
+const dateLikeString = nonEmptyString.refine(
+  (value) =>
+    /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2}))?$/.test(
+      value
+    ) && !Number.isNaN(Date.parse(value)),
+  "Expected an ISO date or date-time value"
+);
+const httpsUrlString = nonEmptyString
+  .url()
+  .refine(
+    (value) => new URL(value).protocol === "https:",
+    "Expected an HTTPS URL"
+  );
 
 export const datasetFileSchema = z.object({
   path: nonEmptyString,
@@ -24,6 +37,131 @@ export const currentAssemblySchema = z.object({
   label: nonEmptyString,
   unitCd: nonEmptyString
 });
+
+const sponsorshipAccountNumberSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^\d[\d -]{4,30}\d$/,
+    "A verified sponsorship account number must contain only digits, spaces, and hyphens"
+  );
+
+const verifiedMemberSponsorshipAccountSchema = z
+  .object({
+    recordId: nonEmptyString,
+    memberId: nonEmptyString,
+    status: z.literal("verified"),
+    bankName: nonEmptyString,
+    accountNumber: sponsorshipAccountNumberSchema,
+    accountHolder: nonEmptyString,
+    sourceUrl: httpsUrlString,
+    verifiedAt: dateLikeString,
+    donationUrl: httpsUrlString.optional()
+  })
+  .strict();
+
+const unverifiedMemberSponsorshipAccountSchema = z
+  .object({
+    recordId: nonEmptyString,
+    memberId: nonEmptyString,
+    status: z.literal("unverified"),
+    sourceUrl: httpsUrlString,
+    reviewedAt: dateLikeString,
+    reason: nonEmptyString
+  })
+  .strict();
+
+const supersededMemberSponsorshipAccountSchema = z
+  .object({
+    recordId: nonEmptyString,
+    memberId: nonEmptyString,
+    status: z.literal("superseded"),
+    bankName: nonEmptyString,
+    accountNumber: sponsorshipAccountNumberSchema,
+    accountHolder: nonEmptyString,
+    sourceUrl: httpsUrlString,
+    verifiedAt: dateLikeString,
+    supersededAt: dateLikeString,
+    supersededReason: nonEmptyString,
+    replacedByRecordId: nonEmptyString.optional(),
+    donationUrl: httpsUrlString.optional()
+  })
+  .strict();
+
+export const memberSponsorshipAccountSchema = z.discriminatedUnion("status", [
+  verifiedMemberSponsorshipAccountSchema,
+  unverifiedMemberSponsorshipAccountSchema,
+  supersededMemberSponsorshipAccountSchema
+]);
+
+export const memberSponsorshipAccountsExportSchema = z
+  .object({
+    generatedAt: dateLikeString,
+    snapshotId: nonEmptyString,
+    assemblyNo: z.number().int().positive(),
+    assemblyLabel: nonEmptyString,
+    accounts: z.array(memberSponsorshipAccountSchema)
+  })
+  .strict()
+  .superRefine((exportData, context) => {
+    const recordIds = new Set<string>();
+    const verifiedMemberIds = new Set<string>();
+    const generatedTimestamp = Date.parse(exportData.generatedAt);
+
+    exportData.accounts.forEach((account, index) => {
+      if (recordIds.has(account.recordId)) {
+        context.addIssue({
+          code: "custom",
+          message: "A sponsorship account recordId must be unique",
+          path: ["accounts", index, "recordId"]
+        });
+      }
+      recordIds.add(account.recordId);
+
+      const reviewedTimestamp = Date.parse(
+        account.status === "unverified"
+          ? account.reviewedAt
+          : account.verifiedAt
+      );
+      if (reviewedTimestamp > generatedTimestamp) {
+        context.addIssue({
+          code: "custom",
+          message: "A sponsorship account cannot be reviewed in the future",
+          path: [
+            "accounts",
+            index,
+            account.status === "unverified" ? "reviewedAt" : "verifiedAt"
+          ]
+        });
+      }
+
+      if (
+        account.status === "superseded" &&
+        Date.parse(account.supersededAt) < Date.parse(account.verifiedAt)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "supersededAt must not precede verifiedAt",
+          path: ["accounts", index, "supersededAt"]
+        });
+      }
+
+      if (account.status !== "verified") {
+        return;
+      }
+
+      if (verifiedMemberIds.has(account.memberId)) {
+        context.addIssue({
+          code: "custom",
+          message: "A member can have only one currently verified account",
+          path: ["accounts", index, "memberId"]
+        });
+        return;
+      }
+
+      verifiedMemberIds.add(account.memberId);
+    });
+  });
 
 export const latestVoteItemSchema = z.object({
   rollCallId: nonEmptyString,
@@ -744,7 +882,8 @@ export const manifestSchema = z.object({
     billProposalActivity: datasetFileSchema.optional(),
     constituencyBoundariesIndex: datasetFileSchema.optional(),
     hexmapStaticIndex: datasetFileSchema.optional(),
-    memberAssetsIndex: datasetFileSchema.optional()
+    memberAssetsIndex: datasetFileSchema.optional(),
+    memberSponsorshipAccounts: datasetFileSchema.optional()
   })
 });
 
@@ -763,11 +902,22 @@ export const publishBundleSchema = z.object({
     .optional(),
   memberAssetsIndex: memberAssetsIndexExportSchema.optional(),
   memberAssetsHistory: z.array(memberAssetsHistoryExportSchema).optional(),
+  memberSponsorshipAccounts: memberSponsorshipAccountsExportSchema.optional(),
   manifest: manifestSchema
 });
 
 export type DatasetFile = z.infer<typeof datasetFileSchema>;
 export type CurrentAssembly = z.infer<typeof currentAssemblySchema>;
+export type MemberSponsorshipAccount = z.infer<
+  typeof memberSponsorshipAccountSchema
+>;
+export type VerifiedMemberSponsorshipAccount = Extract<
+  MemberSponsorshipAccount,
+  { status: "verified" }
+>;
+export type MemberSponsorshipAccountsExport = z.infer<
+  typeof memberSponsorshipAccountsExportSchema
+>;
 export type LatestVoteItem = z.infer<typeof latestVoteItemSchema>;
 export type LatestVotesExport = z.infer<typeof latestVotesExportSchema>;
 export type AccountabilitySummaryItem = z.infer<

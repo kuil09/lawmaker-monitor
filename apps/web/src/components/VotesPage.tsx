@@ -1,3 +1,4 @@
+import { IssueComparisonBoard } from "./IssueComparisonBoard.js";
 import { VoteCarousel } from "./VoteCarousel.js";
 import { formatDateTime, getKoreanDateKey } from "../lib/format.js";
 import "../styles/v3-evidence.css";
@@ -30,7 +31,7 @@ export function VotesPage({
       <header className="v3-page-header">
         <div className="v3-page-header__copy">
           <p className="v3-kicker">PUBLIC VOTE RECORDS</p>
-          <h1>{`${assemblyLabel} 최신 본회의 표결`}</h1>
+          <h1>{`${assemblyLabel} 쟁점·표결 대조`}</h1>
           <p>
             날짜와 안건으로 기록을 좁히고, 반대·기권·불참 내역을 공식 출처와
             함께 검증합니다.
@@ -68,6 +69,8 @@ export function VotesPage({
           <small>원문 링크 제공</small>
         </div>
       </dl>
+
+      <IssueComparisonBoard items={items} />
 
       <section
         className="v3-evidence-workbench"

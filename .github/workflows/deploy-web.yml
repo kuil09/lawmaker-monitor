@@ -6,7 +6,7 @@ on:
     branches:
       - main
   workflow_run:
-    workflows: ["build-data"]
+    workflows: ["build-data", "summarize-minutes"]
     types:
       - completed
 
@@ -43,6 +43,7 @@ jobs:
         run: npm run build --workspace @lawmaker-monitor/web
         env:
           VITE_DATA_REPO_BASE_URL: ${{ vars.DATA_REPO_BASE_URL }}
+          MEMBER_SHARE_DATA_REPO_BASE_URL: https://raw.githubusercontent.com/kuil09/lawmaker-monitor-data/main/
           PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
 
       - name: Package Pages artifact

@@ -33,7 +33,9 @@ import {
 
 import { MemberDetailLink } from "./MemberDetailLink.js";
 import { MemberIdentity } from "./MemberIdentity.js";
+import { MemberPerformanceShareCard } from "./MemberPerformanceShareCard.js";
 import { MemberSearchField } from "./MemberSearchField.js";
+import { MemberSponsorshipAccount } from "./MemberSponsorshipAccount.js";
 import { MemberStatementSummarySection } from "./MemberStatementSummarySection.js";
 import {
   assetCategoryPalette,
@@ -47,6 +49,7 @@ import {
   buildCalendarHref,
   type ActivityViewMode
 } from "../lib/calendar-route.js";
+import { loadMemberSponsorshipAccounts } from "../lib/data.js";
 import {
   formatAssetEok,
   formatAssetEokAxis,
@@ -76,6 +79,7 @@ import {
   type AssetScopeMode,
   type DebtRatioStatus
 } from "../lib/member-assets.js";
+import { buildMemberShareData } from "../lib/member-share.js";
 
 import type {
   MemberActivityCalendarAssembly,
@@ -85,7 +89,8 @@ import type {
   MemberActivityVoteRecord,
   MemberAssetsHistoryExport,
   MemberAssetsIndexExport,
-  MemberAssetsIndexItem
+  MemberAssetsIndexItem,
+  MemberSponsorshipAccountsExport
 } from "@lawmaker-monitor/schemas";
 
 type ActivityCalendarPageProps = {
@@ -2462,6 +2467,14 @@ export function ActivityCalendarPage({
   const [shareError, setShareError] = useState<string | null>(null);
   const [shareNotice, setShareNotice] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [sponsorshipAccounts, setSponsorshipAccounts] = useState<
+    MemberSponsorshipAccountsExport | null | undefined
+  >(undefined);
+  const [sponsorshipAccountsError, setSponsorshipAccountsError] = useState<
+    string | null
+  >(null);
+  const [sponsorshipAccountsLoadAttempt, setSponsorshipAccountsLoadAttempt] =
+    useState(0);
   const hasInitializedSelectedMemberRef = useRef(false);
   const lastAppliedRouteMemberIdRef = useRef<string | null | undefined>(
     undefined
@@ -2499,6 +2512,31 @@ export function ActivityCalendarPage({
       districtByMemberId.get(member.memberId)
     )}`
   }));
+
+  useEffect(() => {
+    let active = true;
+
+    setSponsorshipAccounts(undefined);
+    setSponsorshipAccountsError(null);
+    void loadMemberSponsorshipAccounts()
+      .then((payload) => {
+        if (active) {
+          setSponsorshipAccounts(payload);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setSponsorshipAccounts(null);
+          setSponsorshipAccountsError(
+            "공식 후원계좌 정보를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요."
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [sponsorshipAccountsLoadAttempt]);
 
   useEffect(() => {
     setActiveView(initialView);
@@ -2580,6 +2618,21 @@ export function ActivityCalendarPage({
   const selectedMemberAssetHistoryLoading = selectedMember
     ? Boolean(memberAssetHistoryLoading[selectedMember.memberId])
     : false;
+  const selectedSponsorshipAccount = useMemo(() => {
+    if (!selectedMember || !sponsorshipAccounts) {
+      return null;
+    }
+
+    const memberAccounts = sponsorshipAccounts.accounts.filter(
+      (account) => account.memberId === selectedMember.memberId
+    );
+    return (
+      memberAccounts.find((account) => account.status === "verified") ??
+      memberAccounts.find((account) => account.status === "unverified") ??
+      memberAccounts.find((account) => account.status === "superseded") ??
+      null
+    );
+  }, [selectedMember, sponsorshipAccounts]);
   const compareMember = getMemberById(selectedAssembly, compareMemberId);
   const compareMemberAssetIndex = compareMember
     ? (memberAssetsIndex?.members.find(
@@ -2781,28 +2834,18 @@ export function ActivityCalendarPage({
     onEnsureMemberAssetHistory
   ]);
 
-  function buildShareUrl(): string | null {
-    if (!selectedMember || activeView !== "single") {
-      return null;
-    }
-
-    const hash = buildCalendarHref({
-      memberId: selectedMember.memberId,
-      view: "single"
-    });
-
-    if (typeof window === "undefined") {
-      return hash;
-    }
-
-    const url = new URL(window.location.href);
-    url.hash = hash.slice(1);
-    return url.toString();
-  }
-
   async function handleShare(): Promise<void> {
-    const shareUrl = buildShareUrl();
-    if (!selectedAssembly || !selectedMember || !shareUrl) {
+    if (!selectedAssembly || !selectedMember || activeView !== "single") {
+      return;
+    }
+    const shareData = buildMemberShareData({
+      memberId: selectedMember.memberId,
+      name: selectedMember.name,
+      party: selectedMember.party,
+      district: selectedMemberAssetIndex?.district
+    });
+    const shareUrl = shareData.url;
+    if (!shareUrl) {
       return;
     }
 
@@ -2811,24 +2854,17 @@ export function ActivityCalendarPage({
     setShareNotice(null);
 
     try {
-      const title = `${selectedMember.name} 활동 캘린더`;
-      const text = `${selectedAssembly.label} 활동 캘린더 링크입니다.`;
-
       if (
         typeof navigator !== "undefined" &&
         typeof navigator.share === "function"
       ) {
-        await navigator.share({
-          title,
-          text,
-          url: shareUrl
-        });
+        await navigator.share(shareData);
         return;
       }
 
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(shareUrl);
-        setShareNotice("현재 화면 링크를 복사했습니다.");
+        setShareNotice("의원 실적 카드 링크를 복사했습니다.");
         return;
       }
     } catch (error) {
@@ -3090,6 +3126,27 @@ export function ActivityCalendarPage({
                         <dd>{formatNumber(selectedBreakdown.absentDays)}</dd>
                       </div>
                     </dl>
+                  </div>
+                  <div className="activity-drawer__accountability-tools">
+                    <MemberPerformanceShareCard
+                      member={{
+                        memberId: selectedMember.memberId,
+                        name: selectedMember.name,
+                        party: selectedMember.party,
+                        district: selectedMemberAssetIndex?.district
+                      }}
+                    />
+                    <MemberSponsorshipAccount
+                      account={selectedSponsorshipAccount}
+                      memberName={selectedMember.name}
+                      loading={sponsorshipAccounts === undefined}
+                      error={sponsorshipAccountsError}
+                      onRetry={() =>
+                        setSponsorshipAccountsLoadAttempt(
+                          (current) => current + 1
+                        )
+                      }
+                    />
                   </div>
                   <section
                     className="activity-drawer__calendar-card"

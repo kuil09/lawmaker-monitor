@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { ArrowRightIcon } from "@phosphor-icons/react/dist/csr/ArrowRight";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   buildDataUrl,
@@ -59,13 +60,47 @@ export function MemberStatementSummarySection({
     };
   }, [memberId, retryKey]);
 
-  if (!loading && !error && !payload) {
-    return null;
-  }
-
   const visibleSummaries = showAll
     ? (payload?.summaries ?? [])
     : (payload?.summaries.slice(0, 4) ?? []);
+  const statementChangePair = useMemo(() => {
+    const summaries = payload?.summaries ?? [];
+    const groups = new Map<string, typeof summaries>();
+
+    for (const item of summaries) {
+      const issueKey =
+        item.billIds[0] ??
+        item.agendaTitle.replace(/\s+/g, " ").trim().toLocaleLowerCase("ko-KR");
+      const current = groups.get(issueKey) ?? [];
+      current.push(item);
+      groups.set(issueKey, current);
+    }
+
+    return (
+      [...groups.values()]
+        .filter((items) => items.length >= 2)
+        .map((items) =>
+          [...items].sort(
+            (left, right) =>
+              new Date(left.meetingDate).getTime() -
+              new Date(right.meetingDate).getTime()
+          )
+        )
+        .sort((left, right) => {
+          const leftLatest = left.at(-1)?.meetingDate ?? "";
+          const rightLatest = right.at(-1)?.meetingDate ?? "";
+          return rightLatest.localeCompare(leftLatest);
+        })
+        .map((items) => ({
+          previous: items.at(-2)!,
+          current: items.at(-1)!
+        }))[0] ?? null
+    );
+  }, [payload]);
+
+  if (!loading && !error && !payload) {
+    return null;
+  }
 
   return (
     <section className="member-statement-summary" aria-label="회의록 발언 요약">
@@ -105,6 +140,59 @@ export function MemberStatementSummarySection({
 
       {payload ? (
         <>
+          {statementChangePair ? (
+            <section
+              className="member-statement-summary__change-docket"
+              aria-labelledby="member-statement-change-title"
+            >
+              <header>
+                <div>
+                  <span>ISSUE BEFORE → AFTER</span>
+                  <h4 id="member-statement-change-title">
+                    같은 쟁점의 발언 기록 대조
+                  </h4>
+                </div>
+                <p>
+                  두 발언을 자동 평가하지 않고 수집 시점과 요약을 나란히
+                  보여줍니다.
+                </p>
+              </header>
+              <div>
+                <article>
+                  <span>이전 발언</span>
+                  <time dateTime={statementChangePair.previous.meetingDate}>
+                    {formatDate(statementChangePair.previous.meetingDate)}
+                  </time>
+                  <h5>{statementChangePair.previous.agendaTitle}</h5>
+                  <p>{statementChangePair.previous.summary}</p>
+                  <a
+                    href={`${statementChangePair.previous.sourceUrl}${statementChangePair.previous.sourceFragment}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    이전 원문
+                  </a>
+                </article>
+                <ArrowRightIcon size={24} weight="bold" aria-hidden="true" />
+                <article>
+                  <span>최근 발언</span>
+                  <time dateTime={statementChangePair.current.meetingDate}>
+                    {formatDate(statementChangePair.current.meetingDate)}
+                  </time>
+                  <h5>{statementChangePair.current.agendaTitle}</h5>
+                  <p>{statementChangePair.current.summary}</p>
+                  <a
+                    href={`${statementChangePair.current.sourceUrl}${statementChangePair.current.sourceFragment}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    최근 원문
+                  </a>
+                </article>
+              </div>
+            </section>
+          ) : null}
+
           <div className="member-statement-summary__list">
             {visibleSummaries.map((item) => (
               <article

@@ -14,5 +14,6 @@ import "./styles/v3-unified.css";
 import "./styles/hexmap.css";
 import "./styles/bill-activity.css";
 import "./styles/minutes-summary.css";
+import "./styles/watch-queue.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<V2App />);

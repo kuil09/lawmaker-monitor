@@ -6,6 +6,7 @@ const dataPort = process.env.UI_DATA_PORT ?? "4174";
 
 const sharedEnv = {
   ...process.env,
+  SKIP_MEMBER_SHARE_GENERATION: "1",
   VITE_DATA_REPO_BASE_URL: `http://127.0.0.1:${dataPort}`
 };
 

@@ -60,7 +60,7 @@ async function openHomeFlow(viewportName: string): Promise<void> {
       `
     });
 
-    await page.getByRole("heading", { name: "국회 움직임 탐색기" }).waitFor();
+    await page.getByRole("heading", { name: "실시간 국회 감시 큐" }).waitFor();
     await page.getByRole("region", { name: "지역별 결석률 분포" }).waitFor();
     expect(new URL(page.url()).searchParams.has("ui")).toBe(false);
     expect(await page.locator(".v2-global-nav").count()).toBe(1);
@@ -286,7 +286,7 @@ async function openHomeFlow(viewportName: string): Promise<void> {
 
     await page.getByRole("button", { name: "홈으로" }).click();
     await expect.poll(() => new URL(page.url()).hash).toBe("");
-    await page.getByRole("heading", { name: "국회 움직임 탐색기" }).waitFor();
+    await page.getByRole("heading", { name: "실시간 국회 감시 큐" }).waitFor();
 
     expect(getUnexpectedBrowserIssues(issues)).toEqual([]);
   } finally {
@@ -682,7 +682,7 @@ const v2Routes = [
   {
     id: "home",
     hash: "",
-    heading: "국회 움직임 탐색기"
+    heading: "실시간 국회 감시 큐"
   },
   {
     id: "calendar",
@@ -702,12 +702,12 @@ const v2Routes = [
   {
     id: "votes",
     hash: "#votes",
-    heading: "제22대 국회 최신 본회의 표결"
+    heading: "제22대 국회 쟁점·표결 대조"
   },
   {
     id: "trends",
     hash: "#trends",
-    heading: "출석과 당내 이탈 흐름"
+    heading: "변화 전후 책임 원장"
   }
 ] as const;
 
@@ -983,7 +983,7 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
     await page.goto(`${appUrl}/?ui=v1`, {
       waitUntil: "networkidle"
     });
-    await page.getByRole("heading", { name: "국회 움직임 탐색기" }).waitFor();
+    await page.getByRole("heading", { name: "실시간 국회 감시 큐" }).waitFor();
   } finally {
     await context.close();
   }
