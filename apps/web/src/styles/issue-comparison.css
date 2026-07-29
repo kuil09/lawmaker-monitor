@@ -129,7 +129,7 @@
 }
 
 .issue-comparison__bar .is-yes {
-  background: var(--watch-teal, #245d56);
+  background: var(--watch-verified, #575148);
 }
 
 .issue-comparison__bar .is-no {

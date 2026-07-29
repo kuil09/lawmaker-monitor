@@ -80,7 +80,7 @@ export function ProvinceMiniCartogram({
         <path
           key={cell.key}
           d={cell.path}
-          fill={cells[index]?.fillColor ?? "#d8e0e9"}
+          fill={cells[index]?.fillColor ?? "#ded7c9"}
           stroke="rgba(255, 255, 255, 0.9)"
           strokeWidth="0.75"
           vectorEffect="non-scaling-stroke"

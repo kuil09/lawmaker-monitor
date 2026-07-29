@@ -315,7 +315,7 @@ export function BillProposalActivitySection({
                       dataKey="coSponsorProposalCount"
                       name="공동발의 참여"
                       stackId="participation"
-                      fill="#2b8a73"
+                      fill="#575148"
                       radius={[0, 4, 4, 0]}
                     />
                   </BarChart>

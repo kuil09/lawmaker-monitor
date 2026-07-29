@@ -3,6 +3,10 @@
 ## Evidence
 
 - Watch Queue design target: `/tmp/watch-share-visuals.fGTEbp/home.png`
+- Selected member-card option 1: `/Users/gun9/.codex/generated_images/019f915e-92a0-7650-bf31-0ac7378fa4e6/call_43weW8KraNkVAAMPJYXjhruw.png`
+- Final option-1 member card: `/Users/gun9/Developer/lawmaker-monitor/apps/web/dist/member-cards/T2T8225E.png`
+- Option-1 source and implementation comparison: `/Users/gun9/Developer/lawmaker-monitor/artifacts/design-qa/member-card-option-1-source-vs-final.png`
+- Option-1 300 × 158 social thumbnail: `/Users/gun9/Developer/lawmaker-monitor/artifacts/design-qa/member-card-option-1-thumbnail.png`
 - Final Watch Queue implementation: `/Users/gun9/Developer/lawmaker-monitor/artifacts/watch-queue-home-final-1440x900.jpg`
 - Final normalized comparison input: `/Users/gun9/Developer/lawmaker-monitor/artifacts/design-qa-home-comparison.jpg`
 - Final mobile Watch Queue: `/Users/gun9/Developer/lawmaker-monitor/artifacts/watch-queue-home-final-390x844.jpg`
@@ -41,7 +45,7 @@
 ## Target Direction
 
 - Information architecture: persistent masthead and search, compact page context, left comparison rail, central geographic or evidence workspace, right insight rail, and lower evidence sections.
-- Theme: warm newsprint paper, black editorial ink, oxblood caution signals, muted teal positive evidence, and neutral source states.
+- Theme: warm newsprint paper, black editorial ink, oxblood accountability signals, ochre caution context, and warm neutral source states. Civic teal is prohibited.
 - Shape language: flat evidence sheets, hard rules, restrained radii, no glass treatment, no decorative gradients, and no 3D presentation.
 - Typography: dense Korean newspaper hierarchy with editorial display titles, compact labels, and tabular evidence data.
 - Product boundary: all six V2 routes use the same shell and tokens while retaining the real data, official links, deep links, and existing CI/CD workflow.
@@ -287,5 +291,32 @@
 - `npm run test:ui`: 12 responsive scenarios passed across all six product routes.
 - `git diff --check`: passed.
 - Final browser measurement: 1440 × 900, zero horizontal overflow, five visible queue records, and three active evidence filters.
+
+### Pass 18 — Ink and Oxblood Theme with Option-1 Share Card
+
+- Selected visual truth: `/Users/gun9/.codex/generated_images/019f915e-92a0-7650-bf31-0ac7378fa4e6/call_43weW8KraNkVAAMPJYXjhruw.png` at 1731 × 909.
+- Final generated card: `/Users/gun9/Developer/lawmaker-monitor/apps/web/dist/member-cards/T2T8225E.png` at 1200 × 630.
+- Same-input comparison: `/Users/gun9/Developer/lawmaker-monitor/artifacts/design-qa/member-card-option-1-source-vs-final.png`. The source was normalized to 1200 × 630 and placed beside the implementation before visual judgment.
+- Thumbnail evidence: `/Users/gun9/Developer/lawmaker-monitor/artifacts/design-qa/member-card-option-1-thumbnail.png` at 300 × 158.
+- P1: the prior card used a civic-teal field, reduced the real portrait to a secondary panel, and expressed evidence as three equal bullets that lost hierarchy at social-feed size.
+- Fix: implemented the selected option-1 layout with a real official portrait occupying the left two-fifths, grayscale contrast and halftone treatment, a large member name, and exactly two dominant performance blocks. Missing evidence is not synthesized; the generator renders only valid highlights.
+- First comparison finding: the portrait and metric values were visually weaker than the selected target. The final pass enlarges the portrait crop and uses oxblood for the two dominant values while keeping their denominators and contexts in ink and ochre.
+- Thumbnail result: the portrait, member name, absence count, and lead-proposal count remain identifiable at 300 × 158. Secondary denominators remain visible without competing with the primary values.
+- Theme system: the global token layer, final Watch Queue presentation layer, regional evidence ledger, national-map sequential scale, activity comparison colors, bill charts, asset palette, and legacy route fallbacks now use newsprint, ink, oxblood, ochre, and warm slate.
+- Regional percentage encoding: low, normal, caution, and high states use warm slate, ink, ochre, and oxblood respectively. Each bar retains its direct percentage label, and the focused state retains the explicit severity label, so meaning is not color-only.
+- Teal audit: the repository scan found no remaining civic-teal variables or known teal palette values, and a hue scan found no saturated 160°–190° color literal in active web source.
+- Browser boundary: the in-app browser session did not expose an attachable tab during this pass. Visual fidelity was therefore verified on the generated social-card artifact and its normalized comparison; route behavior and palette changes were verified through component tests, build output, type checking, linting, and source-level color audits.
+
+## Pass 18 Verification
+
+- `npm test`: 50 files, 225 tests passed.
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm run build`: passed; 298 canonical member pages and 298 PNG cards generated.
+- Selected-card comparison at 1200 × 630: passed.
+- Social thumbnail check at 300 × 158: passed.
+- Saturated civic-teal hue scan: zero matches.
+- `git diff --check`: passed.
+- `.github/workflows`: unchanged.
 
 final result: passed

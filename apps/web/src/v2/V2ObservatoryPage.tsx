@@ -1161,19 +1161,19 @@ export function V2ObservatoryPage({
                   <Bar
                     dataKey="secondary"
                     name={config.trendSeries[1]}
-                    fill="#397b5d"
+                    fill="#575148"
                     radius={[3, 3, 0, 0]}
                   />
                   <Bar
                     dataKey="primary"
                     name={config.trendSeries[0]}
-                    fill="#4a7ed7"
+                    fill="#95622d"
                     radius={[3, 3, 0, 0]}
                   />
                   <Bar
                     dataKey="tertiary"
                     name={config.trendSeries[2]}
-                    fill="#c33a45"
+                    fill="#a52a22"
                     radius={[3, 3, 0, 0]}
                   />
                 </BarChart>
@@ -1206,7 +1206,7 @@ export function V2ObservatoryPage({
                     type="monotone"
                     dataKey="secondary"
                     name={config.trendSeries[1]}
-                    stroke="#397b5d"
+                    stroke="#575148"
                     strokeWidth={2}
                     dot={{ r: 2.5 }}
                     connectNulls
@@ -1215,7 +1215,7 @@ export function V2ObservatoryPage({
                     type="monotone"
                     dataKey="primary"
                     name={config.trendSeries[0]}
-                    stroke="#4a7ed7"
+                    stroke="#95622d"
                     strokeWidth={2}
                     dot={{ r: 2.5 }}
                     connectNulls
@@ -1224,7 +1224,7 @@ export function V2ObservatoryPage({
                     type="monotone"
                     dataKey="tertiary"
                     name={config.trendSeries[2]}
-                    stroke="#c33a45"
+                    stroke="#a52a22"
                     strokeWidth={2}
                     dot={{ r: 2.5 }}
                     connectNulls

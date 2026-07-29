@@ -260,6 +260,10 @@ describe("generateMemberSharePages", () => {
     const svg = renderMemberCardSvg(memberModel);
     expect(svg).toContain("기록표결 40건 중 불참 5건");
     expect(svg).toContain("대표발의 12건 · 처리결과 확인 7건");
+    expect(svg).toContain(">불참</text>");
+    expect(svg).toContain(">5건</text>");
+    expect(svg).toContain('filter="url(#newsprint)"');
+    expect(svg).not.toMatch(/#173c3a|#006b6e|#005357|#3f6455|#245d56/i);
     expect(cardsManifest).toMatchObject({
       snapshotId: "snapshot-123",
       cardVersion: expect.stringMatching(/^[a-f0-9]{16}$/),

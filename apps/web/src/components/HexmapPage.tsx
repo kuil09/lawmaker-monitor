@@ -814,6 +814,15 @@ export function HexmapPage({
                           value,
                           provinceMetricValues
                         );
+                        const rank = getMemberRank(
+                          regionalMembers,
+                          member.memberId,
+                          activeMetric
+                        );
+                        const severity = getMetricSeverity(
+                          value,
+                          rank.percentile
+                        );
                         return (
                           <button
                             key={member.memberId}
@@ -841,6 +850,7 @@ export function HexmapPage({
                             </span>
                             <span
                               className="ledger-member-card__metric"
+                              data-severity={severity}
                               style={
                                 {
                                   "--metric-progress": `${progress}%`

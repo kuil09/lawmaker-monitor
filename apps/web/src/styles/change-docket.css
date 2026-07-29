@@ -81,7 +81,7 @@
 }
 
 .change-docket__list > li.is-improved {
-  box-shadow: inset 4px 0 0 var(--watch-teal, #245d56);
+  box-shadow: inset 4px 0 0 var(--watch-verified, #575148);
 }
 
 .change-docket__affiliation {
@@ -127,7 +127,7 @@
 }
 
 .is-improved .change-docket__result strong {
-  color: var(--watch-teal, #245d56);
+  color: var(--watch-verified, #575148);
 }
 
 .change-docket__result span {

@@ -8,9 +8,9 @@
   --v2-border: #d9dadd;
   --v2-border-strong: #bbbfc5;
   --v2-oxblood: #7f111d;
-  --v2-blue: #4a7ed7;
-  --v2-green: #397b5d;
-  --v2-red: #c33a45;
+  --v2-blue: #95622d;
+  --v2-green: #575148;
+  --v2-red: #a52a22;
   min-height: 100vh;
   background: var(--v2-canvas);
   color: var(--v2-ink);

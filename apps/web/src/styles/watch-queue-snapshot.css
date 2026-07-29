@@ -109,7 +109,7 @@
 }
 
 .watch-queue-filters label > span.is-improved {
-  background: var(--watch-teal, #245d56);
+  background: var(--watch-verified, #575148);
 }
 
 .watch-queue-filters input {
@@ -179,7 +179,7 @@
 }
 
 .watch-queue-record.is-improved {
-  box-shadow: inset 4px 0 0 var(--watch-teal, #245d56);
+  box-shadow: inset 4px 0 0 var(--watch-verified, #575148);
 }
 
 .watch-queue-record > header,

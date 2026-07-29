@@ -173,8 +173,8 @@ type CompareRatioDatum = {
 const compareRatioColors = {
   leftStroke: "#982d22",
   leftFill: "rgba(152, 45, 34, 0.18)",
-  rightStroke: "#43657b",
-  rightFill: "rgba(67, 101, 123, 0.18)"
+  rightStroke: "#575148",
+  rightFill: "rgba(87, 81, 72, 0.18)"
 };
 
 const formatAssetAmount = formatAssetEok;

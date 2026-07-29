@@ -197,10 +197,10 @@ export function getPartyCssColor(party: string): string {
 }
 
 const SEQUENTIAL_METRIC_LOW: [number, number, number, number] = [
-  224, 231, 255, 235
+  222, 215, 201, 235
 ];
 const SEQUENTIAL_METRIC_HIGH: [number, number, number, number] = [
-  49, 46, 129, 245
+  165, 42, 34, 245
 ];
 
 // Maps a normalized metric value to a single-hue light-to-dark scale.

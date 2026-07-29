@@ -22,8 +22,8 @@ describe("party visualization colors", () => {
   });
 
   it("uses a party-independent sequential scale for geographic metrics", () => {
-    expect(getSequentialMetricColor(0)).toEqual([224, 231, 255, 235]);
-    expect(getSequentialMetricColor(1)).toEqual([49, 46, 129, 245]);
+    expect(getSequentialMetricColor(0)).toEqual([222, 215, 201, 235]);
+    expect(getSequentialMetricColor(1)).toEqual([165, 42, 34, 245]);
     expect(getSequentialMetricColor(-1)).toEqual(getSequentialMetricColor(0));
     expect(getSequentialMetricColor(2)).toEqual(getSequentialMetricColor(1));
   });

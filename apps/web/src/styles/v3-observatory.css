@@ -329,7 +329,7 @@
 .v2-national-map__district:focus-visible,
 .v2-national-map__district.is-active {
   outline: none;
-  stroke: #005f5c;
+  stroke: #a52a22;
   stroke-dasharray: none;
   stroke-width: 2.35;
   filter: brightness(1.04);
@@ -473,7 +473,7 @@
 }
 
 .v2-national-map__evidence > span {
-  color: #276968;
+  color: #625d54;
   font-weight: 720;
 }
 

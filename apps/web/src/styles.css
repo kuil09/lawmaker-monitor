@@ -345,9 +345,9 @@ summary:focus-visible {
 }
 
 .metric-toggle__button--real-estate.is-active {
-  border-color: rgba(47, 93, 115, 0.22);
-  color: #2f5d73;
-  background: rgba(47, 93, 115, 0.12);
+  border-color: rgba(87, 81, 72, 0.22);
+  color: #575148;
+  background: rgba(87, 81, 72, 0.12);
 }
 
 .metric-toggle__button--asset-total.is-active {
@@ -617,7 +617,7 @@ summary:focus-visible {
 }
 
 .ranking-item__segment--real-estate {
-  background: linear-gradient(90deg, #2f5d73 0%, #4f7f92 100%);
+  background: linear-gradient(90deg, #575148 0%, #777066 100%);
 }
 
 .ranking-item__segment--asset-total {
@@ -625,7 +625,7 @@ summary:focus-visible {
 }
 
 .ranking-item__segment--real-estate-share {
-  background: linear-gradient(90deg, #2f5d73 0%, #4f7f92 100%);
+  background: linear-gradient(90deg, #575148 0%, #777066 100%);
 }
 
 .ranking-item__segment--other-assets-share {
@@ -689,7 +689,7 @@ summary:focus-visible {
 
 .ranking-item__stats--real-estate strong,
 .ranking-item__stats--real-estate span {
-  color: #2f5d73;
+  color: #575148;
 }
 
 .ranking-item__stats--asset-total strong,
@@ -742,7 +742,7 @@ summary:focus-visible {
 }
 
 .ranking-item__meta-item--real-estate {
-  color: #2f5d73;
+  color: #575148;
 }
 
 .ranking-item__meta-item--asset-total {
@@ -754,7 +754,7 @@ summary:focus-visible {
 }
 
 .ranking-item__meta-item--asset-share {
-  color: #2f5d73;
+  color: #575148;
 }
 
 .ranking-item__meta-item--asset-date {

@@ -597,9 +597,9 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem 1.1rem;
-  border: 1px solid #b9d9d7;
+  border: 1px solid #c8bead;
   border-radius: 0.85rem;
-  background: linear-gradient(135deg, #edf8f7 0%, #f8fbfb 100%);
+  background: linear-gradient(135deg, #f4f0e7 0%, #fffefb 100%);
 }
 
 .activity-page .public-support__estimate-copy {
@@ -615,7 +615,7 @@
 }
 
 .activity-page .public-support__estimate-copy > strong {
-  color: #075d5c;
+  color: #575148;
   font-size: clamp(1.55rem, 4vw, 2.25rem);
   line-height: 1.15;
   letter-spacing: -0.05em;
@@ -645,7 +645,7 @@
 }
 
 .activity-page .public-support__badge--estimated {
-  background: #087f7b;
+  background: #575148;
   color: #ffffff;
 }
 
@@ -726,22 +726,22 @@
 
 .activity-page .public-support__stack-segment--teal-strong,
 .activity-page .public-support__swatch--teal-strong {
-  background: #075d5c;
+  background: #575148;
 }
 
 .activity-page .public-support__stack-segment--teal,
 .activity-page .public-support__swatch--teal {
-  background: #168684;
+  background: #777066;
 }
 
 .activity-page .public-support__stack-segment--blue,
 .activity-page .public-support__swatch--blue {
-  background: #3779a6;
+  background: #95622d;
 }
 
 .activity-page .public-support__stack-segment--sky,
 .activity-page .public-support__swatch--sky {
-  background: #65a4c4;
+  background: #c8bead;
 }
 
 .activity-page .public-support__stack-segment--slate,
@@ -779,8 +779,8 @@
 }
 
 .activity-page .public-support__evidence--estimated > span {
-  background: #d8efed;
-  color: #075d5c;
+  background: #eee3cf;
+  color: #575148;
 }
 
 .activity-page .public-support__evidence--statutory > span {
@@ -817,7 +817,7 @@
 
 .activity-page .public-support__method summary {
   padding-top: 0.9rem;
-  color: #315d66;
+  color: #625d54;
   cursor: pointer;
   font-size: 0.76rem;
   font-weight: 800;
@@ -852,7 +852,7 @@
 }
 
 .activity-page .public-support__sources a {
-  color: #086b83;
+  color: #741913;
   font-weight: 750;
 }
 
@@ -889,7 +889,7 @@
 }
 
 .activity-page .public-support__legend-mark--estimated {
-  background: #168684 !important;
+  background: #777066 !important;
 }
 
 .activity-page .public-support__legend-mark--statutory {
@@ -1413,7 +1413,7 @@
 }
 
 .activity-asset-trend--down {
-  color: #2f5d73;
+  color: #575148;
 }
 
 .activity-asset-trend--flat {
@@ -1519,7 +1519,7 @@
   border: 1px solid rgba(47, 93, 115, 0.18);
   border-radius: 999px;
   background: #ffffff;
-  color: #2f5d73;
+  color: #575148;
   font-size: 0.78rem;
   font-weight: 800;
   white-space: nowrap;

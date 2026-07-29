@@ -7,10 +7,10 @@
  */
 
 .v2-app.v3-shell.watch-queue-shell {
-  --wq-paper: #eee8da;
-  --wq-paper-deep: #e1d9c8;
-  --wq-sheet: #faf7ef;
-  --wq-sheet-muted: #f3eee2;
+  --wq-paper: #f2efe7;
+  --wq-paper-deep: #e5ded0;
+  --wq-sheet: #fffefb;
+  --wq-sheet-muted: #f4f0e7;
   --wq-ink: #1d1b18;
   --wq-ink-soft: #625d54;
   --wq-rule: #c8bead;
@@ -18,7 +18,7 @@
   --wq-alert: #a52a22;
   --wq-alert-strong: #741913;
   --wq-alert-soft: #f2dfd8;
-  --wq-positive: #3f6455;
+  --wq-verified: #575148;
   --wq-warning: #95622d;
   --wq-focus: #b2382e;
   --watch-paper: var(--wq-paper);
@@ -27,7 +27,7 @@
   --watch-muted: var(--wq-ink-soft);
   --watch-rule: var(--wq-rule);
   --watch-red: var(--wq-alert);
-  --watch-teal: var(--wq-positive);
+  --watch-verified: var(--wq-verified);
   --watch-amber: var(--wq-warning);
   --font-editorial: "Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", serif;
   --v3-accent: var(--wq-alert);
@@ -49,7 +49,7 @@
   --text-muted: var(--wq-ink-soft);
   --accent: var(--wq-alert);
   --accent-strong: var(--wq-alert-strong);
-  --positive: var(--wq-positive);
+  --positive: var(--wq-verified);
   --negative: var(--wq-alert);
   --warning: var(--wq-warning);
   --neutral: #777066;
@@ -70,7 +70,7 @@
 
 html:has(.watch-queue-shell),
 body:has(.watch-queue-shell) {
-  background: #eee8da;
+  background: #f2efe7;
 }
 
 .watch-queue-shell::selection {

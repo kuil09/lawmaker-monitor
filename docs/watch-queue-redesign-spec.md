@@ -130,7 +130,7 @@ position that is not supported by the official record.
 ### 4.1 Global header
 
 A flat paper-like header with a single hairline bottom border. The active route uses
-a thin teal underline. Party colors never appear in the navigation.
+a thin oxblood underline. Party colors never appear in the navigation.
 
 ### 4.2 Context band
 
@@ -364,7 +364,7 @@ is the primary evidence surface.
 
 Cartogram severity uses:
 
-- Neutral-to-teal intensity
+- Warm neutral-to-oxblood intensity
 - Explicit level label
 - Shape or symbol
 - Actual value
@@ -508,10 +508,10 @@ with an evidence terminal.
 - Background: warm paper off-white
 - Primary surface: white
 - Primary text: deep ink
-- Verified contribution: restrained civic teal
-- Caution: amber
-- Documented no-action: crimson
-- Pending or unknown: slate blue-gray
+- Verified contribution: strong neutral ink
+- Caution: ochre
+- Documented no-action: oxblood
+- Pending or unknown: warm slate
 - Headlines: Noto Serif KR
 - UI and data: Noto Sans KR
 - Numerals: tabular

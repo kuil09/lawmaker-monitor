@@ -36,7 +36,7 @@
 .member-sponsorship-account__status {
   border: 1px solid currentColor;
   padding: 0.28rem 0.46rem;
-  color: var(--wq-positive, #3f6455);
+  color: var(--wq-verified, #575148);
   font-size: 0.72rem;
   font-weight: 800;
 }
@@ -51,7 +51,7 @@
 .member-performance-share__preview {
   overflow: hidden;
   border: 1px solid var(--wq-rule-strong, #575148);
-  background: #173c3a;
+  background: #1d1b18;
   aspect-ratio: 1200 / 630;
 }
 
@@ -228,7 +228,7 @@
 .member-sponsorship-account__copy-feedback {
   min-height: 1.4em;
   margin-top: 0.65rem;
-  color: var(--wq-positive, #3f6455);
+  color: var(--wq-verified, #575148);
   font-size: 0.78rem;
   font-weight: 750;
 }

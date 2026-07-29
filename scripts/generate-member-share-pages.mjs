@@ -276,6 +276,41 @@ function buildEvidenceFacts(member) {
   return facts.slice(0, 3);
 }
 
+function buildPerformanceHighlights(member) {
+  const highlights = [];
+
+  if (member.accountability) {
+    highlights.push({
+      label: "불참",
+      value: `${formatInteger(member.accountability.absentCount)}건`,
+      contextLabel: "기록표결",
+      contextValue: `${formatInteger(
+        member.accountability.totalRecordedVotes
+      )}건`
+    });
+  } else if (member.activity?.voteRecordCount !== undefined) {
+    highlights.push({
+      label: "공개 표결",
+      value: `${formatInteger(member.activity.voteRecordCount)}건`,
+      contextLabel: "공개 기록",
+      contextValue: "확인"
+    });
+  }
+
+  if (member.bills) {
+    highlights.push({
+      label: "대표발의",
+      value: `${formatInteger(member.bills.leadProposalCount)}건`,
+      contextLabel: "처리결과 확인",
+      contextValue: `${formatInteger(
+        member.bills.leadResultAvailableProposalCount
+      )}건`
+    });
+  }
+
+  return highlights.slice(0, 2);
+}
+
 export function buildMemberCardModel(member, context) {
   const encodedMemberId = encodeURIComponent(member.memberId);
   const canonicalUrl = new URL(
@@ -296,6 +331,16 @@ export function buildMemberCardModel(member, context) {
     .filter(Boolean)
     .join(" · ");
   const facts = buildEvidenceFacts(member);
+  const highlights = buildPerformanceHighlights(member);
+  const tertiaryFact =
+    facts.find((fact) => fact.startsWith("최근 공개")) ??
+    facts.find(
+      (fact) =>
+        !fact.includes("기록표결") &&
+        !fact.includes("대표발의") &&
+        !fact.includes("공개된 표결 기록")
+    ) ??
+    null;
   const latestStatement = [...(member.statements?.summaries ?? [])].sort(
     (left, right) =>
       String(right.meetingDate ?? "").localeCompare(
@@ -335,30 +380,41 @@ export function buildMemberCardModel(member, context) {
     title,
     description,
     facts,
+    highlights,
+    tertiaryFact,
     latestEvidenceHeadline
   };
 }
 
 export function renderMemberCardSvg(model) {
-  const facts = [...model.facts, "공식 공개자료 기준"].slice(0, 3);
+  const highlights = model.highlights ?? [];
+  const accessibleDescription = [model.description, ...model.facts.slice(1)]
+    .filter(Boolean)
+    .join(" · ");
   const initials = [...model.name].slice(0, 2).join("");
+  const nameFontSize =
+    model.name.length <= 3 ? 82 : model.name.length <= 4 ? 72 : 62;
   const photo = model.photoUrl
     ? `<image href="${escapeXml(
         model.photoUrl
-      )}" x="74" y="118" width="302" height="372" preserveAspectRatio="xMidYMid slice" clip-path="url(#portraitClip)" filter="url(#newsprint)" />`
+      )}" x="14" y="-4" width="460" height="628" preserveAspectRatio="xMidYMid slice" clip-path="url(#portraitClip)" filter="url(#newsprint)" />`
     : "";
+  const metricColumns = [
+    { x: 490, width: 300, highlight: highlights[0] },
+    { x: 830, width: 300, highlight: highlights[1] }
+  ];
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
   <title id="title">${escapeXml(model.title)}</title>
-  <desc id="description">${escapeXml(model.description)}</desc>
+  <desc id="description">${escapeXml(accessibleDescription)}</desc>
   <defs>
     <pattern id="paper" width="8" height="8" patternUnits="userSpaceOnUse">
-      <circle cx="1" cy="1" r="0.7" fill="#233330" opacity="0.14" />
+      <circle cx="1" cy="1" r="0.65" fill="#1d1b18" opacity="0.1" />
     </pattern>
     <pattern id="halftone" width="7" height="7" patternUnits="userSpaceOnUse">
-      <circle cx="2" cy="2" r="1.2" fill="#132c2b" opacity="0.32" />
+      <circle cx="2" cy="2" r="1.15" fill="#1d1b18" opacity="0.34" />
     </pattern>
-    <clipPath id="portraitClip"><rect x="74" y="118" width="302" height="372" rx="8" /></clipPath>
+    <clipPath id="portraitClip"><rect x="44" y="36" width="400" height="548" /></clipPath>
     <filter id="newsprint">
       <feColorMatrix type="saturate" values="0" />
       <feComponentTransfer>
@@ -368,50 +424,66 @@ export function renderMemberCardSvg(model) {
       </feComponentTransfer>
     </filter>
   </defs>
-  <rect width="1200" height="630" fill="#f2efe6" />
+  <rect width="1200" height="630" fill="#f2efe7" />
   <rect width="1200" height="630" fill="url(#paper)" />
-  <rect x="0" y="0" width="24" height="630" fill="#b9342c" />
-  <path d="M438 0H1200V630H416L454 510L420 392L458 280L424 158Z" fill="#173c3a" />
-  <rect x="74" y="118" width="302" height="372" rx="8" fill="#d7d4ca" />
-  <text x="225" y="330" text-anchor="middle" fill="#173c3a" font-size="92" font-weight="800" font-family="Noto Sans KR">${escapeXml(
+  <rect x="22" y="20" width="1156" height="590" fill="none" stroke="#575148" stroke-width="2" />
+  <rect x="44" y="36" width="400" height="548" fill="#ded7c9" />
+  <text x="244" y="340" text-anchor="middle" fill="#575148" font-size="96" font-weight="900" font-family="Noto Sans KR">${escapeXml(
     initials
   )}</text>
   ${photo}
-  <rect x="74" y="118" width="302" height="372" rx="8" fill="url(#halftone)" opacity="0.32" />
-  <text x="74" y="72" fill="#173c3a" font-size="25" font-weight="800" font-family="Noto Sans KR">감시 큐 · 의원 실적 카드</text>
-  <text x="470" y="112" fill="#d8c9a3" font-size="23" font-weight="700" font-family="Noto Sans KR">${escapeXml(
+  <rect x="44" y="36" width="400" height="548" fill="url(#halftone)" opacity="0.3" />
+  <rect x="470" y="46" width="190" height="64" fill="#a52a22" />
+  <text x="565" y="91" text-anchor="middle" fill="#fffefb" font-size="40" font-weight="900" font-family="Noto Sans KR">감시 큐</text>
+  <text x="682" y="88" fill="#1d1b18" font-size="27" font-weight="900" font-family="Noto Sans KR">의원 실적 카드</text>
+  <text x="1130" y="88" text-anchor="end" fill="#625d54" font-size="20" font-weight="700" font-family="Noto Sans KR">${escapeXml(
     model.assemblyLabel
   )}</text>
-  <text x="470" y="192" fill="#fffdf6" font-size="66" font-weight="900" font-family="Noto Sans KR">${escapeXml(
+  <line x1="470" y1="128" x2="1130" y2="128" stroke="#575148" stroke-width="2" />
+  <text x="470" y="218" fill="#1d1b18" font-size="${nameFontSize}" font-weight="900" font-family="Noto Sans KR">${escapeXml(
     model.name
   )}</text>
-  <text x="470" y="238" fill="#d8c9a3" font-size="25" font-weight="700" font-family="Noto Sans KR">${escapeXml(
+  <text x="1130" y="174" text-anchor="end" fill="#95622d" font-size="22" font-weight="800" font-family="Noto Sans KR">${escapeXml(
     truncate(`${model.party} · ${model.district}`, 42)
   )}</text>
-  <line x1="470" y1="278" x2="1114" y2="278" stroke="#d8c9a3" stroke-width="2" opacity="0.6" />
-  ${facts
+  <line x1="470" y1="258" x2="1130" y2="258" stroke="#c8bead" stroke-width="1" />
+  ${metricColumns
+    .filter(({ highlight }) => highlight)
     .map(
-      (fact, index) => `<g transform="translate(470 ${334 + index * 66})">
-    <rect x="0" y="-24" width="12" height="12" fill="${index === 0 ? "#d8c9a3" : "#b9342c"}" transform="rotate(45 6 -18)" />
-    <text x="34" y="-8" fill="#fffdf6" font-size="27" font-weight="650" font-family="Noto Sans KR">${escapeXml(
-      truncate(fact, 46)
+      ({ x, width, highlight }) => `<g transform="translate(${x} 0)">
+    <rect x="0" y="286" width="${width}" height="38" fill="#a52a22" />
+    <text x="16" y="313" fill="#fffefb" font-size="21" font-weight="900" font-family="Noto Sans KR">${escapeXml(
+      highlight.label
+    )}</text>
+    <text x="0" y="406" fill="#a52a22" font-size="79" font-weight="900" font-family="Noto Sans KR">${escapeXml(
+      highlight.value
+    )}</text>
+    <text x="0" y="448" fill="#625d54" font-size="20" font-weight="700" font-family="Noto Sans KR">${escapeXml(
+      highlight.contextLabel
+    )}</text>
+    <text x="${width}" y="448" text-anchor="end" fill="#95622d" font-size="27" font-weight="900" font-family="Noto Sans KR">${escapeXml(
+      highlight.contextValue
     )}</text>
   </g>`
     )
     .join("\n  ")}
+  <line x1="810" y1="286" x2="810" y2="460" stroke="#c8bead" stroke-width="1" />
   ${
-    model.latestEvidenceHeadline
-      ? `<text x="470" y="510" fill="#d8c9a3" font-size="17" font-weight="700" font-family="Noto Sans KR">최근 회의록 안건</text>
-  <text x="470" y="540" fill="#fffdf6" font-size="19" font-weight="650" font-family="Noto Sans KR">${escapeXml(
-    model.latestEvidenceHeadline
+    model.tertiaryFact
+      ? `<text x="470" y="516" fill="#625d54" font-size="18" font-weight="700" font-family="Noto Sans KR">최근 공개</text>
+  <text x="1130" y="516" text-anchor="end" fill="#95622d" font-size="24" font-weight="900" font-family="Noto Sans KR">${escapeXml(
+    truncate(model.tertiaryFact.replace(/^최근 공개 /, ""), 38)
   )}</text>`
       : ""
   }
-  <text x="74" y="548" fill="#173c3a" font-size="20" font-weight="700" font-family="Noto Sans KR">수집 기준 ${escapeXml(
+  <text x="470" y="554" fill="#625d54" font-size="16" font-weight="700" font-family="Noto Sans KR">수집 기준 ${escapeXml(
     formatDate(model.generatedAt)
   )}</text>
-  <text x="74" y="580" fill="#5b6662" font-size="15" font-family="Noto Sans KR">분모·기간·공식 근거는 상세 화면에서 확인하세요.</text>
-  <text x="1114" y="590" text-anchor="end" fill="#d8c9a3" font-size="19" font-weight="700" font-family="Noto Sans KR">kuil09.github.io/lawmaker-monitor</text>
+  <text x="1130" y="554" text-anchor="end" fill="#625d54" font-size="16" font-weight="700" font-family="Noto Sans KR">분모·기간·공식 근거는 상세 화면에서 확인하세요.</text>
+  <rect x="0" y="582" width="1200" height="48" fill="#1d1b18" />
+  <text x="44" y="614" fill="#fffefb" font-size="18" font-weight="800" font-family="Noto Sans KR">국회 책임성 모니터 · 공식 공개자료 기반</text>
+  <text x="1156" y="614" text-anchor="end" fill="#eee3cf" font-size="18" font-weight="700" font-family="Noto Sans KR">kuil09.github.io/lawmaker-monitor</text>
+  <path d="M14 14h22M14 14v22M1186 14h-22M1186 14v22M14 616h22M14 616v-22M1186 616h-22M1186 616v-22" fill="none" stroke="#a52a22" stroke-width="3" />
 </svg>`;
 }
 
