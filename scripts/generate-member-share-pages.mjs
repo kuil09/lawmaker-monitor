@@ -24,7 +24,7 @@ const DEFAULT_CARD_FONT_FILES = [
   )
 );
 const CARD_GENERATION_CONCURRENCY = 2;
-const CARD_RENDERER_VERSION = "member-share-card-v3-grey-newsprint";
+const CARD_RENDERER_VERSION = "member-share-card-v4-grey-newsprint-sponsorship";
 const MEMBER_CARD_PALETTE = Object.freeze({
   paper: "#e7e7e1",
   paperDeep: "#c9cac4",
@@ -400,6 +400,7 @@ export function mergeMemberShareSources({
   accountabilitySummary,
   memberAssetsIndex,
   billProposalActivity,
+  memberSponsorshipAccounts,
   memberStatementSummaries = new Map()
 }) {
   const membersById = new Map();
@@ -446,6 +447,16 @@ export function mergeMemberShareSources({
     const member = getOrCreate(bills);
     if (member) {
       member.bills = bills;
+    }
+  }
+
+  for (const account of memberSponsorshipAccounts?.accounts ?? []) {
+    if (account?.status !== "verified") {
+      continue;
+    }
+    const member = membersById.get(account.memberId);
+    if (member) {
+      member.sponsorshipAccount = account;
     }
   }
 
@@ -593,13 +604,16 @@ export function buildMemberCardModel(member, context) {
       )
     : null;
   const title = `${member.name} 의원 기록 카드`;
+  const sponsorshipDescription = member.sponsorshipAccount
+    ? ` · 공식 후원계좌 ${member.sponsorshipAccount.bankName} ${member.sponsorshipAccount.accountNumber}`
+    : "";
   const description = `${affiliation ? `${affiliation} · ` : ""}${
     facts[0] ?? "공식 국회 기록을 확인하세요."
   }${
     latestEvidenceHeadline
       ? ` · 최근 회의록 안건 ${latestEvidenceHeadline}`
       : ""
-  }`;
+  }${sponsorshipDescription}`;
 
   return {
     memberId: member.memberId,
@@ -619,7 +633,8 @@ export function buildMemberCardModel(member, context) {
     facts,
     highlights,
     tertiaryFact,
-    latestEvidenceHeadline
+    latestEvidenceHeadline,
+    sponsorshipAccount: member.sponsorshipAccount ?? null
   };
 }
 
@@ -709,17 +724,29 @@ export function renderMemberCardSvg(model) {
     .join("\n  ")}
   <line x1="810" y1="286" x2="810" y2="460" stroke="${MEMBER_CARD_PALETTE.ruleSoft}" stroke-width="1" />
   ${
-    model.tertiaryFact
-      ? `<text x="470" y="516" fill="${MEMBER_CARD_PALETTE.inkSoft}" font-size="18" font-weight="700" font-family="Noto Sans KR">최근 공개</text>
+    model.sponsorshipAccount
+      ? `<text x="470" y="500" fill="${MEMBER_CARD_PALETTE.inkSoft}" font-size="18" font-weight="800" font-family="Noto Sans KR">공식 후원계좌</text>
+  <text x="1130" y="500" text-anchor="end" fill="${MEMBER_CARD_PALETTE.ink}" font-size="29" font-weight="900" font-family="Noto Sans KR">${escapeXml(
+    `${model.sponsorshipAccount.bankName} ${model.sponsorshipAccount.accountNumber}`
+  )}</text>
+  <text x="1130" y="528" text-anchor="end" fill="${MEMBER_CARD_PALETTE.inkSoft}" font-size="17" font-weight="700" font-family="Noto Sans KR">${escapeXml(
+    model.sponsorshipAccount.accountHolder
+  )}</text>`
+      : model.tertiaryFact
+        ? `<text x="470" y="516" fill="${MEMBER_CARD_PALETTE.inkSoft}" font-size="18" font-weight="700" font-family="Noto Sans KR">최근 공개</text>
   <text x="1130" y="516" text-anchor="end" fill="${MEMBER_CARD_PALETTE.ink}" font-size="24" font-weight="900" font-family="Noto Sans KR">${escapeXml(
     truncate(model.tertiaryFact.replace(/^최근 공개 /, ""), 38)
   )}</text>`
-      : ""
+        : ""
   }
   <text x="470" y="554" fill="${MEMBER_CARD_PALETTE.inkSoft}" font-size="16" font-weight="700" font-family="Noto Sans KR">수집 기준 ${escapeXml(
     formatDate(model.generatedAt)
   )}</text>
-  <text x="1130" y="554" text-anchor="end" fill="${MEMBER_CARD_PALETTE.inkSoft}" font-size="16" font-weight="700" font-family="Noto Sans KR">분모·기간·공식 근거는 상세 화면에서 확인하세요.</text>
+  <text x="1130" y="554" text-anchor="end" fill="${MEMBER_CARD_PALETTE.inkSoft}" font-size="16" font-weight="700" font-family="Noto Sans KR">${
+    model.sponsorshipAccount
+      ? "송금 전 카드 링크의 공식 출처에서 계좌를 다시 확인하세요."
+      : "분모·기간·공식 근거는 상세 화면에서 확인하세요."
+  }</text>
   <rect x="0" y="582" width="1200" height="48" fill="${MEMBER_CARD_PALETTE.ink}" />
   <text x="44" y="614" fill="${MEMBER_CARD_PALETTE.lime}" font-size="18" font-weight="800" font-family="Noto Sans KR">국회 책임성 모니터 · 공식 공개자료 기반</text>
   <text x="1156" y="614" text-anchor="end" fill="${MEMBER_CARD_PALETTE.paper}" font-size="18" font-weight="700" font-family="Noto Sans KR">kuil09.github.io/lawmaker-monitor</text>
@@ -869,6 +896,14 @@ export async function generateMemberSharePages({
         "billProposalActivity",
         "exports/bill_proposal_activity.json"
       )
+    ],
+    [
+      "memberSponsorshipAccounts",
+      getExportPath(
+        manifest,
+        "memberSponsorshipAccounts",
+        "exports/member_sponsorship_accounts.json"
+      )
     ]
   ];
   const sourceEntries = await Promise.all(
@@ -929,7 +964,8 @@ export async function generateMemberSharePages({
       manifest?.updatedAt,
       statementsIndex?.generatedAt,
       sources.activityCalendar?.generatedAt,
-      sources.accountabilitySummary?.generatedAt
+      sources.accountabilitySummary?.generatedAt,
+      sources.memberSponsorshipAccounts?.generatedAt
     ]
       .filter((value) => typeof value === "string" && value)
       .sort((left, right) => Date.parse(right) - Date.parse(left))[0] ??
@@ -945,7 +981,9 @@ export async function generateMemberSharePages({
         cardRendererVersion: CARD_RENDERER_VERSION,
         snapshotId,
         statementsGeneratedAt: statementsIndex?.generatedAt ?? null,
-        statementsPromptVersion: statementsIndex?.promptVersion ?? null
+        statementsPromptVersion: statementsIndex?.promptVersion ?? null,
+        sponsorshipGeneratedAt:
+          sources.memberSponsorshipAccounts?.generatedAt ?? null
       })
     )
     .digest("hex")

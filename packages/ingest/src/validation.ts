@@ -12,6 +12,7 @@ import {
   memberAssetsIndexExportSchema,
   memberActivityCalendarExportSchema,
   memberActivityCalendarMemberDetailExportSchema,
+  memberSponsorshipAccountsExportSchema,
   normalizedBundleSchema
 } from "@lawmaker-monitor/schemas";
 
@@ -29,6 +30,7 @@ import type {
   MemberAssetsIndexExport,
   MemberActivityCalendarExport,
   MemberActivityCalendarMemberDetailExport,
+  MemberSponsorshipAccountsExport,
   NormalizedBundle
 } from "@lawmaker-monitor/schemas";
 
@@ -74,6 +76,12 @@ export function validateMemberActivityCalendarMemberDetailExport(
   payload: MemberActivityCalendarMemberDetailExport
 ): MemberActivityCalendarMemberDetailExport {
   return memberActivityCalendarMemberDetailExportSchema.parse(payload);
+}
+
+export function validateMemberSponsorshipAccountsExport(
+  payload: MemberSponsorshipAccountsExport
+): MemberSponsorshipAccountsExport {
+  return memberSponsorshipAccountsExportSchema.parse(payload);
 }
 
 export function validateMemberAssetsIndexExport(

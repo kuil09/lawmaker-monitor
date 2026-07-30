@@ -75,6 +75,33 @@ describe("MemberSponsorshipAccount", () => {
     expect(screen.getByText("복사 불가")).toBeInTheDocument();
   });
 
+  it("keeps the official online donation route visible while direct account verification is pending", () => {
+    const account: Account = {
+      recordId: "M002-review",
+      memberId: "M002",
+      status: "unverified",
+      sourceUrl: "https://www.give.go.kr/official/M002",
+      reviewedAt: "2026-07-30",
+      reason: "A direct account was not found on a current official page.",
+      donationUrl: "https://www.give.go.kr/portal/give.do?supportNo=27002"
+    };
+
+    render(<MemberSponsorshipAccount account={account} memberName="박보라" />);
+
+    expect(
+      screen.getByText(
+        "공식 후원회와 온라인 후원 경로는 확인했지만, 직접 계좌번호는 의원 공식 채널과 대조 중이라 표시하거나 복사하지 않습니다."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "공식 후원 페이지" })
+    ).toHaveAttribute(
+      "href",
+      "https://www.give.go.kr/portal/give.do?supportNo=27002"
+    );
+    expect(screen.queryByText(/\d{3}-\d{4}-\d{4}/)).not.toBeInTheDocument();
+  });
+
   it("reports clipboard permission failures through a live status", async () => {
     vi.stubGlobal("navigator", {
       clipboard: {

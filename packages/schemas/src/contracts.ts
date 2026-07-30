@@ -67,7 +67,8 @@ const unverifiedMemberSponsorshipAccountSchema = z
     status: z.literal("unverified"),
     sourceUrl: httpsUrlString,
     reviewedAt: dateLikeString,
-    reason: nonEmptyString
+    reason: nonEmptyString,
+    donationUrl: httpsUrlString.optional()
   })
   .strict();
 

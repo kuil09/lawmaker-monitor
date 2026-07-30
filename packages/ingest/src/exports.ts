@@ -19,6 +19,7 @@ import type {
   MemberPublicProfile,
   MemberActivityCalendarExport,
   MemberActivityCalendarMemberDetailExport,
+  MemberSponsorshipAccountsExport,
   NormalizedBundle,
   VoteCode
 } from "@lawmaker-monitor/schemas";
@@ -33,6 +34,7 @@ type BuildArtifactsInput = {
   billProposalActivity?: BillProposalActivityExport;
   memberActivityCalendar?: MemberActivityCalendarExport;
   memberAssetsIndex?: MemberAssetsIndexExport;
+  memberSponsorshipAccounts?: MemberSponsorshipAccountsExport;
   assetDisclosuresDataset?: {
     content: string;
     rowCount: number;
@@ -2023,6 +2025,7 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
   const memberActivityCalendar =
     input.memberActivityCalendar ?? buildMemberActivityCalendarExport(bundle);
   const memberAssetsIndex = input.memberAssetsIndex;
+  const memberSponsorshipAccounts = input.memberSponsorshipAccounts;
   const constituencyBoundariesIndex = input.constituencyBoundariesIndex;
   const hexmapStaticIndex = input.hexmapStaticIndex;
   const normalizedPayloads = {
@@ -2154,6 +2157,15 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
               "exports/member_assets_index.json",
               memberAssetsIndex,
               memberAssetsIndex.members.length
+            )
+          }
+        : {}),
+      ...(memberSponsorshipAccounts
+        ? {
+            memberSponsorshipAccounts: createPublishedExportFile(
+              "exports/member_sponsorship_accounts.json",
+              memberSponsorshipAccounts,
+              memberSponsorshipAccounts.accounts.length
             )
           }
         : {}),

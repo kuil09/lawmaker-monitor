@@ -22,6 +22,7 @@ import {
   buildHexmapStaticRuntimeArtifacts,
   HEXMAP_STATIC_INDEX_PATH
 } from "../hexmap-static-runtime.js";
+import { collectMemberSponsorshipAccounts } from "../member-sponsorship-accounts.js";
 import {
   DEFAULT_PROPERTY_DOCUMENT_INDEX_PATH,
   buildPropertyDisclosureArtifacts
@@ -38,13 +39,15 @@ import {
   validateMemberActivityCalendarExport,
   validateMemberActivityCalendarMemberDetailExport,
   validateMemberAssetsHistoryExport,
-  validateMemberAssetsIndexExport
+  validateMemberAssetsIndexExport,
+  validateMemberSponsorshipAccountsExport
 } from "../validation.js";
 
 import type { BuildDataRawInputs } from "./input-stage.js";
 import type { NormalizedBuildArtifacts } from "./normalize-stage.js";
 import type {
   ConstituencyBoundaryExport,
+  MemberSponsorshipAccountsExport,
   NormalizedBundle
 } from "@lawmaker-monitor/schemas";
 
@@ -85,6 +88,86 @@ function toOptionalNdjson<T extends Record<string, unknown>>(
   return `${JSON.stringify(seedRow)}\n${items.length > 0 ? toNdjson(items) : ""}`;
 }
 
+async function loadPublishedSponsorshipAccounts(
+  dataRepoDir: string
+): Promise<MemberSponsorshipAccountsExport | null> {
+  try {
+    const payload = JSON.parse(
+      await readFile(
+        join(dataRepoDir, "exports", "member_sponsorship_accounts.json"),
+        "utf8"
+      )
+    ) as MemberSponsorshipAccountsExport;
+    return validateMemberSponsorshipAccountsExport(payload);
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function parsePositiveInteger(
+  value: string | undefined,
+  fallback: number
+): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+async function resolveMemberSponsorshipAccounts(args: {
+  runtimeConfig: BuildDataRawInputs;
+  normalized: NormalizedBuildArtifacts;
+  accountabilitySummary: ReturnType<typeof buildAccountabilitySummaryExport>;
+}): Promise<MemberSponsorshipAccountsExport | null> {
+  const existing = await loadPublishedSponsorshipAccounts(
+    args.runtimeConfig.dataRepoDir
+  );
+  if (args.runtimeConfig.env.COLLECT_SPONSORSHIP_ACCOUNTS !== "true") {
+    return existing;
+  }
+
+  try {
+    const result = await collectMemberSponsorshipAccounts({
+      members: args.accountabilitySummary.items,
+      assemblyNo: args.normalized.currentAssembly.assemblyNo,
+      assemblyLabel: args.normalized.currentAssembly.label,
+      snapshotId: args.normalized.snapshotId,
+      timeoutMs: parsePositiveInteger(
+        args.runtimeConfig.env.SPONSORSHIP_FETCH_TIMEOUT_MS,
+        10_000
+      ),
+      concurrency: parsePositiveInteger(
+        args.runtimeConfig.env.SPONSORSHIP_FETCH_CONCURRENCY,
+        4
+      )
+    });
+
+    console.info(
+      `[sponsorship] matched ${result.stats.officialSupporters}/${result.stats.directoryMembers} official committees; verified ${result.stats.verifiedAccounts} direct accounts; retained ${result.stats.officialDonationOnly} official donation-only records.`
+    );
+    for (const warning of result.warnings.slice(0, 25)) {
+      console.warn(`[sponsorship] ${warning}`);
+    }
+    if (result.warnings.length > 25) {
+      console.warn(
+        `[sponsorship] ${result.warnings.length - 25} additional source warnings were omitted.`
+      );
+    }
+
+    return validateMemberSponsorshipAccountsExport(result.exportData);
+  } catch (error) {
+    console.warn(
+      `[sponsorship] collection failed; ${
+        existing
+          ? "preserving the last verified export"
+          : "no prior export is available"
+      }: ${error instanceof Error ? error.message : String(error)}`
+    );
+    return existing;
+  }
+}
+
 export async function publishBuildOutputs(args: {
   runtimeConfig: BuildDataRawInputs;
   normalized: NormalizedBuildArtifacts;
@@ -106,6 +189,11 @@ export async function publishBuildOutputs(args: {
       tenureIndex: args.normalized.tenureIndex
     })
   );
+  const memberSponsorshipAccounts = await resolveMemberSponsorshipAccounts({
+    runtimeConfig: args.runtimeConfig,
+    normalized: args.normalized,
+    accountabilitySummary
+  });
   const billProposalActivity = validateBillProposalActivityExport(
     buildBillProposalActivityExport({
       bundle: args.normalized.bundle,
@@ -266,6 +354,7 @@ export async function publishBuildOutputs(args: {
       billProposalActivity,
       memberActivityCalendar,
       memberAssetsIndex,
+      ...(memberSponsorshipAccounts ? { memberSponsorshipAccounts } : {}),
       assetDisclosuresDataset: {
         content: propertyDatasetFiles.files,
         rowCount: propertyDisclosureArtifacts.files.length
@@ -297,6 +386,9 @@ export async function publishBuildOutputs(args: {
     memberActivityCalendar
   );
   const memberAssetsIndexJson = serializePublishedJson(memberAssetsIndex);
+  const memberSponsorshipAccountsJson = memberSponsorshipAccounts
+    ? serializePublishedJson(memberSponsorshipAccounts)
+    : null;
   const constituencyBoundariesIndexJson =
     constituencyBoundaryRuntimeArtifacts.indexJson;
   const hexmapStaticIndexJson = hexmapStaticRuntimeArtifacts.indexJson;
@@ -344,6 +436,12 @@ export async function publishBuildOutputs(args: {
     "exports/member_assets_index.json",
     memberAssetsIndexJson
   );
+  if (memberSponsorshipAccountsJson) {
+    assertPublishedJsonFileSize(
+      "exports/member_sponsorship_accounts.json",
+      memberSponsorshipAccountsJson
+    );
+  }
   assertPublishedJsonFileSize(
     CONSTITUENCY_BOUNDARIES_INDEX_PATH,
     constituencyBoundariesIndexJson
@@ -433,6 +531,18 @@ export async function publishBuildOutputs(args: {
       join(args.runtimeConfig.outputDir, "exports", "member_assets_index.json"),
       memberAssetsIndexJson
     ),
+    ...(memberSponsorshipAccountsJson
+      ? [
+          writeFile(
+            join(
+              args.runtimeConfig.outputDir,
+              "exports",
+              "member_sponsorship_accounts.json"
+            ),
+            memberSponsorshipAccountsJson
+          )
+        ]
+      : []),
     writeFile(
       join(args.runtimeConfig.outputDir, CONSTITUENCY_BOUNDARIES_INDEX_PATH),
       constituencyBoundariesIndexJson

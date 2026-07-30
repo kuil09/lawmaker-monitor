@@ -191,17 +191,26 @@ export function MemberSponsorshipAccount({
         <div className="member-sponsorship-account__unavailable">
           <p>
             {account?.status === "unverified"
-              ? "공식 출처와 대조 중이라 계좌번호를 표시하거나 복사하지 않습니다."
+              ? account.donationUrl
+                ? "공식 후원회와 온라인 후원 경로는 확인했지만, 직접 계좌번호는 의원 공식 채널과 대조 중이라 표시하거나 복사하지 않습니다."
+                : "공식 출처와 대조 중이라 계좌번호를 표시하거나 복사하지 않습니다."
               : account?.status === "superseded"
                 ? "변경되었거나 종료된 계좌라 계좌번호를 표시하거나 복사하지 않습니다."
                 : "공식적으로 확인된 후원계좌 정보가 없습니다."}
           </p>
           {account ? (
-            <a href={account.sourceUrl} target="_blank" rel="noreferrer">
-              {account.status === "superseded"
-                ? "변경 기록의 공식 출처"
-                : "확인 중인 공식 출처"}
-            </a>
+            <div className="member-sponsorship-account__links">
+              <a href={account.sourceUrl} target="_blank" rel="noreferrer">
+                {account.status === "superseded"
+                  ? "변경 기록의 공식 출처"
+                  : "후원회 등록 정보 확인"}
+              </a>
+              {account.donationUrl ? (
+                <a href={account.donationUrl} target="_blank" rel="noreferrer">
+                  공식 후원 페이지
+                </a>
+              ) : null}
+            </div>
           ) : (
             <a
               href={politicalDonationCenterUrl}

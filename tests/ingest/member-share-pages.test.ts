@@ -79,6 +79,17 @@ describe("mergeMemberShareSources", () => {
             leadProposalCount: 12
           }
         ]
+      },
+      memberSponsorshipAccounts: {
+        accounts: [
+          {
+            memberId: "M001",
+            status: "verified",
+            bankName: "농협",
+            accountNumber: "301-0000-0000-00",
+            accountHolder: "국회의원 김아라 후원회"
+          }
+        ]
       }
     });
 
@@ -90,7 +101,11 @@ describe("mergeMemberShareSources", () => {
       activity: { voteRecordCount: 35 },
       accountability: { totalRecordedVotes: 40 },
       assets: { latestTotal: 1_500_000 },
-      bills: { leadProposalCount: 12 }
+      bills: { leadProposalCount: 12 },
+      sponsorshipAccount: {
+        bankName: "농협",
+        accountNumber: "301-0000-0000-00"
+      }
     });
   });
 
@@ -170,6 +185,25 @@ describe("generateMemberSharePages", () => {
             district: "서울 가구",
             leadProposalCount: 12,
             leadResultAvailableProposalCount: 7
+          }
+        ]
+      },
+      "https://data.example.test/exports/member_sponsorship_accounts.json": {
+        generatedAt: "2026-07-30T12:00:00.000Z",
+        snapshotId: "snapshot-123:sponsorship",
+        assemblyNo: 22,
+        assemblyLabel: "제22대 국회",
+        accounts: [
+          {
+            recordId: "sponsorship-M001-test",
+            memberId: "M001",
+            status: "verified",
+            bankName: "농협",
+            accountNumber: "301-0000-0000-00",
+            accountHolder: "국회의원 김아라 후원회",
+            sourceUrl: "https://blog.example.test/M001/sponsorship",
+            verifiedAt: "2026-07-30T12:00:00.000Z",
+            donationUrl: "https://www.give.go.kr/portal/give.do?supportNo=1"
           }
         ]
       },
@@ -261,6 +295,10 @@ describe("generateMemberSharePages", () => {
         billProposalActivity:
           payloads[
             "https://data.example.test/exports/bill_proposal_activity.json"
+          ],
+        memberSponsorshipAccounts:
+          payloads[
+            "https://data.example.test/exports/member_sponsorship_accounts.json"
           ]
       })[0],
       {
@@ -275,6 +313,9 @@ describe("generateMemberSharePages", () => {
     expect(svg).toContain("대표발의 12건 · 처리결과 확인 7건");
     expect(svg).toContain(">불참</text>");
     expect(svg).toContain(">5건</text>");
+    expect(svg).toContain("공식 후원계좌");
+    expect(svg).toContain("농협 301-0000-0000-00");
+    expect(svg).toContain("국회의원 김아라 후원회");
     expect(svg).toContain('filter="url(#newsprint)"');
     expect(svg).toContain("<image");
     expect(svg).not.toContain(">김아</text>");
@@ -285,7 +326,7 @@ describe("generateMemberSharePages", () => {
     expect(cardsManifest).toMatchObject({
       snapshotId: "snapshot-123",
       cardVersion: expect.stringMatching(/^[a-f0-9]{16}$/),
-      cardRendererVersion: "member-share-card-v3-grey-newsprint",
+      cardRendererVersion: "member-share-card-v4-grey-newsprint-sponsorship",
       count: 1
     });
   });
