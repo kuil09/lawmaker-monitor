@@ -24,6 +24,10 @@ import {
 } from "react";
 
 import { MemberDetailLink } from "./MemberDetailLink.js";
+import {
+  ProportionalMemberComparison,
+  type ProportionalComparisonItem
+} from "./ProportionalMemberComparison.js";
 import { formatAssetEok, formatDate, formatPercent } from "../lib/format.js";
 import { getOptimizedMemberPhotoUrl } from "../lib/member-photo.js";
 
@@ -406,6 +410,14 @@ export function HexmapPage({
     () => members.filter((member) => member.province != null),
     [members]
   );
+  const proportionalMembers = useMemo(
+    () =>
+      members.filter(
+        (member) =>
+          member.province == null && member.district.trim() === "비례대표"
+      ),
+    [members]
+  );
   const availableProvinces = useMemo(
     () =>
       PROVINCE_ORDER.filter((province) =>
@@ -579,6 +591,33 @@ export function HexmapPage({
     selectedMemberRank.percentile
   );
   const activeMetricConfig = getMetricConfig(activeMetric);
+  const proportionalComparisonItems = useMemo<
+    ProportionalComparisonItem[]
+  >(
+    () =>
+      proportionalMembers.map((member) => {
+        const value = getMetricValue(member, activeMetric);
+        const rank = getMemberRank(
+          proportionalMembers,
+          member.memberId,
+          activeMetric
+        );
+        return {
+          memberId: member.memberId,
+          name: member.name,
+          party: member.party,
+          photoUrl: member.photoUrl,
+          primaryLabel: activeMetricConfig.label,
+          primaryValue: formatMetricValue(activeMetric, value),
+          secondaryLabel: "비례대표 내 순위",
+          secondaryValue:
+            rank.rank == null ? "비교 자료 없음" : `${rank.rank} / ${rank.total}`,
+          basisValue: activeMetricConfig.basis,
+          sortValue: value ?? Number.NEGATIVE_INFINITY
+        };
+      }),
+    [activeMetric, activeMetricConfig, proportionalMembers]
+  );
   const generatedDate =
     accountabilitySummary?.generatedAt ?? manifest?.updatedAt ?? null;
 
@@ -1105,6 +1144,16 @@ export function HexmapPage({
           )}
         </aside>
       </div>
+
+      <ProportionalMemberComparison
+        headingId="ledger-proportional-comparison-title"
+        kicker="지역 외 전국 비교군"
+        title={`${activeMetricConfig.label} · 비례대표 의원 비교`}
+        description="전국 상세 지도에 배치할 지역구가 없는 비례대표 의원을 현재 지표로 별도 비교합니다."
+        comparisonNote="순위는 비례대표 의원 안에서 자료가 공개된 항목만 비교합니다. 값의 높고 낮음은 사실 비교이며 평가 등급이 아닙니다."
+        items={proportionalComparisonItems}
+        onOpenMember={onNavigateToMember}
+      />
 
       <footer className="hexmap-footer-note">
         <span>

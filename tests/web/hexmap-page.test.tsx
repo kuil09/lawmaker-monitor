@@ -2,7 +2,13 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within
+} from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { HexmapPage } from "../../apps/web/src/components/HexmapPage.js";
@@ -54,6 +60,20 @@ describe("HexmapPage", () => {
     expect(
       screen.getByRole("complementary", { name: "선택한 의원의 기록" })
     ).toHaveTextContent("김아라");
+    const proportionalComparison = screen
+      .getByRole("heading", {
+        name: "결석률 · 비례대표 의원 비교"
+      })
+      .closest("section");
+    expect(proportionalComparison).not.toBeNull();
+    expect(
+      within(proportionalComparison!).getByRole("link", {
+        name: "이수 의원 상세 보기"
+      })
+    ).toHaveAttribute("href", "#calendar?member=M003");
+    expect(
+      within(proportionalComparison!).getByText("비례대표 내 순위")
+    ).toBeInTheDocument();
     expect(screen.queryByText("deck.gl 지역 탐색")).not.toBeInTheDocument();
     expect(document.querySelector("canvas")).not.toBeInTheDocument();
 

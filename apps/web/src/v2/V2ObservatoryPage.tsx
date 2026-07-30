@@ -24,6 +24,10 @@ import {
 import { V2NationalMap } from "./V2NationalMap.js";
 import { BillProposalActivitySection } from "../components/BillProposalActivitySection.js";
 import { MemberDetailLink } from "../components/MemberDetailLink.js";
+import {
+  ProportionalMemberComparison,
+  type ProportionalComparisonItem
+} from "../components/ProportionalMemberComparison.js";
 import { WatchQueueSnapshot } from "../components/WatchQueueSnapshot.js";
 import { buildWeeklyTrendChartData } from "../lib/charts.js";
 import { convertThousandWonToEok } from "../lib/format.js";
@@ -53,6 +57,7 @@ type ObservatoryPoint = {
   name: string;
   party: string;
   district: string;
+  photoUrl: string | null;
   x: number;
   y: number;
   score: number;
@@ -296,6 +301,7 @@ function buildPoints(
           name: member.name,
           party: member.party,
           district,
+          photoUrl: member.photoUrl ?? null,
           x: member.attendanceRate * 100,
           y: member.negativeRate * 100,
           score: member.attendanceRate * 100,
@@ -317,6 +323,7 @@ function buildPoints(
           name: member.name,
           party: member.party,
           district,
+          photoUrl: member.photoUrl ?? null,
           x: member.yesRate * 100,
           y: member.partyLineDefectionRate * 100,
           score: member.yesRate * 100,
@@ -349,6 +356,7 @@ function buildPoints(
         name: member.name,
         party: member.party,
         district,
+        photoUrl: member.photoUrl ?? null,
         x: total,
         y: realEstate,
         score: total,
@@ -541,6 +549,38 @@ export function V2ObservatoryPage({
     [activeLens, memberAssetsIndex, members]
   );
   const rankingRows = useMemo(() => buildRankingRows(points), [points]);
+  const regionalPoints = useMemo(
+    () => points.filter((point) => point.district !== "비례대표"),
+    [points]
+  );
+  const proportionalPoints = useMemo(
+    () => points.filter((point) => point.district === "비례대표"),
+    [points]
+  );
+  const proportionalComparisonItems = useMemo<
+    ProportionalComparisonItem[]
+  >(
+    () =>
+      proportionalPoints.map((point) => ({
+        memberId: point.memberId,
+        name: point.name,
+        party: point.party,
+        photoUrl: point.photoUrl,
+        primaryLabel: config.scoreLabel,
+        primaryValue:
+          activeLens === "assets"
+            ? formatEok(point.score)
+            : formatPercentValue(point.score),
+        secondaryLabel: config.supportLabel,
+        secondaryValue:
+          point.supportValue == null
+            ? "자료 없음"
+            : formatPercentValue(point.supportValue),
+        basisValue: `${config.basisLabel} ${point.basisValue}`,
+        sortValue: point.score
+      })),
+    [activeLens, config, proportionalPoints]
+  );
   const trendData = useMemo(() => {
     if (activeLens === "attendance") {
       return buildAttendanceTrend(activityCalendar);
@@ -807,7 +847,7 @@ export function V2ObservatoryPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {points.map((point) => (
+                    {regionalPoints.map((point) => (
                       <tr key={point.memberId}>
                         <th scope="row">
                           <button
@@ -1359,6 +1399,15 @@ export function V2ObservatoryPage({
             </div>
           </section>
         </div>
+        <ProportionalMemberComparison
+          headingId="v2-proportional-comparison-title"
+          kicker="지역 밖 전국 비교군"
+          title={`${config.label} · 비례대표 의원 비교`}
+          description="시·도 경계에 속하지 않아 지도에 배치되지 않는 비례대표 의원을 같은 기준으로 따로 비교합니다."
+          comparisonNote="순서는 현재 지표의 공개값이 높은 순이며, 값의 높고 낮음 자체를 의정활동의 우수·미흡으로 판정하지 않습니다."
+          items={proportionalComparisonItems}
+          onOpenMember={onOpenMember}
+        />
       </section>
       <BillProposalActivitySection
         data={billProposalActivity}

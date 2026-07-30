@@ -57,6 +57,17 @@ const members = buildDistributionMembers(
   accountabilitySummary,
   activityCalendar
 );
+const membersWithProportionalRepresentative = [
+  ...members,
+  {
+    ...members[0]!,
+    memberId: "M003",
+    name: "이수",
+    party: "시민녹색당",
+    district: "비례대표",
+    photoUrl: null
+  }
+];
 
 describe("v2 observatory", () => {
   it("caps percentage scatter domains at 100 without changing asset padding", () => {
@@ -98,7 +109,7 @@ describe("v2 observatory", () => {
         freshnessText="2026년 7월 24일"
         manifest={manifest}
         accountabilitySummary={accountabilitySummary}
-        members={members}
+        members={membersWithProportionalRepresentative}
         activityCalendar={activityCalendar}
         accountabilityTrends={accountabilityTrends}
         memberAssetsIndex={memberAssetsIndex}
@@ -172,11 +183,32 @@ describe("v2 observatory", () => {
     expect(
       screen.queryByText("색이 진할수록 결석률 높음")
     ).not.toBeInTheDocument();
+    const proportionalComparison = screen
+      .getByRole("heading", {
+        name: "출석 · 비례대표 의원 비교"
+      })
+      .closest("section");
+    expect(proportionalComparison).not.toBeNull();
+    expect(
+      within(proportionalComparison!).getByText(
+        /시·도 경계에 속하지 않아 지도에 배치되지 않는/
+      )
+    ).toBeInTheDocument();
+    expect(
+      within(proportionalComparison!).getByRole("link", {
+        name: "이수 의원 상세 보기"
+      })
+    ).toHaveAttribute("href", "#calendar?member=M003");
 
     fireEvent.keyDown(attendanceTab, { key: "ArrowRight" });
 
     const votingTab = screen.getByRole("tab", { name: "표결 성향" });
     expect(votingTab).toHaveAttribute("aria-selected", "true");
+    expect(
+      screen.getByRole("heading", {
+        name: "표결 성향 · 비례대표 의원 비교"
+      })
+    ).toBeInTheDocument();
     expect(observatoryPanel).toHaveAttribute(
       "aria-labelledby",
       "v2-lens-tab-voting"

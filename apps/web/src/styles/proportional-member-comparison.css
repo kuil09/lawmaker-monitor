@@ -1,0 +1,264 @@
+.proportional-comparison {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid #c8bead;
+  border-top: 4px solid #1d1b18;
+  border-radius: 8px;
+  background: #fffefb;
+  color: #1d1b18;
+}
+
+.proportional-comparison__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 24px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #c8bead;
+}
+
+.proportional-comparison__header p {
+  margin: 0 0 4px;
+  color: #625d54;
+  font-size: 0.63rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.proportional-comparison__header h2 {
+  margin: 0;
+  color: #1d1b18;
+  font-size: 1.08rem;
+  font-weight: 900;
+  letter-spacing: -0.035em;
+}
+
+.proportional-comparison__header > div > span {
+  display: block;
+  max-width: 760px;
+  margin-top: 5px;
+  color: #625d54;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.proportional-comparison__header > dl {
+  display: grid;
+  min-width: 210px;
+  margin: 0;
+  grid-template-columns: repeat(2, minmax(90px, 1fr));
+  border: 1px solid #c8bead;
+  background: #f2efe7;
+}
+
+.proportional-comparison__header > dl div {
+  padding: 8px 12px;
+}
+
+.proportional-comparison__header > dl div + div {
+  border-left: 1px solid #c8bead;
+}
+
+.proportional-comparison__header dt,
+.proportional-comparison__metrics dt {
+  color: #706a61;
+  font-size: 0.58rem;
+}
+
+.proportional-comparison__header dd {
+  margin: 3px 0 0;
+  color: #1d1b18;
+  font-size: 0.82rem;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+}
+
+.proportional-comparison__list {
+  display: grid;
+  max-height: 520px;
+  margin: 14px 0 0;
+  padding: 0 4px 0 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  overflow: auto;
+  list-style: none;
+  scrollbar-color: #8a8276 #f2efe7;
+}
+
+.proportional-comparison__list li {
+  display: grid;
+  min-width: 0;
+  min-height: 92px;
+  grid-template-columns: 42px 58px minmax(130px, 1fr) minmax(168px, auto);
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #d7cfc2;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.proportional-comparison__rank {
+  display: grid;
+  height: 100%;
+  place-content: center;
+  border-right: 1px solid #d7cfc2;
+  background: #f2efe7;
+  text-align: center;
+}
+
+.proportional-comparison__rank b {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.proportional-comparison__rank small {
+  margin-top: 1px;
+  color: #777066;
+  font-size: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.proportional-comparison__portrait {
+  display: block;
+  width: 58px;
+  height: 92px;
+  object-fit: cover;
+  object-position: 50% 18%;
+  background: #ded7c9;
+  filter: grayscale(1) contrast(1.12) brightness(0.98);
+}
+
+.proportional-comparison__portrait--fallback {
+  display: grid;
+  place-items: center;
+  color: #575148;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.proportional-comparison__identity {
+  display: grid;
+  min-width: 0;
+  padding: 10px 12px;
+  gap: 2px;
+}
+
+.proportional-comparison__identity .member-detail-link {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+  color: #1d1b18;
+  text-decoration: none;
+}
+
+.proportional-comparison__identity .member-detail-link:hover {
+  color: #a52a22;
+  text-decoration: underline;
+}
+
+.proportional-comparison__identity strong {
+  overflow: hidden;
+  font-size: 0.8rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proportional-comparison__identity > span,
+.proportional-comparison__identity > small {
+  overflow: hidden;
+  color: #625d54;
+  font-size: 0.6rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proportional-comparison__identity > small {
+  color: #837b70;
+}
+
+.proportional-comparison__metrics {
+  display: grid;
+  min-width: 168px;
+  margin: 0;
+  grid-template-columns: repeat(2, minmax(76px, 1fr));
+  border-left: 1px solid #d7cfc2;
+}
+
+.proportional-comparison__metrics div {
+  min-width: 0;
+  padding: 10px;
+}
+
+.proportional-comparison__metrics div + div {
+  border-left: 1px solid #e4ded4;
+}
+
+.proportional-comparison__metrics dd {
+  overflow: hidden;
+  margin: 4px 0 0;
+  color: #1d1b18;
+  font-size: 0.75rem;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proportional-comparison__note {
+  margin: 10px 0 0;
+  color: #706a61;
+  font-size: 0.62rem;
+  line-height: 1.45;
+}
+
+.proportional-comparison__empty {
+  display: flex;
+  min-height: 120px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #625d54;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 980px) {
+  .proportional-comparison__list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .proportional-comparison {
+    padding: 14px 12px;
+  }
+
+  .proportional-comparison__header {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 10px;
+  }
+
+  .proportional-comparison__header > dl {
+    width: 100%;
+  }
+
+  .proportional-comparison__list li {
+    grid-template-columns: 36px 50px minmax(0, 1fr);
+  }
+
+  .proportional-comparison__portrait {
+    width: 50px;
+    height: 82px;
+  }
+
+  .proportional-comparison__metrics {
+    grid-column: 1 / -1;
+    min-width: 0;
+    border-top: 1px solid #d7cfc2;
+    border-left: 0;
+  }
+}
