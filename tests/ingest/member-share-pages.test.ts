@@ -320,6 +320,46 @@ describe("member share portraits", () => {
     );
   });
 
+  it("uses the official lightweight portrait variant", async () => {
+    const sourceUrl =
+      "https://www.assembly.go.kr/static/portal/img/openassm/new/member.png";
+    const thumbnailUrl =
+      "https://www.assembly.go.kr/static/portal/img/openassm/new/thumb/member.png";
+    const fetchImpl = vi.fn(async (url: string) =>
+      url === thumbnailUrl
+        ? new Response(onePixelPng, {
+            status: 200,
+            headers: { "Content-Type": "image/png" }
+          })
+        : new Response(null, { status: 404 })
+    );
+
+    const portrait = await resolveMemberPortraitDataUrl({
+      member: {
+        memberId: "M001",
+        name: "김아라",
+        photoUrl: sourceUrl
+      },
+      assemblyNo: 22,
+      fetchImpl,
+      warnings: [],
+      timeoutMs: 1_000
+    });
+
+    expect(portrait).toBe(
+      `data:image/png;base64,${onePixelPng.toString("base64")}`
+    );
+    expect(fetchImpl).toHaveBeenCalledWith(
+      thumbnailUrl,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Referer: "https://www.assembly.go.kr/"
+        })
+      })
+    );
+    expect(fetchImpl).not.toHaveBeenCalledWith(sourceUrl, expect.anything());
+  });
+
   it("backfills a missing published portrait from the official member page", async () => {
     const pageUrl =
       "https://www.assembly.go.kr/portal/assm/assmMemb/member.do?monaCd=M001&st=22&viewType=CONTBODY";
@@ -375,6 +415,40 @@ describe("member share portraits", () => {
         })
       })
     );
+  });
+
+  it("retries a transient portrait response before using the official fallback", async () => {
+    let imageAttempts = 0;
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url === "https://images.example.test/M001.jpg") {
+        imageAttempts += 1;
+        if (imageAttempts < 3) {
+          return new Response(null, { status: 503 });
+        }
+        return new Response(onePixelPng, {
+          status: 200,
+          headers: { "Content-Type": "image/png" }
+        });
+      }
+      return new Response(null, { status: 404 });
+    });
+
+    const portrait = await resolveMemberPortraitDataUrl({
+      member: {
+        memberId: "M001",
+        name: "김아라",
+        photoUrl: "https://images.example.test/M001.jpg"
+      },
+      assemblyNo: 22,
+      fetchImpl,
+      warnings: [],
+      timeoutMs: 1_000
+    });
+
+    expect(portrait).toBe(
+      `data:image/png;base64,${onePixelPng.toString("base64")}`
+    );
+    expect(imageAttempts).toBe(3);
   });
 
   it("refuses to render a card without a verified portrait", () => {

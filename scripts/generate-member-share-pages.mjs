@@ -23,10 +23,14 @@ const DEFAULT_CARD_FONT_FILES = [
     `../node_modules/@expo-google-fonts/noto-sans-kr/${fontPath}`
   )
 );
-const CARD_GENERATION_CONCURRENCY = 8;
+const CARD_GENERATION_CONCURRENCY = 2;
 const STATEMENT_FETCH_CONCURRENCY = 16;
 const SAFE_MEMBER_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+const PORTRAIT_FETCH_ATTEMPTS = 3;
+const PORTRAIT_RETRY_BASE_DELAY_MS = 250;
 const ASSEMBLY_ORIGIN = "https://www.assembly.go.kr";
+const ASSEMBLY_PORTRAIT_PREFIX = "/static/portal/img/openassm/new/";
+const ASSEMBLY_PORTRAIT_THUMB_PREFIX = `${ASSEMBLY_PORTRAIT_PREFIX}thumb/`;
 const ASSEMBLY_REQUEST_HEADERS = {
   Accept:
     "text/html,application/xhtml+xml,image/avif,image/webp,image/png,image/jpeg,*/*",
@@ -137,14 +141,94 @@ function isAssemblyUrl(url) {
   }
 }
 
-async function fetchImageDataUrl(fetchImpl, url, warnings, timeoutMs) {
+function getOptimizedPortraitUrl(url) {
   try {
-    const response = await fetchImpl(url, {
-      headers: isAssemblyUrl(url) ? ASSEMBLY_REQUEST_HEADERS : undefined,
-      signal: AbortSignal.timeout(timeoutMs)
-    });
+    const parsedUrl = new URL(url);
+    if (
+      parsedUrl.origin !== ASSEMBLY_ORIGIN ||
+      !parsedUrl.pathname.startsWith(ASSEMBLY_PORTRAIT_PREFIX) ||
+      parsedUrl.pathname.startsWith(ASSEMBLY_PORTRAIT_THUMB_PREFIX)
+    ) {
+      return url;
+    }
+
+    parsedUrl.pathname = `${ASSEMBLY_PORTRAIT_THUMB_PREFIX}${parsedUrl.pathname.slice(
+      ASSEMBLY_PORTRAIT_PREFIX.length
+    )}`;
+    return parsedUrl.toString();
+  } catch {
+    return url;
+  }
+}
+
+function isRetryableResponse(status) {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+function readRetryAfterMs(response) {
+  const retryAfter = response.headers.get("retry-after");
+  if (!retryAfter) {
+    return null;
+  }
+
+  const seconds = Number(retryAfter);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return seconds * 1_000;
+  }
+
+  const retryAt = Date.parse(retryAfter);
+  return Number.isNaN(retryAt) ? null : Math.max(0, retryAt - Date.now());
+}
+
+async function waitForRetry(delayMs) {
+  await new Promise((resolvePromise) => setTimeout(resolvePromise, delayMs));
+}
+
+async function fetchPortraitResource(fetchImpl, url, headers, timeoutMs) {
+  let lastError = null;
+
+  for (let attempt = 0; attempt < PORTRAIT_FETCH_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetchImpl(url, {
+        headers,
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+      if (
+        !isRetryableResponse(response.status) ||
+        attempt === PORTRAIT_FETCH_ATTEMPTS - 1
+      ) {
+        return response;
+      }
+
+      lastError = new Error(`returned ${response.status}`);
+      await waitForRetry(
+        readRetryAfterMs(response) ??
+          PORTRAIT_RETRY_BASE_DELAY_MS * 2 ** attempt
+      );
+    } catch (error) {
+      lastError = error;
+      if (attempt === PORTRAIT_FETCH_ATTEMPTS - 1) {
+        break;
+      }
+      await waitForRetry(PORTRAIT_RETRY_BASE_DELAY_MS * 2 ** attempt);
+    }
+  }
+
+  throw lastError ?? new Error("portrait request failed");
+}
+
+async function fetchImageDataUrl(fetchImpl, url, warnings, timeoutMs) {
+  const optimizedUrl = getOptimizedPortraitUrl(url);
+
+  try {
+    const response = await fetchPortraitResource(
+      fetchImpl,
+      optimizedUrl,
+      isAssemblyUrl(optimizedUrl) ? ASSEMBLY_REQUEST_HEADERS : undefined,
+      timeoutMs
+    );
     if (!response.ok) {
-      warnings.push(`${url} image returned ${response.status}`);
+      warnings.push(`${optimizedUrl} image returned ${response.status}`);
       return null;
     }
 
@@ -155,21 +239,23 @@ async function fetchImageDataUrl(fetchImpl, url, warnings, timeoutMs) {
       ?.toLowerCase();
     if (!contentType?.startsWith("image/")) {
       warnings.push(
-        `${url} returned non-image content type ${contentType ?? "unknown"}`
+        `${optimizedUrl} returned non-image content type ${
+          contentType ?? "unknown"
+        }`
       );
       return null;
     }
 
     const image = Buffer.from(await response.arrayBuffer());
     if (image.length === 0) {
-      warnings.push(`${url} returned an empty image`);
+      warnings.push(`${optimizedUrl} returned an empty image`);
       return null;
     }
 
     return `data:${contentType};base64,${image.toString("base64")}`;
   } catch (error) {
     warnings.push(
-      `${url} image could not be loaded: ${
+      `${optimizedUrl} image could not be loaded: ${
         error instanceof Error ? error.message : String(error)
       }`
     );
@@ -218,10 +304,12 @@ export async function resolveMemberPortraitDataUrl({
   let officialPhotoUrl = null;
 
   try {
-    const response = await fetchImpl(memberPageUrl, {
-      headers: ASSEMBLY_REQUEST_HEADERS,
-      signal: AbortSignal.timeout(timeoutMs)
-    });
+    const response = await fetchPortraitResource(
+      fetchImpl,
+      memberPageUrl,
+      ASSEMBLY_REQUEST_HEADERS,
+      timeoutMs
+    );
     if (!response.ok) {
       warnings.push(`${memberPageUrl} returned ${response.status}`);
     } else {
