@@ -133,6 +133,7 @@ async function resolveMemberSponsorshipAccounts(args: {
       assemblyNo: args.normalized.currentAssembly.assemblyNo,
       assemblyLabel: args.normalized.currentAssembly.label,
       snapshotId: args.normalized.snapshotId,
+      previousAccounts: existing,
       timeoutMs: parsePositiveInteger(
         args.runtimeConfig.env.SPONSORSHIP_FETCH_TIMEOUT_MS,
         10_000

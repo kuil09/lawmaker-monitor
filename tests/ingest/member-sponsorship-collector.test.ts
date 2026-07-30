@@ -3,8 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   collectMemberSponsorshipAccounts,
   extractNaverBlogId,
+  extractSponsorshipAccountFromOfficialProfile,
   extractSponsorshipAccountFromNaverPost,
   parseNaverSearchCandidates,
+  parseOfficialProfileCandidates,
   parseOfficialSupporterListPage,
   pickOfficialSupporter
 } from "../../packages/ingest/src/member-sponsorship-accounts.js";
@@ -56,6 +58,26 @@ const naverPostHtml = `
   </div>
 `;
 
+const officialProfileSearchHtml = `
+  <div class="fds-web-root">
+    <a href="https://www.youtube.com/channel/UC_OFFICIAL">김아라TV</a>
+    <p>가나다당 제22대 국회의원 김아라입니다.</p>
+    <p>후원계좌와 국회의원김아라후원회 안내</p>
+  </div>
+  <div class="fds-web-root">
+    <a href="https://www.youtube.com/channel/UC_NEWS">김아라 뉴스 모음</a>
+    <p>김아라 의원 관련 뉴스를 소개합니다.</p>
+  </div>
+`;
+
+const officialProfileHtml = `
+  <title>김아라TV - YouTube</title>
+  <meta
+    name="description"
+    content="가나다당 제22대 국회의원 김아라입니다. 후원계좌 농협 301-0123-4567-89 국회의원김아라후원회"
+  />
+`;
+
 describe("member sponsorship account collection", () => {
   it("parses official committee registration and donation routes", () => {
     const parsed = parseOfficialSupporterListPage(supporterListHtml);
@@ -93,6 +115,33 @@ describe("member sponsorship account collection", () => {
       accountNumber: "301-0123-4567-89",
       accountHolder: "국회의원 김아라 후원회",
       sourcePublishedAt: "2026-07-30T10:20:00+09:00"
+    });
+  });
+
+  it("accepts a current account from an identity-matched official profile", () => {
+    expect(
+      parseOfficialProfileCandidates({
+        html: officialProfileSearchHtml,
+        memberName: "김아라",
+        party: "가나다당"
+      })
+    ).toEqual([
+      {
+        url: "https://www.youtube.com/channel/UC_OFFICIAL",
+        score: 17
+      }
+    ]);
+    expect(
+      extractSponsorshipAccountFromOfficialProfile({
+        html: officialProfileHtml,
+        memberName: "김아라",
+        party: "가나다당"
+      })
+    ).toEqual({
+      bankName: "농협",
+      accountNumber: "301-0123-4567-89",
+      accountHolder: "국회의원김아라후원회",
+      sourcePublishedAt: null
     });
   });
 
@@ -168,6 +217,118 @@ describe("member sponsorship account collection", () => {
         donationUrl: "https://www.give.go.kr/portal/give.do?supportNo=27001"
       })
     ]);
+  });
+
+  it("discovers and publishes an account from an official profile", async () => {
+    const supporterWithoutHomepage = supporterListHtml.replace(
+      'href="http://blog.naver.com/member_a"',
+      'href=""'
+    );
+    const fetchImpl = vi.fn(async (url: string | URL) => {
+      const value = String(url);
+      if (value.includes("supporterSearch/list.do")) {
+        return new Response(supporterWithoutHomepage, { status: 200 });
+      }
+      if (value.includes("m.search.naver.com")) {
+        return new Response(officialProfileSearchHtml, { status: 200 });
+      }
+      if (value === "https://www.youtube.com/channel/UC_OFFICIAL") {
+        return new Response(officialProfileHtml, { status: 200 });
+      }
+      return new Response(null, { status: 404 });
+    });
+
+    const result = await collectMemberSponsorshipAccounts({
+      members: [
+        {
+          memberId: "M001",
+          name: "김아라",
+          party: "가나다당",
+          district: "서울 가구",
+          officialExternalUrl: null,
+          officialProfileUrl: "https://www.assembly.go.kr/members/22nd/MEMBERA"
+        }
+      ],
+      assemblyNo: 22,
+      assemblyLabel: "제22대 국회",
+      snapshotId: "snapshot-123",
+      generatedAt: "2026-07-30T12:00:00.000Z",
+      fetchImpl,
+      timeoutMs: 1_000,
+      concurrency: 1
+    });
+
+    expect(result.stats.verifiedAccounts).toBe(1);
+    expect(result.exportData.accounts).toEqual([
+      expect.objectContaining({
+        memberId: "M001",
+        status: "verified",
+        bankName: "농협",
+        accountNumber: "301-0123-4567-89",
+        accountHolder: "국회의원김아라후원회",
+        sourceUrl: "https://www.youtube.com/channel/UC_OFFICIAL"
+      })
+    ]);
+  });
+
+  it("retains the last verified account after a transient source failure", async () => {
+    const fetchImpl = vi.fn(async (url: string | URL) => {
+      const value = String(url);
+      if (value.includes("supporterSearch/list.do")) {
+        return new Response(supporterListHtml, { status: 200 });
+      }
+      throw new TypeError("fetch failed");
+    });
+
+    const result = await collectMemberSponsorshipAccounts({
+      members: [
+        {
+          memberId: "M001",
+          name: "김아라",
+          party: "가나다당",
+          district: "서울 가구",
+          officialExternalUrl: "https://blog.naver.com/member_a",
+          officialProfileUrl: "https://www.assembly.go.kr/members/22nd/MEMBERA"
+        }
+      ],
+      assemblyNo: 22,
+      assemblyLabel: "제22대 국회",
+      snapshotId: "snapshot-124",
+      generatedAt: "2026-07-31T12:00:00.000Z",
+      previousAccounts: {
+        generatedAt: "2026-07-30T12:00:00.000Z",
+        snapshotId: "snapshot-123:sponsorship",
+        assemblyNo: 22,
+        assemblyLabel: "제22대 국회",
+        accounts: [
+          {
+            recordId: "sponsorship-M001-existing",
+            memberId: "M001",
+            status: "verified",
+            bankName: "농협",
+            accountNumber: "301-0123-4567-89",
+            accountHolder: "국회의원김아라후원회",
+            sourceUrl: "https://blog.naver.com/member_a/223000000001",
+            verifiedAt: "2026-07-30T12:00:00.000Z"
+          }
+        ]
+      },
+      fetchImpl,
+      timeoutMs: 1_000,
+      concurrency: 1
+    });
+
+    expect(result.exportData.accounts).toEqual([
+      expect.objectContaining({
+        memberId: "M001",
+        status: "verified",
+        accountNumber: "301-0123-4567-89",
+        verifiedAt: "2026-07-30T12:00:00.000Z"
+      })
+    ]);
+    expect(result.warnings).toContainEqual(
+      expect.stringContaining("retained the last verified sponsorship account")
+    );
   });
 
   it("does not publish an old account as verified", () => {
