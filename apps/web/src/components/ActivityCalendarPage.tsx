@@ -3128,14 +3128,6 @@ export function ActivityCalendarPage({
                     </dl>
                   </div>
                   <div className="activity-drawer__accountability-tools">
-                    <MemberPerformanceShareCard
-                      member={{
-                        memberId: selectedMember.memberId,
-                        name: selectedMember.name,
-                        party: selectedMember.party,
-                        district: selectedMemberAssetIndex?.district
-                      }}
-                    />
                     <MemberSponsorshipAccount
                       account={selectedSponsorshipAccount}
                       memberName={selectedMember.name}
@@ -3146,6 +3138,14 @@ export function ActivityCalendarPage({
                           (current) => current + 1
                         )
                       }
+                    />
+                    <MemberPerformanceShareCard
+                      member={{
+                        memberId: selectedMember.memberId,
+                        name: selectedMember.name,
+                        party: selectedMember.party,
+                        district: selectedMemberAssetIndex?.district
+                      }}
                     />
                   </div>
                   <section

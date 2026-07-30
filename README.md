@@ -131,6 +131,18 @@ Data publication settings:
 - `SPONSORSHIP_FETCH_TIMEOUT_MS`
 - `SPONSORSHIP_FETCH_CONCURRENCY`
 
+Web analytics settings:
+
+- `GA_MEASUREMENT_ID`: GA4 web stream measurement ID configured as a GitHub
+  Actions repository variable. The deploy workflow exposes it to Vite as
+  `VITE_GA_MEASUREMENT_ID`.
+
+The web app does not load Google Analytics when the measurement ID is absent or
+invalid. When enabled, it records one page view for the initial screen and each
+distinct hash route, strips member and region identifiers from analytics URLs,
+disables advertising signals, and defaults all Consent Mode v2 storage settings
+to `denied`.
+
 Public document mirror settings:
 
 - `MIRROR_MODE`

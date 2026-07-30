@@ -1,5 +1,6 @@
 import ReactDOM from "react-dom/client";
 
+import { initializeGoogleAnalytics } from "./lib/analytics.js";
 import { removeLegacyUiParameter } from "./lib/entry-url.js";
 import { V2App } from "./v2/V2App.js";
 import "./styles/layers.css";
@@ -18,5 +19,8 @@ import "./styles/minutes-summary.css";
 import "./styles/watch-queue.css";
 
 removeLegacyUiParameter();
+initializeGoogleAnalytics({
+  measurementId: import.meta.env.VITE_GA_MEASUREMENT_ID
+});
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<V2App />);

@@ -29,6 +29,10 @@ describe("MemberSponsorshipAccount", () => {
     );
 
     expect(screen.getByText("123-456-789012")).toBeInTheDocument();
+    expect(
+      screen.getByRole("group", { name: "김아라 후원회 계좌" })
+    ).toHaveTextContent("국회은행 · 예금주 김아라후원회");
+    expect(screen.getByText("계좌 확인 완료")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "계좌번호 복사" }));
     expect(
       await screen.findByText("계좌번호를 복사했습니다.")

@@ -1,0 +1,112 @@
+import { afterEach, describe, expect, it } from "vitest";
+
+import {
+  buildAnalyticsPage,
+  initializeGoogleAnalytics,
+  normalizeGaMeasurementId
+} from "../../apps/web/src/lib/analytics.js";
+
+type AnalyticsWindow = Window & {
+  dataLayer?: [string, ...unknown[]][];
+  gtag?: (...args: [string, ...unknown[]]) => void;
+  __lawmakerMonitorAnalyticsCleanup?: () => void;
+};
+
+function getPageViewEvents() {
+  const analyticsWindow = window as AnalyticsWindow;
+  return (
+    analyticsWindow.dataLayer?.filter(
+      ([command, eventName]) => command === "event" && eventName === "page_view"
+    ) ?? []
+  );
+}
+
+afterEach(() => {
+  const analyticsWindow = window as AnalyticsWindow;
+  analyticsWindow.__lawmakerMonitorAnalyticsCleanup?.();
+  delete analyticsWindow.dataLayer;
+  delete analyticsWindow.gtag;
+  document
+    .querySelectorAll("script[data-lawmaker-monitor-analytics]")
+    .forEach((script) => script.remove());
+  window.history.replaceState({}, "", "/");
+});
+
+describe("Google Analytics integration", () => {
+  it("accepts only GA4 measurement IDs", () => {
+    expect(normalizeGaMeasurementId(" g-ab12cd34 ")).toBe("G-AB12CD34");
+    expect(normalizeGaMeasurementId("UA-123456-1")).toBeNull();
+    expect(normalizeGaMeasurementId("")).toBeNull();
+  });
+
+  it("groups traffic by public route without sending member identifiers", () => {
+    const page = buildAnalyticsPage(
+      "https://example.test/lawmaker-monitor/?ui=v2&deploy=abc&utm_source=social#calendar?member=SECRET",
+      "국회 출석부"
+    );
+
+    expect(page).toEqual({
+      location:
+        "https://example.test/lawmaker-monitor/?utm_source=social#calendar",
+      path: "/lawmaker-monitor/?utm_source=social#calendar",
+      title: "의원 활동 · 국회 출석부"
+    });
+  });
+
+  it("loads gtag with denied storage and records distinct hash routes", () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/lawmaker-monitor/?deploy=test#calendar?member=M001"
+    );
+
+    const cleanup = initializeGoogleAnalytics({
+      measurementId: "G-AB12CD34"
+    });
+    const analyticsWindow = window as AnalyticsWindow;
+    const script = document.querySelector<HTMLScriptElement>(
+      "script[data-lawmaker-monitor-analytics='G-AB12CD34']"
+    );
+
+    expect(script?.src).toBe(
+      "https://www.googletagmanager.com/gtag/js?id=G-AB12CD34"
+    );
+    expect(analyticsWindow.dataLayer?.[0]).toEqual([
+      "consent",
+      "default",
+      {
+        ad_personalization: "denied",
+        ad_storage: "denied",
+        ad_user_data: "denied",
+        analytics_storage: "denied"
+      }
+    ]);
+    expect(getPageViewEvents()).toHaveLength(1);
+    expect(getPageViewEvents()[0]?.[2]).toMatchObject({
+      page_path: "/lawmaker-monitor/#calendar",
+      page_title: "의원 활동 · 국회 출석부"
+    });
+
+    window.history.replaceState({}, "", "/lawmaker-monitor/#votes");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+
+    expect(getPageViewEvents()).toHaveLength(2);
+    expect(getPageViewEvents()[1]?.[2]).toMatchObject({
+      page_path: "/lawmaker-monitor/#votes",
+      page_referrer: "http://localhost:3000/lawmaker-monitor/#calendar",
+      page_title: "쟁점·표결 · 국회 출석부"
+    });
+
+    cleanup();
+  });
+
+  it("does not load analytics when the measurement ID is absent", () => {
+    initializeGoogleAnalytics({ measurementId: undefined });
+
+    expect(
+      document.querySelector("script[data-lawmaker-monitor-analytics]")
+    ).toBeNull();
+    expect((window as AnalyticsWindow).dataLayer).toBeUndefined();
+  });
+});

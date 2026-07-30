@@ -43,6 +43,7 @@ jobs:
         run: npm run build --workspace @lawmaker-monitor/web
         env:
           VITE_DATA_REPO_BASE_URL: ${{ vars.DATA_REPO_BASE_URL }}
+          VITE_GA_MEASUREMENT_ID: ${{ vars.GA_MEASUREMENT_ID }}
           MEMBER_SHARE_DATA_REPO_BASE_URL: https://raw.githubusercontent.com/kuil09/lawmaker-monitor-data/main/
           PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
 

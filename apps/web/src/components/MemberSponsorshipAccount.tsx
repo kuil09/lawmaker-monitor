@@ -93,7 +93,7 @@ export function MemberSponsorshipAccount({
             : error
               ? "불러오기 실패"
               : isVerified
-                ? "공식 확인"
+                ? "계좌 확인 완료"
                 : "복사 불가"}
         </span>
       </header>
@@ -122,14 +122,37 @@ export function MemberSponsorshipAccount({
         </div>
       ) : isVerified ? (
         <>
+          <div
+            className="member-sponsorship-account__direct"
+            role="group"
+            aria-label={`${memberName ?? "국회의원"} 후원회 계좌`}
+          >
+            <div className="member-sponsorship-account__direct-copy">
+              <p>송금 계좌번호</p>
+              <strong>{account.accountNumber}</strong>
+              <span>
+                {account.bankName} · 예금주 {account.accountHolder}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="member-sponsorship-account__copy-primary"
+              onClick={() => {
+                void copyValue(
+                  account.accountNumber,
+                  "account-number",
+                  "계좌번호를 복사했습니다."
+                );
+              }}
+            >
+              계좌번호 복사
+            </button>
+          </div>
+
           <dl className="member-sponsorship-account__details">
             <div>
               <dt>은행</dt>
               <dd>{account.bankName}</dd>
-            </div>
-            <div>
-              <dt>계좌번호</dt>
-              <dd>{account.accountNumber}</dd>
             </div>
             <div>
               <dt>예금주</dt>
@@ -142,18 +165,6 @@ export function MemberSponsorshipAccount({
           </dl>
 
           <div className="member-sponsorship-account__actions">
-            <button
-              type="button"
-              onClick={() => {
-                void copyValue(
-                  account.accountNumber,
-                  "account-number",
-                  "계좌번호를 복사했습니다."
-                );
-              }}
-            >
-              계좌번호 복사
-            </button>
             <button
               type="button"
               onClick={() => {
