@@ -688,7 +688,7 @@ export function renderMemberCardSvg(model) {
   <rect x="44" y="36" width="400" height="548" fill="url(#halftone)" opacity="0.3" />
   <rect x="470" y="46" width="190" height="64" fill="${MEMBER_CARD_PALETTE.ink}" />
   <rect x="470" y="104" width="190" height="6" fill="${MEMBER_CARD_PALETTE.lime}" />
-  <text x="565" y="91" text-anchor="middle" fill="${MEMBER_CARD_PALETTE.lime}" font-size="40" font-weight="900" font-family="Noto Sans KR">감시 큐</text>
+  <text x="565" y="91" text-anchor="middle" fill="${MEMBER_CARD_PALETTE.lime}" font-size="40" font-weight="900" font-family="Noto Sans KR">국회 출석부</text>
   <text x="682" y="88" fill="${MEMBER_CARD_PALETTE.ink}" font-size="27" font-weight="900" font-family="Noto Sans KR">의원 실적 카드</text>
   <text x="1130" y="88" text-anchor="end" fill="${MEMBER_CARD_PALETTE.inkSoft}" font-size="20" font-weight="700" font-family="Noto Sans KR">${escapeXml(
     model.assemblyLabel
@@ -748,7 +748,7 @@ export function renderMemberCardSvg(model) {
       : "분모·기간·공식 근거는 상세 화면에서 확인하세요."
   }</text>
   <rect x="0" y="582" width="1200" height="48" fill="${MEMBER_CARD_PALETTE.ink}" />
-  <text x="44" y="614" fill="${MEMBER_CARD_PALETTE.lime}" font-size="18" font-weight="800" font-family="Noto Sans KR">국회 책임성 모니터 · 공식 공개자료 기반</text>
+    <text x="44" y="614" fill="${MEMBER_CARD_PALETTE.lime}" font-size="18" font-weight="800" font-family="Noto Sans KR">국회 출석부 · 공식 공개자료 기반</text>
   <text x="1156" y="614" text-anchor="end" fill="${MEMBER_CARD_PALETTE.paper}" font-size="18" font-weight="700" font-family="Noto Sans KR">kuil09.github.io/lawmaker-monitor</text>
   <path d="M14 14h22M14 14v22M1186 14h-22M1186 14v22M14 616h22M14 616v-22M1186 616h-22M1186 616v-22" fill="none" stroke="${MEMBER_CARD_PALETTE.limeDark}" stroke-width="3" />
 </svg>`;
@@ -806,12 +806,12 @@ export function renderMemberShareHtml(model) {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${escapeHtml(model.title)} | 국회 책임성 모니터</title>
+    <title>${escapeHtml(model.title)} | 국회 출석부</title>
     <meta name="description" content="${escapeHtml(model.description)}" />
     <link rel="canonical" href="${escapeHtml(model.canonicalUrl)}" />
     <meta property="og:type" content="profile" />
     <meta property="og:locale" content="ko_KR" />
-    <meta property="og:site_name" content="국회 책임성 모니터" />
+    <meta property="og:site_name" content="국회 출석부" />
     <meta property="og:title" content="${escapeHtml(model.title)}" />
     <meta property="og:description" content="${escapeHtml(
       model.description

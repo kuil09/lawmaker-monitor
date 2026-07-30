@@ -67,7 +67,7 @@ function useRouteAccessibility(route: RouteState) {
   useEffect(() => {
     const pageLabel =
       route.route === "home"
-        ? "감시 큐"
+        ? "국회 출석부"
         : route.route === "calendar"
           ? "의원 대장"
           : route.route === "distribution"
@@ -78,7 +78,7 @@ function useRouteAccessibility(route: RouteState) {
                 ? "변화 전후"
                 : "지역 감시";
 
-    document.title = `${pageLabel} · 감시 큐`;
+    document.title = `${pageLabel} · 국회 출석부`;
     const shouldMoveFocus =
       previousRouteRef.current !== null &&
       previousRouteRef.current !== route.route;

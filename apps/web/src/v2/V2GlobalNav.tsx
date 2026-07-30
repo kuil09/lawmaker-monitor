@@ -42,7 +42,7 @@ type PrimaryNavigationItem = {
 const primaryNavigationItems: PrimaryNavigationItem[] = [
   {
     index: "01",
-    label: "감시 큐",
+    label: "국회 출석부",
     accessibleLabel: "오늘의 변화",
     href: "#",
     target: "home",
@@ -156,14 +156,14 @@ export function V2GlobalNav({
           <a
             className="v2-global-nav__brand"
             href="#"
-            aria-label="국회 책임성 모니터 홈"
+            aria-label="국회 출석부 홈"
             onClick={(event) => handleNavigation(event, "home")}
           >
             <span className="v2-global-nav__brand-lockup" aria-hidden="true">
               <span className="v2-global-nav__brand-kicker">
-                국회 책임성 모니터
+                국회 공개 기록
               </span>
-              <strong>감시 큐</strong>
+              <strong>국회 출석부</strong>
             </span>
           </a>
 

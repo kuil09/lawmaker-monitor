@@ -676,10 +676,10 @@ export function V2ObservatoryPage({
       <header className="v2-observatory__hero">
         <div>
           <p className="v2-observatory__eyebrow">
-            WATCH QUEUE · {assemblyLabel} 공식 기록
+            국회 출석부 · {assemblyLabel} 공식 기록
           </p>
           <h1 className="v2-observatory__title" tabIndex={-1}>
-            실시간 국회 감시 큐
+            실시간 국회 출석부
           </h1>
           <p className="v2-observatory__intro">
             최근 발언·의안·표결의 변화와 행위 부재를 근거 단위로 비교하고

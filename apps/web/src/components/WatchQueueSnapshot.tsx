@@ -460,8 +460,8 @@ export function WatchQueueSnapshot({
     >
       <header className="watch-queue-snapshot__heading">
         <div>
-          <p>WATCH QUEUE · 최근 수집 기록</p>
-          <h2 id="watch-queue-snapshot-title">시민 감시 큐</h2>
+          <p>국회 출석부 · 최근 수집 기록</p>
+          <h2 id="watch-queue-snapshot-title">국회 출석부</h2>
         </div>
         <p>
           최근 수집된 공개 기록을 변화·결과·행위 부재 기준으로 확인하고 공식
@@ -475,7 +475,7 @@ export function WatchQueueSnapshot({
       </header>
 
       <div className="watch-queue-workbench">
-        <aside className="watch-queue-filters" aria-label="감시 큐 필터">
+        <aside className="watch-queue-filters" aria-label="국회 출석부 필터">
           <div>
             <h3>증거 상태</h3>
             {filterLabels.map((filter) => (
@@ -623,7 +623,7 @@ export function WatchQueueSnapshot({
           ) : null}
         </div>
 
-        <aside className="watch-queue-briefing" aria-label="감시 큐 브리핑">
+        <aside className="watch-queue-briefing" aria-label="국회 출석부 브리핑">
           <section>
             <p>HOT ISSUES</p>
             <h3>지금 주목할 변화</h3>

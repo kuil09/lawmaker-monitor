@@ -125,7 +125,7 @@ describe("v2 observatory", () => {
     );
 
     const watchQueueHeading = screen.getByRole("heading", {
-      name: "시민 감시 큐"
+      name: "국회 출석부"
     });
     const explorerHeading = screen.getByRole("heading", {
       name: "전국 지표 탐색"
@@ -349,7 +349,7 @@ describe("v2 observatory", () => {
     );
 
     const brandLink = screen.getByRole("link", {
-      name: "국회 책임성 모니터 홈"
+      name: "국회 출석부 홈"
     });
     expect(brandLink.querySelector("svg")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "오늘의 변화" })).toHaveAttribute(

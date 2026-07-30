@@ -1,6 +1,6 @@
-# Lawmaker Monitor
+# 국회 출석부
 
-Lawmaker Monitor is a public web app and data pipeline for tracking plenary vote activity and asset disclosure history in the National Assembly of Korea. The project collects official upstream data, normalizes it into stable datasets, publishes lightweight JSON exports, and renders those exports in a static client.
+국회 출석부 is a public web app and data pipeline for tracking plenary vote activity and asset disclosure history in the National Assembly of Korea. The project collects official upstream data, normalizes it into stable datasets, publishes lightweight JSON exports, and renders those exports in a static client.
 
 The current product is organized around two main views. The home view focuses on recent vote activity and accountability signals, while the calendar view helps readers inspect participation patterns, compare individual lawmakers over time, and review published asset disclosure history for current members of the 22nd Assembly.
 

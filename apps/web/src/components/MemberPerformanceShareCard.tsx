@@ -101,7 +101,7 @@ export function MemberPerformanceShareCard({
               role="img"
               aria-label={`${member.name} 의원 실적 카드 미리보기`}
             >
-              <small>WATCH QUEUE · 의원 기록 카드</small>
+              <small>국회 출석부 · 의원 기록 카드</small>
               <strong>{member.name}</strong>
               <span>{affiliation}</span>
               <p>프로덕션 빌드에서 최신 공개 기록 카드가 생성됩니다.</p>
