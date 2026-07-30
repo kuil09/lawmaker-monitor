@@ -185,6 +185,11 @@ downloaded official minutes viewer document at
 those documents into member statements before the model is invoked. Speaker and
 agenda attribution come from that structured minutes document.
 
+Use
+[`docs/operations/minutes-reclassification-verification.md`](docs/operations/minutes-reclassification-verification.md)
+to verify workflow completion, published coverage, source grounding, regression
+samples, and the final production deployment after a reclassification run.
+
 Property disclosure mirror settings use the same document mirror infrastructure plus Assembly file-service specific inputs:
 
 - `MIRROR_SERVICE_INF_ID`
