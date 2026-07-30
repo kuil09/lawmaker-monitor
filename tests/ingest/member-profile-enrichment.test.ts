@@ -110,6 +110,40 @@ describe("member profile enrichment", () => {
     ]);
   });
 
+  it("uses the unique official profile URL when party or district labels changed", () => {
+    const officialProfileUrl = "https://www.assembly.go.kr/members/22nd/KIMARA";
+    const result = enrichMembersWithMemberProfileAll({
+      members: [
+        memberFixture({
+          memberId: "M001",
+          name: "김아라",
+          party: "무소속",
+          district: "서울 중구갑",
+          officialProfileUrl
+        })
+      ],
+      profiles: [
+        profileFixture({
+          naasCd: "NAAS001",
+          name: "김아라",
+          party: "미래개혁당",
+          district: "비례대표",
+          assemblyNo: 22,
+          officialProfileUrl: `${officialProfileUrl}/?view=profile`,
+          photoUrl: "https://example.test/member-m001.jpg"
+        })
+      ]
+    });
+
+    expect(result.matchedCount).toBe(1);
+    expect(result.photoEnrichedCount).toBe(1);
+    expect(result.issues).toEqual([]);
+    expect(result.members[0]).toMatchObject({
+      memberId: "M001",
+      photoUrl: "https://example.test/member-m001.jpg"
+    });
+  });
+
   it("ignores profile-only former lawmakers while warning about unmatched profile rows", () => {
     const result = enrichMembersWithMemberProfileAll({
       members: [memberFixture({ memberId: "M001", name: "김아라" })],

@@ -41,6 +41,27 @@ function buildMatchKey(args: {
   ].join("|");
 }
 
+function buildOfficialProfileMatchKey(args: {
+  officialProfileUrl?: string | null;
+  assemblyNo: number;
+}): string | null {
+  if (!args.officialProfileUrl) {
+    return null;
+  }
+
+  try {
+    const url = new URL(args.officialProfileUrl);
+    url.hash = "";
+    url.search = "";
+    url.pathname = url.pathname.replace(/\/+$/, "");
+    return `${args.assemblyNo}|${url.toString().toLowerCase()}`;
+  } catch {
+    return `${args.assemblyNo}|${normalizeComparableText(
+      args.officialProfileUrl
+    ).toLowerCase()}`;
+  }
+}
+
 function mergeUniqueStrings(
   left: string[] = [],
   right: string[] = []
@@ -121,8 +142,14 @@ export function enrichMembersWithMemberProfileAll(args: {
 }): MemberProfileEnrichmentResult {
   const memberMatchesByKey = new Map<string, MemberRecord[]>();
   const profileMatchesByKey = new Map<string, MemberProfileAllRecord[]>();
+  const memberMatchesByOfficialProfile = new Map<string, MemberRecord[]>();
+  const profileMatchesByOfficialProfile = new Map<
+    string,
+    MemberProfileAllRecord[]
+  >();
   const issues: MemberProfileEnrichmentIssue[] = [];
   const issueKeys = new Set<string>();
+  const matchedProfileCodes = new Set<string>();
   let matchedCount = 0;
   let photoEnrichedCount = 0;
 
@@ -150,6 +177,17 @@ export function enrichMembersWithMemberProfileAll(args: {
     const items = memberMatchesByKey.get(key) ?? [];
     items.push(member);
     memberMatchesByKey.set(key, items);
+
+    const officialProfileKey = buildOfficialProfileMatchKey(member);
+    if (officialProfileKey) {
+      const officialProfileItems =
+        memberMatchesByOfficialProfile.get(officialProfileKey) ?? [];
+      officialProfileItems.push(member);
+      memberMatchesByOfficialProfile.set(
+        officialProfileKey,
+        officialProfileItems
+      );
+    }
   }
 
   for (const profile of args.profiles) {
@@ -157,6 +195,17 @@ export function enrichMembersWithMemberProfileAll(args: {
     const items = profileMatchesByKey.get(key) ?? [];
     items.push(profile);
     profileMatchesByKey.set(key, items);
+
+    const officialProfileKey = buildOfficialProfileMatchKey(profile);
+    if (officialProfileKey) {
+      const officialProfileItems =
+        profileMatchesByOfficialProfile.get(officialProfileKey) ?? [];
+      officialProfileItems.push(profile);
+      profileMatchesByOfficialProfile.set(
+        officialProfileKey,
+        officialProfileItems
+      );
+    }
   }
 
   const members = args.members.map((member) => {
@@ -168,8 +217,21 @@ export function enrichMembersWithMemberProfileAll(args: {
     });
     const memberMatches = memberMatchesByKey.get(key) ?? [];
     const profileMatches = profileMatchesByKey.get(key) ?? [];
+    const officialProfileKey = buildOfficialProfileMatchKey(member);
+    const officialMemberMatches = officialProfileKey
+      ? (memberMatchesByOfficialProfile.get(officialProfileKey) ?? [])
+      : [];
+    const officialProfileMatches = officialProfileKey
+      ? (profileMatchesByOfficialProfile.get(officialProfileKey) ?? [])
+      : [];
+    const profile =
+      officialMemberMatches.length === 1 && officialProfileMatches.length === 1
+        ? officialProfileMatches[0]
+        : memberMatches.length === 1 && profileMatches.length === 1
+          ? profileMatches[0]
+          : undefined;
 
-    if (memberMatches.length > 1) {
+    if (!profile && memberMatches.length > 1) {
       pushIssue({
         key,
         reason: "duplicate_member_match",
@@ -182,7 +244,11 @@ export function enrichMembersWithMemberProfileAll(args: {
       return member;
     }
 
-    if (profileMatches.length === 0) {
+    if (
+      !profile &&
+      profileMatches.length === 0 &&
+      officialProfileMatches.length === 0
+    ) {
       pushIssue({
         key,
         reason: "missing_profile_match",
@@ -195,7 +261,10 @@ export function enrichMembersWithMemberProfileAll(args: {
       return member;
     }
 
-    if (profileMatches.length > 1) {
+    if (
+      !profile &&
+      (profileMatches.length > 1 || officialProfileMatches.length > 1)
+    ) {
       pushIssue({
         key,
         reason: "duplicate_profile_match",
@@ -208,11 +277,11 @@ export function enrichMembersWithMemberProfileAll(args: {
       return member;
     }
 
-    const profile = profileMatches[0];
     if (!profile) {
       return member;
     }
 
+    matchedProfileCodes.add(profile.naasCd);
     matchedCount += 1;
     const enriched = mergeMemberWithProfile(member, profile);
     if (profile.photoUrl && profile.photoUrl !== member.photoUrl) {
@@ -222,6 +291,10 @@ export function enrichMembersWithMemberProfileAll(args: {
   });
 
   for (const profile of args.profiles) {
+    if (matchedProfileCodes.has(profile.naasCd)) {
+      continue;
+    }
+
     const key = buildMatchKey(profile);
     const memberMatches = memberMatchesByKey.get(key) ?? [];
     if (memberMatches.length === 0) {
