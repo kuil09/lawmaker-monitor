@@ -1021,9 +1021,9 @@
 .distribution-page__layout,
 .distribution-signal-grid,
 .distribution-page__empty {
-  --distribution-blue: #0b5ed7;
-  --distribution-blue-strong: #0748a6;
-  --distribution-blue-soft: #edf5ff;
+  --distribution-blue: #5b6c00;
+  --distribution-blue-strong: #3d4900;
+  --distribution-blue-soft: #eff6c8;
   --distribution-ink: #172234;
   --distribution-muted: #667386;
   --distribution-border: #dce3eb;
@@ -1101,7 +1101,7 @@
 }
 
 .distribution-page__back:hover {
-  border-color: #9cbce8;
+  border-color: #a9bb58;
   background: var(--distribution-blue-soft);
   color: var(--distribution-blue-strong);
 }
@@ -1186,7 +1186,7 @@
 }
 
 .distribution-chart__help-button:hover {
-  border-color: #9cbce8;
+  border-color: #a9bb58;
   background: var(--distribution-blue-soft);
   color: var(--distribution-blue-strong);
 }
@@ -1194,7 +1194,7 @@
 .distribution-chart__help-panel {
   margin-top: 0.65rem;
   padding: 0.75rem 0.8rem;
-  border: 1px solid #cfe0f5;
+  border: 1px solid #dce6a8;
   border-radius: 5px;
   background: var(--distribution-blue-soft);
   color: #3b5879;
@@ -1242,7 +1242,7 @@
 
 .distribution-chart__filter-pill {
   min-height: 36px;
-  border: 1px solid #b9cce8;
+  border: 1px solid #c9d585;
   border-radius: 5px;
   background: var(--distribution-blue-soft);
   color: var(--distribution-blue-strong);
@@ -1309,7 +1309,7 @@
 
 .distribution-chart__legend-button:hover,
 .distribution-chart__legend-button.is-active {
-  border-color: #8eb2e6;
+  border-color: #a0b343;
   background: var(--distribution-blue-soft);
   color: var(--distribution-blue-strong);
   box-shadow: none;
@@ -1346,7 +1346,7 @@
 
 .distribution-focus__note {
   padding: 0.7rem 0.75rem;
-  border: 1px solid #cfe0f5;
+  border: 1px solid #dce6a8;
   border-radius: 5px;
   background: var(--distribution-blue-soft);
   color: #3b5879;
@@ -1412,7 +1412,7 @@
 }
 
 .distribution-focus__metric--alert strong {
-  color: #c93440;
+  color: #4b5a00;
 }
 
 .distribution-focus__composition,
@@ -1521,7 +1521,7 @@
 .distribution-focus :focus-visible,
 .distribution-signal-grid :focus-visible,
 .distribution-page__empty :focus-visible {
-  outline: 3px solid rgba(11, 94, 215, 0.28);
+  outline: 3px solid rgba(183, 229, 29, 0.72);
   outline-offset: 2px;
 }
 

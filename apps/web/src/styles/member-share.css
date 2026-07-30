@@ -130,9 +130,9 @@
 }
 
 .member-performance-share__actions button.is-primary {
-  border-color: var(--wq-alert, #a52a22);
-  background: var(--wq-alert, #a52a22);
-  color: #fffaf1;
+  border-color: var(--wq-accent, #5b6c00);
+  background: var(--wq-accent-highlight, #d8f33f);
+  color: var(--wq-accent-ink, #171512);
 }
 
 .member-performance-share__actions button:disabled {
@@ -148,7 +148,7 @@
   width: fit-content;
   align-items: center;
   gap: 0.25rem;
-  color: var(--wq-alert-strong, #741913);
+  color: var(--wq-accent-strong, #3d4900);
   font-weight: 800;
   text-underline-offset: 0.18em;
 }
@@ -234,7 +234,7 @@
 }
 
 .member-sponsorship-account__copy-feedback--error {
-  color: var(--wq-alert, #a52a22);
+  color: var(--wq-accent, #5b6c00);
 }
 
 .member-sponsorship-account__notice {

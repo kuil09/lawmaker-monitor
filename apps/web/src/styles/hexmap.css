@@ -8,7 +8,7 @@
   --ledger-accent: #1d1b18;
   --ledger-accent-strong: #1d1b18;
   --ledger-accent-soft: #e5ded0;
-  --ledger-alert: #a52a22;
+  --ledger-alert: #5b6c00;
   --ledger-caution: #95622d;
   width: min(1440px, calc(100% - 48px));
   margin: 0 auto;
@@ -310,10 +310,10 @@
 .ledger-data-warning {
   margin: 10px 0 0;
   padding: 9px 12px;
-  border: 1px solid #e8c7c7;
+  border: 1px solid #dce6a8;
   border-radius: 5px;
-  background: #fff7f7;
-  color: #8f292f;
+  background: #f5f8df;
+  color: #4b5a00;
   font-size: 0.75rem;
 }
 
@@ -706,7 +706,7 @@
 }
 
 .ledger-focus-metric[data-severity="high"] .ledger-focus-metric__rank strong {
-  background: #fbe8e9;
+  background: #eff6c8;
   color: var(--ledger-alert);
 }
 
@@ -1003,7 +1003,7 @@
 }
 
 .ledger-region-focus > strong[data-severity="high"] {
-  background: #fbe8e9;
+  background: #eff6c8;
   color: var(--ledger-alert);
 }
 

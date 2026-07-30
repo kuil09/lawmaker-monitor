@@ -2,14 +2,14 @@ import type { AssetHistorySnapshot } from "./member-assets.js";
 import type { MemberAssetsHistoryExport } from "@lawmaker-monitor/schemas";
 
 export const assetCategoryPalette = [
-  "#a52a22",
+  "#5b6c00",
   "#575148",
   "#95622d",
   "#8a6f4d",
   "#6c5a72",
-  "#8a4d63",
+  "#6b7347",
   "#777066",
-  "#7f5539"
+  "#4e5c2d"
 ] as const;
 
 const assetCategoryPriority = [

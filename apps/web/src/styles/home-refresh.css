@@ -323,18 +323,18 @@
 
 /* 1~3위 — 적색 그라디언트로 심각도 표현 */
 .ranking-item:nth-child(1) .ranking-item__rank {
-  background: linear-gradient(135deg, #c0392b, #8b1e17);
-  box-shadow: 0 8px 20px rgba(192, 57, 43, 0.38);
+  background: linear-gradient(135deg, #d8f33f, #7f9600);
+  box-shadow: 0 8px 20px rgba(127, 150, 0, 0.28);
 }
 
 .ranking-item:nth-child(2) .ranking-item__rank {
-  background: linear-gradient(135deg, #a93226, #6b1e17);
-  box-shadow: 0 6px 16px rgba(169, 50, 38, 0.28);
+  background: linear-gradient(135deg, #bddc2d, #6d8200);
+  box-shadow: 0 6px 16px rgba(109, 130, 0, 0.24);
 }
 
 .ranking-item:nth-child(3) .ranking-item__rank {
-  background: linear-gradient(135deg, #922b21, #6b1e17);
-  box-shadow: 0 6px 14px rgba(146, 43, 33, 0.22);
+  background: linear-gradient(135deg, #9eb522, #596b00);
+  box-shadow: 0 6px 14px rgba(89, 107, 0, 0.2);
 }
 
 .ranking-item__content {
@@ -437,7 +437,7 @@
 
 .ranking-item__stats--party-line strong,
 .ranking-item__stats--party-line span {
-  color: #7b3128;
+  color: #4b5a00;
 }
 
 /* 불참 탭 활성화 시 메트릭 토글 색상 */
@@ -457,8 +457,8 @@
 }
 
 .metric-toggle__button--party-line.is-active {
-  background: #7b3128;
-  box-shadow: 0 4px 12px rgba(123, 49, 40, 0.28);
+  background: #5b6c00;
+  box-shadow: 0 4px 12px rgba(91, 108, 0, 0.24);
 }
 
 /* ─── 검색 패널 (컴팩트) ──────────────────────────── */
@@ -683,7 +683,7 @@
 }
 
 .metric-toggle__button--party-line.is-active {
-  background: #7b3128;
+  background: #5b6c00;
 }
 
 .chart-card__mover-block {
@@ -731,7 +731,7 @@
 }
 
 .chart-card__mover-stats strong {
-  color: #7b3128;
+  color: #4b5a00;
   font-size: 0.94rem;
 }
 

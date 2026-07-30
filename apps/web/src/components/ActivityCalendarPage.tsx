@@ -171,8 +171,8 @@ type CompareRatioDatum = {
 };
 
 const compareRatioColors = {
-  leftStroke: "#982d22",
-  leftFill: "rgba(152, 45, 34, 0.18)",
+  leftStroke: "#5b6c00",
+  leftFill: "rgba(91, 108, 0, 0.18)",
   rightStroke: "#575148",
   rightFill: "rgba(87, 81, 72, 0.18)"
 };
@@ -1482,7 +1482,7 @@ function MemberAssetSection({
               type="monotone"
               dataKey="total"
               name="total"
-              stroke="#972d20"
+              stroke="#4b5a00"
               strokeWidth={3}
               dot={{ r: 3 }}
               activeDot={{ r: 5 }}
@@ -1623,7 +1623,7 @@ function ActivityRatioChart({
               <Radar
                 dataKey="percent"
                 stroke="var(--accent)"
-                fill="rgba(152, 45, 34, 0.2)"
+                fill="rgba(91, 108, 0, 0.2)"
                 fillOpacity={1}
                 strokeWidth={2}
               />

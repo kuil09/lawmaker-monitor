@@ -808,12 +808,12 @@ export function DistributionPage({
                   <CartesianGrid stroke="rgba(72, 56, 40, 0.12)" />
                   <ReferenceLine
                     x={Number((averageAttendanceRate * 100).toFixed(1))}
-                    stroke="rgba(123, 49, 40, 0.22)"
+                    stroke="rgba(91, 108, 0, 0.22)"
                     strokeDasharray="4 4"
                   />
                   <ReferenceLine
                     y={Number((averageNegativeRate * 100).toFixed(1))}
-                    stroke="rgba(123, 49, 40, 0.22)"
+                    stroke="rgba(91, 108, 0, 0.22)"
                     strokeDasharray="4 4"
                   />
                   <XAxis

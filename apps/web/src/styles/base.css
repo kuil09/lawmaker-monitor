@@ -280,7 +280,7 @@ input:focus-visible {
 }
 
 .status-badge--no {
-  border-color: rgba(141, 46, 36, 0.16);
+  border-color: color-mix(in srgb, var(--negative) 16%, transparent);
   background: color-mix(in srgb, var(--negative) 12%, white);
   color: var(--negative);
 }
@@ -312,7 +312,7 @@ input:focus-visible {
 .error-banner {
   color: var(--negative);
   background: color-mix(in srgb, var(--negative) 10%, white);
-  border-color: rgba(141, 46, 36, 0.18);
+  border-color: color-mix(in srgb, var(--negative) 18%, transparent);
 }
 
 .info-banner {

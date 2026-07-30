@@ -155,7 +155,7 @@
 }
 
 .proportional-comparison__identity .member-detail-link:hover {
-  color: #a52a22;
+  color: var(--accent, #5b6c00);
   text-decoration: underline;
 }
 

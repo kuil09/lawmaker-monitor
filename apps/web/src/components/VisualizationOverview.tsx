@@ -34,7 +34,7 @@ type TrendWindow = 4 | 8 | 12;
 
 const chartPalette = {
   yes: "#177245",
-  no: "#c43d3d",
+  no: "#34362e",
   abstain: "#c58512",
   absent: "#758195",
   partyLine: "#2457a6",

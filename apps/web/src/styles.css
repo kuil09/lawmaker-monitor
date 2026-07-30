@@ -15,14 +15,17 @@
     --border-strong: #c9c0b4;
     --ink: #171411;
     --ink-muted: #6b635b;
-    --accent: #982d22;
-    --accent-soft: #f2e1dc;
+    --accent: #5b6c00;
+    --accent-strong: #3d4900;
+    --accent-highlight: #d8f33f;
+    --accent-on-highlight: #171512;
+    --accent-soft: #eff6c8;
     --amber: #a47a46;
     --amber-soft: #f3ece2;
     --olive: #657045;
     --calendar-yes: #2f8f4e;
     --vote-yes: var(--calendar-yes);
-    --vote-no: #9f2d20;
+    --vote-no: #34362e;
     --vote-abstain: #c4872f;
     --vote-absent: #8f8880;
   }
@@ -85,7 +88,7 @@ button:disabled {
 button:focus-visible,
 a:focus-visible,
 summary:focus-visible {
-  outline: 2px solid rgba(152, 45, 34, 0.28);
+  outline: 2px solid color-mix(in srgb, var(--accent-highlight) 72%, black);
   outline-offset: 3px;
 }
 
@@ -227,7 +230,7 @@ summary:focus-visible {
 }
 
 .search-panel__submit {
-  border-color: rgba(152, 45, 34, 0.18);
+  border-color: color-mix(in srgb, var(--accent) 18%, transparent);
   background: #fff;
   color: var(--accent);
 }
@@ -263,7 +266,7 @@ summary:focus-visible {
 .status-panel {
   display: grid;
   gap: 0.5rem;
-  border-color: rgba(152, 45, 34, 0.14);
+  border-color: color-mix(in srgb, var(--accent) 14%, transparent);
   background: #f7f0eb;
 }
 
@@ -339,7 +342,7 @@ summary:focus-visible {
 }
 
 .metric-toggle__button.is-active {
-  border-color: rgba(152, 45, 34, 0.22);
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
   color: var(--accent);
   background: var(--accent-soft);
 }
@@ -1358,9 +1361,9 @@ summary:focus-visible {
 }
 
 .error-banner {
-  color: #7a2119;
+  color: #3d4900;
   background: var(--accent-soft);
-  border: 1px solid rgba(152, 45, 34, 0.18);
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
   border-radius: 14px;
   padding: 0.85rem 0.95rem;
   margin-top: 1rem;
@@ -1480,7 +1483,7 @@ summary:focus-visible {
 .activity-page__back,
 .activity-drawer__share,
 .activity-drawer__close {
-  border-color: rgba(152, 45, 34, 0.2);
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .activity-page__external-link {
@@ -1496,8 +1499,8 @@ summary:focus-visible {
 .activity-page__share:hover,
 .activity-page__download:hover,
 .activity-drawer__share:hover {
-  background: rgba(152, 45, 34, 0.06);
-  border-color: rgba(152, 45, 34, 0.28);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 .activity-page__action-button:disabled {
@@ -1963,8 +1966,8 @@ summary:focus-visible {
 }
 
 .activity-ratio-compare__legend-item--left {
-  border-color: rgba(152, 45, 34, 0.14);
-  background: rgba(152, 45, 34, 0.05);
+  border-color: color-mix(in srgb, var(--accent) 14%, transparent);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
 }
 
 .activity-ratio-compare__legend-item--right {
@@ -2049,8 +2052,8 @@ summary:focus-visible {
 }
 
 .activity-ratio-compare__cell--left {
-  border-color: rgba(152, 45, 34, 0.14);
-  background: rgba(152, 45, 34, 0.04);
+  border-color: color-mix(in srgb, var(--accent) 14%, transparent);
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
 }
 
 .activity-ratio-compare__cell--right {
@@ -2351,7 +2354,7 @@ summary:focus-visible {
   align-items: center;
   padding: 0.18rem 0.45rem;
   border-radius: 999px;
-  background: rgba(152, 45, 34, 0.1);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--accent);
   font-size: 0.7rem;
   font-weight: 800;
@@ -2456,7 +2459,7 @@ summary:focus-visible {
 }
 
 .activity-member.is-active {
-  background: rgba(152, 45, 34, 0.05);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
 }
 
 .activity-member__rank {
@@ -2605,7 +2608,7 @@ summary:focus-visible {
 }
 
 .contribution-calendar__cell--no {
-  background: #9f2d20;
+  background: #34362e;
 }
 
 .contribution-calendar__cell--abstain {

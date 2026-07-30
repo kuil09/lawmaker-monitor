@@ -15,10 +15,12 @@
     --surface-accent: #f4f0e7;
     --text: #1d1b18;
     --text-muted: #625d54;
-    --accent: #a52a22;
-    --accent-strong: #741913;
+    --accent: #5b6c00;
+    --accent-strong: #3d4900;
+    --accent-highlight: #d8f33f;
+    --accent-on-highlight: #171512;
     --positive: #575148;
-    --negative: #a52a22;
+    --negative: #34362e;
     --warning: #95622d;
     --neutral: #777066;
     --border: #c8bead;
@@ -33,7 +35,7 @@
     --panel-muted: var(--surface-accent);
     --ink: var(--text);
     --ink-muted: var(--text-muted);
-    --accent-soft: color-mix(in srgb, var(--accent) 10%, white);
+    --accent-soft: #eff6c8;
     --amber: var(--warning);
     --amber-soft: color-mix(in srgb, var(--warning) 14%, white);
     --olive: var(--positive);

@@ -7,10 +7,10 @@
   --v2-surface: #fffefc;
   --v2-border: #d9dadd;
   --v2-border-strong: #bbbfc5;
-  --v2-oxblood: #7f111d;
+  --v2-oxblood: #3d4900;
   --v2-blue: #95622d;
   --v2-green: #575148;
-  --v2-red: #a52a22;
+  --v2-red: #34362e;
   min-height: 100vh;
   background: var(--v2-canvas);
   color: var(--v2-ink);
@@ -340,9 +340,9 @@
   gap: 0.35rem;
   margin: 0 0 1rem;
   padding: 0.85rem 1rem;
-  border: 1px solid #e3c2c6;
+  border: 1px solid #dce6a8;
   border-radius: 8px;
-  background: #fff6f7;
+  background: #f5f8df;
   color: #6f1b25;
 }
 

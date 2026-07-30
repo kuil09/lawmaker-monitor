@@ -557,9 +557,7 @@ export function V2ObservatoryPage({
     () => points.filter((point) => point.district === "비례대표"),
     [points]
   );
-  const proportionalComparisonItems = useMemo<
-    ProportionalComparisonItem[]
-  >(
+  const proportionalComparisonItems = useMemo<ProportionalComparisonItem[]>(
     () =>
       proportionalPoints.map((point) => ({
         memberId: point.memberId,
@@ -1234,7 +1232,7 @@ export function V2ObservatoryPage({
                     <Bar
                       dataKey="tertiary"
                       name={config.trendSeries[2]}
-                      fill="#a52a22"
+                      fill="#5b6c00"
                       radius={[3, 3, 0, 0]}
                     />
                   </BarChart>
@@ -1287,7 +1285,7 @@ export function V2ObservatoryPage({
                       type="monotone"
                       dataKey="tertiary"
                       name={config.trendSeries[2]}
-                      stroke="#a52a22"
+                      stroke="#5b6c00"
                       strokeWidth={2}
                       dot={{ r: 2.5 }}
                       connectNulls

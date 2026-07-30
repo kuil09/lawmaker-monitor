@@ -15,7 +15,7 @@
 
 .issue-comparison__head > div > p {
   margin: 0 0 0.25rem;
-  color: var(--watch-red, #9c2f24);
+  color: var(--watch-accent, #5b6c00);
   font-size: 0.72rem;
   font-weight: 820;
   letter-spacing: 0.12em;
@@ -66,7 +66,7 @@
 }
 
 .issue-comparison article > header > span {
-  color: var(--watch-red, #9c2f24);
+  color: var(--watch-accent, #5b6c00);
   letter-spacing: 0.1em;
 }
 
@@ -133,7 +133,7 @@
 }
 
 .issue-comparison__bar .is-no {
-  background: var(--watch-red, #9c2f24);
+  background: var(--wq-accent-highlight, #d8f33f);
 }
 
 .issue-comparison__bar .is-abstain {

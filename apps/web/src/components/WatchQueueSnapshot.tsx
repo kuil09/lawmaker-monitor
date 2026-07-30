@@ -18,6 +18,14 @@ import type {
 
 type QueueTone = "attention" | "change" | "evidence";
 
+type VoteWindowBreakdown = {
+  eligibleCount: number;
+  yesCount: number;
+  noCount: number;
+  abstainCount: number;
+  absentCount: number;
+};
+
 type QueueRecord = {
   id: string;
   tone: QueueTone;
@@ -36,6 +44,10 @@ type QueueRecord = {
   actionLabel: string;
   basisLabel: string;
   generatedAt: string | null;
+  voteComparison?: {
+    previous: VoteWindowBreakdown;
+    current: VoteWindowBreakdown;
+  };
 };
 
 type WatchQueueSnapshotProps = {
@@ -69,6 +81,57 @@ function getWindowNegativeRate(args: {
   return (
     (args.noCount + args.abstainCount + args.absentCount) / args.eligibleCount
   );
+}
+
+function buildVoteWindowBreakdown(args: {
+  eligibleCount: number;
+  noCount: number;
+  abstainCount: number;
+  absentCount: number;
+}): VoteWindowBreakdown {
+  return {
+    eligibleCount: args.eligibleCount,
+    yesCount: Math.max(
+      0,
+      args.eligibleCount - args.noCount - args.abstainCount - args.absentCount
+    ),
+    noCount: args.noCount,
+    abstainCount: args.abstainCount,
+    absentCount: args.absentCount
+  };
+}
+
+function getDominantVoteRecord(window: VoteWindowBreakdown): {
+  key: "yes" | "no" | "abstain" | "absent";
+  label: string;
+  count: number;
+} {
+  return [
+    { key: "yes" as const, label: "찬성", count: window.yesCount },
+    { key: "no" as const, label: "반대", count: window.noCount },
+    { key: "abstain" as const, label: "기권", count: window.abstainCount },
+    { key: "absent" as const, label: "불참", count: window.absentCount }
+  ].reduce((dominant, item) => (item.count > dominant.count ? item : dominant));
+}
+
+function buildVoteChangeHeadline(
+  previous: VoteWindowBreakdown,
+  current: VoteWindowBreakdown
+): string {
+  const previousDominant = getDominantVoteRecord(previous);
+  const currentDominant = getDominantVoteRecord(current);
+
+  if (previousDominant.key !== currentDominant.key) {
+    return `주된 표결 기록: 직전 ${previousDominant.label} ${formatNumber(
+      previousDominant.count
+    )}건 → 최근 ${currentDominant.label} ${formatNumber(
+      currentDominant.count
+    )}건`;
+  }
+
+  return `최근 ${formatNumber(
+    current.eligibleCount
+  )}건의 표결 선택이 직전 구간과 달라졌습니다.`;
 }
 
 function formatPercent(value: number): string {
@@ -117,14 +180,18 @@ function buildChangeRecords(
       }
 
       const summaryMember = summaryByMemberId.get(mover.memberId);
-      const previousNegativeCount =
-        mover.previousWindowNoCount +
-        mover.previousWindowAbstainCount +
-        mover.previousWindowAbsentCount;
-      const currentNegativeCount =
-        mover.currentWindowNoCount +
-        mover.currentWindowAbstainCount +
-        mover.currentWindowAbsentCount;
+      const previousBreakdown = buildVoteWindowBreakdown({
+        eligibleCount: mover.previousWindowEligibleCount,
+        noCount: mover.previousWindowNoCount,
+        abstainCount: mover.previousWindowAbstainCount,
+        absentCount: mover.previousWindowAbsentCount
+      });
+      const currentBreakdown = buildVoteWindowBreakdown({
+        eligibleCount: mover.currentWindowEligibleCount,
+        noCount: mover.currentWindowNoCount,
+        abstainCount: mover.currentWindowAbstainCount,
+        absentCount: mover.currentWindowAbsentCount
+      });
       return [
         {
           id: `trend:${mover.memberId}`,
@@ -135,24 +202,25 @@ function buildChangeRecords(
           district: summaryMember?.district ?? null,
           photoUrl: mover.photoUrl ?? summaryMember?.photoUrl,
           recordType: "표결 변화",
-          headline: `반대·기권·불참: 직전 ${formatNumber(
-            previousNegativeCount
-          )}/${formatNumber(
-            mover.previousWindowEligibleCount
-          )}건 → 최근 ${formatNumber(currentNegativeCount)}/${formatNumber(
-            mover.currentWindowEligibleCount
-          )}건`,
+          headline: buildVoteChangeHeadline(
+            previousBreakdown,
+            currentBreakdown
+          ),
           rationale:
-            "두 구간의 공개 기록표결을 같은 산식으로 계산했으며, 변화 방향 자체를 긍정·부정으로 판정하지 않습니다.",
+            "찬성·반대·기권은 표결에 참여한 기록입니다. 불참은 해당 기록표결에서 표를 행사하지 않은 경우로 따로 표시합니다.",
           previousValue,
           currentValue,
           delta,
-          currentLabel: "최근 비중",
-          actionLabel: "변화 전후 근거 보기",
+          currentLabel: "최근 표결 참여",
+          actionLabel: "표결별 기록 보기",
           basisLabel: `직전 ${formatNumber(
             mover.previousWindowEligibleCount
           )}건 · 최근 ${formatNumber(mover.currentWindowEligibleCount)}건`,
-          generatedAt: trends?.generatedAt ?? null
+          generatedAt: trends?.generatedAt ?? null,
+          voteComparison: {
+            previous: previousBreakdown,
+            current: currentBreakdown
+          }
         }
       ];
     })
@@ -257,6 +325,77 @@ function QueueStateIcon({ tone }: { tone: QueueTone }) {
     return <WarningDiamondIcon aria-hidden="true" size={17} weight="fill" />;
   }
   return <CheckCircleIcon aria-hidden="true" size={17} weight="fill" />;
+}
+
+function VoteComparison({
+  comparison
+}: {
+  comparison: NonNullable<QueueRecord["voteComparison"]>;
+}) {
+  const rows = [
+    {
+      label: "표결 참여",
+      previous:
+        comparison.previous.yesCount +
+        comparison.previous.noCount +
+        comparison.previous.abstainCount,
+      current:
+        comparison.current.yesCount +
+        comparison.current.noCount +
+        comparison.current.abstainCount,
+      summary: true
+    },
+    {
+      label: "찬성",
+      previous: comparison.previous.yesCount,
+      current: comparison.current.yesCount
+    },
+    {
+      label: "반대",
+      previous: comparison.previous.noCount,
+      current: comparison.current.noCount
+    },
+    {
+      label: "기권",
+      previous: comparison.previous.abstainCount,
+      current: comparison.current.abstainCount
+    },
+    {
+      label: "표결 불참",
+      previous: comparison.previous.absentCount,
+      current: comparison.current.absentCount,
+      summary: true
+    }
+  ];
+
+  return (
+    <div
+      className="watch-queue-record__vote-comparison"
+      role="table"
+      aria-label="직전과 최근 표결 기록 비교"
+    >
+      <div role="row" className="watch-queue-record__vote-comparison-head">
+        <span role="columnheader">구분</span>
+        <span role="columnheader">
+          {`직전 ${formatNumber(comparison.previous.eligibleCount)}건`}
+        </span>
+        <span role="columnheader">
+          {`최근 ${formatNumber(comparison.current.eligibleCount)}건`}
+        </span>
+      </div>
+      {rows.map((row) => (
+        <div
+          key={row.label}
+          role="row"
+          className={row.summary ? "is-summary" : undefined}
+        >
+          <span role="rowheader">{row.label}</span>
+          <strong role="cell">{`${formatNumber(row.previous)}건`}</strong>
+          <strong role="cell">{`${formatNumber(row.current)}건`}</strong>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function WatchQueueSnapshot({
@@ -418,14 +557,19 @@ export function WatchQueueSnapshot({
                       <div>
                         <h3>{record.headline}</h3>
                         <p>{record.rationale}</p>
+                        {record.voteComparison ? (
+                          <VoteComparison comparison={record.voteComparison} />
+                        ) : null}
                         <dl>
-                          {record.previousValue === null ? null : (
+                          {record.voteComparison ||
+                          record.previousValue === null ? null : (
                             <div>
                               <dt>직전 비중</dt>
                               <dd>{formatPercent(record.previousValue)}</dd>
                             </div>
                           )}
-                          {record.currentValue === null ? null : (
+                          {record.voteComparison ||
+                          record.currentValue === null ? null : (
                             <div>
                               <dt>{record.currentLabel}</dt>
                               <dd>{formatPercent(record.currentValue)}</dd>

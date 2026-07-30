@@ -6,12 +6,12 @@
   --v3-border-strong: #c8d2df;
   --v3-canvas: #f6f8fb;
   --v3-panel: #ffffff;
-  --v3-blue: #2457a6;
-  --v3-blue-soft: #edf3fc;
+  --v3-blue: #5b6c00;
+  --v3-blue-soft: #eff6c8;
   --v3-green: #177245;
   --v3-green-soft: #edf8f2;
-  --v3-red: #b93535;
-  --v3-red-soft: #fff1f1;
+  --v3-red: #34362e;
+  --v3-red-soft: #f0f0ea;
   --v3-amber: #9b6707;
   --v3-amber-soft: #fff7e6;
   width: 100%;
@@ -1257,7 +1257,7 @@
 
 .vote-roster-workbench__header > div > p {
   margin: 0 0 0.18rem;
-  color: var(--wq-alert, var(--v3-red));
+  color: var(--wq-accent, var(--v3-red));
   font-size: 0.6rem;
   font-weight: 850;
   letter-spacing: 0.11em;
@@ -1307,7 +1307,7 @@
 
 .v3-evidence-page .vote-roster-tabs button[aria-selected="true"] {
   color: var(--wq-sheet, white);
-  background: var(--wq-alert, var(--v3-red));
+  background: var(--wq-accent, var(--v3-red));
 }
 
 .vote-roster-tabs button strong {
@@ -1460,7 +1460,7 @@
   align-items: center;
   gap: 0.35rem;
   margin: 0 0 0.18rem;
-  color: var(--wq-alert, var(--v3-red));
+  color: var(--wq-accent, var(--v3-red));
   font-size: 0.6rem;
   font-weight: 850;
   letter-spacing: 0.09em;
@@ -1540,7 +1540,7 @@
 
 .vote-opinion-column > header > strong {
   flex: 0 0 auto;
-  color: var(--wq-alert, var(--v3-red));
+  color: var(--wq-accent, var(--v3-red));
   font-family: ui-monospace, "SFMono-Regular", monospace;
   font-size: 0.64rem;
 }
@@ -1572,7 +1572,7 @@
 }
 
 .vote-opinion-column__speaker a {
-  color: var(--wq-alert, var(--v3-blue));
+  color: var(--wq-accent, var(--v3-blue));
   font-size: 0.68rem;
   font-weight: 820;
 }
@@ -1600,7 +1600,7 @@
 }
 
 .vote-opinion-column li > a:hover {
-  color: var(--wq-alert, var(--v3-blue));
+  color: var(--wq-accent, var(--v3-blue));
 }
 
 .vote-opinion-column__empty {

@@ -79,7 +79,7 @@
 }
 
 .member-statement-summary__change-docket > header span {
-  color: var(--watch-red, var(--accent));
+  color: var(--watch-accent, var(--accent));
   font-size: 0.68rem;
   font-weight: 820;
   letter-spacing: 0.1em;
@@ -122,7 +122,7 @@
 }
 
 .member-statement-summary__change-docket article:last-child {
-  border-left-color: var(--watch-red, var(--accent));
+  border-left-color: var(--watch-accent, var(--accent));
 }
 
 .member-statement-summary__change-docket article > span,
@@ -232,7 +232,7 @@
 
 .member-statement-summary__status.is-warning {
   border-style: solid;
-  border-color: var(--watch-red, var(--negative));
+  border-color: var(--watch-accent, var(--negative));
   color: var(--watch-ink, var(--ink));
   background: var(--watch-paper, var(--panel-muted));
 }

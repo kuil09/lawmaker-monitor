@@ -57,7 +57,7 @@ const trends: AccountabilityTrendsExport = {
 };
 
 describe("watch queue change language", () => {
-  it("states before-and-after vote counts without judging the direction", () => {
+  it("separates vote participation from yes, no, abstain, and absence", () => {
     render(
       <WatchQueueSnapshot
         accountabilitySummary={null}
@@ -70,16 +70,28 @@ describe("watch queue change language", () => {
     );
 
     expect(
-      screen.getAllByText("반대·기권·불참: 직전 23/23건 → 최근 0/23건")
+      screen.getAllByText("주된 표결 기록: 직전 반대 23건 → 최근 찬성 23건")
     ).toHaveLength(2);
     expect(
-      screen.getAllByText("반대·기권·불참: 직전 0/23건 → 최근 23/23건")
+      screen.getAllByText("주된 표결 기록: 직전 찬성 23건 → 최근 반대 23건")
     ).toHaveLength(2);
     expect(screen.getAllByText("변화 기록")).toHaveLength(2);
+    expect(
+      screen.getAllByText(/찬성·반대·기권은 표결에 참여한 기록입니다/)
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByRole("table", { name: "직전과 최근 표결 기록 비교" })
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByRole("rowheader", { name: "표결 참여" })
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByRole("rowheader", { name: "표결 불참" })
+    ).toHaveLength(2);
     expect(screen.queryByText(/높아졌습니다|낮아졌습니다/)).toBeNull();
     expect(screen.queryByText("개선 확인")).toBeNull();
-    expect(
-      screen.getAllByText(/변화 방향 자체를 긍정·부정으로 판정하지 않습니다/)
-    ).toHaveLength(2);
+    expect(screen.queryByText(/반대·기권·불참:/)).toBeNull();
+    expect(screen.queryByText("직전 비중")).toBeNull();
+    expect(screen.queryByText("최근 비중")).toBeNull();
   });
 });

@@ -366,7 +366,7 @@
 .v2-national-map__district:focus-visible,
 .v2-national-map__district.is-active {
   outline: none;
-  stroke: #a52a22;
+  stroke: #5b6c00;
   stroke-dasharray: none;
   stroke-width: 2.35;
   filter: brightness(1.04);
@@ -467,9 +467,9 @@
 }
 
 .v2-national-map__evidence-heading em.is-high {
-  border-color: #9f4c52;
-  background: #fff0f1;
-  color: #8e2831;
+  border-color: #a0b343;
+  background: #eff6c8;
+  color: #4b5a00;
 }
 
 .v2-national-map__evidence dl {

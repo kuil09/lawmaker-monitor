@@ -15,9 +15,9 @@
 }
 
 .v2-app.v3-shell .v2-global-nav__skip-link {
-  border: 1px solid #135dd8;
+  border: 1px solid #5b6c00;
   background: #ffffff;
-  color: #104faa;
+  color: #4b5a00;
   font-weight: 720;
 }
 
@@ -41,7 +41,7 @@
 }
 
 .v2-app.v3-shell .v2-global-nav__brand:hover {
-  color: #104faa;
+  color: #4b5a00;
 }
 
 .v2-app.v3-shell .v2-global-nav__menu-button {
@@ -86,7 +86,7 @@
 }
 
 .v2-app.v3-shell .v2-global-nav__link[aria-current="page"] {
-  color: #104faa;
+  color: #4b5a00;
   font-weight: 760;
 }
 
@@ -96,7 +96,7 @@
   left: -0.1rem;
   height: 3px;
   border-radius: 2px 2px 0 0;
-  background: #135dd8;
+  background: #5b6c00;
 }
 
 .v2-app.v3-shell .v2-global-nav__search {
@@ -123,24 +123,24 @@
 }
 
 .v2-app.v3-shell .v2-global-nav__search:focus-within {
-  border-color: #135dd8;
-  box-shadow: 0 0 0 3px rgba(19, 93, 216, 0.14);
+  border-color: #5b6c00;
+  box-shadow: 0 0 0 3px rgba(216, 243, 63, 0.28);
 }
 
 .v2-app.v3-shell .v2-global-nav__search-submit {
   width: 50px;
   height: 40px;
-  background: #135dd8;
+  background: #5b6c00;
   color: #ffffff;
 }
 
 .v2-app.v3-shell .v2-global-nav__search-submit:hover:not(:disabled) {
-  background: #104faa;
+  background: #3d4900;
   color: #ffffff;
 }
 
 .v2-app.v3-shell .v2-global-nav__search-submit:disabled {
-  background: #8eaee3;
+  background: #aab67a;
   color: #ffffff;
   opacity: 1;
 }
@@ -167,7 +167,7 @@
 .v2-app.v3-shell button:focus-visible,
 .v2-app.v3-shell a:focus-visible,
 .v2-app.v3-shell input:focus-visible {
-  outline: 3px solid rgba(19, 93, 216, 0.55);
+  outline: 3px solid rgba(183, 229, 29, 0.72);
   outline-offset: 3px;
 }
 
@@ -255,8 +255,8 @@
   }
 
   .v2-app.v3-shell .v2-global-nav__link[aria-current="page"] {
-    background: #eaf1fd;
-    color: #104faa;
+    background: #eff6c8;
+    color: #4b5a00;
   }
 
   .v2-app.v3-shell .v2-global-nav__link[aria-current="page"]::after {

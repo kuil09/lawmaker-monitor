@@ -1,7 +1,8 @@
 .v2-app.v3-shell {
-  --v3-accent: #165dcc;
-  --v3-accent-strong: #0e49a6;
-  --v3-accent-soft: #edf4ff;
+  --v3-accent: #5b6c00;
+  --v3-accent-strong: #3d4900;
+  --v3-accent-highlight: #d8f33f;
+  --v3-accent-soft: #eff6c8;
   --v3-content-width: 1440px;
 }
 
@@ -36,9 +37,9 @@
 .v2-app.v3-shell .v2-lens-tabs button.is-active,
 .v2-app.v3-shell .hexmap-metric-tab--active,
 .v2-app.v3-shell .hexmap-region-list button.is-active {
-  border-color: #8daee1;
-  background: var(--v3-accent-soft);
-  color: var(--v3-accent);
+  border-color: var(--v3-accent);
+  background: var(--v3-accent-highlight);
+  color: #171512;
 }
 
 .v2-app.v3-shell .v3-evidence-page {
