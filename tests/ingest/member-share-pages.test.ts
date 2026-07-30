@@ -6,12 +6,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildMemberCardModel,
+  extractOfficialMemberPhotoUrl,
   generateMemberSharePages,
   mergeMemberShareSources,
-  renderMemberCardSvg
+  renderMemberCardSvg,
+  resolveMemberPortraitDataUrl
 } from "../../scripts/generate-member-share-pages.mjs";
 
 const temporaryDirectories: string[] = [];
+const onePixelPng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+  "base64"
+);
 
 async function createTemporaryDirectory(): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), "member-share-pages-"));
@@ -111,7 +117,7 @@ describe("generateMemberSharePages", () => {
       "https://data.example.test/manifests/latest.json": {
         snapshotId: "snapshot-123",
         updatedAt: "2026-07-30T10:00:00.000Z",
-        currentAssembly: { label: "제22대 국회" },
+        currentAssembly: { assemblyNo: 22, label: "제22대 국회" },
         exports: {}
       },
       "https://data.example.test/exports/member_activity_calendar.json": {
@@ -189,6 +195,13 @@ describe("generateMemberSharePages", () => {
         }
     };
     const fetchImpl = vi.fn(async (url: string) => {
+      if (url === "https://images.example.test/M001.jpg") {
+        return new Response(onePixelPng, {
+          status: 200,
+          headers: { "Content-Type": "image/png" }
+        });
+      }
+
       const payload = payloads[url];
 
       return payload
@@ -263,6 +276,8 @@ describe("generateMemberSharePages", () => {
     expect(svg).toContain(">불참</text>");
     expect(svg).toContain(">5건</text>");
     expect(svg).toContain('filter="url(#newsprint)"');
+    expect(svg).toContain("<image");
+    expect(svg).not.toContain(">김아</text>");
     expect(svg).not.toMatch(/#173c3a|#006b6e|#005357|#3f6455|#245d56/i);
     expect(cardsManifest).toMatchObject({
       snapshotId: "snapshot-123",
@@ -283,5 +298,92 @@ describe("generateMemberSharePages", () => {
           .mockResolvedValue(new Response(null, { status: 503 }))
       })
     ).rejects.toThrow("no valid member data was available");
+  });
+});
+
+describe("member share portraits", () => {
+  it("extracts the official portrait from the Assembly member page", () => {
+    const html = `
+      <span
+        class="img"
+        style="background-image: url('/static/portal/img/openassm/new/member.png')"
+      ></span>
+    `;
+
+    expect(
+      extractOfficialMemberPhotoUrl(
+        html,
+        "https://www.assembly.go.kr/portal/assm/assmMemb/member.do"
+      )
+    ).toBe(
+      "https://www.assembly.go.kr/static/portal/img/openassm/new/member.png"
+    );
+  });
+
+  it("backfills a missing published portrait from the official member page", async () => {
+    const pageUrl =
+      "https://www.assembly.go.kr/portal/assm/assmMemb/member.do?monaCd=M001&st=22&viewType=CONTBODY";
+    const photoUrl =
+      "https://www.assembly.go.kr/static/portal/img/openassm/M001.jpg";
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url === pageUrl) {
+        return new Response(
+          `<span style="background-image: url('/static/portal/img/openassm/M001.jpg')"></span>`,
+          {
+            status: 200,
+            headers: { "Content-Type": "text/html" }
+          }
+        );
+      }
+      if (url === photoUrl) {
+        return new Response(onePixelPng, {
+          status: 200,
+          headers: { "Content-Type": "image/png" }
+        });
+      }
+      return new Response(null, { status: 404 });
+    });
+
+    const portrait = await resolveMemberPortraitDataUrl({
+      member: {
+        memberId: "M001",
+        name: "김아라",
+        photoUrl: null
+      },
+      assemblyNo: 22,
+      fetchImpl,
+      warnings: [],
+      timeoutMs: 1_000
+    });
+
+    expect(portrait).toBe(
+      `data:image/png;base64,${onePixelPng.toString("base64")}`
+    );
+    expect(fetchImpl).toHaveBeenCalledWith(
+      pageUrl,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Referer: "https://www.assembly.go.kr/"
+        })
+      })
+    );
+    expect(fetchImpl).toHaveBeenCalledWith(
+      photoUrl,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Referer: "https://www.assembly.go.kr/"
+        })
+      })
+    );
+  });
+
+  it("refuses to render a card without a verified portrait", () => {
+    expect(() =>
+      renderMemberCardSvg({
+        memberId: "M001",
+        name: "김아라",
+        photoUrl: null
+      })
+    ).toThrow("a portrait is required");
   });
 });

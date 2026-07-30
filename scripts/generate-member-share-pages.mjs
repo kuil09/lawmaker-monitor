@@ -26,6 +26,14 @@ const DEFAULT_CARD_FONT_FILES = [
 const CARD_GENERATION_CONCURRENCY = 8;
 const STATEMENT_FETCH_CONCURRENCY = 16;
 const SAFE_MEMBER_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+const ASSEMBLY_ORIGIN = "https://www.assembly.go.kr";
+const ASSEMBLY_REQUEST_HEADERS = {
+  Accept:
+    "text/html,application/xhtml+xml,image/avif,image/webp,image/png,image/jpeg,*/*",
+  Referer: `${ASSEMBLY_ORIGIN}/`,
+  "User-Agent":
+    "Mozilla/5.0 (compatible; LawmakerMonitor/1.0; +https://kuil09.github.io/lawmaker-monitor/)"
+};
 
 function normalizeBaseUrl(value) {
   const normalized = value.trim();
@@ -119,6 +127,135 @@ async function fetchOptionalJson(fetchImpl, url, warnings, timeoutMs) {
     );
     return null;
   }
+}
+
+function isAssemblyUrl(url) {
+  try {
+    return new URL(url).origin === ASSEMBLY_ORIGIN;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchImageDataUrl(fetchImpl, url, warnings, timeoutMs) {
+  try {
+    const response = await fetchImpl(url, {
+      headers: isAssemblyUrl(url) ? ASSEMBLY_REQUEST_HEADERS : undefined,
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+    if (!response.ok) {
+      warnings.push(`${url} image returned ${response.status}`);
+      return null;
+    }
+
+    const contentType = response.headers
+      .get("content-type")
+      ?.split(";")[0]
+      ?.trim()
+      ?.toLowerCase();
+    if (!contentType?.startsWith("image/")) {
+      warnings.push(
+        `${url} returned non-image content type ${contentType ?? "unknown"}`
+      );
+      return null;
+    }
+
+    const image = Buffer.from(await response.arrayBuffer());
+    if (image.length === 0) {
+      warnings.push(`${url} returned an empty image`);
+      return null;
+    }
+
+    return `data:${contentType};base64,${image.toString("base64")}`;
+  } catch (error) {
+    warnings.push(
+      `${url} image could not be loaded: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+    return null;
+  }
+}
+
+export function extractOfficialMemberPhotoUrl(html, pageUrl = ASSEMBLY_ORIGIN) {
+  const match = html.match(
+    /background-image\s*:\s*url\(\s*(['"]?)(\/static\/portal\/img\/openassm\/[^'")\s]+)\1\s*\)/i
+  );
+
+  return match?.[2] ? new URL(match[2], pageUrl).toString() : null;
+}
+
+function buildOfficialMemberPageUrl(memberId, assemblyNo) {
+  const url = new URL("/portal/assm/assmMemb/member.do", ASSEMBLY_ORIGIN);
+  url.search = new URLSearchParams({
+    monaCd: memberId,
+    st: String(assemblyNo),
+    viewType: "CONTBODY"
+  }).toString();
+  return url.toString();
+}
+
+export async function resolveMemberPortraitDataUrl({
+  member,
+  assemblyNo,
+  fetchImpl,
+  warnings,
+  timeoutMs
+}) {
+  if (member.photoUrl) {
+    const publishedPhoto = await fetchImageDataUrl(
+      fetchImpl,
+      member.photoUrl,
+      warnings,
+      timeoutMs
+    );
+    if (publishedPhoto) {
+      return publishedPhoto;
+    }
+  }
+
+  const memberPageUrl = buildOfficialMemberPageUrl(member.memberId, assemblyNo);
+  let officialPhotoUrl = null;
+
+  try {
+    const response = await fetchImpl(memberPageUrl, {
+      headers: ASSEMBLY_REQUEST_HEADERS,
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+    if (!response.ok) {
+      warnings.push(`${memberPageUrl} returned ${response.status}`);
+    } else {
+      officialPhotoUrl = extractOfficialMemberPhotoUrl(
+        await response.text(),
+        memberPageUrl
+      );
+      if (!officialPhotoUrl) {
+        warnings.push(`${memberPageUrl} did not contain a member portrait`);
+      }
+    }
+  } catch (error) {
+    warnings.push(
+      `${memberPageUrl} could not be loaded: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
+
+  if (officialPhotoUrl) {
+    const officialPhoto = await fetchImageDataUrl(
+      fetchImpl,
+      officialPhotoUrl,
+      warnings,
+      timeoutMs
+    );
+    if (officialPhoto) {
+      return officialPhoto;
+    }
+  }
+
+  throw new Error(
+    `[member-share] a verified portrait is required for ${member.name} (${member.memberId})`
+  );
 }
 
 async function runInBatches(items, batchSize, callback) {
@@ -387,18 +524,21 @@ export function buildMemberCardModel(member, context) {
 }
 
 export function renderMemberCardSvg(model) {
+  if (!model.photoUrl) {
+    throw new Error(
+      `[member-share] a portrait is required to render ${model.name} (${model.memberId})`
+    );
+  }
+
   const highlights = model.highlights ?? [];
   const accessibleDescription = [model.description, ...model.facts.slice(1)]
     .filter(Boolean)
     .join(" · ");
-  const initials = [...model.name].slice(0, 2).join("");
   const nameFontSize =
     model.name.length <= 3 ? 82 : model.name.length <= 4 ? 72 : 62;
-  const photo = model.photoUrl
-    ? `<image href="${escapeXml(
-        model.photoUrl
-      )}" x="14" y="-4" width="460" height="628" preserveAspectRatio="xMidYMid slice" clip-path="url(#portraitClip)" filter="url(#newsprint)" />`
-    : "";
+  const photo = `<image href="${escapeXml(
+    model.photoUrl
+  )}" x="14" y="-4" width="460" height="628" preserveAspectRatio="xMidYMid slice" clip-path="url(#portraitClip)" filter="url(#newsprint)" />`;
   const metricColumns = [
     { x: 490, width: 300, highlight: highlights[0] },
     { x: 830, width: 300, highlight: highlights[1] }
@@ -428,9 +568,6 @@ export function renderMemberCardSvg(model) {
   <rect width="1200" height="630" fill="url(#paper)" />
   <rect x="22" y="20" width="1156" height="590" fill="none" stroke="#575148" stroke-width="2" />
   <rect x="44" y="36" width="400" height="548" fill="#ded7c9" />
-  <text x="244" y="340" text-anchor="middle" fill="#575148" font-size="96" font-weight="900" font-family="Noto Sans KR">${escapeXml(
-    initials
-  )}</text>
   ${photo}
   <rect x="44" y="36" width="400" height="548" fill="url(#halftone)" opacity="0.3" />
   <rect x="470" y="46" width="190" height="64" fill="#a52a22" />
@@ -487,12 +624,7 @@ export function renderMemberCardSvg(model) {
 </svg>`;
 }
 
-export async function renderMemberCardPng({
-  svg,
-  fetchImpl,
-  warnings,
-  timeoutMs
-}) {
+export async function renderMemberCardPng({ svg, fetchImpl, timeoutMs }) {
   const renderer = new Resvg(svg, {
     fitTo: {
       mode: "width",
@@ -507,20 +639,29 @@ export async function renderMemberCardPng({
 
   await Promise.all(
     renderer.imagesToResolve().map(async (href) => {
+      if (href.startsWith("data:")) {
+        return;
+      }
+
       try {
         const response = await fetchImpl(href, {
+          headers: isAssemblyUrl(href) ? ASSEMBLY_REQUEST_HEADERS : undefined,
           signal: AbortSignal.timeout(timeoutMs)
         });
         if (!response.ok) {
-          warnings.push(`${href} image returned ${response.status}`);
-          return;
+          throw new Error(`returned ${response.status}`);
         }
-        renderer.resolveImage(href, Buffer.from(await response.arrayBuffer()));
+        const image = Buffer.from(await response.arrayBuffer());
+        if (image.length === 0) {
+          throw new Error("returned an empty image");
+        }
+        renderer.resolveImage(href, image);
       } catch (error) {
-        warnings.push(
-          `${href} image could not be loaded: ${
+        throw new Error(
+          `[member-share] portrait image could not be loaded from ${href}: ${
             error instanceof Error ? error.message : String(error)
-          }`
+          }`,
+          { cause: error }
         );
       }
     })
@@ -710,17 +851,40 @@ export async function generateMemberSharePages({
     sources.activityCalendar?.assemblyLabel ??
     sources.accountabilitySummary?.assemblyLabel ??
     "국회";
+  const assemblyNo =
+    manifest?.currentAssembly?.assemblyNo ??
+    sources.activityCalendar?.assemblyNo ??
+    sources.activityCalendar?.assembly?.assemblyNo;
+  if (!Number.isInteger(assemblyNo) || assemblyNo <= 0) {
+    throw new Error(
+      "[member-share] a valid current assembly number is required"
+    );
+  }
   const context = {
     appBaseUrl: normalizedAppBaseUrl,
     generatedAt,
     snapshotId,
     cardVersion,
-    assemblyLabel
+    assemblyLabel,
+    assemblyNo
   };
   const manifestEntries = [];
 
   await runInBatches(members, CARD_GENERATION_CONCURRENCY, async (member) => {
-    const model = buildMemberCardModel(member, context);
+    const portraitDataUrl = await resolveMemberPortraitDataUrl({
+      member,
+      assemblyNo: context.assemblyNo,
+      fetchImpl,
+      warnings,
+      timeoutMs
+    });
+    const model = buildMemberCardModel(
+      {
+        ...member,
+        photoUrl: portraitDataUrl
+      },
+      context
+    );
     const memberPagePath = resolve(
       distDir,
       "members",
