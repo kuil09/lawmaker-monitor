@@ -13,7 +13,8 @@ import type {
 
 export const DEFAULT_MINUTES_SUMMARY_MODEL =
   "LGAI-EXAONE/EXAONE-4.0-1.2B-GGUF:Q8_0";
-export const MINUTES_SUMMARY_PROMPT_VERSION = "minutes-summary-v6-extractive";
+export const MINUTES_SUMMARY_PROMPT_VERSION =
+  "minutes-summary-v7-extractive-ranker";
 const MAX_MINUTES_SUMMARY_GROUP_CHARACTERS = 800;
 const MAX_INTERVENING_STATEMENTS = 8;
 
@@ -625,6 +626,31 @@ function scoreExtractiveCandidate(
   return positionKeywords * 2 + lengthScore + overlap * 10;
 }
 
+function formatExtractiveSelection(
+  selected: Array<{ sentence: string; index: number }>
+): string {
+  const summaryParts: string[] = [];
+  let totalLength = 0;
+
+  for (const item of selected.sort((left, right) => left.index - right.index)) {
+    const sentence = /[.!?]$/.test(item.sentence)
+      ? item.sentence
+      : `${item.sentence}.`;
+    const addedLength = sentence.length + (summaryParts.length > 0 ? 1 : 0);
+    if (totalLength + addedLength > 600) {
+      continue;
+    }
+    summaryParts.push(sentence);
+    totalLength += addedLength;
+  }
+
+  if (summaryParts.length === 0) {
+    throw new Error("The source sentences exceeded the publication boundary.");
+  }
+
+  return summaryParts.join(" ");
+}
+
 export function buildExtractiveMinutesSummary(
   sourceText: string,
   modelHint?: string
@@ -646,26 +672,7 @@ export function buildExtractiveMinutesSummary(
   const selected = ranked
     .slice(0, Math.min(3, ranked.length))
     .sort((left, right) => left.index - right.index);
-  const summaryParts: string[] = [];
-  let totalLength = 0;
-
-  for (const item of selected) {
-    const sentence = /[.!?]$/.test(item.sentence)
-      ? item.sentence
-      : `${item.sentence}.`;
-    const addedLength = sentence.length + (summaryParts.length > 0 ? 1 : 0);
-    if (totalLength + addedLength > 600) {
-      continue;
-    }
-    summaryParts.push(sentence);
-    totalLength += addedLength;
-  }
-
-  if (summaryParts.length === 0) {
-    throw new Error("The source sentences exceeded the publication boundary.");
-  }
-
-  return summaryParts.join(" ");
+  return formatExtractiveSelection(selected);
 }
 
 export function isPublishableMinutesSummary(value: string): boolean {
@@ -688,28 +695,71 @@ export function buildMinutesSummaryPrompt(args: {
   const sourceText = args.partialSummaries?.length
     ? args.partialSummaries.map((summary) => `- ${summary}`).join("\n")
     : args.text;
+  const candidates = splitExtractiveCandidates(sourceText);
 
   return [
     "/no_think",
-    "다음은 대한민국 국회 회의록에서 특정 의원의 발언만 추출한 내용입니다.",
+    "다음은 대한민국 국회 회의록에서 특정 의원의 발언만 추출한 문장 후보입니다.",
     `회의: ${args.group.meetingTitle} (${args.group.meetingDate})`,
     `안건: ${args.group.agendaTitle}`,
     `의안번호: ${args.group.billIds.join(", ") || "해당 없음"}`,
     `발언자: ${args.group.member.name}${args.group.speakerRole ? ` (${args.group.speakerRole})` : ""}`,
     "",
-    sourceLabel,
-    sourceText,
+    `${sourceLabel} 후보 문장`,
+    ...candidates.map((sentence, index) => `${index + 1}. ${sentence}`),
     "",
-    "원문에 명시된 입장, 제안, 근거만 사용해 한국어 2~3문장으로 요약하세요.",
-    "원문 문장의 핵심 단어, 고유명사, 수치, 기관, 인과관계와 긍정·부정 방향을 바꾸지 마세요.",
-    "확신할 수 없는 내용은 추론하거나 보완하지 말고 원문 표현을 그대로 사용하세요.",
-    "추측, 평가, 배경지식, 새로운 숫자를 추가하지 마세요.",
-    "영어 일반 단어를 쓰거나 영어 단어에 한국어 조사를 붙이지 말고 자연스러운 한국어로 풀어 쓰세요.",
-    "영문 알파벳은 원문에 실제로 나온 공식 대문자 약어 또는 고유명사에만 사용하세요.",
-    "현대 한국어 문장으로 작성하고 한자, 중국어, 일본어를 섞지 마세요.",
-    "각 문장은 완결된 종결어미와 문장부호로 끝내세요.",
-    "제목이나 글머리표 없이 요약문만 출력하세요."
+    "의원의 입장, 요구, 비판, 제안 또는 근거를 가장 잘 보여 주는 문장 번호를 1개에서 3개까지 고르세요.",
+    "새 문장을 작성하거나 설명을 덧붙이지 마세요.",
+    '반드시 {"indices":[1,2]} 형식의 JSON 객체 하나만 출력하세요.'
   ].join("\n");
+}
+
+function parseSelectedCandidateIndices(
+  value: string,
+  candidateCount: number
+): number[] {
+  const objectMatch = value.match(/\{[\s\S]*\}/);
+  const arrayMatch = value.match(/\[[\s\S]*\]/);
+  const serialized = objectMatch?.[0] ?? arrayMatch?.[0];
+  if (!serialized) {
+    throw new Error("The local model did not return sentence indices.");
+  }
+
+  const parsed = JSON.parse(serialized) as
+    | { indices?: unknown }
+    | unknown[];
+  const rawIndices = Array.isArray(parsed) ? parsed : parsed.indices;
+  if (!Array.isArray(rawIndices)) {
+    throw new Error("The local model returned an invalid index payload.");
+  }
+
+  const indices = rawIndices
+    .filter((index): index is number => Number.isInteger(index))
+    .filter((index) => index >= 1 && index <= candidateCount)
+    .filter((index, position, values) => values.indexOf(index) === position)
+    .slice(0, 3);
+  if (indices.length === 0) {
+    throw new Error("The local model did not select a valid sentence.");
+  }
+
+  return indices;
+}
+
+function buildModelRankedExtractiveSummary(
+  sourceText: string,
+  modelResponse: string
+): string {
+  const candidates = splitExtractiveCandidates(sourceText);
+  const selectedIndices = parseSelectedCandidateIndices(
+    modelResponse,
+    candidates.length
+  );
+  return formatExtractiveSelection(
+    selectedIndices.map((oneBasedIndex) => ({
+      sentence: candidates[oneBasedIndex - 1]!,
+      index: oneBasedIndex - 1
+    }))
+  );
 }
 
 export function createLlamaServerSummarizer(args: {
@@ -718,9 +768,15 @@ export function createLlamaServerSummarizer(args: {
   timeoutMs?: number;
 }): SummarizeMinutesText {
   return async (input) => {
-    let lastContent: string | null = null;
     let lastError: unknown;
     const timeoutMs = args.timeoutMs ?? 120_000;
+    const candidates = splitExtractiveCandidates(input.text);
+
+    if (candidates.length <= 3) {
+      return formatExtractiveSelection(
+        candidates.map((sentence, index) => ({ sentence, index }))
+      );
+    }
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const controller = new AbortController();
@@ -729,14 +785,14 @@ export function createLlamaServerSummarizer(args: {
         {
           role: "system",
           content:
-            "대한민국 국회 회의록의 의원 발언을 제공된 원문만 사용해 자연스러운 현대 한국어로 충실히 요약하세요. 영어 일반 단어를 섞지 말고, 영문 알파벳은 원문에 실제로 나온 공식 대문자 약어나 고유명사에만 사용하세요. 발언자나 원문에 없는 사실을 추론하지 마세요."
+            '대한민국 국회 회의록의 핵심 원문 문장 번호만 고르세요. 새 문장을 생성하지 말고 {"indices":[1]} 형식의 JSON만 출력하세요.'
         },
         {
           role: "user",
           content: [
             buildMinutesSummaryPrompt(input),
             attempt > 0
-              ? "이전 시도는 형식을 충족하지 못했습니다. 영어 일반 단어와 원문에 없는 영문 표현을 모두 제거하고, 반드시 자연스러운 한국어 완결문으로 끝내세요."
+              ? '이전 응답은 형식에 맞지 않았습니다. 설명 없이 {"indices":[번호]} JSON만 출력하세요.'
               : ""
           ]
             .filter(Boolean)
@@ -753,8 +809,8 @@ export function createLlamaServerSummarizer(args: {
           body: JSON.stringify({
             model: args.modelId,
             messages,
-            temperature: 0.1,
-            max_tokens: attempt === 0 ? 384 : 512,
+            temperature: 0,
+            max_tokens: attempt === 0 ? 32 : 48,
             stream: false,
             chat_template_kwargs: {
               enable_thinking: false
@@ -783,54 +839,18 @@ export function createLlamaServerSummarizer(args: {
         if (typeof content !== "string") {
           throw new Error("Local model response did not contain text.");
         }
-        lastContent = content;
 
         if (payload.choices?.[0]?.finish_reason === "length") {
           throw new Error("The local model reached its output token limit.");
         }
 
-        const sourceText = [
-          input.group.member.name,
-          input.group.meetingTitle,
-          input.group.agendaTitle,
-          input.text
-        ].join("\n");
-        const sanitized = sanitizeModelSummary(content, { sourceText });
-        assertModelSummarySourceFidelity({
-          summary: sanitized,
-          sourceText,
-          allowedNames: [input.group.member.name]
-        });
-        return buildExtractiveMinutesSummary(input.text, sanitized);
+        return buildModelRankedExtractiveSummary(input.text, content);
       } catch (error) {
         lastError = controller.signal.aborted
           ? new Error(`Local model request timed out after ${timeoutMs}ms.`)
           : error;
       } finally {
         clearTimeout(timeoutHandle);
-      }
-    }
-
-    if (lastContent) {
-      try {
-        const sourceText = [
-          input.group.member.name,
-          input.group.meetingTitle,
-          input.group.agendaTitle,
-          input.text
-        ].join("\n");
-        const sanitized = sanitizeModelSummary(lastContent, {
-          allowTrailingFragment: true,
-          sourceText
-        });
-        assertModelSummarySourceFidelity({
-          summary: sanitized,
-          sourceText,
-          allowedNames: [input.group.member.name]
-        });
-        return buildExtractiveMinutesSummary(input.text, sanitized);
-      } catch {
-        // Fall through to the source-only extractive fallback.
       }
     }
 

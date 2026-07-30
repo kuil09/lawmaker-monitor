@@ -47,6 +47,7 @@ type SummaryConfig = {
   endpoint: string;
   maxDocuments: number;
   maxGroups: number;
+  concurrency: number;
 };
 
 type SummaryState = {
@@ -111,8 +112,37 @@ function loadConfig(): SummaryConfig {
       process.env.MINUTES_SUMMARY_ENDPOINT?.trim() ||
       "http://127.0.0.1:8080/v1/chat/completions",
     maxDocuments: readPositiveInteger("MINUTES_SUMMARY_MAX_DOCUMENTS", 8),
-    maxGroups: readPositiveInteger("MINUTES_SUMMARY_MAX_GROUPS", 64)
+    maxGroups: readPositiveInteger("MINUTES_SUMMARY_MAX_GROUPS", 64),
+    concurrency: Math.min(
+      readPositiveInteger("MINUTES_SUMMARY_CONCURRENCY", 4),
+      8
+    )
   };
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function runWorker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await worker(items[index]!);
+    }
+  }
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(concurrency, items.length) },
+      runWorker
+    )
+  );
+  return results;
 }
 
 function artifactRelativePath(
@@ -454,20 +484,36 @@ async function main(): Promise<void> {
       summaries.map((summary) => summary.statementId)
     );
 
-    for (const group of groups) {
-      if (remainingGroupBudget <= 0) {
-        break;
+    const groupsToSummarize = groups
+      .filter((group) => !completedGroupIds.has(group.groupId))
+      .slice(0, remainingGroupBudget);
+    remainingGroupBudget -= groupsToSummarize.length;
+    const results = await mapWithConcurrency(
+      groupsToSummarize,
+      config.concurrency,
+      async (group) => {
+        try {
+          return {
+            group,
+            summary: await summarizeMinutesGroup({
+              group,
+              summarize
+            }),
+            error: null
+          };
+        } catch (error) {
+          return {
+            group,
+            summary: null,
+            error
+          };
+        }
       }
-      if (completedGroupIds.has(group.groupId)) {
-        continue;
-      }
+    );
 
-      remainingGroupBudget -= 1;
-      try {
-        const summary = await summarizeMinutesGroup({
-          group,
-          summarize
-        });
+    for (const result of results) {
+      if (result.summary) {
+        const { group, summary } = result;
         summaries.push({
           statementId: group.groupId,
           documentId: group.documentId,
@@ -490,14 +536,17 @@ async function main(): Promise<void> {
         });
         completedGroupIds.add(group.groupId);
         groupsSummarized += 1;
-      } catch (error) {
-        groupsFailed += 1;
-        process.stderr.write(
-          `Could not summarize ${item.documentId}/${group.groupId}: ${
-            error instanceof Error ? error.message : String(error)
-          }\n`
-        );
+        continue;
       }
+
+      groupsFailed += 1;
+      process.stderr.write(
+        `Could not summarize ${item.documentId}/${result.group.groupId}: ${
+          result.error instanceof Error
+            ? result.error.message
+            : String(result.error)
+        }\n`
+      );
     }
 
     const complete = groups.every((group) =>

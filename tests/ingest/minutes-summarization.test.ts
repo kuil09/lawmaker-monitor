@@ -579,7 +579,7 @@ describe("minutes transcript summarization", () => {
             choices: [
               {
                 message: {
-                  content: "김민수 의원은 제도 개선 필요성을 강조하며"
+                  content: '{"indices":[2'
                 },
                 finish_reason: "length"
               }
@@ -594,7 +594,7 @@ describe("minutes transcript summarization", () => {
             choices: [
               {
                 message: {
-                  content: "김민수 의원은 제도 개선 필요성을 강조했습니다."
+                  content: '{"indices":[2]}'
                 },
                 finish_reason: "stop"
               }
@@ -625,20 +625,22 @@ describe("minutes transcript summarization", () => {
           agendaTitle: "테스트 안건",
           billIds: [],
           speakerRole: "위원",
-          text: "제도 개선이 필요합니다.",
+          text:
+            "현황을 보고받았습니다. 제도 개선이 필요합니다. 예산도 검토해야 합니다. 다음 회의에서 다시 확인하겠습니다.",
           statementIds: ["statement-1"],
           sourceUrl:
             "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=1&type=view",
           sourceFragment: "#statement-1"
         },
-        text: "제도 개선이 필요합니다."
+        text:
+          "현황을 보고받았습니다. 제도 개선이 필요합니다. 예산도 검토해야 합니다. 다음 회의에서 다시 확인하겠습니다."
       })
     ).resolves.toBe("제도 개선이 필요합니다.");
 
     const requestBodies = fetchMock.mock.calls.map((call) =>
       JSON.parse(String((call[1] as RequestInit).body))
     );
-    expect(requestBodies.map((body) => body.max_tokens)).toEqual([384, 512]);
+    expect(requestBodies.map((body) => body.max_tokens)).toEqual([32, 48]);
     expect(requestBodies.every((body) => body.messages.length === 2)).toBe(
       true
     );
