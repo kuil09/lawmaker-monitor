@@ -113,7 +113,35 @@ describe("v2 observatory", () => {
       />
     );
 
+    const watchQueueHeading = screen.getByRole("heading", {
+      name: "시민 감시 큐"
+    });
+    const explorerHeading = screen.getByRole("heading", {
+      name: "전국 지표 탐색"
+    });
+    expect(
+      watchQueueHeading.compareDocumentPosition(explorerHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "선택한 지표에 따라 아래 지도·의원 분포·추세·근거 목록이 함께 바뀝니다."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("tablist", { name: "전국 지표 탐색 선택" })
+    ).toBeInTheDocument();
+
     const attendanceTab = screen.getByRole("tab", { name: "출석" });
+    const observatoryPanel = screen.getByRole("tabpanel");
+    expect(attendanceTab).toHaveAttribute(
+      "aria-controls",
+      "v2-observatory-panel"
+    );
+    expect(observatoryPanel).toHaveAttribute(
+      "aria-labelledby",
+      "v2-lens-tab-attendance"
+    );
     expect(
       screen.getByRole("region", { name: "지역별 결석률 분포" })
     ).toBeInTheDocument();
@@ -149,6 +177,10 @@ describe("v2 observatory", () => {
 
     const votingTab = screen.getByRole("tab", { name: "표결 성향" });
     expect(votingTab).toHaveAttribute("aria-selected", "true");
+    expect(observatoryPanel).toHaveAttribute(
+      "aria-labelledby",
+      "v2-lens-tab-voting"
+    );
     fireEvent.keyDown(votingTab, { key: "End" });
 
     const assetsTab = screen.getByRole("tab", { name: "재산" });

@@ -108,7 +108,7 @@
   background: var(--watch-red, #9c2f24);
 }
 
-.watch-queue-filters label > span.is-improved {
+.watch-queue-filters label > span.is-change {
   background: var(--watch-verified, #575148);
 }
 
@@ -178,7 +178,7 @@
   box-shadow: inset 4px 0 0 var(--watch-red, #9c2f24);
 }
 
-.watch-queue-record.is-improved {
+.watch-queue-record.is-change {
   box-shadow: inset 4px 0 0 var(--watch-verified, #575148);
 }
 

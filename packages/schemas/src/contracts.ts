@@ -223,6 +223,49 @@ export const latestVotesExportSchema = z.object({
   items: z.array(latestVoteItemSchema)
 });
 
+export const voteMinutesOpinionEvidenceSchema = z
+  .object({
+    statementId: nonEmptyString,
+    documentId: nonEmptyString,
+    memberId: nonEmptyString,
+    name: nonEmptyString,
+    party: nonEmptyString,
+    voteCode: z.enum(["yes", "no", "abstain"]),
+    summary: nonEmptyString,
+    evidenceExcerpt: nonEmptyString,
+    meetingTitle: nonEmptyString,
+    meetingDate: nonEmptyString,
+    agendaTitle: nonEmptyString,
+    sourceUrl: nonEmptyString.url(),
+    sourceFragment: nonEmptyString
+  })
+  .strict();
+
+export const voteMinutesOpinionItemSchema = z
+  .object({
+    rollCallId: nonEmptyString,
+    agendaId: nonEmptyString,
+    billName: nonEmptyString,
+    majorityVoteCode: z.enum(["yes", "no", "abstain"]).nullable(),
+    matchMethod: z.literal("bill_id"),
+    sourceMeetingCount: z.number().int().nonnegative(),
+    sourceStatementCount: z.number().int().nonnegative(),
+    latestMeetingDate: nonEmptyString,
+    evidence: z.array(voteMinutesOpinionEvidenceSchema)
+  })
+  .strict();
+
+export const voteMinutesOpinionsExportSchema = z
+  .object({
+    generatedAt: nonEmptyString,
+    assemblyNo: z.number().int().positive(),
+    assemblyLabel: nonEmptyString,
+    modelId: nonEmptyString,
+    promptVersion: nonEmptyString,
+    items: z.array(voteMinutesOpinionItemSchema)
+  })
+  .strict();
+
 export const accountabilitySummaryItemSchema = z.object({
   memberId: nonEmptyString,
   name: nonEmptyString,
@@ -920,6 +963,15 @@ export type MemberSponsorshipAccountsExport = z.infer<
 >;
 export type LatestVoteItem = z.infer<typeof latestVoteItemSchema>;
 export type LatestVotesExport = z.infer<typeof latestVotesExportSchema>;
+export type VoteMinutesOpinionEvidence = z.infer<
+  typeof voteMinutesOpinionEvidenceSchema
+>;
+export type VoteMinutesOpinionItem = z.infer<
+  typeof voteMinutesOpinionItemSchema
+>;
+export type VoteMinutesOpinionsExport = z.infer<
+  typeof voteMinutesOpinionsExportSchema
+>;
 export type AccountabilitySummaryItem = z.infer<
   typeof accountabilitySummaryItemSchema
 >;

@@ -5,7 +5,8 @@ import {
   loadAccountabilityTrends,
   loadBillProposalActivity,
   loadLatestVotes,
-  loadManifest
+  loadManifest,
+  loadVoteMinutesOpinions
 } from "../lib/data.js";
 
 import type {
@@ -13,17 +14,20 @@ import type {
   AccountabilityTrendsExport,
   BillProposalActivityExport,
   LatestVotesExport,
-  Manifest
+  Manifest,
+  VoteMinutesOpinionsExport
 } from "@lawmaker-monitor/schemas";
 
 type BootstrapDataState = {
   latestVotes: LatestVotesExport | null;
+  voteMinutesOpinions: VoteMinutesOpinionsExport | null;
   accountabilitySummary: AccountabilitySummaryExport | null;
   accountabilityTrends: AccountabilityTrendsExport | null;
   billProposalActivity: BillProposalActivityExport | null;
   billProposalActivityLoaded: boolean;
   manifest: Manifest | null;
   feedError: string | null;
+  voteMinutesOpinionsError: string | null;
   leaderboardError: string | null;
   trendsError: string | null;
   billProposalActivityError: string | null;
@@ -31,12 +35,14 @@ type BootstrapDataState = {
 
 const initialState: BootstrapDataState = {
   latestVotes: null,
+  voteMinutesOpinions: null,
   accountabilitySummary: null,
   accountabilityTrends: null,
   billProposalActivity: null,
   billProposalActivityLoaded: false,
   manifest: null,
   feedError: null,
+  voteMinutesOpinionsError: null,
   leaderboardError: null,
   trendsError: null,
   billProposalActivityError: null
@@ -69,6 +75,21 @@ export function useAppBootstrapData() {
         updateState((current) => ({
           ...current,
           feedError: `홈 화면 데이터를 불러오지 못했습니다. ${error.message}`
+        }));
+      });
+
+    void loadVoteMinutesOpinions()
+      .then((voteMinutesOpinions) => {
+        updateState((current) => ({
+          ...current,
+          voteMinutesOpinions,
+          voteMinutesOpinionsError: null
+        }));
+      })
+      .catch((error: Error) => {
+        updateState((current) => ({
+          ...current,
+          voteMinutesOpinionsError: `표결별 회의록 근거를 불러오지 못했습니다. ${error.message}`
         }));
       });
 

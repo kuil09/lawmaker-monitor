@@ -230,6 +230,13 @@
   gap: 0.8rem;
 }
 
+.member-statement-summary__status.is-warning {
+  border-style: solid;
+  border-color: var(--watch-red, var(--negative));
+  color: var(--watch-ink, var(--ink));
+  background: var(--watch-paper, var(--panel-muted));
+}
+
 .member-statement-summary__more {
   justify-self: start;
   border-color: var(--border);

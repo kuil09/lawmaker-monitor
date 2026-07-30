@@ -649,36 +649,6 @@ export function V2ObservatoryPage({
           </p>
         </div>
 
-        <div
-          className="v2-lens-tabs"
-          role="tablist"
-          aria-label="관찰 지표 선택"
-        >
-          {LENS_CONFIGS.map((lens, index) => {
-            const Icon = lens.icon;
-            const selected = lens.key === activeLens;
-            return (
-              <button
-                key={lens.key}
-                ref={(element) => {
-                  tabRefs.current[index] = element;
-                }}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                aria-controls="v2-observatory-panel"
-                tabIndex={selected ? 0 : -1}
-                className={selected ? "is-active" : undefined}
-                onClick={() => selectLens(lens.key)}
-                onKeyDown={(event) => handleTabKeyDown(event, index)}
-              >
-                <Icon size={20} weight={selected ? "fill" : "regular"} />
-                <span>{lens.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
         <p className="v2-observatory__freshness">
           <span>공식 기록 기준</span>
           <strong>{freshnessText}</strong>
@@ -702,637 +672,694 @@ export function V2ObservatoryPage({
         onOpenMember={onOpenMember}
       />
 
-      <div
-        id="v2-observatory-panel"
-        role="tabpanel"
-        aria-label={`${config.label} 관찰`}
-        className="v2-observatory__grid"
+      <section
+        className="v2-observatory-explorer"
+        aria-labelledby="v2-observatory-explorer-title"
       >
-        <aside className="v3-rank-rail" aria-labelledby="v3-rank-rail-title">
-          <div className="v3-rank-rail__heading">
-            <p className="v2-card-kicker">빠른 비교</p>
-            <h2 id="v3-rank-rail-title">{config.scoreLabel}</h2>
-            <span>상위 공개 기록</span>
+        <header className="v2-observatory-explorer__header">
+          <div className="v2-observatory-explorer__copy">
+            <p className="v2-card-kicker">전국 기록 비교</p>
+            <h2 id="v2-observatory-explorer-title">전국 지표 탐색</h2>
+            <span>
+              선택한 지표에 따라 아래 지도·의원 분포·추세·근거 목록이 함께
+              바뀝니다.
+            </span>
           </div>
-          <ol className="v3-rank-rail__list">
-            {rankingRows
-              .filter((row) => row.section === "top")
-              .map((row, index) => (
-                <li key={row.memberId}>
-                  <span className="v3-rank-rail__rank">{index + 1}</span>
-                  <button
-                    type="button"
-                    onClick={() => onOpenMember(row.memberId)}
-                  >
-                    <span>
-                      <strong>{row.name}</strong>
-                      <small>{`${row.party} · ${row.district}`}</small>
-                    </span>
-                    <em>
-                      {activeLens === "assets"
-                        ? formatEok(row.score)
-                        : formatPercentValue(row.score)}
-                    </em>
-                  </button>
-                </li>
-              ))}
-          </ol>
-          <button
-            type="button"
-            className="v3-rank-rail__all"
-            onClick={onOpenDistribution}
-          >
-            전체 의원 비교
-            <ArrowRightIcon size={16} />
-          </button>
-        </aside>
 
-        <section
-          className="v2-analysis-card"
-          aria-labelledby="v2-analysis-title"
+          <div
+            className="v2-lens-tabs"
+            role="tablist"
+            aria-label="전국 지표 탐색 선택"
+          >
+            {LENS_CONFIGS.map((lens, index) => {
+              const Icon = lens.icon;
+              const selected = lens.key === activeLens;
+              return (
+                <button
+                  id={`v2-lens-tab-${lens.key}`}
+                  key={lens.key}
+                  ref={(element) => {
+                    tabRefs.current[index] = element;
+                  }}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  aria-controls="v2-observatory-panel"
+                  tabIndex={selected ? 0 : -1}
+                  className={selected ? "is-active" : undefined}
+                  onClick={() => selectLens(lens.key)}
+                  onKeyDown={(event) => handleTabKeyDown(event, index)}
+                >
+                  <Icon size={20} weight={selected ? "fill" : "regular"} />
+                  <span>{lens.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </header>
+
+        <div
+          id="v2-observatory-panel"
+          role="tabpanel"
+          aria-labelledby={`v2-lens-tab-${activeLens}`}
+          className="v2-observatory__grid"
         >
-          <div className="v2-card-heading">
-            <div>
-              <p className="v2-card-kicker">전국 지역 탐색</p>
-              <h2 id="v2-analysis-title">{config.mapTitle}</h2>
+          <aside className="v3-rank-rail" aria-labelledby="v3-rank-rail-title">
+            <div className="v3-rank-rail__heading">
+              <p className="v2-card-kicker">빠른 비교</p>
+              <h2 id="v3-rank-rail-title">{config.scoreLabel}</h2>
+              <span>상위 공개 기록</span>
             </div>
+            <ol className="v3-rank-rail__list">
+              {rankingRows
+                .filter((row) => row.section === "top")
+                .map((row, index) => (
+                  <li key={row.memberId}>
+                    <span className="v3-rank-rail__rank">{index + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => onOpenMember(row.memberId)}
+                    >
+                      <span>
+                        <strong>{row.name}</strong>
+                        <small>{`${row.party} · ${row.district}`}</small>
+                      </span>
+                      <em>
+                        {activeLens === "assets"
+                          ? formatEok(row.score)
+                          : formatPercentValue(row.score)}
+                      </em>
+                    </button>
+                  </li>
+                ))}
+            </ol>
             <button
               type="button"
-              className="v2-button v2-button--quiet"
-              aria-pressed={showPrimaryTable}
-              onClick={() => setShowPrimaryTable((current) => !current)}
+              className="v3-rank-rail__all"
+              onClick={onOpenDistribution}
             >
-              <TableIcon size={18} />
-              {showPrimaryTable ? "지도 보기" : "목록 보기"}
+              전체 의원 비교
+              <ArrowRightIcon size={16} />
             </button>
-          </div>
+          </aside>
 
-          {loading && points.length === 0 ? (
-            <div
-              className="v2-analysis-loading"
-              role="status"
-              aria-live="polite"
-            >
-              <span className="v2-map-state__pulse" aria-hidden="true" />
-              <strong>공식 기록을 연결하고 있습니다.</strong>
-              <span>의원, 표결, 지역 데이터를 교차 확인하는 중입니다.</span>
+          <section
+            className="v2-analysis-card"
+            aria-labelledby="v2-analysis-title"
+          >
+            <div className="v2-card-heading">
+              <div>
+                <p className="v2-card-kicker">전국 지역 탐색</p>
+                <h2 id="v2-analysis-title">{config.mapTitle}</h2>
+              </div>
+              <button
+                type="button"
+                className="v2-button v2-button--quiet"
+                aria-pressed={showPrimaryTable}
+                onClick={() => setShowPrimaryTable((current) => !current)}
+              >
+                <TableIcon size={18} />
+                {showPrimaryTable ? "지도 보기" : "목록 보기"}
+              </button>
             </div>
-          ) : showPrimaryTable ? (
-            <div className="v2-data-table-wrap">
-              <table className="v2-data-table">
-                <caption>{`${config.label} 분석 데이터`}</caption>
+
+            {loading && points.length === 0 ? (
+              <div
+                className="v2-analysis-loading"
+                role="status"
+                aria-live="polite"
+              >
+                <span className="v2-map-state__pulse" aria-hidden="true" />
+                <strong>공식 기록을 연결하고 있습니다.</strong>
+                <span>의원, 표결, 지역 데이터를 교차 확인하는 중입니다.</span>
+              </div>
+            ) : showPrimaryTable ? (
+              <div className="v2-data-table-wrap">
+                <table className="v2-data-table">
+                  <caption>{`${config.label} 분석 데이터`}</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">의원</th>
+                      <th scope="col">정당</th>
+                      <th scope="col">지역구·비례</th>
+                      <th scope="col">{config.xLabel}</th>
+                      <th scope="col">{config.yLabel}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {points.map((point) => (
+                      <tr key={point.memberId}>
+                        <th scope="row">
+                          <button
+                            type="button"
+                            onClick={() => onOpenMember(point.memberId)}
+                          >
+                            {point.name}
+                          </button>
+                        </th>
+                        <td>{point.party}</td>
+                        <td>{point.district}</td>
+                        <td>
+                          {activeLens === "assets"
+                            ? formatEok(point.x)
+                            : formatPercentValue(point.x)}
+                        </td>
+                        <td>
+                          {activeLens === "assets"
+                            ? formatEok(point.y)
+                            : formatPercentValue(point.y)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="v2-analysis-visuals">
+                <div className="v2-map-panel">
+                  <V2NationalMap
+                    manifest={manifest}
+                    accountabilitySummary={accountabilitySummary}
+                    memberAssetsIndex={memberAssetsIndex}
+                    metric={config.mapMetric}
+                    onOpenMember={onOpenMember}
+                  />
+                  <button
+                    type="button"
+                    className="v2-map-detail-link"
+                    onClick={() => onOpenMap(config.mapMetric)}
+                  >
+                    전국 상세 지도 열기
+                    <ArrowRightIcon size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+
+          <aside className="v2-insight-card" aria-labelledby="v2-insight-title">
+            <div className="v2-insight-card__heading">
+              <BinocularsIcon size={23} weight="duotone" />
+              <h2 id="v2-insight-title">이번 주 관찰</h2>
+            </div>
+            <p className="v2-insight-card__lead">{insightTitle}</p>
+            <dl className="v2-insight-card__stats">
+              <div>
+                <dt>대상 의원</dt>
+                <dd>{points.length}명</dd>
+              </div>
+              <div>
+                <dt>관찰 범위</dt>
+                <dd>
+                  {trendData.length > 0
+                    ? `최근 ${trendData.length}구간`
+                    : "현재 공개분"}
+                </dd>
+              </div>
+            </dl>
+
+            {lowestPoint && highestSupportPoint ? (
+              <div className="v2-insight-note">
+                <InfoIcon size={18} />
+                <p>
+                  {activeLens === "assets" ? (
+                    <>
+                      <MemberDetailLink
+                        memberId={highestSupportPoint.memberId}
+                        name={highestSupportPoint.name}
+                        onNavigate={onOpenMember}
+                      />
+                      {` 의원이 현재 비교군에서 총자산 대비 부채비율이 가장 높습니다.`}
+                    </>
+                  ) : (
+                    <>
+                      <MemberDetailLink
+                        memberId={lowestPoint.memberId}
+                        name={lowestPoint.name}
+                        onNavigate={onOpenMember}
+                      />
+                      {` 의원은 ${config.scoreLabel}이 가장 낮고, `}
+                      <MemberDetailLink
+                        memberId={highestSupportPoint.memberId}
+                        name={highestSupportPoint.name}
+                        onNavigate={onOpenMember}
+                      />
+                      {` 의원은 ${config.supportLabel}이 가장 높습니다.`}
+                    </>
+                  )}
+                </p>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              className="v2-button v2-button--primary"
+              onClick={onOpenDistribution}
+            >
+              근거 의원 보기
+              <ArrowRightIcon size={19} />
+            </button>
+
+            <button
+              type="button"
+              className="v2-method-toggle"
+              aria-expanded={showMethod}
+              aria-controls="v2-method-copy"
+              onClick={() => setShowMethod((current) => !current)}
+            >
+              관찰 기준 자세히 보기
+            </button>
+            {showMethod ? (
+              <p id="v2-method-copy" className="v2-method-copy">
+                공개 기록표결, 의원 활동 캘린더, 정기 재산공개를 동일 의원
+                식별자로 연결합니다. 당내 이탈률은 정당별 다수 방향이 형성된
+                표결에 참여한 건 중 다수 방향과 다른 선택을 한 비중입니다.
+                재산의 부채비율은 공개 채무를 순재산과 채무의 합으로 나눠
+                계산하며, 분모가 0원 이하인 경우 산정하지 않습니다. 값이 없는
+                항목은 순위와 평균에서 제외합니다.
+              </p>
+            ) : null}
+          </aside>
+
+          <section
+            className="v3-scatter-card"
+            aria-labelledby="v3-scatter-title"
+          >
+            <div className="v2-card-heading">
+              <div>
+                <p className="v2-card-kicker">의원 비교</p>
+                <h2 id="v3-scatter-title">{config.scatterTitle}</h2>
+              </div>
+              <p className="v3-scatter-card__axis">
+                세로 {config.yLabel} · 가로 {config.xLabel}
+              </p>
+            </div>
+            <div
+              className="v2-chart-frame"
+              role="img"
+              aria-label={`${points.length}명 의원의 ${config.scatterTitle}`}
+            >
+              <ScatterChart
+                responsive
+                style={{ width: "100%", height: "100%" }}
+                margin={{ top: 16, right: 12, bottom: 24, left: 0 }}
+              >
+                <CartesianGrid stroke="#e2e7ec" strokeDasharray="2 2" />
+                <XAxis
+                  type="number"
+                  dataKey="plotX"
+                  domain={resolvedXDomain}
+                  scale={activeLens === "assets" ? "symlog" : "auto"}
+                  tick={{ fontSize: 11, fill: "#66717d" }}
+                  tickFormatter={(value: number) =>
+                    activeLens === "assets"
+                      ? `${Math.round(value)}`
+                      : `${Math.round(value)}%`
+                  }
+                  label={{
+                    value: config.xLabel,
+                    position: "insideBottom",
+                    offset: -14,
+                    fill: "#66717d",
+                    fontSize: 11
+                  }}
+                />
+                <YAxis
+                  type="number"
+                  dataKey="plotY"
+                  domain={resolvedYDomain}
+                  scale={activeLens === "assets" ? "symlog" : "auto"}
+                  width={42}
+                  tick={{ fontSize: 11, fill: "#66717d" }}
+                  tickFormatter={(value: number) =>
+                    activeLens === "assets"
+                      ? `${Math.round(value)}`
+                      : `${Math.round(value)}%`
+                  }
+                />
+                <ZAxis
+                  dataKey="pointWeight"
+                  range={activeLens === "voting" ? [42, 84] : [45, 45]}
+                />
+                <Tooltip
+                  cursor={{ strokeDasharray: "3 3" }}
+                  wrapperStyle={{ pointerEvents: "auto" }}
+                  content={
+                    <ScatterTooltipContent
+                      config={config}
+                      onOpenMember={onOpenMember}
+                    />
+                  }
+                />
+                <Scatter data={plotPoints}>
+                  {plotPoints.map((point) => (
+                    <Cell
+                      key={point.memberId}
+                      fill={getPartyCssColor(point.party)}
+                      fillOpacity={0.82}
+                      stroke="#ffffff"
+                      strokeWidth={0.8}
+                    />
+                  ))}
+                </Scatter>
+              </ScatterChart>
+            </div>
+            <div className="v2-party-legend">
+              {[...new Set(points.map((point) => point.party))].map((party) => (
+                <span key={party}>
+                  <i
+                    style={{ backgroundColor: getPartyCssColor(party) }}
+                    aria-hidden="true"
+                  />
+                  {party}
+                </span>
+              ))}
+            </div>
+            {activeLens === "voting" ? (
+              <p className="v3-scatter-card__note">
+                점 크기는 당 기준이 형성된 표결의 참여 건수입니다.
+                {excludedVotingPointCount > 0
+                  ? ` 참여 표본이 없는 ${excludedVotingPointCount}명은 제외했습니다.`
+                  : ""}
+              </p>
+            ) : null}
+          </section>
+
+          <section className="v2-trend-card" aria-labelledby="v2-trend-title">
+            <div className="v2-card-heading">
+              <div>
+                <p className="v2-card-kicker">{config.trendKicker}</p>
+                <h2 id="v2-trend-title">{config.trendTitle}</h2>
+              </div>
+              <button
+                type="button"
+                className="v2-button v2-button--quiet"
+                aria-pressed={showTrendTable}
+                onClick={() => setShowTrendTable((current) => !current)}
+              >
+                <TableIcon size={18} />
+                <span className="v2-button__label">
+                  {showTrendTable ? "차트 보기" : "표로 보기"}
+                </span>
+              </button>
+            </div>
+            <div
+              className="v2-trend-legend"
+              aria-label={
+                activeLens === "assets" ? "재산 비교 범례" : "추세 범례"
+              }
+            >
+              <span>
+                <i className="v2-dot v2-dot--green" aria-hidden="true" />
+                {config.trendSeries[1]}
+              </span>
+              <span>
+                <i className="v2-dot v2-dot--blue" aria-hidden="true" />
+                {config.trendSeries[0]}
+              </span>
+              <span>
+                <i className="v2-dot v2-dot--red" aria-hidden="true" />
+                {config.trendSeries[2]}
+              </span>
+            </div>
+            {activeLens === "assets" ? (
+              <p className="v2-trend-scale-note">
+                금액 격차를 함께 보기 위해 대칭 로그 축을 사용합니다.
+              </p>
+            ) : null}
+
+            {showTrendTable ? (
+              <div className="v2-data-table-wrap">
+                <table className="v2-data-table">
+                  <caption>{config.trendTitle}</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">{config.trendCategoryLabel}</th>
+                      <th scope="col">{config.trendSeries[0]}</th>
+                      <th scope="col">{config.trendSeries[1]}</th>
+                      <th scope="col">{config.trendSeries[2]}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trendData.map((point) => (
+                      <tr key={point.label}>
+                        <th scope="row">
+                          {point.memberId ? (
+                            <MemberDetailLink
+                              memberId={point.memberId}
+                              name={point.label}
+                              onNavigate={onOpenMember}
+                            />
+                          ) : (
+                            point.label
+                          )}
+                        </th>
+                        {[point.primary, point.secondary, point.tertiary].map(
+                          (value, index) => (
+                            <td key={`${point.label}-${index}`}>
+                              {value == null
+                                ? "—"
+                                : activeLens === "assets"
+                                  ? formatEok(value)
+                                  : formatPercentValue(value)}
+                            </td>
+                          )
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : trendData.length > 0 ? (
+              <div
+                className={`v2-trend-chart${
+                  activeLens === "assets" ? " v2-trend-chart--comparison" : ""
+                }`}
+                role="img"
+                aria-label={
+                  activeLens === "assets"
+                    ? `${config.trendTitle} 대칭 로그 축 막대그래프`
+                    : config.trendTitle
+                }
+              >
+                {activeLens === "assets" ? (
+                  <BarChart
+                    responsive
+                    style={{ width: "100%", height: "100%" }}
+                    data={trendData}
+                    layout="vertical"
+                    margin={{ top: 8, right: 12, bottom: 8, left: 0 }}
+                    barCategoryGap="18%"
+                  >
+                    <CartesianGrid stroke="#e3e4e6" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      scale="symlog"
+                      domain={["auto", "auto"]}
+                      tick={{ fontSize: 11, fill: "#676a70" }}
+                      tickFormatter={(value: number) =>
+                        `${Math.round(value)}억`
+                      }
+                      tickLine={false}
+                      minTickGap={30}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="label"
+                      width={48}
+                      tick={{ fontSize: 11, fill: "#676a70" }}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      wrapperStyle={{ pointerEvents: "auto" }}
+                      content={
+                        <AssetComparisonTooltipContent
+                          config={config}
+                          onOpenMember={onOpenMember}
+                        />
+                      }
+                    />
+                    <Bar
+                      dataKey="secondary"
+                      name={config.trendSeries[1]}
+                      fill="#575148"
+                      radius={[3, 3, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="primary"
+                      name={config.trendSeries[0]}
+                      fill="#95622d"
+                      radius={[3, 3, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="tertiary"
+                      name={config.trendSeries[2]}
+                      fill="#a52a22"
+                      radius={[3, 3, 0, 0]}
+                    />
+                  </BarChart>
+                ) : (
+                  <LineChart
+                    responsive
+                    style={{ width: "100%", height: "100%" }}
+                    data={trendData}
+                    margin={{ top: 18, right: 16, bottom: 4, left: 0 }}
+                  >
+                    <CartesianGrid stroke="#e3e4e6" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 11, fill: "#676a70" }}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      width={42}
+                      tick={{ fontSize: 11, fill: "#676a70" }}
+                      tickFormatter={(value: number) => `${Math.round(value)}%`}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      formatter={(value) => {
+                        const rawValue = Array.isArray(value)
+                          ? value[0]
+                          : value;
+                        return formatPercentValue(Number(rawValue ?? 0));
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="secondary"
+                      name={config.trendSeries[1]}
+                      stroke="#575148"
+                      strokeWidth={2}
+                      dot={{ r: 2.5 }}
+                      connectNulls
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="primary"
+                      name={config.trendSeries[0]}
+                      stroke="#95622d"
+                      strokeWidth={2}
+                      dot={{ r: 2.5 }}
+                      connectNulls
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="tertiary"
+                      name={config.trendSeries[2]}
+                      stroke="#a52a22"
+                      strokeWidth={2}
+                      dot={{ r: 2.5 }}
+                      connectNulls
+                    />
+                  </LineChart>
+                )}
+                {latestTrendPoint && activeLens !== "assets" ? (
+                  <div className="v2-trend-values" aria-hidden="true">
+                    <strong className="v2-trend-values__primary">
+                      {latestTrendPoint.primary == null
+                        ? "—"
+                        : formatPercentValue(latestTrendPoint.primary)}
+                    </strong>
+                    <strong className="v2-trend-values__secondary">
+                      {latestTrendPoint.secondary == null
+                        ? "—"
+                        : formatPercentValue(latestTrendPoint.secondary)}
+                    </strong>
+                    <strong className="v2-trend-values__tertiary">
+                      {latestTrendPoint.tertiary == null
+                        ? "—"
+                        : formatPercentValue(latestTrendPoint.tertiary)}
+                    </strong>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="v2-empty-state" role="status">
+                {activeLens === "assets"
+                  ? "공개 재산 데이터가 발행되면 이곳에서 의원별 금액을 비교할 수 있습니다."
+                  : "추세 데이터가 발행되면 이곳에서 변화 폭을 비교할 수 있습니다."}
+              </div>
+            )}
+          </section>
+
+          <section
+            className="v2-ranking-card"
+            aria-labelledby="v2-ranking-title"
+          >
+            <div className="v2-card-heading">
+              <div>
+                <p className="v2-card-kicker">근거 목록</p>
+                <h2 id="v2-ranking-title">{config.rankingTitle}</h2>
+              </div>
+            </div>
+            <div className="v2-ranking-table-wrap">
+              <table className="v2-ranking-table">
                 <thead>
                   <tr>
+                    <th scope="col">순위</th>
                     <th scope="col">의원</th>
                     <th scope="col">정당</th>
                     <th scope="col">지역구·비례</th>
-                    <th scope="col">{config.xLabel}</th>
-                    <th scope="col">{config.yLabel}</th>
+                    <th scope="col">{config.scoreLabel}</th>
+                    <th scope="col">{config.basisLabel}</th>
+                    <th scope="col">{config.supportLabel}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {points.map((point) => (
-                    <tr key={point.memberId}>
+                  {rankingRows.map((row, index) => (
+                    <tr
+                      key={row.memberId}
+                      className={
+                        row.section === "bottom" &&
+                        rankingRows[index - 1]?.section === "top"
+                          ? "v2-ranking-table__section-start"
+                          : undefined
+                      }
+                    >
+                      <td>
+                        {row.section === "top"
+                          ? index + 1
+                          : Math.max(1, points.length - (index - 5))}
+                      </td>
                       <th scope="row">
                         <button
                           type="button"
-                          onClick={() => onOpenMember(point.memberId)}
+                          onClick={() => onOpenMember(row.memberId)}
                         >
-                          {point.name}
+                          {row.name}
                         </button>
                       </th>
-                      <td>{point.party}</td>
-                      <td>{point.district}</td>
                       <td>
-                        {activeLens === "assets"
-                          ? formatEok(point.x)
-                          : formatPercentValue(point.x)}
+                        <span
+                          className="v2-party-dot"
+                          style={{
+                            backgroundColor: getPartyCssColor(row.party)
+                          }}
+                          aria-hidden="true"
+                        />
+                        {row.party}
                       </td>
+                      <td>{row.district}</td>
                       <td>
                         {activeLens === "assets"
-                          ? formatEok(point.y)
-                          : formatPercentValue(point.y)}
+                          ? formatEok(row.score)
+                          : formatPercentValue(row.score)}
+                      </td>
+                      <td>{row.basisValue}</td>
+                      <td>
+                        {row.supportValue == null
+                          ? "자료 없음"
+                          : formatPercentValue(row.supportValue)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          ) : (
-            <div className="v2-analysis-visuals">
-              <div className="v2-map-panel">
-                <V2NationalMap
-                  manifest={manifest}
-                  accountabilitySummary={accountabilitySummary}
-                  memberAssetsIndex={memberAssetsIndex}
-                  metric={config.mapMetric}
-                  onOpenMember={onOpenMember}
-                />
-                <button
-                  type="button"
-                  className="v2-map-detail-link"
-                  onClick={() => onOpenMap(config.mapMetric)}
-                >
-                  전국 상세 지도 열기
-                  <ArrowRightIcon size={16} />
-                </button>
-              </div>
-            </div>
-          )}
-        </section>
-
-        <aside className="v2-insight-card" aria-labelledby="v2-insight-title">
-          <div className="v2-insight-card__heading">
-            <BinocularsIcon size={23} weight="duotone" />
-            <h2 id="v2-insight-title">이번 주 관찰</h2>
-          </div>
-          <p className="v2-insight-card__lead">{insightTitle}</p>
-          <dl className="v2-insight-card__stats">
-            <div>
-              <dt>대상 의원</dt>
-              <dd>{points.length}명</dd>
-            </div>
-            <div>
-              <dt>관찰 범위</dt>
-              <dd>
-                {trendData.length > 0
-                  ? `최근 ${trendData.length}구간`
-                  : "현재 공개분"}
-              </dd>
-            </div>
-          </dl>
-
-          {lowestPoint && highestSupportPoint ? (
-            <div className="v2-insight-note">
-              <InfoIcon size={18} />
-              <p>
-                {activeLens === "assets" ? (
-                  <>
-                    <MemberDetailLink
-                      memberId={highestSupportPoint.memberId}
-                      name={highestSupportPoint.name}
-                      onNavigate={onOpenMember}
-                    />
-                    {` 의원이 현재 비교군에서 총자산 대비 부채비율이 가장 높습니다.`}
-                  </>
-                ) : (
-                  <>
-                    <MemberDetailLink
-                      memberId={lowestPoint.memberId}
-                      name={lowestPoint.name}
-                      onNavigate={onOpenMember}
-                    />
-                    {` 의원은 ${config.scoreLabel}이 가장 낮고, `}
-                    <MemberDetailLink
-                      memberId={highestSupportPoint.memberId}
-                      name={highestSupportPoint.name}
-                      onNavigate={onOpenMember}
-                    />
-                    {` 의원은 ${config.supportLabel}이 가장 높습니다.`}
-                  </>
-                )}
-              </p>
-            </div>
-          ) : null}
-
-          <button
-            type="button"
-            className="v2-button v2-button--primary"
-            onClick={onOpenDistribution}
-          >
-            근거 의원 보기
-            <ArrowRightIcon size={19} />
-          </button>
-
-          <button
-            type="button"
-            className="v2-method-toggle"
-            aria-expanded={showMethod}
-            aria-controls="v2-method-copy"
-            onClick={() => setShowMethod((current) => !current)}
-          >
-            관찰 기준 자세히 보기
-          </button>
-          {showMethod ? (
-            <p id="v2-method-copy" className="v2-method-copy">
-              공개 기록표결, 의원 활동 캘린더, 정기 재산공개를 동일 의원
-              식별자로 연결합니다. 당내 이탈률은 정당별 다수 방향이 형성된
-              표결에 참여한 건 중 다수 방향과 다른 선택을 한 비중입니다. 재산의
-              부채비율은 공개 채무를 순재산과 채무의 합으로 나눠 계산하며,
-              분모가 0원 이하인 경우 산정하지 않습니다. 값이 없는 항목은 순위와
-              평균에서 제외합니다.
-            </p>
-          ) : null}
-        </aside>
-
-        <section className="v3-scatter-card" aria-labelledby="v3-scatter-title">
-          <div className="v2-card-heading">
-            <div>
-              <p className="v2-card-kicker">의원 비교</p>
-              <h2 id="v3-scatter-title">{config.scatterTitle}</h2>
-            </div>
-            <p className="v3-scatter-card__axis">
-              세로 {config.yLabel} · 가로 {config.xLabel}
-            </p>
-          </div>
-          <div
-            className="v2-chart-frame"
-            role="img"
-            aria-label={`${points.length}명 의원의 ${config.scatterTitle}`}
-          >
-            <ScatterChart
-              responsive
-              style={{ width: "100%", height: "100%" }}
-              margin={{ top: 16, right: 12, bottom: 24, left: 0 }}
-            >
-              <CartesianGrid stroke="#e2e7ec" strokeDasharray="2 2" />
-              <XAxis
-                type="number"
-                dataKey="plotX"
-                domain={resolvedXDomain}
-                scale={activeLens === "assets" ? "symlog" : "auto"}
-                tick={{ fontSize: 11, fill: "#66717d" }}
-                tickFormatter={(value: number) =>
-                  activeLens === "assets"
-                    ? `${Math.round(value)}`
-                    : `${Math.round(value)}%`
-                }
-                label={{
-                  value: config.xLabel,
-                  position: "insideBottom",
-                  offset: -14,
-                  fill: "#66717d",
-                  fontSize: 11
-                }}
-              />
-              <YAxis
-                type="number"
-                dataKey="plotY"
-                domain={resolvedYDomain}
-                scale={activeLens === "assets" ? "symlog" : "auto"}
-                width={42}
-                tick={{ fontSize: 11, fill: "#66717d" }}
-                tickFormatter={(value: number) =>
-                  activeLens === "assets"
-                    ? `${Math.round(value)}`
-                    : `${Math.round(value)}%`
-                }
-              />
-              <ZAxis
-                dataKey="pointWeight"
-                range={activeLens === "voting" ? [42, 84] : [45, 45]}
-              />
-              <Tooltip
-                cursor={{ strokeDasharray: "3 3" }}
-                wrapperStyle={{ pointerEvents: "auto" }}
-                content={
-                  <ScatterTooltipContent
-                    config={config}
-                    onOpenMember={onOpenMember}
-                  />
-                }
-              />
-              <Scatter data={plotPoints}>
-                {plotPoints.map((point) => (
-                  <Cell
-                    key={point.memberId}
-                    fill={getPartyCssColor(point.party)}
-                    fillOpacity={0.82}
-                    stroke="#ffffff"
-                    strokeWidth={0.8}
-                  />
-                ))}
-              </Scatter>
-            </ScatterChart>
-          </div>
-          <div className="v2-party-legend">
-            {[...new Set(points.map((point) => point.party))].map((party) => (
-              <span key={party}>
-                <i
-                  style={{ backgroundColor: getPartyCssColor(party) }}
-                  aria-hidden="true"
-                />
-                {party}
-              </span>
-            ))}
-          </div>
-          {activeLens === "voting" ? (
-            <p className="v3-scatter-card__note">
-              점 크기는 당 기준이 형성된 표결의 참여 건수입니다.
-              {excludedVotingPointCount > 0
-                ? ` 참여 표본이 없는 ${excludedVotingPointCount}명은 제외했습니다.`
-                : ""}
-            </p>
-          ) : null}
-        </section>
-
-        <section className="v2-trend-card" aria-labelledby="v2-trend-title">
-          <div className="v2-card-heading">
-            <div>
-              <p className="v2-card-kicker">{config.trendKicker}</p>
-              <h2 id="v2-trend-title">{config.trendTitle}</h2>
-            </div>
-            <button
-              type="button"
-              className="v2-button v2-button--quiet"
-              aria-pressed={showTrendTable}
-              onClick={() => setShowTrendTable((current) => !current)}
-            >
-              <TableIcon size={18} />
-              <span className="v2-button__label">
-                {showTrendTable ? "차트 보기" : "표로 보기"}
-              </span>
-            </button>
-          </div>
-          <div
-            className="v2-trend-legend"
-            aria-label={
-              activeLens === "assets" ? "재산 비교 범례" : "추세 범례"
-            }
-          >
-            <span>
-              <i className="v2-dot v2-dot--green" aria-hidden="true" />
-              {config.trendSeries[1]}
-            </span>
-            <span>
-              <i className="v2-dot v2-dot--blue" aria-hidden="true" />
-              {config.trendSeries[0]}
-            </span>
-            <span>
-              <i className="v2-dot v2-dot--red" aria-hidden="true" />
-              {config.trendSeries[2]}
-            </span>
-          </div>
-          {activeLens === "assets" ? (
-            <p className="v2-trend-scale-note">
-              금액 격차를 함께 보기 위해 대칭 로그 축을 사용합니다.
-            </p>
-          ) : null}
-
-          {showTrendTable ? (
-            <div className="v2-data-table-wrap">
-              <table className="v2-data-table">
-                <caption>{config.trendTitle}</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">{config.trendCategoryLabel}</th>
-                    <th scope="col">{config.trendSeries[0]}</th>
-                    <th scope="col">{config.trendSeries[1]}</th>
-                    <th scope="col">{config.trendSeries[2]}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {trendData.map((point) => (
-                    <tr key={point.label}>
-                      <th scope="row">
-                        {point.memberId ? (
-                          <MemberDetailLink
-                            memberId={point.memberId}
-                            name={point.label}
-                            onNavigate={onOpenMember}
-                          />
-                        ) : (
-                          point.label
-                        )}
-                      </th>
-                      {[point.primary, point.secondary, point.tertiary].map(
-                        (value, index) => (
-                          <td key={`${point.label}-${index}`}>
-                            {value == null
-                              ? "—"
-                              : activeLens === "assets"
-                                ? formatEok(value)
-                                : formatPercentValue(value)}
-                          </td>
-                        )
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : trendData.length > 0 ? (
-            <div
-              className={`v2-trend-chart${
-                activeLens === "assets" ? " v2-trend-chart--comparison" : ""
-              }`}
-              role="img"
-              aria-label={
-                activeLens === "assets"
-                  ? `${config.trendTitle} 대칭 로그 축 막대그래프`
-                  : config.trendTitle
-              }
-            >
-              {activeLens === "assets" ? (
-                <BarChart
-                  responsive
-                  style={{ width: "100%", height: "100%" }}
-                  data={trendData}
-                  layout="vertical"
-                  margin={{ top: 8, right: 12, bottom: 8, left: 0 }}
-                  barCategoryGap="18%"
-                >
-                  <CartesianGrid stroke="#e3e4e6" horizontal={false} />
-                  <XAxis
-                    type="number"
-                    scale="symlog"
-                    domain={["auto", "auto"]}
-                    tick={{ fontSize: 11, fill: "#676a70" }}
-                    tickFormatter={(value: number) => `${Math.round(value)}억`}
-                    tickLine={false}
-                    minTickGap={30}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="label"
-                    width={48}
-                    tick={{ fontSize: 11, fill: "#676a70" }}
-                    tickLine={false}
-                  />
-                  <Tooltip
-                    wrapperStyle={{ pointerEvents: "auto" }}
-                    content={
-                      <AssetComparisonTooltipContent
-                        config={config}
-                        onOpenMember={onOpenMember}
-                      />
-                    }
-                  />
-                  <Bar
-                    dataKey="secondary"
-                    name={config.trendSeries[1]}
-                    fill="#575148"
-                    radius={[3, 3, 0, 0]}
-                  />
-                  <Bar
-                    dataKey="primary"
-                    name={config.trendSeries[0]}
-                    fill="#95622d"
-                    radius={[3, 3, 0, 0]}
-                  />
-                  <Bar
-                    dataKey="tertiary"
-                    name={config.trendSeries[2]}
-                    fill="#a52a22"
-                    radius={[3, 3, 0, 0]}
-                  />
-                </BarChart>
-              ) : (
-                <LineChart
-                  responsive
-                  style={{ width: "100%", height: "100%" }}
-                  data={trendData}
-                  margin={{ top: 18, right: 16, bottom: 4, left: 0 }}
-                >
-                  <CartesianGrid stroke="#e3e4e6" vertical={false} />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 11, fill: "#676a70" }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    width={42}
-                    tick={{ fontSize: 11, fill: "#676a70" }}
-                    tickFormatter={(value: number) => `${Math.round(value)}%`}
-                    tickLine={false}
-                  />
-                  <Tooltip
-                    formatter={(value) => {
-                      const rawValue = Array.isArray(value) ? value[0] : value;
-                      return formatPercentValue(Number(rawValue ?? 0));
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="secondary"
-                    name={config.trendSeries[1]}
-                    stroke="#575148"
-                    strokeWidth={2}
-                    dot={{ r: 2.5 }}
-                    connectNulls
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="primary"
-                    name={config.trendSeries[0]}
-                    stroke="#95622d"
-                    strokeWidth={2}
-                    dot={{ r: 2.5 }}
-                    connectNulls
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="tertiary"
-                    name={config.trendSeries[2]}
-                    stroke="#a52a22"
-                    strokeWidth={2}
-                    dot={{ r: 2.5 }}
-                    connectNulls
-                  />
-                </LineChart>
-              )}
-              {latestTrendPoint && activeLens !== "assets" ? (
-                <div className="v2-trend-values" aria-hidden="true">
-                  <strong className="v2-trend-values__primary">
-                    {latestTrendPoint.primary == null
-                      ? "—"
-                      : formatPercentValue(latestTrendPoint.primary)}
-                  </strong>
-                  <strong className="v2-trend-values__secondary">
-                    {latestTrendPoint.secondary == null
-                      ? "—"
-                      : formatPercentValue(latestTrendPoint.secondary)}
-                  </strong>
-                  <strong className="v2-trend-values__tertiary">
-                    {latestTrendPoint.tertiary == null
-                      ? "—"
-                      : formatPercentValue(latestTrendPoint.tertiary)}
-                  </strong>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="v2-empty-state" role="status">
-              {activeLens === "assets"
-                ? "공개 재산 데이터가 발행되면 이곳에서 의원별 금액을 비교할 수 있습니다."
-                : "추세 데이터가 발행되면 이곳에서 변화 폭을 비교할 수 있습니다."}
-            </div>
-          )}
-        </section>
-
-        <section className="v2-ranking-card" aria-labelledby="v2-ranking-title">
-          <div className="v2-card-heading">
-            <div>
-              <p className="v2-card-kicker">근거 목록</p>
-              <h2 id="v2-ranking-title">{config.rankingTitle}</h2>
-            </div>
-          </div>
-          <div className="v2-ranking-table-wrap">
-            <table className="v2-ranking-table">
-              <thead>
-                <tr>
-                  <th scope="col">순위</th>
-                  <th scope="col">의원</th>
-                  <th scope="col">정당</th>
-                  <th scope="col">지역구·비례</th>
-                  <th scope="col">{config.scoreLabel}</th>
-                  <th scope="col">{config.basisLabel}</th>
-                  <th scope="col">{config.supportLabel}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rankingRows.map((row, index) => (
-                  <tr
-                    key={row.memberId}
-                    className={
-                      row.section === "bottom" &&
-                      rankingRows[index - 1]?.section === "top"
-                        ? "v2-ranking-table__section-start"
-                        : undefined
-                    }
-                  >
-                    <td>
-                      {row.section === "top"
-                        ? index + 1
-                        : Math.max(1, points.length - (index - 5))}
-                    </td>
-                    <th scope="row">
-                      <button
-                        type="button"
-                        onClick={() => onOpenMember(row.memberId)}
-                      >
-                        {row.name}
-                      </button>
-                    </th>
-                    <td>
-                      <span
-                        className="v2-party-dot"
-                        style={{
-                          backgroundColor: getPartyCssColor(row.party)
-                        }}
-                        aria-hidden="true"
-                      />
-                      {row.party}
-                    </td>
-                    <td>{row.district}</td>
-                    <td>
-                      {activeLens === "assets"
-                        ? formatEok(row.score)
-                        : formatPercentValue(row.score)}
-                    </td>
-                    <td>{row.basisValue}</td>
-                    <td>
-                      {row.supportValue == null
-                        ? "자료 없음"
-                        : formatPercentValue(row.supportValue)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
+          </section>
+        </div>
+      </section>
       <BillProposalActivitySection
         data={billProposalActivity}
         loading={billProposalActivityLoading}

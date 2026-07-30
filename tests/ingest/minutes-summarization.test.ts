@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { memberStatementSummariesExportSchema } from "../../packages/schemas/src/index.js";
 import {
+  assertModelSummarySourceFidelity,
+  buildExtractiveMinutesSummary,
   buildMemberStatementSummaryExports,
   buildMinutesSummaryGroups,
   chunkMinutesText,
@@ -147,6 +149,48 @@ describe("minutes transcript summarization", () => {
       agendaTitle: "4. 현안질의",
       billIds: []
     });
+  });
+
+  it("separates distant exchanges under the same broad agenda", () => {
+    const transcript = parseAssemblyMinutesViewerHtml({
+      documentId: "minutes-emergency-inquiry",
+      sourceUrl:
+        "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=57033&type=view",
+      fallbackMeetingDate: "2026-07-22",
+      fallbackTitle: "제3차 법제사법위원회",
+      html: `
+        <div id="header">
+          <div class="tit"><h2><strong>제3차 법제사법위원회</strong><span class="date">(2026.07.22.)</span></h2></div>
+        </div>
+        <div class="minutes_body">
+          <p><a id="item1" class="tit">1. 긴급현안질의</a></p>
+          <div id="spk_1" class="item1 speaker spk_mem" data-name="박은정" data-pos="위원">
+            <div class="talk"><div class="txt"><span class="spk_sub">오세훈 사건을 대법원까지 신속하게 처리해 주시기 바랍니다.</span></div></div>
+          </div>
+          ${Array.from(
+            { length: 9 },
+            (_, index) => `
+              <div id="spk_${index + 2}" class="item1 speaker" data-name="기관${index}" data-pos="답변자">
+                <div class="talk"><div class="txt"><span class="spk_sub">답변 ${index + 1}입니다.</span></div></div>
+              </div>
+            `
+          ).join("")}
+          <div id="spk_11" class="item1 speaker spk_mem" data-name="박은정" data-pos="위원">
+            <div class="talk"><div class="txt"><span class="spk_sub">아동 성착취 수사의 통신영장 기각을 비판합니다.</span></div></div>
+          </div>
+        </div>
+      `
+    });
+
+    const groups = buildMinutesSummaryGroups({
+      transcript,
+      members: [{ memberId: "1A82234K", name: "박은정", party: "조국혁신당" }]
+    });
+
+    expect(groups).toHaveLength(2);
+    expect(groups[0]?.text).toContain("오세훈");
+    expect(groups[0]?.text).not.toContain("성착취");
+    expect(groups[1]?.text).toContain("성착취");
   });
 
   it("uses the official member profile URL to resolve duplicate names", () => {
@@ -383,6 +427,103 @@ describe("minutes transcript summarization", () => {
     expect(summary).toContain("영향평가");
   });
 
+  it("rejects invented people and institutions in generated prose", () => {
+    const sourceText = [
+      "박은정",
+      "법원행정처장님, 오세훈 서울시장의 정치자금법 위반 혐의에 대해서 오늘 당선무효형 선고가 됐습니다.",
+      "이 오세훈 사건도 대법원까지 신속하게 빨리 처리될 수 있도록 해 주시기 바랍니다.",
+      "다음 법사위 때 그 부분에 대해서 명확하게 보고해 주셨으면 좋겠습니다."
+    ].join(" ");
+
+    expect(() =>
+      assertModelSummarySourceFidelity({
+        summary:
+          "박은정 의원은 오펜하이머 시장 사건의 신속 처리를 요구하며 당협위에 지시를 촉구했다.",
+        sourceText,
+        allowedNames: ["박은정"]
+      })
+    ).toThrow(/named people|institutions/);
+  });
+
+  it("publishes source sentences instead of generated prose", () => {
+    const sourceText = [
+      "오세훈 사건도 대법원까지 신속하게 빨리 처리될 수 있도록 해 주시기 바랍니다.",
+      "아동 성착취 수사를 위해 신청한 통신영장을 기각한 것은 수사를 방해한 것입니다.",
+      "다음 법사위 때 그 부분에 대해서 명확하게 보고해 주셨으면 좋겠습니다."
+    ].join(" ");
+    const summary = buildExtractiveMinutesSummary(
+      sourceText,
+      "오펜하이머 시장 사건과 당협위 지시를 다룬 발언입니다."
+    );
+
+    expect(summary).not.toContain("오펜하이머");
+    expect(summary).not.toContain("당협위");
+    expect(sourceText).toContain("오세훈 사건");
+    expect(summary).toContain("오세훈 사건");
+  });
+
+  it("falls back to exact source sentences for the Park Eun-jung hallucination", async () => {
+    const sourceText = [
+      "법원행정처장님, 오세훈 서울시장의 여론조사 대납 관련 정치자금법 위반 혐의에 대해서 오늘 당선무효형 선고가 됐습니다.",
+      "그랬으니까 이 오세훈 사건도 대법원까지 신속하게 빨리 처리될 수 있도록 해 주시기 바랍니다.",
+      "지금 검사의 저 영장 기각은 말도 안 되는 기각이에요.",
+      "저런 통신영장을 기각하는 검사, 저런 검사가 무슨 피해자 인권을 얘기할 수 있습니까?",
+      "다음 법사위 때 그 부분에 대해서 명확하게 보고해 주셨으면 좋겠습니다."
+    ].join(" ");
+    const hallucinatedSummary =
+      "박은정 의원은 오펜하이머 시장 사건을 언급하고 피해자 인권 침해 우려 때문에 영장이 기각됐다고 설명하며 당협위 지시를 촉구했습니다.";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: { content: hallucinatedSummary },
+              finish_reason: "stop"
+            }
+          ]
+        }),
+        { status: 200 }
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const summarize = createLlamaServerSummarizer({
+      endpoint: "http://127.0.0.1:8080/v1/chat/completions",
+      modelId: "test-model"
+    });
+
+    const summary = await summarize({
+      group: {
+        groupId: "park-eunjung-2026-07-22",
+        member: {
+          memberId: "1A82234K",
+          name: "박은정",
+          party: "조국혁신당"
+        },
+        documentId: "assembly-minutes-minutes-57033",
+        meetingTitle: "제22대국회 제437회 (임시회) 제3차 법제사법위원회",
+        meetingDate: "2026-07-22",
+        committeeName: "법제사법위원회",
+        agendaTitle: "1. 긴급현안질의",
+        billIds: [],
+        speakerRole: "위원",
+        text: sourceText,
+        statementIds: ["spk_120", "spk_122", "spk_134"],
+        sourceUrl:
+          "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=57033&type=view",
+        sourceFragment: "#spk_120"
+      },
+      text: sourceText
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(summary).not.toContain("오펜하이머");
+    expect(summary).not.toContain("당협위");
+    expect(summary).not.toContain("때문에 영장이 기각");
+    for (const sentence of summary.split(/(?<=[.!?])\s+/)) {
+      expect(sourceText).toContain(sentence);
+    }
+  });
+
   it("keeps the complete source when bounding long statements", () => {
     const source = `${"가".repeat(6_000)}\n${"나".repeat(6_000)}\n마지막 근거`;
     const chunks = chunkMinutesText(source, 5_000);
@@ -492,7 +633,7 @@ describe("minutes transcript summarization", () => {
         },
         text: "제도 개선이 필요합니다."
       })
-    ).resolves.toBe("김민수 의원은 제도 개선 필요성을 강조했습니다.");
+    ).resolves.toBe("제도 개선이 필요합니다.");
 
     const requestBodies = fetchMock.mock.calls.map((call) =>
       JSON.parse(String((call[1] as RequestInit).body))

@@ -164,7 +164,7 @@ jobs:
           TARGET_BRANCH="${DATA_REPO_BRANCH:-main}"
 
           if [ -n "$(git status --short)" ]; then
-            git add curated/minutes_summaries exports/member_statement_summaries manifests/minutes_summary_state.json
+            git add curated/minutes_summaries exports/member_statement_summaries exports/vote_minutes_opinions.json manifests/minutes_summary_state.json
             git commit -m "Summarize Assembly minutes"
             git fetch origin "${TARGET_BRANCH}"
             git rebase "origin/${TARGET_BRANCH}"

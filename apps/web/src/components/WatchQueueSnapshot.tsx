@@ -16,7 +16,7 @@ import type {
   BillProposalActivityExport
 } from "@lawmaker-monitor/schemas";
 
-type QueueTone = "attention" | "improved" | "evidence";
+type QueueTone = "attention" | "change" | "evidence";
 
 type QueueRecord = {
   id: string;
@@ -52,7 +52,7 @@ const donationCenterUrl =
 
 const filterLabels: Array<{ id: QueueTone; label: string }> = [
   { id: "attention", label: "확인 필요" },
-  { id: "improved", label: "개선 확인" },
+  { id: "change", label: "표결 변화" },
   { id: "evidence", label: "결과 확인" }
 ];
 
@@ -117,37 +117,41 @@ function buildChangeRecords(
       }
 
       const summaryMember = summaryByMemberId.get(mover.memberId);
-      const tone: QueueTone = delta > 0 ? "attention" : "improved";
+      const previousNegativeCount =
+        mover.previousWindowNoCount +
+        mover.previousWindowAbstainCount +
+        mover.previousWindowAbsentCount;
+      const currentNegativeCount =
+        mover.currentWindowNoCount +
+        mover.currentWindowAbstainCount +
+        mover.currentWindowAbsentCount;
       return [
         {
           id: `trend:${mover.memberId}`,
-          tone,
+          tone: "change",
           memberId: mover.memberId,
           name: mover.name,
           party: mover.party,
           district: summaryMember?.district ?? null,
           photoUrl: mover.photoUrl ?? summaryMember?.photoUrl,
           recordType: "표결 변화",
-          headline:
-            tone === "attention"
-              ? `반대·기권·불참 비중이 ${Math.abs(delta * 100).toFixed(
-                  1
-                )}%p 높아졌습니다.`
-              : `반대·기권·불참 비중이 ${Math.abs(delta * 100).toFixed(
-                  1
-                )}%p 낮아졌습니다.`,
+          headline: `반대·기권·불참: 직전 ${formatNumber(
+            previousNegativeCount
+          )}/${formatNumber(
+            mover.previousWindowEligibleCount
+          )}건 → 최근 ${formatNumber(currentNegativeCount)}/${formatNumber(
+            mover.currentWindowEligibleCount
+          )}건`,
           rationale:
-            "직전 구간과 최근 구간의 공개 표결을 같은 산식으로 비교했습니다.",
+            "두 구간의 공개 기록표결을 같은 산식으로 계산했으며, 변화 방향 자체를 긍정·부정으로 판정하지 않습니다.",
           previousValue,
           currentValue,
           delta,
-          currentLabel: "최근",
+          currentLabel: "최근 비중",
           actionLabel: "변화 전후 근거 보기",
-          basisLabel: `${formatNumber(mover.currentWindowEligibleCount)}건 중 ${
-            mover.currentWindowNoCount +
-            mover.currentWindowAbstainCount +
-            mover.currentWindowAbsentCount
-          }건`,
+          basisLabel: `직전 ${formatNumber(
+            mover.previousWindowEligibleCount
+          )}건 · 최근 ${formatNumber(mover.currentWindowEligibleCount)}건`,
           generatedAt: trends?.generatedAt ?? null
         }
       ];
@@ -267,7 +271,7 @@ export function WatchQueueSnapshot({
     Record<QueueTone, boolean>
   >({
     attention: true,
-    improved: true,
+    change: true,
     evidence: true
   });
   const [showAll, setShowAll] = useState(false);
@@ -394,8 +398,8 @@ export function WatchQueueSnapshot({
                         <QueueStateIcon tone={record.tone} />
                         {record.tone === "attention"
                           ? "추가 확인"
-                          : record.tone === "improved"
-                            ? "개선 확인"
+                          : record.tone === "change"
+                            ? "변화 기록"
                             : "결과 확인"}
                       </span>
                       <small>{record.recordType}</small>
@@ -417,7 +421,7 @@ export function WatchQueueSnapshot({
                         <dl>
                           {record.previousValue === null ? null : (
                             <div>
-                              <dt>이전</dt>
+                              <dt>직전 비중</dt>
                               <dd>{formatPercent(record.previousValue)}</dd>
                             </div>
                           )}

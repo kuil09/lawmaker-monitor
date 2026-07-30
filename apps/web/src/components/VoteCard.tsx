@@ -1,4 +1,9 @@
+import { MagnifyingGlassIcon } from "@phosphor-icons/react/dist/csr/MagnifyingGlass";
+import { useMemo, useState } from "react";
+
+import { MemberIdentity } from "./MemberIdentity.js";
 import { StatusBadge } from "./StatusBadge.js";
+import { VoteMinutesOpinionPanel } from "./VoteMinutesOpinionPanel.js";
 import { buildCalendarHref } from "../lib/calendar-route.js";
 import {
   formatDate,
@@ -6,13 +11,49 @@ import {
   formatVoteVisibilityLabel
 } from "../lib/format.js";
 
-import type { LatestVoteItem } from "@lawmaker-monitor/schemas";
+import type {
+  AccountabilitySummaryExport,
+  LatestVoteItem,
+  VoteMinutesOpinionItem
+} from "@lawmaker-monitor/schemas";
+
+type RosterId = "no" | "abstain" | "absent";
+type VoteRosterEntry =
+  | LatestVoteItem["highlightedVotes"][number]
+  | LatestVoteItem["absentVotes"][number];
 
 type VoteCardProps = {
   item: LatestVoteItem;
+  opinion?: VoteMinutesOpinionItem | null;
+  memberDirectory?: AccountabilitySummaryExport["items"];
 };
 
-export function VoteCard({ item }: VoteCardProps) {
+const rosterPageSize = 12;
+
+const rosterLabels: Record<
+  RosterId,
+  { label: string; guidance: string }
+> = {
+  no: {
+    label: "반대",
+    guidance: "공개 표결에서 반대로 기록된 의원입니다."
+  },
+  abstain: {
+    label: "기권",
+    guidance: "공개 표결에서 기권으로 기록된 의원입니다."
+  },
+  absent: {
+    label: "불참",
+    guidance:
+      "불참 기록은 사유나 의견을 뜻하지 않습니다. 공식 참석 기록만 표시합니다."
+  }
+};
+
+export function VoteCard({
+  item,
+  opinion = null,
+  memberDirectory = []
+}: VoteCardProps) {
   const voteTotal =
     item.counts.yes + item.counts.no + item.counts.abstain + item.counts.absent;
   const noVotes = item.highlightedVotes.filter(
@@ -27,67 +68,52 @@ export function VoteCard({ item }: VoteCardProps) {
   const combinedTitle = item.committeeName
     ? `${item.committeeName} · ${item.billName}`
     : item.billName;
-  const emptyHighlightMessage =
-    item.voteVisibility === "secret"
-      ? "무기명 표결은 개인별 표결 내역을 공개하지 않습니다."
-      : "공개된 반대·기권·불참 내역이 없습니다.";
   const showProvisional = item.sourceStatus !== "confirmed";
   const showVisibility = item.voteVisibility !== "recorded";
-  const hasAnyFlaggedVotes =
-    item.counts.no > 0 || item.counts.abstain > 0 || item.counts.absent > 0;
   const showUnavailableAbsentNote =
     item.absentListStatus === "unavailable" &&
     item.counts.absent > 0 &&
     absentVotes.length === 0;
+  const initialRoster: RosterId =
+    item.counts.no > 0
+      ? "no"
+      : item.counts.abstain > 0
+        ? "abstain"
+        : "absent";
+  const [activeRoster, setActiveRoster] = useState<RosterId>(initialRoster);
+  const [rosterQuery, setRosterQuery] = useState("");
+  const [rosterLimit, setRosterLimit] = useState(rosterPageSize);
+  const memberById = useMemo(
+    () => new Map(memberDirectory.map((member) => [member.memberId, member])),
+    [memberDirectory]
+  );
+  const rosters: Record<
+    RosterId,
+    { count: number; entries: VoteRosterEntry[] }
+  > = {
+    no: { count: item.counts.no, entries: noVotes },
+    abstain: { count: item.counts.abstain, entries: abstainVotes },
+    absent: { count: item.counts.absent, entries: absentVotes }
+  };
+  const selectedRoster = rosters[activeRoster];
+  const normalizedRosterQuery = rosterQuery.trim().toLocaleLowerCase("ko-KR");
+  const filteredRoster = selectedRoster.entries.filter((entry) => {
+    const member = entry.memberId ? memberById.get(entry.memberId) : null;
+    return [entry.memberName, entry.party, member?.district ?? "비례대표"]
+      .join(" ")
+      .toLocaleLowerCase("ko-KR")
+      .includes(normalizedRosterQuery);
+  });
+  const visibleRoster = filteredRoster.slice(0, rosterLimit);
+  const remainingRosterCount = Math.max(
+    filteredRoster.length - visibleRoster.length,
+    0
+  );
 
-  function renderVoteGroup(
-    title: string,
-    votes: typeof item.highlightedVotes | typeof item.absentVotes,
-    totalCount: number,
-    options?: {
-      unavailableMessage?: string;
-    }
-  ) {
-    if (totalCount === 0) {
-      return (
-        <div className="vote-card__group">
-          <div className="vote-card__group-header">
-            <h5>{title}</h5>
-            <span className="vote-card__group-count">{`${totalCount}명`}</span>
-          </div>
-          <p className="vote-card__group-note">없음</p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="vote-card__group">
-        <div className="vote-card__group-header">
-          <h5>{title}</h5>
-          <span className="vote-card__group-count">{`${totalCount}명`}</span>
-        </div>
-        {options?.unavailableMessage ? (
-          <p className="vote-card__group-note">{options.unavailableMessage}</p>
-        ) : (
-          <ul>
-            {votes.map((vote) => (
-              <li key={`${item.rollCallId}:${title}:${vote.memberId}`}>
-                {vote.memberId ? (
-                  <a href={buildCalendarHref({ memberId: vote.memberId })}>
-                    {vote.memberName}
-                  </a>
-                ) : (
-                  <span className="vote-card__member-name">
-                    {vote.memberName}
-                  </span>
-                )}
-                <span className="vote-card__member-party">{vote.party}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    );
+  function selectRoster(rosterId: RosterId) {
+    setActiveRoster(rosterId);
+    setRosterQuery("");
+    setRosterLimit(rosterPageSize);
   }
 
   return (
@@ -116,28 +142,8 @@ export function VoteCard({ item }: VoteCardProps) {
             href={item.officialSourceUrl}
             target="_blank"
             rel="noreferrer"
-            aria-label="공식 사이트"
-            title="공식 사이트"
           >
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <circle
-                cx="10"
-                cy="10"
-                r="6.7"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-              />
-              <path
-                d="M3.9 10h12.2M10 3.3c1.7 1.6 2.8 4.1 2.8 6.7s-1.1 5.1-2.8 6.7c-1.7-1.6-2.8-4.1-2.8-6.7s1.1-5.1 2.8-6.7Z"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1.4"
-              />
-            </svg>
-            <span>공식 사이트</span>
+            <span>표결 원문</span>
           </a>
         </div>
       </header>
@@ -190,25 +196,151 @@ export function VoteCard({ item }: VoteCardProps) {
 
       <details className="vote-card__highlight">
         <summary className="vote-card__highlight-summary">
-          <span>반대 / 기권 / 불참</span>
-          <span className="vote-card__highlight-count">{`${flaggedVoteCount}건`}</span>
+          <span className="vote-card__highlight-label">
+            <strong>명단·회의록 근거</strong>
+            <small>선택별 의원과 공식 발언을 함께 확인</small>
+          </span>
+          <span className="vote-card__highlight-meta">
+            {opinion ? (
+              <span>{`발언 ${opinion.sourceStatementCount}건`}</span>
+            ) : null}
+            <strong>{`${flaggedVoteCount}명`}</strong>
+          </span>
         </summary>
+
         <div className="vote-card__highlight-body">
           {item.voteVisibility === "secret" ? (
-            <p>{emptyHighlightMessage}</p>
-          ) : hasAnyFlaggedVotes ? (
-            <div className="vote-card__groups">
-              {renderVoteGroup("반대", noVotes, item.counts.no)}
-              {renderVoteGroup("기권", abstainVotes, item.counts.abstain)}
-              {renderVoteGroup("불참", absentVotes, item.counts.absent, {
-                unavailableMessage: showUnavailableAbsentNote
-                  ? "불참 명단은 공식 총계와 개인별 공개 기록이 일치할 때만 표시합니다."
-                  : undefined
-              })}
-            </div>
+            <p className="vote-card__private-note">
+              무기명 표결은 개인별 표결 내역을 공개하지 않습니다.
+            </p>
           ) : (
-            <p>{emptyHighlightMessage}</p>
+            <section
+              className="vote-roster-workbench"
+              aria-labelledby={`vote-roster-title-${item.rollCallId}`}
+            >
+              <header className="vote-roster-workbench__header">
+                <div>
+                  <p>공개 선택 명단</p>
+                  <h4 id={`vote-roster-title-${item.rollCallId}`}>
+                    의원별 기록
+                  </h4>
+                </div>
+                <p>{rosterLabels[activeRoster].guidance}</p>
+              </header>
+
+              <div
+                className="vote-roster-tabs"
+                role="tablist"
+                aria-label="표결 선택별 의원 명단"
+              >
+                {(Object.keys(rosters) as RosterId[]).map((rosterId) => (
+                  <button
+                    key={rosterId}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeRoster === rosterId}
+                    aria-controls={`vote-roster-panel-${item.rollCallId}`}
+                    onClick={() => selectRoster(rosterId)}
+                  >
+                    <span>{rosterLabels[rosterId].label}</span>
+                    <strong>{rosters[rosterId].count}</strong>
+                  </button>
+                ))}
+              </div>
+
+              <div
+                id={`vote-roster-panel-${item.rollCallId}`}
+                className="vote-roster-panel"
+                role="tabpanel"
+              >
+                <div className="vote-roster-panel__toolbar">
+                  <p>
+                    <strong>{`${rosterLabels[activeRoster].label} ${selectedRoster.count}명`}</strong>
+                    <span>{`${selectedRoster.entries.length}명 명단 확인`}</span>
+                  </p>
+                  {selectedRoster.entries.length > 8 ? (
+                    <label>
+                      <span className="v3-sr-only">의원 명단 검색</span>
+                      <MagnifyingGlassIcon
+                        size={16}
+                        weight="bold"
+                        aria-hidden="true"
+                      />
+                      <input
+                        type="search"
+                        value={rosterQuery}
+                        onChange={(event) => {
+                          setRosterQuery(event.target.value);
+                          setRosterLimit(rosterPageSize);
+                        }}
+                        placeholder="이름·정당·지역구 검색"
+                      />
+                    </label>
+                  ) : null}
+                </div>
+
+                {showUnavailableAbsentNote && activeRoster === "absent" ? (
+                  <p className="vote-roster-panel__empty">
+                    불참 명단은 공식 총계와 개인별 공개 기록이 일치할 때만
+                    표시합니다.
+                  </p>
+                ) : selectedRoster.count === 0 ? (
+                  <p className="vote-roster-panel__empty">
+                    해당 선택으로 기록된 의원이 없습니다.
+                  </p>
+                ) : visibleRoster.length === 0 ? (
+                  <p className="vote-roster-panel__empty">
+                    검색 조건과 일치하는 의원이 없습니다.
+                  </p>
+                ) : (
+                  <>
+                    <ul className="vote-roster-list">
+                      {visibleRoster.map((entry) => {
+                        const member = entry.memberId
+                          ? memberById.get(entry.memberId)
+                          : null;
+                        return (
+                          <li
+                            key={`${item.rollCallId}:${activeRoster}:${entry.memberId ?? entry.memberName}`}
+                          >
+                            <MemberIdentity
+                              name={entry.memberName}
+                              party={member?.party ?? entry.party}
+                              district={member?.district ?? null}
+                              photoUrl={member?.photoUrl ?? null}
+                              calendarHref={
+                                entry.memberId
+                                  ? buildCalendarHref({
+                                      memberId: entry.memberId
+                                    })
+                                  : null
+                              }
+                              size="small"
+                            />
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    {remainingRosterCount > 0 ? (
+                      <button
+                        className="vote-roster-panel__more"
+                        type="button"
+                        onClick={() =>
+                          setRosterLimit(
+                            (currentLimit) => currentLimit + rosterPageSize
+                          )
+                        }
+                      >
+                        {`${Math.min(rosterPageSize, remainingRosterCount)}명 더 보기`}
+                      </button>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            </section>
           )}
+
+          <VoteMinutesOpinionPanel vote={item} opinion={opinion} />
         </div>
       </details>
     </article>

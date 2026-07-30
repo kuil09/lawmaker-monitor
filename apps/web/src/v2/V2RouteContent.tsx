@@ -70,6 +70,7 @@ export function V2RouteContent() {
   } = useHashRoute();
   const {
     latestVotes,
+    voteMinutesOpinions,
     accountabilitySummary,
     accountabilityTrends,
     manifest,
@@ -192,6 +193,8 @@ export function V2RouteContent() {
       <Suspense fallback={<RouteLoadingFallback title="최근 표결" />}>
         <VotesPage
           latestVotes={latestVotes}
+          voteMinutesOpinions={voteMinutesOpinions}
+          memberDirectory={accountabilitySummary?.items ?? []}
           loading={!latestVotes && !feedError}
           unavailable={Boolean(feedError)}
           assemblyLabel={currentAssemblyLabel}

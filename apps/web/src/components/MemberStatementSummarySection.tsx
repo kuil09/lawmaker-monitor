@@ -24,6 +24,8 @@ export function MemberStatementSummarySection({
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  const usesExtractiveSafety =
+    payload?.promptVersion.includes("extractive") ?? false;
 
   useEffect(() => {
     let active = true;
@@ -109,14 +111,14 @@ export function MemberStatementSummarySection({
           <div className="member-statement-summary__eyebrow">
             <span>회의록 발언</span>
             <span className="member-statement-summary__ai-badge">
-              경량 AI 요약
+              AI 선별 · 원문 인용형
             </span>
           </div>
           <h3>회의록별 발언 핵심</h3>
         </div>
         <p>
           국회가 공개한 개별 회의록 원문을 수집해 회의·안건별로 나누고, 해당
-          의원의 발언만 분리해 요약했습니다.
+          의원의 발언에서 핵심 문장을 선별해 원문 그대로 표시합니다.
         </p>
       </div>
 
@@ -138,7 +140,16 @@ export function MemberStatementSummarySection({
         </div>
       ) : null}
 
-      {payload ? (
+      {payload && !usesExtractiveSafety ? (
+        <div className="member-statement-summary__status is-warning">
+          <p>
+            기존 생성형 요약은 사실 보존 검증을 강화해 다시 처리하고 있습니다.
+            검증이 끝난 원문 인용형 기록만 공개합니다.
+          </p>
+        </div>
+      ) : null}
+
+      {payload && usesExtractiveSafety ? (
         <>
           {statementChangePair ? (
             <section
@@ -249,8 +260,9 @@ export function MemberStatementSummarySection({
             </button>
           ) : null}
           <p className="member-statement-summary__disclaimer">
-            AI가 생성한 참고용 요약이며 국회의 공식 입장이나 의원 발언 원문을
-            대체하지 않습니다.
+            경량 AI는 중요 문장 선택에만 사용하며, 공개 문장은 수집한 국회
+            회의록 원문에서 그대로 가져옵니다. 공식 원문 링크로 문맥을 함께
+            확인해 주세요.
           </p>
         </>
       ) : null}

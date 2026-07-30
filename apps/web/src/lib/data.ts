@@ -13,7 +13,8 @@ import {
   memberActivityCalendarMemberDetailExportSchema,
   memberStatementSummariesExportSchema,
   memberStatementSummariesIndexExportSchema,
-  manifestSchema
+  manifestSchema,
+  voteMinutesOpinionsExportSchema
 } from "@lawmaker-monitor/schemas";
 
 import type {
@@ -31,7 +32,8 @@ import type {
   MemberAssetsHistoryExport,
   MemberAssetsIndexExport,
   MemberSponsorshipAccountsExport,
-  Manifest
+  Manifest,
+  VoteMinutesOpinionsExport
 } from "@lawmaker-monitor/schemas";
 
 const dataRepoBaseUrl =
@@ -76,6 +78,13 @@ async function fetchOptionalJson<T>(
 export function loadLatestVotes(): Promise<LatestVotesExport> {
   return fetchJson(buildUrl("exports/latest_votes.json"), (payload) =>
     latestVotesExportSchema.parse(payload)
+  );
+}
+
+export function loadVoteMinutesOpinions(): Promise<VoteMinutesOpinionsExport | null> {
+  return fetchOptionalJson(
+    buildUrl("exports/vote_minutes_opinions.json"),
+    (payload) => voteMinutesOpinionsExportSchema.parse(payload)
   );
 }
 

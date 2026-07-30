@@ -3,10 +3,16 @@ import { VoteCarousel } from "./VoteCarousel.js";
 import { formatDateTime, getKoreanDateKey } from "../lib/format.js";
 import "../styles/v3-evidence.css";
 
-import type { LatestVotesExport } from "@lawmaker-monitor/schemas";
+import type {
+  AccountabilitySummaryExport,
+  LatestVotesExport,
+  VoteMinutesOpinionsExport
+} from "@lawmaker-monitor/schemas";
 
 type VotesPageProps = {
   latestVotes: LatestVotesExport | null;
+  voteMinutesOpinions?: VoteMinutesOpinionsExport | null;
+  memberDirectory?: AccountabilitySummaryExport["items"];
   loading: boolean;
   unavailable: boolean;
   assemblyLabel: string;
@@ -14,6 +20,8 @@ type VotesPageProps = {
 
 export function VotesPage({
   latestVotes,
+  voteMinutesOpinions = null,
+  memberDirectory = [],
   loading,
   unavailable,
   assemblyLabel
@@ -85,6 +93,8 @@ export function VotesPage({
         </div>
         <VoteCarousel
           items={latestVotes?.items ?? null}
+          voteMinutesOpinions={voteMinutesOpinions}
+          memberDirectory={memberDirectory}
           loading={loading}
           unavailable={unavailable}
         />

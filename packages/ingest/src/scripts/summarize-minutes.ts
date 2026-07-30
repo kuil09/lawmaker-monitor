@@ -3,9 +3,12 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  latestVotesExportSchema,
   memberActivityCalendarExportSchema,
+  memberActivityCalendarMemberDetailExportSchema,
   memberStatementSummariesExportSchema,
-  memberStatementSummariesIndexExportSchema
+  memberStatementSummariesIndexExportSchema,
+  voteMinutesOpinionsExportSchema
 } from "@lawmaker-monitor/schemas";
 
 import {
@@ -24,6 +27,7 @@ import {
   type AssemblyMinutesTranscript
 } from "../minutes-transcript.js";
 import { readJsonFile, writeJsonFile } from "../utils.js";
+import { buildVoteMinutesOpinionsExport } from "../vote-minutes-opinions.js";
 
 import type {
   MirroredDocumentIndex,
@@ -34,8 +38,10 @@ type SummaryConfig = {
   dataRepoDir: string;
   documentIndexPath: string;
   memberCalendarPath: string;
+  latestVotesPath: string;
   artifactDirectory: string;
   memberExportDirectory: string;
+  voteOpinionExportPath: string;
   statePath: string;
   modelId: string;
   endpoint: string;
@@ -83,12 +89,18 @@ function loadConfig(): SummaryConfig {
     memberCalendarPath:
       process.env.MINUTES_MEMBER_CALENDAR_PATH?.trim() ||
       "exports/member_activity_calendar.json",
+    latestVotesPath:
+      process.env.MINUTES_LATEST_VOTES_PATH?.trim() ||
+      "exports/latest_votes.json",
     artifactDirectory:
       process.env.MINUTES_SUMMARY_ARTIFACT_DIR?.trim() ||
       "curated/minutes_summaries/documents",
     memberExportDirectory:
       process.env.MINUTES_SUMMARY_EXPORT_DIR?.trim() ||
       "exports/member_statement_summaries",
+    voteOpinionExportPath:
+      process.env.MINUTES_VOTE_OPINION_EXPORT_PATH?.trim() ||
+      "exports/vote_minutes_opinions.json",
     statePath:
       process.env.MINUTES_SUMMARY_STATE_PATH?.trim() ||
       "manifests/minutes_summary_state.json",
@@ -238,6 +250,61 @@ async function loadAllArtifacts(
   return artifacts;
 }
 
+async function publishVoteMinutesOpinions(args: {
+  config: SummaryConfig;
+  generatedAt: string;
+  modelId: string;
+  promptVersion: string;
+  memberCalendar: ReturnType<typeof memberActivityCalendarExportSchema.parse>;
+  artifacts: MinutesDocumentSummaryArtifact[];
+}): Promise<void> {
+  const latestVotes = latestVotesExportSchema.parse(
+    JSON.parse(
+      await readFile(
+        join(args.config.dataRepoDir, args.config.latestVotesPath),
+        "utf8"
+      )
+    )
+  );
+  const voteRecordsByMemberId = new Map<
+    string,
+    ReturnType<
+      typeof memberActivityCalendarMemberDetailExportSchema.parse
+    >["voteRecords"]
+  >();
+
+  for (const member of args.memberCalendar.assembly.members) {
+    try {
+      const detail = memberActivityCalendarMemberDetailExportSchema.parse(
+        JSON.parse(
+          await readFile(
+            join(args.config.dataRepoDir, member.voteRecordsPath),
+            "utf8"
+          )
+        )
+      );
+      voteRecordsByMemberId.set(member.memberId, detail.voteRecords);
+    } catch {
+      // A missing detail file leaves the member's stance unresolved.
+    }
+  }
+
+  const payload = voteMinutesOpinionsExportSchema.parse(
+    buildVoteMinutesOpinionsExport({
+      generatedAt: args.generatedAt,
+      latestVotes,
+      modelId: args.modelId,
+      promptVersion: args.promptVersion,
+      artifacts: args.artifacts,
+      voteRecordsByMemberId
+    })
+  );
+  await writeJsonFile(
+    join(args.config.dataRepoDir, args.config.voteOpinionExportPath),
+    payload
+  );
+}
+
 async function main(): Promise<void> {
   const config = loadConfig();
   const generatedAt = new Date().toISOString();
@@ -285,6 +352,13 @@ async function main(): Promise<void> {
       right.publishedDate.localeCompare(left.publishedDate)
     )
     .slice(0, config.maxDocuments);
+  const currentArtifacts = () =>
+    candidateDocuments.flatMap((item) => {
+      const artifact = artifactByDocumentId.get(item.documentId);
+      return artifact?.sourceContentSha256 === item.transcriptContentSha256
+        ? [artifact]
+        : [];
+    });
   if (pendingDocuments.length === 0) {
     try {
       const memberIndex = memberStatementSummariesIndexExportSchema.parse(
@@ -333,6 +407,14 @@ async function main(): Promise<void> {
       ) {
         await writeJsonFile(stateFile, idleState);
       }
+      await publishVoteMinutesOpinions({
+        config,
+        generatedAt,
+        modelId: config.modelId,
+        promptVersion: MINUTES_SUMMARY_PROMPT_VERSION,
+        memberCalendar,
+        artifacts: currentArtifacts()
+      });
       process.stdout.write(`${JSON.stringify(idleState, null, 2)}\n`);
       return;
     } catch {
@@ -396,7 +478,7 @@ async function main(): Promise<void> {
           billIds: group.billIds,
           speakerRole: group.speakerRole,
           summary,
-          evidenceExcerpt: group.text.replace(/\s+/g, " ").slice(0, 280),
+          evidenceExcerpt: summary,
           sourceUrl: group.sourceUrl,
           sourceFragment: group.sourceFragment,
           sourceDocumentPath: item.latestRelativePath,
@@ -510,6 +592,14 @@ async function main(): Promise<void> {
       await unlink(join(publishedExportDirectory, filename));
     }
   }
+  await publishVoteMinutesOpinions({
+    config,
+    generatedAt,
+    modelId: config.modelId,
+    promptVersion: MINUTES_SUMMARY_PROMPT_VERSION,
+    memberCalendar,
+    artifacts: currentArtifacts()
+  });
 
   const state: SummaryState = {
     updatedAt: generatedAt,

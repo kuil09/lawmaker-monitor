@@ -7,6 +7,7 @@ export * from "./exports.js";
 export * from "./hexmap-static-runtime.js";
 export * from "./minutes-summarization.js";
 export * from "./minutes-transcript.js";
+export * from "./vote-minutes-opinions.js";
 export * from "./normalize.js";
 export * from "./parsers.js";
 export * from "./property-member-context.js";

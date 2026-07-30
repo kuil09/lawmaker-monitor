@@ -36,7 +36,7 @@ describe("evidence exploration pages", () => {
     expect(
       screen.getByRole("heading", { name: "표결 기록 탐색" })
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "공식 사이트" })).toHaveLength(
+    expect(screen.getAllByRole("link", { name: "표결 원문" })).toHaveLength(
       2
     );
 

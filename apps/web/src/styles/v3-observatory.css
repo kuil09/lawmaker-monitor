@@ -5,7 +5,7 @@
 
 .v2-observatory__hero {
   display: grid;
-  grid-template-columns: minmax(260px, 0.8fr) minmax(340px, 520px) auto;
+  grid-template-columns: minmax(260px, 1fr) auto;
   align-items: center;
   margin-bottom: 12px;
   padding: 0 2px 12px;
@@ -70,6 +70,43 @@
   background: #fff;
   color: #1f58c7;
   box-shadow: 0 1px 3px rgba(28, 45, 68, 0.12);
+}
+
+.v2-observatory-explorer {
+  margin-top: 1rem;
+}
+
+.v2-observatory-explorer__header {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(360px, 520px);
+  align-items: end;
+  gap: 1.5rem;
+  margin-bottom: 0.85rem;
+  padding: 1rem;
+  border: 1px solid #dce2e8;
+  border-top: 4px solid #1b2737;
+  background: #fff;
+}
+
+.v2-observatory-explorer__copy h2 {
+  margin: 0;
+  color: #1b2737;
+  font-size: 1.1rem;
+  font-weight: 780;
+  letter-spacing: -0.025em;
+}
+
+.v2-observatory-explorer__copy > span {
+  display: block;
+  margin-top: 0.3rem;
+  color: #657180;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.v2-observatory-explorer__header .v2-lens-tabs {
+  width: 100%;
+  margin: 0;
 }
 
 .v2-observatory__grid {
@@ -805,6 +842,16 @@
 
   .v2-lens-tabs {
     grid-row: 2;
+  }
+
+  .v2-observatory-explorer__header {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 0.8rem;
+  }
+
+  .v2-observatory-explorer__header .v2-lens-tabs {
+    grid-row: auto;
   }
 
   .v2-observatory__grid {

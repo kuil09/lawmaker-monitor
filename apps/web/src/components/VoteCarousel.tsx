@@ -7,9 +7,15 @@ import { VoteCard } from "./VoteCard.js";
 import { formatDate, getKoreanDateKey } from "../lib/format.js";
 
 import type { LatestVoteItem } from "@lawmaker-monitor/schemas";
+import type {
+  AccountabilitySummaryExport,
+  VoteMinutesOpinionsExport
+} from "@lawmaker-monitor/schemas";
 
 type VoteCarouselProps = {
   items: LatestVoteItem[] | null;
+  voteMinutesOpinions?: VoteMinutesOpinionsExport | null;
+  memberDirectory?: AccountabilitySummaryExport["items"];
   loading?: boolean;
   unavailable?: boolean;
 };
@@ -27,6 +33,8 @@ const pageSize = 20;
 
 export function VoteCarousel({
   items,
+  voteMinutesOpinions = null,
+  memberDirectory = [],
   loading = false,
   unavailable = false
 }: VoteCarouselProps) {
@@ -84,6 +92,16 @@ export function VoteCarousel({
     0
   );
   const nextPageCount = Math.min(pageSize, remainingCount);
+  const opinionByRollCallId = useMemo(
+    () =>
+      new Map(
+        (voteMinutesOpinions?.items ?? []).map((item) => [
+          item.rollCallId,
+          item
+        ])
+      ),
+    [voteMinutesOpinions]
+  );
 
   const groups = displayedItems.reduce<
     Array<{ dateKey: string; label: string; items: LatestVoteItem[] }>
@@ -204,7 +222,12 @@ export function VoteCarousel({
               </header>
               <div className="v3-vote-timeline__records">
                 {group.items.map((item) => (
-                  <VoteCard key={item.rollCallId} item={item} />
+                  <VoteCard
+                    key={item.rollCallId}
+                    item={item}
+                    opinion={opinionByRollCallId.get(item.rollCallId) ?? null}
+                    memberDirectory={memberDirectory}
+                  />
                 ))}
               </div>
             </section>

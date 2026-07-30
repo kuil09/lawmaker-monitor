@@ -171,16 +171,19 @@ Minutes summary settings:
 
 The summary workflow runs an open-weight GGUF model directly on the GitHub
 Actions runner. The default is the official EXAONE 4.0 1.2B Q8 GGUF with its
-pinned chat template. Generated text is rejected before publication when it
-contains non-Korean CJK scripts, lacks sufficient Hangul, is overlong, or ends
-mid-sentence. It does not send minutes to a hosted inference API. The
-Assembly search endpoint is used only as a document catalog to discover minutes
-IDs and dates. Every summary input must come from a separately downloaded
-official minutes viewer document at
+pinned chat template. The model ranks important source sentences, but published
+summary text is copied verbatim from the collected minutes. Generated guidance
+is rejected when it introduces unsupported names, institutions, numbers, or
+sentences with insufficient source overlap. Long agenda-level statement groups
+are also segmented by size and intervening speaker turns before ranking. Legacy
+abstractive artifacts are excluded by the active prompt version and remain
+hidden until regenerated. It does not send minutes to a hosted inference API.
+The Assembly search endpoint is used only as a document catalog to discover
+minutes IDs and dates. Every summary input must come from a separately
+downloaded official minutes viewer document at
 `record.assembly.go.kr/assembly/viewer/minutes/xml.do`. The pipeline splits
 those documents into member statements before the model is invoked. Speaker and
-agenda attribution come from that structured minutes document; the model is
-used only to shorten the attributed source text.
+agenda attribution come from that structured minutes document.
 
 Property disclosure mirror settings use the same document mirror infrastructure plus Assembly file-service specific inputs:
 

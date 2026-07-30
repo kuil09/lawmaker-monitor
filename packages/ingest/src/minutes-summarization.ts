@@ -13,7 +13,9 @@ import type {
 
 export const DEFAULT_MINUTES_SUMMARY_MODEL =
   "LGAI-EXAONE/EXAONE-4.0-1.2B-GGUF:Q8_0";
-export const MINUTES_SUMMARY_PROMPT_VERSION = "minutes-summary-v5";
+export const MINUTES_SUMMARY_PROMPT_VERSION = "minutes-summary-v6-extractive";
+const MAX_MINUTES_SUMMARY_GROUP_CHARACTERS = 800;
+const MAX_INTERVENING_STATEMENTS = 8;
 
 export type MinutesSummaryMember = {
   memberId: string;
@@ -272,13 +274,18 @@ export function buildMinutesSummaryGroups(args: {
   const memberByProfileUrl = buildUniqueProfileLookup(args.members);
   const grouped = new Map<
     string,
-    {
+    Array<{
       group: MinutesSummaryGroup;
       paragraphs: string[];
-    }
+      characterCount: number;
+      lastStatementIndex: number;
+    }>
   >();
 
-  for (const statement of args.transcript.statements) {
+  for (const [
+    statementIndex,
+    statement
+  ] of args.transcript.statements.entries()) {
     const agenda = resolveStatementAgendaItem({
       statement,
       agendaItems: args.transcript.agendaItems
@@ -296,19 +303,34 @@ export function buildMinutesSummaryGroups(args: {
       continue;
     }
 
-    const groupId = sha256(
-      [args.transcript.documentId, agenda.agendaItemId, member.memberId].join(
-        ":"
-      )
+    const baseGroupKey = [
+      args.transcript.documentId,
+      agenda.agendaItemId,
+      member.memberId
+    ].join(":");
+    const segments = grouped.get(baseGroupKey) ?? [];
+    const statementCharacterCount = statement.paragraphs.reduce(
+      (total, paragraph) => total + paragraph.length + 1,
+      0
     );
-    const existing = grouped.get(groupId);
-    if (existing) {
-      existing.paragraphs.push(...statement.paragraphs);
-      existing.group.statementIds.push(statement.statementId);
+    const currentSegment = segments.at(-1);
+    if (
+      currentSegment &&
+      statementIndex - currentSegment.lastStatementIndex <=
+        MAX_INTERVENING_STATEMENTS &&
+      currentSegment.characterCount + statementCharacterCount <=
+        MAX_MINUTES_SUMMARY_GROUP_CHARACTERS
+    ) {
+      currentSegment.paragraphs.push(...statement.paragraphs);
+      currentSegment.group.statementIds.push(statement.statementId);
+      currentSegment.characterCount += statementCharacterCount;
+      currentSegment.lastStatementIndex = statementIndex;
       continue;
     }
 
-    grouped.set(groupId, {
+    const segmentIndex = segments.length;
+    const groupId = sha256(`${baseGroupKey}:segment:${segmentIndex}`);
+    segments.push({
       group: {
         groupId,
         member,
@@ -324,11 +346,15 @@ export function buildMinutesSummaryGroups(args: {
         sourceUrl: args.transcript.sourceUrl,
         sourceFragment: statement.sourceFragment
       },
-      paragraphs: [...statement.paragraphs]
+      paragraphs: [...statement.paragraphs],
+      characterCount: statementCharacterCount,
+      lastStatementIndex: statementIndex
     });
+    grouped.set(baseGroupKey, segments);
   }
 
   return [...grouped.values()]
+    .flat()
     .map(({ group, paragraphs }) => ({
       ...group,
       text: paragraphs.join("\n").trim()
@@ -452,6 +478,196 @@ export function sanitizeModelSummary(
   return completedSummary;
 }
 
+function normalizeEvidenceText(value: string): string {
+  return value.normalize("NFKC").replace(/[^\p{L}\p{N}]/gu, "");
+}
+
+function buildCharacterBigrams(value: string): string[] {
+  const normalized = normalizeEvidenceText(value);
+  const bigrams: string[] = [];
+  for (let index = 0; index < normalized.length - 1; index += 1) {
+    bigrams.push(normalized.slice(index, index + 2));
+  }
+  return bigrams;
+}
+
+function extractNumericClaims(value: string): string[] {
+  return (
+    value.match(
+      /\d+(?:[,.]\d+)*(?:\s*(?:년|월|일|시|분|초|살|명|건|회|차|억|만|천|%))?/g
+    ) ?? []
+  ).map((claim) => claim.replace(/\s+/g, ""));
+}
+
+function extractRoleLinkedNames(value: string): string[] {
+  const names: string[] = [];
+  const pattern =
+    /([가-힣]{2,8})\s+(?:전\s+)?(?:서울)?(?:시장|대통령후보|대통령|국회의원|의원|위원|장관|차관|검사장|차장검사|검사|판사|대법관|처장|조정관|당협위원장)/g;
+  for (const match of value.matchAll(pattern)) {
+    const name = match[1];
+    if (name) {
+      names.push(name);
+    }
+  }
+  return names;
+}
+
+function extractInstitutionTokens(value: string): string[] {
+  return value
+    .split(/[\s,.;:!?()[\]{}"'“”‘’]+/)
+    .map((token) =>
+      token.replace(
+        /(?:에게서|에게|에서|으로|까지|부터|보다|처럼|에|의|은|는|이|가|을|를|도|와|과|만|로)+$/g,
+        ""
+      )
+    )
+    .filter((token) =>
+      /(?:위원회|법사위|당협위|지검|대법원|법원|검찰|경찰|선관위|법무부)$/.test(
+        token
+      )
+    );
+}
+
+export function assertModelSummarySourceFidelity(args: {
+  summary: string;
+  sourceText: string;
+  allowedNames?: string[];
+}): void {
+  const normalizedSource = normalizeEvidenceText(args.sourceText);
+  const sourceNumbers = new Set(extractNumericClaims(args.sourceText));
+  const unsupportedNumbers = extractNumericClaims(args.summary).filter(
+    (claim) => !sourceNumbers.has(claim)
+  );
+  if (unsupportedNumbers.length > 0) {
+    throw new Error(
+      `The local model introduced numeric claims not in the source: ${unsupportedNumbers.join(", ")}`
+    );
+  }
+
+  const sourceNames = new Set([
+    ...extractRoleLinkedNames(args.sourceText),
+    ...(args.allowedNames ?? [])
+  ]);
+  const unsupportedNames = extractRoleLinkedNames(args.summary).filter(
+    (name) => !sourceNames.has(name)
+  );
+  if (unsupportedNames.length > 0) {
+    throw new Error(
+      `The local model introduced named people not in the source: ${unsupportedNames.join(", ")}`
+    );
+  }
+
+  const unsupportedInstitutions = extractInstitutionTokens(args.summary).filter(
+    (institution) =>
+      !normalizedSource.includes(normalizeEvidenceText(institution))
+  );
+  if (unsupportedInstitutions.length > 0) {
+    throw new Error(
+      `The local model introduced institutions not in the source: ${unsupportedInstitutions.join(", ")}`
+    );
+  }
+
+  const sourceBigrams = new Set(buildCharacterBigrams(args.sourceText));
+  for (const sentence of args.summary.split(/(?<=[.!?])\s+/)) {
+    const bigrams = buildCharacterBigrams(sentence);
+    if (bigrams.length < 12) {
+      continue;
+    }
+    const supported = bigrams.filter((bigram) =>
+      sourceBigrams.has(bigram)
+    ).length;
+    if (supported / bigrams.length < 0.62) {
+      throw new Error(
+        "The local model returned a sentence with insufficient source overlap."
+      );
+    }
+  }
+}
+
+function splitExtractiveCandidates(value: string): string[] {
+  return value
+    .replace(
+      /\((?:영상자료를 보며|발언시간 초과로 마이크 중단|마이크 중단 이후 계속 발언한 부분)\)/g,
+      " "
+    )
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((sentence) => sentence.replace(/\s+/g, " ").trim())
+    .filter(
+      (sentence) =>
+        sentence.length >= 10 &&
+        sentence.length <= 260 &&
+        !/^(?:이상입니다|감사합니다|다음 것 보여 주세요|PPT 좀 띄워 주세요)[.!?]?$/.test(
+          sentence
+        )
+    );
+}
+
+function scoreExtractiveCandidate(
+  sentence: string,
+  modelHint: string | undefined
+): number {
+  const positionKeywords =
+    sentence.match(
+      /요구|촉구|제안|강조|비판|지적|반대|찬성|필요|문제|조사|보고|개선|신속|기각|위반|수사|분리/g
+    )?.length ?? 0;
+  const lengthScore = sentence.length >= 45 && sentence.length <= 190 ? 2 : 0;
+  if (!modelHint) {
+    return positionKeywords * 2 + lengthScore;
+  }
+
+  const hintBigrams = new Set(buildCharacterBigrams(modelHint));
+  const sentenceBigrams = buildCharacterBigrams(sentence);
+  const overlap =
+    sentenceBigrams.length > 0
+      ? sentenceBigrams.filter((bigram) => hintBigrams.has(bigram)).length /
+        sentenceBigrams.length
+      : 0;
+  return positionKeywords * 2 + lengthScore + overlap * 10;
+}
+
+export function buildExtractiveMinutesSummary(
+  sourceText: string,
+  modelHint?: string
+): string {
+  const candidates = splitExtractiveCandidates(sourceText);
+  if (candidates.length === 0) {
+    throw new Error("The source did not contain a publishable sentence.");
+  }
+
+  const ranked = candidates
+    .map((sentence, index) => ({
+      sentence,
+      index,
+      score: scoreExtractiveCandidate(sentence, modelHint)
+    }))
+    .sort(
+      (left, right) => right.score - left.score || left.index - right.index
+    );
+  const selected = ranked
+    .slice(0, Math.min(3, ranked.length))
+    .sort((left, right) => left.index - right.index);
+  const summaryParts: string[] = [];
+  let totalLength = 0;
+
+  for (const item of selected) {
+    const sentence = /[.!?]$/.test(item.sentence)
+      ? item.sentence
+      : `${item.sentence}.`;
+    const addedLength = sentence.length + (summaryParts.length > 0 ? 1 : 0);
+    if (totalLength + addedLength > 600) {
+      continue;
+    }
+    summaryParts.push(sentence);
+    totalLength += addedLength;
+  }
+
+  if (summaryParts.length === 0) {
+    throw new Error("The source sentences exceeded the publication boundary.");
+  }
+
+  return summaryParts.join(" ");
+}
+
 export function isPublishableMinutesSummary(value: string): boolean {
   try {
     sanitizeModelSummary(value);
@@ -485,6 +701,8 @@ export function buildMinutesSummaryPrompt(args: {
     sourceText,
     "",
     "원문에 명시된 입장, 제안, 근거만 사용해 한국어 2~3문장으로 요약하세요.",
+    "원문 문장의 핵심 단어, 고유명사, 수치, 기관, 인과관계와 긍정·부정 방향을 바꾸지 마세요.",
+    "확신할 수 없는 내용은 추론하거나 보완하지 말고 원문 표현을 그대로 사용하세요.",
     "추측, 평가, 배경지식, 새로운 숫자를 추가하지 마세요.",
     "영어 일반 단어를 쓰거나 영어 단어에 한국어 조사를 붙이지 말고 자연스러운 한국어로 풀어 쓰세요.",
     "영문 알파벳은 원문에 실제로 나온 공식 대문자 약어 또는 고유명사에만 사용하세요.",
@@ -571,13 +789,19 @@ export function createLlamaServerSummarizer(args: {
           throw new Error("The local model reached its output token limit.");
         }
 
-        return sanitizeModelSummary(content, {
-          sourceText: [
-            input.group.meetingTitle,
-            input.group.agendaTitle,
-            input.text
-          ].join("\n")
+        const sourceText = [
+          input.group.member.name,
+          input.group.meetingTitle,
+          input.group.agendaTitle,
+          input.text
+        ].join("\n");
+        const sanitized = sanitizeModelSummary(content, { sourceText });
+        assertModelSummarySourceFidelity({
+          summary: sanitized,
+          sourceText,
+          allowedNames: [input.group.member.name]
         });
+        return buildExtractiveMinutesSummary(input.text, sanitized);
       } catch (error) {
         lastError = controller.signal.aborted
           ? new Error(`Local model request timed out after ${timeoutMs}ms.`)
@@ -589,28 +813,31 @@ export function createLlamaServerSummarizer(args: {
 
     if (lastContent) {
       try {
-        return sanitizeModelSummary(lastContent, {
+        const sourceText = [
+          input.group.member.name,
+          input.group.meetingTitle,
+          input.group.agendaTitle,
+          input.text
+        ].join("\n");
+        const sanitized = sanitizeModelSummary(lastContent, {
           allowTrailingFragment: true,
-          sourceText: [
-            input.group.meetingTitle,
-            input.group.agendaTitle,
-            input.text
-          ].join("\n")
+          sourceText
         });
+        assertModelSummarySourceFidelity({
+          summary: sanitized,
+          sourceText,
+          allowedNames: [input.group.member.name]
+        });
+        return buildExtractiveMinutesSummary(input.text, sanitized);
       } catch {
-        // Fall through to the exact-source fallback for already concise text.
+        // Fall through to the source-only extractive fallback.
       }
     }
 
-    const conciseSource = input.text.replace(/\s+/g, " ").trim();
-    if (conciseSource.length <= 240) {
-      try {
-        return sanitizeModelSummary(conciseSource, {
-          sourceText: conciseSource
-        });
-      } catch {
-        // Preserve the model error when the source is not publishable as-is.
-      }
+    try {
+      return buildExtractiveMinutesSummary(input.text);
+    } catch {
+      // Preserve the model error when the source has no safe extractive result.
     }
 
     throw (

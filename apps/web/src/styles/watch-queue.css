@@ -670,6 +670,37 @@ body:has(.watch-queue-shell) {
   gap: 0.85rem;
 }
 
+.v2-app.v3-shell.watch-queue-shell .v2-observatory-explorer__header {
+  border-color: var(--wq-rule);
+  border-top-color: var(--wq-ink);
+  background: var(--wq-paper-strong);
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-observatory-explorer__copy h2 {
+  color: var(--wq-ink);
+  font-family: "Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", serif;
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-observatory-explorer__copy > span {
+  color: var(--wq-muted);
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  .v2-observatory-explorer__header
+  .v2-lens-tabs {
+  border-color: var(--wq-rule);
+  background: var(--wq-paper);
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-lens-tabs button {
+  color: var(--wq-muted);
+}
+
+.v2-app.v3-shell.watch-queue-shell .v2-lens-tabs button:hover {
+  background: var(--wq-paper-strong);
+  color: var(--wq-ink);
+}
+
 .v2-app.v3-shell.watch-queue-shell .v3-rank-rail__rank {
   border-color: var(--wq-rule-strong);
   border-radius: 0;

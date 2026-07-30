@@ -1189,6 +1189,460 @@
   outline-offset: 2px;
 }
 
+.v3-vote-timeline .vote-card__highlight-label {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.v3-vote-timeline .vote-card__highlight-label strong {
+  color: var(--v3-ink);
+  font-size: 0.74rem;
+}
+
+.v3-vote-timeline .vote-card__highlight-label small {
+  color: var(--v3-muted);
+  font-size: 0.62rem;
+  font-weight: 650;
+}
+
+.v3-vote-timeline .vote-card__highlight-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.v3-vote-timeline .vote-card__highlight-meta > span {
+  color: var(--v3-muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.v3-vote-timeline .vote-card__highlight-meta > strong {
+  min-width: 2.75rem;
+  padding: 0.18rem 0.42rem;
+  border: 1px solid var(--v3-border-strong);
+  color: var(--v3-ink);
+  font-size: 0.66rem;
+  text-align: center;
+  background: var(--v3-panel);
+}
+
+.v3-vote-timeline .vote-card__highlight-body {
+  display: grid;
+  gap: 1rem;
+}
+
+.vote-card__private-note {
+  margin: 0;
+  padding: 0.85rem;
+  border: 1px dashed var(--v3-border-strong);
+  color: var(--v3-muted);
+  font-size: 0.72rem;
+  background: var(--v3-canvas);
+}
+
+.vote-roster-workbench {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.vote-roster-workbench__header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 2px solid var(--wq-rule-strong, var(--v3-ink));
+}
+
+.vote-roster-workbench__header > div > p {
+  margin: 0 0 0.18rem;
+  color: var(--wq-alert, var(--v3-red));
+  font-size: 0.6rem;
+  font-weight: 850;
+  letter-spacing: 0.11em;
+}
+
+.vote-roster-workbench__header h4 {
+  margin: 0;
+  color: var(--v3-ink);
+  font-size: 0.92rem;
+  letter-spacing: -0.02em;
+}
+
+.vote-roster-workbench__header > p {
+  max-width: 32rem;
+  margin: 0;
+  color: var(--v3-muted);
+  font-size: 0.65rem;
+  text-align: right;
+}
+
+.vote-roster-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--v3-border-strong);
+}
+
+.v3-evidence-page .vote-roster-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2.7rem;
+  padding: 0.58rem 0.72rem;
+  border: 0;
+  border-right: 1px solid var(--v3-border);
+  color: var(--v3-muted);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 760;
+  background: var(--v3-panel);
+  cursor: pointer;
+}
+
+.v3-evidence-page .vote-roster-tabs button:last-child {
+  border-right: 0;
+}
+
+.v3-evidence-page .vote-roster-tabs button[aria-selected="true"] {
+  color: var(--wq-sheet, white);
+  background: var(--wq-alert, var(--v3-red));
+}
+
+.vote-roster-tabs button strong {
+  font-size: 0.76rem;
+}
+
+.vote-roster-panel {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
+  padding: 0.78rem;
+  border: 1px solid var(--v3-border);
+  background: var(--v3-canvas);
+}
+
+.vote-roster-panel__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.vote-roster-panel__toolbar > p {
+  display: flex;
+  align-items: baseline;
+  gap: 0.42rem;
+  margin: 0;
+}
+
+.vote-roster-panel__toolbar > p strong {
+  color: var(--v3-ink);
+  font-size: 0.72rem;
+}
+
+.vote-roster-panel__toolbar > p span {
+  color: var(--v3-muted);
+  font-size: 0.62rem;
+}
+
+.vote-roster-panel__toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+  min-width: min(100%, 14rem);
+  min-height: 2.2rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--v3-border-strong);
+  color: var(--v3-muted);
+  background: var(--v3-panel);
+}
+
+.vote-roster-panel__toolbar input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--v3-ink);
+  font: inherit;
+  font-size: 0.68rem;
+  background: transparent;
+}
+
+.vote-roster-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--v3-border);
+  border-left: 1px solid var(--v3-border);
+  list-style: none;
+}
+
+.vote-roster-list > li {
+  min-width: 0;
+  min-height: 3.5rem;
+  padding: 0.45rem;
+  border-right: 1px solid var(--v3-border);
+  border-bottom: 1px solid var(--v3-border);
+  background: var(--v3-panel);
+}
+
+.vote-roster-list .member-identity {
+  width: 100%;
+}
+
+.vote-roster-list .member-identity__primary {
+  width: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.vote-roster-list .member-identity__avatar {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 0;
+  object-fit: cover;
+}
+
+.vote-roster-list .member-identity__name {
+  color: var(--v3-ink);
+  font-size: 0.7rem;
+  font-weight: 820;
+}
+
+.vote-roster-list .member-identity__party {
+  color: var(--v3-muted);
+  font-size: 0.6rem;
+}
+
+.vote-roster-panel__empty {
+  margin: 0;
+  padding: 1.25rem 0.75rem;
+  border: 1px dashed var(--v3-border-strong);
+  color: var(--v3-muted);
+  font-size: 0.7rem;
+  text-align: center;
+  background: var(--v3-panel);
+}
+
+.v3-evidence-page .vote-roster-panel__more {
+  justify-self: center;
+  min-height: 2.3rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--v3-border-strong);
+  color: var(--v3-ink);
+  font: inherit;
+  font-size: 0.67rem;
+  font-weight: 780;
+  background: var(--v3-panel);
+  cursor: pointer;
+}
+
+.vote-opinion-panel {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.95rem;
+  border-top: 3px double var(--wq-rule-strong, var(--v3-ink));
+}
+
+.vote-opinion-panel__header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.vote-opinion-panel__kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.18rem;
+  color: var(--wq-alert, var(--v3-red));
+  font-size: 0.6rem;
+  font-weight: 850;
+  letter-spacing: 0.09em;
+}
+
+.vote-opinion-panel h4 {
+  margin: 0;
+  color: var(--v3-ink);
+  font-family: var(--font-editorial, inherit);
+  font-size: 1rem;
+}
+
+.vote-opinion-panel__coverage {
+  display: grid;
+  justify-items: end;
+  gap: 0.1rem;
+  margin: 0;
+}
+
+.vote-opinion-panel__coverage strong {
+  color: var(--v3-ink);
+  font-family: ui-monospace, "SFMono-Regular", monospace;
+  font-size: 0.72rem;
+}
+
+.vote-opinion-panel__coverage span {
+  color: var(--v3-muted);
+  font-size: 0.6rem;
+}
+
+.vote-opinion-panel__pending {
+  padding: 0.2rem 0.42rem;
+  border: 1px solid var(--v3-border-strong);
+  color: var(--v3-muted);
+  font-size: 0.62rem;
+  font-weight: 780;
+  background: var(--v3-canvas);
+}
+
+.vote-opinion-panel__sections {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--v3-border-strong);
+  border-left: 1px solid var(--v3-border-strong);
+}
+
+.vote-opinion-column {
+  min-width: 0;
+  padding: 0.72rem;
+  border-right: 1px solid var(--v3-border-strong);
+  border-bottom: 1px solid var(--v3-border-strong);
+  background: var(--v3-panel);
+}
+
+.vote-opinion-column > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.6rem;
+  min-height: 3.1rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--v3-border);
+}
+
+.vote-opinion-column > header h5 {
+  margin: 0 0 0.18rem;
+  color: var(--v3-ink);
+  font-size: 0.71rem;
+}
+
+.vote-opinion-column > header p {
+  margin: 0;
+  color: var(--v3-muted);
+  font-size: 0.58rem;
+  line-height: 1.45;
+}
+
+.vote-opinion-column > header > strong {
+  flex: 0 0 auto;
+  color: var(--wq-alert, var(--v3-red));
+  font-family: ui-monospace, "SFMono-Regular", monospace;
+  font-size: 0.64rem;
+}
+
+.vote-opinion-column ol {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vote-opinion-column li {
+  display: grid;
+  gap: 0.38rem;
+  padding: 0.68rem 0;
+  border-bottom: 1px dotted var(--v3-border-strong);
+}
+
+.vote-opinion-column li:last-child {
+  border-bottom: 0;
+}
+
+.vote-opinion-column__speaker {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.vote-opinion-column__speaker a {
+  color: var(--wq-alert, var(--v3-blue));
+  font-size: 0.68rem;
+  font-weight: 820;
+}
+
+.vote-opinion-column__speaker span {
+  color: var(--v3-muted);
+  font-size: 0.56rem;
+}
+
+.vote-opinion-column li > p {
+  margin: 0;
+  color: var(--v3-ink);
+  font-size: 0.66rem;
+  line-height: 1.58;
+}
+
+.vote-opinion-column li > a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  color: var(--v3-muted);
+  font-size: 0.57rem;
+  text-decoration: none;
+}
+
+.vote-opinion-column li > a:hover {
+  color: var(--wq-alert, var(--v3-blue));
+}
+
+.vote-opinion-column__empty {
+  margin: 0;
+  padding: 1rem 0;
+  color: var(--v3-muted);
+  font-size: 0.64rem;
+  line-height: 1.55;
+}
+
+.vote-opinion-column__more {
+  margin: 0.4rem 0 0;
+  color: var(--v3-muted);
+  font-size: 0.58rem;
+}
+
+.vote-opinion-panel__notice {
+  margin: 0;
+  padding-left: 0.65rem;
+  border-left: 2px solid var(--v3-border-strong);
+  color: var(--v3-muted);
+  font-size: 0.61rem;
+  line-height: 1.55;
+}
+
+.vote-opinion-panel__empty-state {
+  padding: 0.9rem;
+  border: 1px dashed var(--v3-border-strong);
+  background: var(--v3-canvas);
+}
+
+.vote-opinion-panel__empty-state strong {
+  color: var(--v3-ink);
+  font-size: 0.72rem;
+}
+
+.vote-opinion-panel__empty-state p {
+  margin: 0.25rem 0 0;
+  color: var(--v3-muted);
+  font-size: 0.64rem;
+}
+
 @media (max-width: 1040px) {
   .v3-trend-grid {
     grid-template-columns: 1fr;
@@ -1196,6 +1650,11 @@
 
   .v3-vote-toolbar {
     grid-template-columns: 1fr;
+  }
+
+  .vote-roster-list,
+  .vote-opinion-panel__sections {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1294,6 +1753,25 @@
     grid-template-columns: 1fr;
   }
 
+  .vote-roster-workbench__header,
+  .vote-opinion-panel__header {
+    display: grid;
+    align-items: start;
+  }
+
+  .vote-roster-workbench__header > p {
+    text-align: left;
+  }
+
+  .vote-roster-list,
+  .vote-opinion-panel__sections {
+    grid-template-columns: 1fr;
+  }
+
+  .vote-opinion-panel__coverage {
+    justify-items: start;
+  }
+
   .v3-method-note {
     grid-template-columns: 1fr;
     gap: 0.28rem;
@@ -1319,6 +1797,38 @@
 }
 
 @media (max-width: 480px) {
+  .vote-roster-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .v3-evidence-page .vote-roster-tabs button {
+    border-right: 0;
+    border-bottom: 1px solid var(--v3-border);
+  }
+
+  .v3-evidence-page .vote-roster-tabs button:last-child {
+    border-bottom: 0;
+  }
+
+  .vote-roster-panel__toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .vote-roster-panel__toolbar label {
+    width: 100%;
+  }
+
+  .v3-vote-timeline .vote-card__highlight-summary {
+    align-items: flex-start;
+    gap: 0.65rem;
+  }
+
+  .v3-vote-timeline .vote-card__highlight-meta {
+    align-items: flex-end;
+    flex-direction: column;
+  }
+
   .v3-trend-toolbar__controls {
     display: grid;
     grid-template-columns: 1fr;
