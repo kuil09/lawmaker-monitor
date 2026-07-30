@@ -172,6 +172,8 @@ Minutes summary settings:
 - `MINUTES_SUMMARY_CHAT_TEMPLATE_URL`
 - `MINUTES_SUMMARY_MAX_DOCUMENTS`
 - `MINUTES_SUMMARY_MAX_GROUPS`
+- `MINUTES_SUMMARY_CONCURRENCY`
+- `MINUTES_SUMMARY_REQUEST_TIMEOUT_MS`
 
 The summary workflow runs an open-weight GGUF model directly on the GitHub
 Actions runner. The default is the official EXAONE 4.0 1.2B Q8 GGUF with its
@@ -188,6 +190,13 @@ downloaded official minutes viewer document at
 `record.assembly.go.kr/assembly/viewer/minutes/xml.do`. The pipeline splits
 those documents into member statements before the model is invoked. Speaker and
 agenda attribution come from that structured minutes document.
+
+Collection and summarization are intentionally incremental. A mirror run
+downloads at most 20 documents and advances at most two catch-up windows. A
+summary run processes one transcript and up to eight member-agenda groups with
+two concurrent local-model requests. Each model request times out after 60
+seconds, completed work is committed after every run, and the workflow
+dispatches another bounded run while documents remain.
 
 Use
 [`docs/operations/minutes-reclassification-verification.md`](docs/operations/minutes-reclassification-verification.md)

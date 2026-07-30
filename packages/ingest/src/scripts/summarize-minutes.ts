@@ -48,6 +48,7 @@ type SummaryConfig = {
   maxDocuments: number;
   maxGroups: number;
   concurrency: number;
+  requestTimeoutMs: number;
 };
 
 type SummaryState = {
@@ -111,11 +112,15 @@ function loadConfig(): SummaryConfig {
     endpoint:
       process.env.MINUTES_SUMMARY_ENDPOINT?.trim() ||
       "http://127.0.0.1:8080/v1/chat/completions",
-    maxDocuments: readPositiveInteger("MINUTES_SUMMARY_MAX_DOCUMENTS", 8),
-    maxGroups: readPositiveInteger("MINUTES_SUMMARY_MAX_GROUPS", 64),
+    maxDocuments: readPositiveInteger("MINUTES_SUMMARY_MAX_DOCUMENTS", 1),
+    maxGroups: readPositiveInteger("MINUTES_SUMMARY_MAX_GROUPS", 8),
     concurrency: Math.min(
-      readPositiveInteger("MINUTES_SUMMARY_CONCURRENCY", 4),
+      readPositiveInteger("MINUTES_SUMMARY_CONCURRENCY", 2),
       8
+    ),
+    requestTimeoutMs: readPositiveInteger(
+      "MINUTES_SUMMARY_REQUEST_TIMEOUT_MS",
+      60_000
     )
   };
 }
@@ -456,7 +461,8 @@ async function main(): Promise<void> {
 
   const summarize = createLlamaServerSummarizer({
     endpoint: config.endpoint,
-    modelId: config.modelId
+    modelId: config.modelId,
+    timeoutMs: config.requestTimeoutMs
   });
   let remainingGroupBudget = config.maxGroups;
   let groupsSummarized = 0;

@@ -6,12 +6,12 @@ on:
       max_documents:
         description: Maximum transcript documents to summarize
         required: false
-        default: "8"
+        default: "1"
         type: string
       max_groups:
         description: Maximum member-agenda groups to summarize
         required: false
-        default: "64"
+        default: "8"
         type: string
   workflow_run:
     workflows:
@@ -29,6 +29,7 @@ jobs:
       github.event_name != 'workflow_run' ||
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       actions: write
       contents: read
@@ -39,9 +40,10 @@ jobs:
       LLAMA_CPP_RELEASE: ${{ vars.LLAMA_CPP_RELEASE || 'b10107' }}
       MINUTES_SUMMARY_MODEL: ${{ vars.MINUTES_SUMMARY_MODEL || 'LGAI-EXAONE/EXAONE-4.0-1.2B-GGUF:Q8_0' }}
       MINUTES_SUMMARY_CHAT_TEMPLATE_URL: ${{ vars.MINUTES_SUMMARY_CHAT_TEMPLATE_URL || 'https://huggingface.co/LGAI-EXAONE/EXAONE-4.0-1.2B-GGUF/resolve/162446400ea4596377a3ce1d3ddffa32971af0a6/chat_template.jinja' }}
-      MINUTES_SUMMARY_MAX_DOCUMENTS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_documents || vars.MINUTES_SUMMARY_MAX_DOCUMENTS || '8' }}
-      MINUTES_SUMMARY_MAX_GROUPS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_groups || vars.MINUTES_SUMMARY_MAX_GROUPS || '64' }}
-      MINUTES_SUMMARY_CONCURRENCY: ${{ vars.MINUTES_SUMMARY_CONCURRENCY || '4' }}
+      MINUTES_SUMMARY_MAX_DOCUMENTS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_documents || vars.MINUTES_SUMMARY_MAX_DOCUMENTS || '1' }}
+      MINUTES_SUMMARY_MAX_GROUPS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_groups || vars.MINUTES_SUMMARY_MAX_GROUPS || '8' }}
+      MINUTES_SUMMARY_CONCURRENCY: ${{ vars.MINUTES_SUMMARY_CONCURRENCY || '2' }}
+      MINUTES_SUMMARY_REQUEST_TIMEOUT_MS: ${{ vars.MINUTES_SUMMARY_REQUEST_TIMEOUT_MS || '60000' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

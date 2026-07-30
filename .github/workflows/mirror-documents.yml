@@ -15,7 +15,7 @@ on:
       max_downloads:
         description: Maximum unique documents to process
         required: false
-        default: "80"
+        default: "20"
         type: string
       skip_recent:
         description: Skip the rolling recent-date window
@@ -40,6 +40,7 @@ concurrency:
 jobs:
   mirror-documents:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       actions: write
       contents: read
@@ -58,7 +59,7 @@ jobs:
       MIRROR_DATE_SELECTOR: ${{ vars.MIRROR_DATE_SELECTOR }}
       MIRROR_NEXT_SELECTOR: ${{ vars.MIRROR_NEXT_SELECTOR }}
       MIRROR_MAX_PAGES: ${{ vars.MIRROR_MAX_PAGES }}
-      MIRROR_MAX_DOWNLOADS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_downloads || vars.MIRROR_MAX_DOWNLOADS || '80' }}
+      MIRROR_MAX_DOWNLOADS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_downloads || vars.MIRROR_MAX_DOWNLOADS || '20' }}
       MIRROR_PAGE_SIZE: ${{ vars.MIRROR_PAGE_SIZE || '100' }}
       MIRROR_PAGE_DELAY_MS: ${{ vars.MIRROR_PAGE_DELAY_MS }}
       MIRROR_TIMEOUT_MS: ${{ vars.MIRROR_TIMEOUT_MS }}
@@ -69,7 +70,7 @@ jobs:
       MIRROR_BACKFILL_DAYS: ${{ vars.MIRROR_BACKFILL_DAYS }}
       MIRROR_BACKFILL_CURSOR_OVERRIDE: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill_start_date || '' }}
       MIRROR_BACKFILL_WINDOWS_PER_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill_windows || vars.MIRROR_BACKFILL_WINDOWS_PER_RUN || '1' }}
-      MIRROR_CATCHUP_WINDOWS_PER_RUN: ${{ vars.MIRROR_CATCHUP_WINDOWS_PER_RUN || '8' }}
+      MIRROR_CATCHUP_WINDOWS_PER_RUN: ${{ vars.MIRROR_CATCHUP_WINDOWS_PER_RUN || '2' }}
       MIRROR_SKIP_RECENT: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_recent || 'false' }}
       MIRROR_INCLUDE_APPENDICES: ${{ github.event_name == 'workflow_dispatch' && inputs.include_appendices || vars.MIRROR_INCLUDE_APPENDICES || 'false' }}
     steps:
