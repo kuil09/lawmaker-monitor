@@ -275,6 +275,55 @@ async function fetchImageDataUrl(fetchImpl, url, warnings, timeoutMs) {
   }
 }
 
+export async function fetchPublishedMemberCardPng({
+  fetchImpl,
+  url,
+  warnings,
+  timeoutMs
+}) {
+  try {
+    const response = await fetchPortraitResource(
+      fetchImpl,
+      url,
+      undefined,
+      timeoutMs
+    );
+    if (!response.ok) {
+      warnings.push(`${url} existing card returned ${response.status}`);
+      return null;
+    }
+
+    const contentType = response.headers
+      .get("content-type")
+      ?.split(";")[0]
+      ?.trim()
+      ?.toLowerCase();
+    if (contentType !== "image/png") {
+      warnings.push(
+        `${url} existing card returned non-PNG content type ${
+          contentType ?? "unknown"
+        }`
+      );
+      return null;
+    }
+
+    const image = Buffer.from(await response.arrayBuffer());
+    if (image.length === 0) {
+      warnings.push(`${url} existing card returned an empty image`);
+      return null;
+    }
+
+    return image;
+  } catch (error) {
+    warnings.push(
+      `${url} existing card could not be loaded: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+    return null;
+  }
+}
+
 export function extractOfficialMemberPhotoUrl(html, pageUrl = ASSEMBLY_ORIGIN) {
   const match = html.match(
     /background-image\s*:\s*url\(\s*(['"]?)(\/static\/portal\/img\/openassm\/[^'")\s]+)\1\s*\)/i
@@ -1013,13 +1062,22 @@ export async function generateMemberSharePages({
   const manifestEntries = [];
 
   await runInBatches(members, CARD_GENERATION_CONCURRENCY, async (member) => {
-    const portraitDataUrl = await resolveMemberPortraitDataUrl({
-      member,
-      assemblyNo: context.assemblyNo,
-      fetchImpl,
-      warnings,
-      timeoutMs
-    });
+    let portraitDataUrl = null;
+    let portraitError = null;
+    try {
+      portraitDataUrl = await resolveMemberPortraitDataUrl({
+        member,
+        assemblyNo: context.assemblyNo,
+        fetchImpl,
+        warnings,
+        timeoutMs
+      });
+    } catch (error) {
+      portraitError = error;
+      warnings.push(
+        error instanceof Error ? error.message : String(error)
+      );
+    }
     const model = buildMemberCardModel(
       {
         ...member,
@@ -1038,13 +1096,31 @@ export async function generateMemberSharePages({
       "member-cards",
       `${model.encodedMemberId}.png`
     );
-    const cardSvg = renderMemberCardSvg(model);
-    const cardPng = await renderMemberCardPng({
-      svg: cardSvg,
-      fetchImpl,
-      warnings,
-      timeoutMs
-    });
+    let cardPng = null;
+    if (portraitDataUrl) {
+      const cardSvg = renderMemberCardSvg(model);
+      cardPng = await renderMemberCardPng({
+        svg: cardSvg,
+        fetchImpl,
+        warnings,
+        timeoutMs
+      });
+    } else {
+      cardPng = await fetchPublishedMemberCardPng({
+        fetchImpl,
+        url: model.imageUrl,
+        warnings,
+        timeoutMs
+      });
+    }
+    if (!cardPng) {
+      throw (
+        portraitError ??
+        new Error(
+          `[member-share] a verified portrait or published card is required for ${member.name} (${member.memberId})`
+        )
+      );
+    }
     await Promise.all([
       mkdir(dirname(memberPagePath), { recursive: true }),
       mkdir(dirname(cardPath), { recursive: true })

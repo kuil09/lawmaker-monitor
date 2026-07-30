@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildMemberCardModel,
   extractOfficialMemberPhotoUrl,
+  fetchPublishedMemberCardPng,
   generateMemberSharePages,
   mergeMemberShareSources,
   renderMemberCardSvg,
@@ -347,6 +348,26 @@ describe("generateMemberSharePages", () => {
 });
 
 describe("member share portraits", () => {
+  it("reuses a previously published PNG card when portrait hosts are unavailable", async () => {
+    const warnings: string[] = [];
+    const fetchImpl = vi.fn(async () => {
+      return new Response(onePixelPng, {
+        status: 200,
+        headers: { "Content-Type": "image/png" }
+      });
+    });
+
+    const card = await fetchPublishedMemberCardPng({
+      fetchImpl,
+      url: "https://app.example.test/member-cards/M001.png?v=current",
+      warnings,
+      timeoutMs: 100
+    });
+
+    expect(card).toEqual(onePixelPng);
+    expect(warnings).toEqual([]);
+  });
+
   it("extracts the official portrait from the Assembly member page", () => {
     const html = `
       <span
