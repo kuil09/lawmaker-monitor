@@ -984,6 +984,7 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
       waitUntil: "networkidle"
     });
     await page.getByRole("heading", { name: "실시간 국회 출석부" }).waitFor();
+    expect(new URL(page.url()).searchParams.has("ui")).toBe(false);
   } finally {
     await context.close();
   }

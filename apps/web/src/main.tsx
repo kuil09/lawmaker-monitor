@@ -1,5 +1,6 @@
 import ReactDOM from "react-dom/client";
 
+import { removeLegacyUiParameter } from "./lib/entry-url.js";
 import { V2App } from "./v2/V2App.js";
 import "./styles/layers.css";
 import "./styles/tokens.css";
@@ -15,5 +16,7 @@ import "./styles/hexmap.css";
 import "./styles/bill-activity.css";
 import "./styles/minutes-summary.css";
 import "./styles/watch-queue.css";
+
+removeLegacyUiParameter();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<V2App />);
