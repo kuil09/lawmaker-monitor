@@ -278,11 +278,14 @@ describe("generateMemberSharePages", () => {
     expect(svg).toContain('filter="url(#newsprint)"');
     expect(svg).toContain("<image");
     expect(svg).not.toContain(">김아</text>");
+    expect(svg).toContain("#d8f33f");
+    expect(svg).toContain("#e7e7e1");
+    expect(svg).not.toMatch(/#a52a22|#95622d/i);
     expect(svg).not.toMatch(/#173c3a|#006b6e|#005357|#3f6455|#245d56/i);
     expect(cardsManifest).toMatchObject({
       snapshotId: "snapshot-123",
       cardVersion: expect.stringMatching(/^[a-f0-9]{16}$/),
-      cardRendererVersion: "member-share-card-v2-portrait-required",
+      cardRendererVersion: "member-share-card-v3-grey-newsprint",
       count: 1
     });
   });

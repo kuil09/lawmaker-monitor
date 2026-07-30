@@ -24,7 +24,18 @@ const DEFAULT_CARD_FONT_FILES = [
   )
 );
 const CARD_GENERATION_CONCURRENCY = 2;
-const CARD_RENDERER_VERSION = "member-share-card-v2-portrait-required";
+const CARD_RENDERER_VERSION = "member-share-card-v3-grey-newsprint";
+const MEMBER_CARD_PALETTE = Object.freeze({
+  paper: "#e7e7e1",
+  paperDeep: "#c9cac4",
+  ink: "#23241f",
+  inkSoft: "#5f615a",
+  rule: "#7d7f77",
+  ruleSoft: "#bfc0ba",
+  panel: "#454741",
+  lime: "#d8f33f",
+  limeDark: "#5b6c00"
+});
 const STATEMENT_FETCH_CONCURRENCY = 16;
 const SAFE_MEMBER_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 const PORTRAIT_FETCH_ATTEMPTS = 3;
@@ -638,78 +649,81 @@ export function renderMemberCardSvg(model) {
   <desc id="description">${escapeXml(accessibleDescription)}</desc>
   <defs>
     <pattern id="paper" width="8" height="8" patternUnits="userSpaceOnUse">
-      <circle cx="1" cy="1" r="0.65" fill="#1d1b18" opacity="0.1" />
+      <circle cx="1" cy="1" r="0.65" fill="${MEMBER_CARD_PALETTE.ink}" opacity="0.09" />
     </pattern>
     <pattern id="halftone" width="7" height="7" patternUnits="userSpaceOnUse">
-      <circle cx="2" cy="2" r="1.15" fill="#1d1b18" opacity="0.34" />
+      <circle cx="2" cy="2" r="1.15" fill="${MEMBER_CARD_PALETTE.ink}" opacity="0.38" />
     </pattern>
     <clipPath id="portraitClip"><rect x="44" y="36" width="400" height="548" /></clipPath>
     <filter id="newsprint">
       <feColorMatrix type="saturate" values="0" />
       <feComponentTransfer>
-        <feFuncR type="linear" slope="1.25" intercept="-0.08" />
-        <feFuncG type="linear" slope="1.25" intercept="-0.08" />
-        <feFuncB type="linear" slope="1.25" intercept="-0.08" />
+        <feFuncR type="linear" slope="1.18" intercept="-0.04" />
+        <feFuncG type="linear" slope="1.18" intercept="-0.04" />
+        <feFuncB type="linear" slope="1.18" intercept="-0.04" />
       </feComponentTransfer>
     </filter>
   </defs>
-  <rect width="1200" height="630" fill="#f2efe7" />
+  <rect width="1200" height="630" fill="${MEMBER_CARD_PALETTE.paper}" />
   <rect width="1200" height="630" fill="url(#paper)" />
-  <rect x="22" y="20" width="1156" height="590" fill="none" stroke="#575148" stroke-width="2" />
-  <rect x="44" y="36" width="400" height="548" fill="#ded7c9" />
+  <rect x="22" y="20" width="1156" height="590" fill="none" stroke="${MEMBER_CARD_PALETTE.ink}" stroke-width="2" />
+  <rect x="22" y="20" width="1156" height="6" fill="${MEMBER_CARD_PALETTE.lime}" />
+  <rect x="44" y="36" width="400" height="548" fill="${MEMBER_CARD_PALETTE.paperDeep}" />
   ${photo}
   <rect x="44" y="36" width="400" height="548" fill="url(#halftone)" opacity="0.3" />
-  <rect x="470" y="46" width="190" height="64" fill="#a52a22" />
-  <text x="565" y="91" text-anchor="middle" fill="#fffefb" font-size="40" font-weight="900" font-family="Noto Sans KR">감시 큐</text>
-  <text x="682" y="88" fill="#1d1b18" font-size="27" font-weight="900" font-family="Noto Sans KR">의원 실적 카드</text>
-  <text x="1130" y="88" text-anchor="end" fill="#625d54" font-size="20" font-weight="700" font-family="Noto Sans KR">${escapeXml(
+  <rect x="470" y="46" width="190" height="64" fill="${MEMBER_CARD_PALETTE.ink}" />
+  <rect x="470" y="104" width="190" height="6" fill="${MEMBER_CARD_PALETTE.lime}" />
+  <text x="565" y="91" text-anchor="middle" fill="${MEMBER_CARD_PALETTE.lime}" font-size="40" font-weight="900" font-family="Noto Sans KR">감시 큐</text>
+  <text x="682" y="88" fill="${MEMBER_CARD_PALETTE.ink}" font-size="27" font-weight="900" font-family="Noto Sans KR">의원 실적 카드</text>
+  <text x="1130" y="88" text-anchor="end" fill="${MEMBER_CARD_PALETTE.inkSoft}" font-size="20" font-weight="700" font-family="Noto Sans KR">${escapeXml(
     model.assemblyLabel
   )}</text>
-  <line x1="470" y1="128" x2="1130" y2="128" stroke="#575148" stroke-width="2" />
-  <text x="470" y="218" fill="#1d1b18" font-size="${nameFontSize}" font-weight="900" font-family="Noto Sans KR">${escapeXml(
+  <line x1="470" y1="128" x2="1130" y2="128" stroke="${MEMBER_CARD_PALETTE.ink}" stroke-width="2" />
+  <text x="470" y="218" fill="${MEMBER_CARD_PALETTE.ink}" font-size="${nameFontSize}" font-weight="900" font-family="Noto Sans KR">${escapeXml(
     model.name
   )}</text>
-  <text x="1130" y="174" text-anchor="end" fill="#95622d" font-size="22" font-weight="800" font-family="Noto Sans KR">${escapeXml(
+  <text x="1130" y="174" text-anchor="end" fill="${MEMBER_CARD_PALETTE.inkSoft}" font-size="22" font-weight="800" font-family="Noto Sans KR">${escapeXml(
     truncate(`${model.party} · ${model.district}`, 42)
   )}</text>
-  <line x1="470" y1="258" x2="1130" y2="258" stroke="#c8bead" stroke-width="1" />
+  <line x1="470" y1="258" x2="1130" y2="258" stroke="${MEMBER_CARD_PALETTE.rule}" stroke-width="1" />
   ${metricColumns
     .filter(({ highlight }) => highlight)
     .map(
       ({ x, width, highlight }) => `<g transform="translate(${x} 0)">
-    <rect x="0" y="286" width="${width}" height="38" fill="#a52a22" />
-    <text x="16" y="313" fill="#fffefb" font-size="21" font-weight="900" font-family="Noto Sans KR">${escapeXml(
+    <rect x="0" y="286" width="${width}" height="38" fill="${MEMBER_CARD_PALETTE.panel}" />
+    <rect x="0" y="320" width="${width}" height="4" fill="${MEMBER_CARD_PALETTE.lime}" />
+    <text x="16" y="313" fill="${MEMBER_CARD_PALETTE.paper}" font-size="21" font-weight="900" font-family="Noto Sans KR">${escapeXml(
       highlight.label
     )}</text>
-    <text x="0" y="406" fill="#a52a22" font-size="79" font-weight="900" font-family="Noto Sans KR">${escapeXml(
+    <text x="0" y="406" fill="${MEMBER_CARD_PALETTE.ink}" font-size="79" font-weight="900" font-family="Noto Sans KR">${escapeXml(
       highlight.value
     )}</text>
-    <text x="0" y="448" fill="#625d54" font-size="20" font-weight="700" font-family="Noto Sans KR">${escapeXml(
+    <text x="0" y="448" fill="${MEMBER_CARD_PALETTE.inkSoft}" font-size="20" font-weight="700" font-family="Noto Sans KR">${escapeXml(
       highlight.contextLabel
     )}</text>
-    <text x="${width}" y="448" text-anchor="end" fill="#95622d" font-size="27" font-weight="900" font-family="Noto Sans KR">${escapeXml(
+    <text x="${width}" y="448" text-anchor="end" fill="${MEMBER_CARD_PALETTE.limeDark}" font-size="27" font-weight="900" font-family="Noto Sans KR">${escapeXml(
       highlight.contextValue
     )}</text>
   </g>`
     )
     .join("\n  ")}
-  <line x1="810" y1="286" x2="810" y2="460" stroke="#c8bead" stroke-width="1" />
+  <line x1="810" y1="286" x2="810" y2="460" stroke="${MEMBER_CARD_PALETTE.ruleSoft}" stroke-width="1" />
   ${
     model.tertiaryFact
-      ? `<text x="470" y="516" fill="#625d54" font-size="18" font-weight="700" font-family="Noto Sans KR">최근 공개</text>
-  <text x="1130" y="516" text-anchor="end" fill="#95622d" font-size="24" font-weight="900" font-family="Noto Sans KR">${escapeXml(
+      ? `<text x="470" y="516" fill="${MEMBER_CARD_PALETTE.inkSoft}" font-size="18" font-weight="700" font-family="Noto Sans KR">최근 공개</text>
+  <text x="1130" y="516" text-anchor="end" fill="${MEMBER_CARD_PALETTE.ink}" font-size="24" font-weight="900" font-family="Noto Sans KR">${escapeXml(
     truncate(model.tertiaryFact.replace(/^최근 공개 /, ""), 38)
   )}</text>`
       : ""
   }
-  <text x="470" y="554" fill="#625d54" font-size="16" font-weight="700" font-family="Noto Sans KR">수집 기준 ${escapeXml(
+  <text x="470" y="554" fill="${MEMBER_CARD_PALETTE.inkSoft}" font-size="16" font-weight="700" font-family="Noto Sans KR">수집 기준 ${escapeXml(
     formatDate(model.generatedAt)
   )}</text>
-  <text x="1130" y="554" text-anchor="end" fill="#625d54" font-size="16" font-weight="700" font-family="Noto Sans KR">분모·기간·공식 근거는 상세 화면에서 확인하세요.</text>
-  <rect x="0" y="582" width="1200" height="48" fill="#1d1b18" />
-  <text x="44" y="614" fill="#fffefb" font-size="18" font-weight="800" font-family="Noto Sans KR">국회 책임성 모니터 · 공식 공개자료 기반</text>
-  <text x="1156" y="614" text-anchor="end" fill="#eee3cf" font-size="18" font-weight="700" font-family="Noto Sans KR">kuil09.github.io/lawmaker-monitor</text>
-  <path d="M14 14h22M14 14v22M1186 14h-22M1186 14v22M14 616h22M14 616v-22M1186 616h-22M1186 616v-22" fill="none" stroke="#a52a22" stroke-width="3" />
+  <text x="1130" y="554" text-anchor="end" fill="${MEMBER_CARD_PALETTE.inkSoft}" font-size="16" font-weight="700" font-family="Noto Sans KR">분모·기간·공식 근거는 상세 화면에서 확인하세요.</text>
+  <rect x="0" y="582" width="1200" height="48" fill="${MEMBER_CARD_PALETTE.ink}" />
+  <text x="44" y="614" fill="${MEMBER_CARD_PALETTE.lime}" font-size="18" font-weight="800" font-family="Noto Sans KR">국회 책임성 모니터 · 공식 공개자료 기반</text>
+  <text x="1156" y="614" text-anchor="end" fill="${MEMBER_CARD_PALETTE.paper}" font-size="18" font-weight="700" font-family="Noto Sans KR">kuil09.github.io/lawmaker-monitor</text>
+  <path d="M14 14h22M14 14v22M1186 14h-22M1186 14v22M14 616h22M14 616v-22M1186 616h-22M1186 616v-22" fill="none" stroke="${MEMBER_CARD_PALETTE.limeDark}" stroke-width="3" />
 </svg>`;
 }
 

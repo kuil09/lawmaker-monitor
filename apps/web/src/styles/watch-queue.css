@@ -246,7 +246,7 @@ body:has(.watch-queue-shell) {
 .v2-app.v3-shell.watch-queue-shell
   .v2-global-nav__link[aria-current="page"]::after {
   right: 0;
-  bottom: -20px;
+  bottom: -1px;
   left: 0;
   height: 3px;
   border-radius: 0;
