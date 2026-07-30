@@ -24,6 +24,7 @@ const DEFAULT_CARD_FONT_FILES = [
   )
 );
 const CARD_GENERATION_CONCURRENCY = 2;
+const CARD_RENDERER_VERSION = "member-share-card-v2-portrait-required";
 const STATEMENT_FETCH_CONCURRENCY = 16;
 const SAFE_MEMBER_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 const PORTRAIT_FETCH_ATTEMPTS = 3;
@@ -927,6 +928,7 @@ export async function generateMemberSharePages({
   const cardVersion = createHash("sha256")
     .update(
       JSON.stringify({
+        cardRendererVersion: CARD_RENDERER_VERSION,
         snapshotId,
         statementsGeneratedAt: statementsIndex?.generatedAt ?? null,
         statementsPromptVersion: statementsIndex?.promptVersion ?? null
@@ -1020,6 +1022,7 @@ export async function generateMemberSharePages({
         generatedAt,
         snapshotId,
         cardVersion,
+        cardRendererVersion: CARD_RENDERER_VERSION,
         count: manifestEntries.length,
         members: manifestEntries
       },

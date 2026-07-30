@@ -282,6 +282,7 @@ describe("generateMemberSharePages", () => {
     expect(cardsManifest).toMatchObject({
       snapshotId: "snapshot-123",
       cardVersion: expect.stringMatching(/^[a-f0-9]{16}$/),
+      cardRendererVersion: "member-share-card-v2-portrait-required",
       count: 1
     });
   });
