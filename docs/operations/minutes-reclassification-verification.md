@@ -5,6 +5,20 @@ A green workflow run is necessary, but it is not sufficient evidence that the
 full reclassification is complete. The workflow may publish one bounded batch
 and dispatch another batch while documents remain.
 
+The normal unattended sequence is:
+
+1. the daily `mirror-documents` run publishes newly discovered official
+   transcripts;
+2. the successful mirror explicitly starts `summarize-minutes`;
+3. the summary workflow continues checkpointed batches until no documents
+   remain; and
+4. each successful summary batch makes `deploy-web` eligible to publish the
+   updated site.
+
+Mirror and summary failures are retried up to three times. Generated-data pushes
+also retry transient fetch and push failures. A manual cancellation remains
+final so an operator can intentionally stop processing.
+
 ## Repositories and expected classifier
 
 ```bash

@@ -210,6 +210,24 @@ two concurrent local-model requests. Each model request times out after 60
 seconds, completed work is committed after every run, and the workflow
 dispatches another bounded run while documents remain.
 
+The daily pipeline is fully chained in this order:
+
+1. `mirror-documents` searches the rolling recent window and writes official
+   transcript artifacts.
+2. A successful mirror explicitly dispatches `summarize-minutes`.
+3. `summarize-minutes` publishes one checkpointed batch and dispatches the next
+   batch while documents remain.
+4. A successful summary run triggers `deploy-web`.
+
+Recent-window collection, historical backfill, summary processing, and the
+other data builders share a FIFO concurrency queue. The queue retains up to 100
+pending runs so a newly dispatched summary batch cannot displace the daily
+recent-window collection. All generated-data writers publish through
+`scripts/publish-data-repo.sh`, which stages only the declared paths and retries
+fetch, rebase, and push operations. Failed mirror or summary batches
+automatically dispatch up to three recovery runs. Manual cancellation is not
+retried.
+
 Use
 [`docs/operations/minutes-reclassification-verification.md`](docs/operations/minutes-reclassification-verification.md)
 to verify workflow completion, published coverage, source grounding, regression

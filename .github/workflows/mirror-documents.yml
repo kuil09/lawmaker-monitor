@@ -30,11 +30,17 @@ on:
         options:
           - "false"
           - "true"
+      retry_attempt:
+        description: Automatic recovery attempt
+        required: false
+        default: "0"
+        type: string
   schedule:
     - cron: "30 15 * * *"
 
 concurrency:
   group: published-data-${{ vars.DATA_REPO || 'none' }}-${{ vars.DATA_REPO_BRANCH || 'main' }}
+  queue: max
   cancel-in-progress: false
 
 jobs:
@@ -116,23 +122,13 @@ jobs:
         if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
         working-directory: published-data
         run: |
-          git config user.name github-actions
-          git config user.email github-actions@users.noreply.github.com
           TARGET_BRANCH="${DATA_REPO_BRANCH:-main}"
-
-          if [ -n "$(git status --short)" ]; then
-            git add raw manifests
-            git commit -m "Mirror public documents"
-
-            if git ls-remote --exit-code --heads origin "${TARGET_BRANCH}" >/dev/null 2>&1; then
-              git fetch origin "${TARGET_BRANCH}"
-              git rebase "origin/${TARGET_BRANCH}"
-            fi
-
-            git push origin "${TARGET_BRANCH}"
-          else
-            echo "No mirrored document changes to publish."
-          fi
+          "${GITHUB_WORKSPACE}/scripts/publish-data-repo.sh" \
+            "${PWD}" \
+            "${TARGET_BRANCH}" \
+            "Mirror public documents" \
+            raw \
+            manifests
 
       - name: Upload mirror state artifact
         if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
@@ -152,6 +148,15 @@ jobs:
           echo "pending_backfill=$(jq -r '.pendingBackfill // false' "${STATE_FILE}")" >> "${GITHUB_OUTPUT}"
           echo "backfill_advanced=$(jq -r '.backfillAdvanced // false' "${STATE_FILE}")" >> "${GITHUB_OUTPUT}"
 
+      - name: Start minutes summaries
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run summarize-minutes.yml \
+            --ref "${{ github.event.repository.default_branch }}" \
+            -f retry_attempt="0"
+
       - name: Continue pending minutes backfill
         if: >-
           steps.mirror-progress.outputs.pending_backfill == 'true' &&
@@ -164,4 +169,51 @@ jobs:
             -f backfill_windows="${MIRROR_CATCHUP_WINDOWS_PER_RUN}" \
             -f max_downloads="${MIRROR_MAX_DOWNLOADS}" \
             -f skip_recent=true \
-            -f include_appendices="${MIRROR_INCLUDE_APPENDICES}"
+            -f include_appendices="${MIRROR_INCLUDE_APPENDICES}" \
+            -f retry_attempt="0"
+
+  retry-failed-mirror:
+    needs: mirror-documents
+    if: ${{ always() && needs.mirror-documents.result == 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Retry failed minutes mirror
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_RETRY_ATTEMPT: ${{ inputs.retry_attempt || '0' }}
+          MAX_RETRY_ATTEMPTS: "3"
+          BACKFILL_START_DATE: ${{ inputs.backfill_start_date || '' }}
+          BACKFILL_WINDOWS: ${{ inputs.backfill_windows || '1' }}
+          MAX_DOWNLOADS: ${{ inputs.max_downloads || vars.MIRROR_MAX_DOWNLOADS || '20' }}
+          SKIP_RECENT: ${{ inputs.skip_recent || 'false' }}
+          INCLUDE_APPENDICES: ${{ inputs.include_appendices || vars.MIRROR_INCLUDE_APPENDICES || 'false' }}
+        run: |
+          if ! [[ "${CURRENT_RETRY_ATTEMPT}" =~ ^[0-9]+$ ]]; then
+            echo "Invalid retry attempt: ${CURRENT_RETRY_ATTEMPT}" >&2
+            exit 1
+          fi
+
+          NEXT_RETRY_ATTEMPT="$((CURRENT_RETRY_ATTEMPT + 1))"
+          if [ "${NEXT_RETRY_ATTEMPT}" -gt "${MAX_RETRY_ATTEMPTS}" ]; then
+            echo "Minutes mirror retry budget exhausted." >&2
+            exit 1
+          fi
+
+          ARGS=(
+            workflow run mirror-documents.yml
+            --ref "${{ github.event.repository.default_branch }}"
+            -f "backfill_windows=${BACKFILL_WINDOWS}"
+            -f "max_downloads=${MAX_DOWNLOADS}"
+            -f "skip_recent=${SKIP_RECENT}"
+            -f "include_appendices=${INCLUDE_APPENDICES}"
+            -f "retry_attempt=${NEXT_RETRY_ATTEMPT}"
+          )
+          if [ -n "${BACKFILL_START_DATE}" ]; then
+            ARGS+=(-f "backfill_start_date=${BACKFILL_START_DATE}")
+          fi
+
+          gh "${ARGS[@]}"

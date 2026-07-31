@@ -22,6 +22,7 @@ on:
 
 concurrency:
   group: published-data-${{ vars.DATA_REPO || 'none' }}-${{ vars.DATA_REPO_BRANCH || 'main' }}
+  queue: max
   cancel-in-progress: false
 
 jobs:
@@ -154,23 +155,14 @@ jobs:
         if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
         working-directory: published-data
         run: |
-          git config user.name github-actions
-          git config user.email github-actions@users.noreply.github.com
           TARGET_BRANCH="${DATA_REPO_BRANCH:-main}"
-
-          if [ -n "$(git status --short)" ]; then
-            git add curated exports manifests
-            git commit -m "Publish data update"
-
-            if git ls-remote --exit-code --heads origin "${TARGET_BRANCH}" >/dev/null 2>&1; then
-              git fetch origin "${TARGET_BRANCH}"
-              git rebase "origin/${TARGET_BRANCH}"
-            fi
-
-            git push origin "${TARGET_BRANCH}"
-          else
-            echo "No data changes to publish."
-          fi
+          "${GITHUB_WORKSPACE}/scripts/publish-data-repo.sh" \
+            "${PWD}" \
+            "${TARGET_BRANCH}" \
+            "Publish data update" \
+            curated \
+            exports \
+            manifests
 
       - name: Upload built data artifact
         uses: actions/upload-artifact@v6

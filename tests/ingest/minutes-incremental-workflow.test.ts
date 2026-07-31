@@ -18,7 +18,13 @@ describe("incremental minutes workflows", () => {
       "MIRROR_CATCHUP_WINDOWS_PER_RUN: ${{ vars.MIRROR_CATCHUP_WINDOWS_PER_RUN || '2' }}"
     );
     expect(workflow).toContain("timeout-minutes: 30");
+    expect(workflow).toContain("Start minutes summaries");
+    expect(workflow).toContain("gh workflow run summarize-minutes.yml");
     expect(workflow).toContain("Continue pending minutes backfill");
+    expect(workflow).toContain("group: published-data-${{ vars.DATA_REPO");
+    expect(workflow).toContain("queue: max");
+    expect(workflow).toContain("Retry failed minutes mirror");
+    expect(workflow).toContain('-f retry_attempt="0"');
   });
 
   it("keeps AI summarization in small checkpointed batches", () => {
@@ -37,6 +43,29 @@ describe("incremental minutes workflows", () => {
     expect(workflow).toContain("timeout-minutes: 30");
     expect(workflow).toContain("Commit and push summary changes");
     expect(workflow).toContain("Continue pending minutes summaries");
+    expect(workflow).toContain("group: published-data-${{ vars.DATA_REPO");
+    expect(workflow).toContain("queue: max");
+    expect(workflow).toContain("Retry failed summary batch");
+    expect(workflow).toContain('-f retry_attempt="0"');
+    expect(workflow).not.toContain("workflow_run:");
+  });
+
+  it("publishes generated data through the shared retrying helper", () => {
+    const workflowPaths = [
+      ".github/workflows/build-data.yml",
+      ".github/workflows/mirror-documents.yml",
+      ".github/workflows/mirror-property-disclosures.yml",
+      ".github/workflows/summarize-minutes.yml"
+    ];
+
+    for (const workflowPath of workflowPaths) {
+      const workflow = readRepositoryFile(workflowPath);
+      expect(workflow).toContain(
+        '"${GITHUB_WORKSPACE}/scripts/publish-data-repo.sh"'
+      );
+      expect(workflow).toContain("queue: max");
+      expect(workflow).not.toContain("git push origin");
+    }
   });
 
   it("passes the request timeout into the local model client", () => {
