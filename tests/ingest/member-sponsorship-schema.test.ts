@@ -1,13 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  memberSponsorshipAccountsExportSchema,
-  type MemberSponsorshipAccountsExport
-} from "../../packages/schemas/src/index.js";
+import { memberSponsorshipAccountsExportSchema } from "../../packages/schemas/src/index.js";
+import { toPublicSponsorshipRoutes } from "../../packages/ingest/src/build-data/publish-stage.js";
 
-function buildExport(
-  accounts: MemberSponsorshipAccountsExport["accounts"]
-): unknown {
+function buildExport(accounts: unknown[]): unknown {
   return {
     generatedAt: "2026-07-30T10:00:00.000Z",
     snapshotId: "sponsorship-20260730",
@@ -18,7 +14,42 @@ function buildExport(
 }
 
 describe("memberSponsorshipAccountsExportSchema", () => {
-  it("accepts a fully sourced verified account", () => {
+  it("strips direct-deposit details from a legacy public export", () => {
+    const legacy = memberSponsorshipAccountsExportSchema.parse(
+      buildExport([
+        {
+          recordId: "M001-2026",
+          memberId: "M001",
+          status: "verified",
+          bankName: "국회은행",
+          accountNumber: "123-456-789012",
+          accountHolder: "김아라후원회",
+          sourceUrl: "https://example.go.kr/members/M001/sponsorship",
+          verifiedAt: "2026-07-30",
+          donationUrl: "https://www.give.go.kr/portal/give.do?supportNo=27001"
+        }
+      ])
+    );
+
+    const result = toPublicSponsorshipRoutes(legacy);
+
+    expect(legacy.accounts[0]).not.toHaveProperty("bankName");
+    expect(legacy.accounts[0]).not.toHaveProperty("accountNumber");
+    expect(legacy.accounts[0]).not.toHaveProperty("accountHolder");
+    expect(result.accounts).toEqual([
+      expect.objectContaining({
+        memberId: "M001",
+        status: "unverified",
+        sourceUrl: "https://www.give.go.kr/portal/give.do?supportNo=27001",
+        donationUrl: "https://www.give.go.kr/portal/give.do?supportNo=27001"
+      })
+    ]);
+    expect(result.accounts[0]).not.toHaveProperty("bankName");
+    expect(result.accounts[0]).not.toHaveProperty("accountNumber");
+    expect(result.accounts[0]).not.toHaveProperty("accountHolder");
+  });
+
+  it("sanitizes legacy verified records to link-only records", () => {
     const payload = memberSponsorshipAccountsExportSchema.parse(
       buildExport([
         {
@@ -40,10 +71,37 @@ describe("memberSponsorshipAccountsExportSchema", () => {
       status: "verified",
       verifiedAt: "2026-07-30"
     });
+    expect(payload.accounts[0]).not.toHaveProperty("bankName");
+    expect(payload.accounts[0]).not.toHaveProperty("accountNumber");
+    expect(payload.accounts[0]).not.toHaveProperty("accountHolder");
   });
 
-  it("keeps unverified records free of account details", () => {
-    const result = memberSponsorshipAccountsExportSchema.safeParse(
+  it("publishes only exact Central Election Commission link hosts", () => {
+    const legacy = memberSponsorshipAccountsExportSchema.parse(
+      buildExport([
+        {
+          recordId: "M001-host-check",
+          memberId: "M001",
+          status: "verified",
+          sourceUrl:
+            "https://www.give.go.kr.example.com/members/M001/sponsorship",
+          verifiedAt: "2026-07-30",
+          donationUrl: "https://give.go.kr/portal/give.do?supportNo=27001"
+        }
+      ])
+    );
+
+    const result = toPublicSponsorshipRoutes(legacy);
+
+    expect(result.accounts[0]).toMatchObject({
+      sourceUrl:
+        "https://www.give.go.kr/portal/supporter/supporterSearch/list.do?menuNo=200025"
+    });
+    expect(result.accounts[0]).not.toHaveProperty("donationUrl");
+  });
+
+  it("sanitizes legacy unverified records to link-only records", () => {
+    const payload = memberSponsorshipAccountsExportSchema.parse(
       buildExport([
         {
           recordId: "M001-review",
@@ -57,7 +115,8 @@ describe("memberSponsorshipAccountsExportSchema", () => {
       ])
     );
 
-    expect(result.success).toBe(false);
+    expect(payload.accounts[0]?.status).toBe("unverified");
+    expect(payload.accounts[0]).not.toHaveProperty("accountNumber");
   });
 
   it("retains superseded records for audit without treating them as current", () => {
@@ -80,6 +139,9 @@ describe("memberSponsorshipAccountsExportSchema", () => {
     );
 
     expect(payload.accounts[0]?.status).toBe("superseded");
+    expect(payload.accounts[0]).not.toHaveProperty("bankName");
+    expect(payload.accounts[0]).not.toHaveProperty("accountNumber");
+    expect(payload.accounts[0]).not.toHaveProperty("accountHolder");
   });
 
   it("rejects multiple current verified accounts for one member", () => {

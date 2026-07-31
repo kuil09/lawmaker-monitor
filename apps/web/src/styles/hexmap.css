@@ -563,6 +563,28 @@
   background: #777066;
 }
 
+.hexmap-page[data-active-metric="absence"] .ledger-member-card__metric > span {
+  background: var(--absence-rule);
+}
+
+.hexmap-page[data-active-metric="absence"]
+  .ledger-member-card__metric[data-severity="caution"]
+  > span {
+  background: var(--absence);
+}
+
+.hexmap-page[data-active-metric="absence"]
+  .ledger-member-card__metric[data-severity="high"]
+  > span {
+  background: var(--absence-strong);
+}
+
+.hexmap-page[data-active-metric="absence"]
+  .ledger-member-card__metric[data-severity="low"]
+  > span {
+  background: #9a9a9d;
+}
+
 .ledger-member-card__metric strong {
   position: relative;
   z-index: 1;
@@ -737,6 +759,36 @@
   background: #777066;
 }
 
+.hexmap-page[data-active-metric="absence"]
+  .ledger-focus-metric[data-severity="high"]
+  .ledger-focus-metric__rank
+  strong {
+  background: var(--absence);
+  color: var(--absence-on);
+}
+
+.hexmap-page[data-active-metric="absence"]
+  .ledger-focus-metric[data-severity="caution"]
+  .ledger-focus-metric__rank
+  strong {
+  background: var(--absence-soft);
+  color: var(--absence-strong);
+}
+
+.hexmap-page[data-active-metric="absence"]
+  .ledger-focus-metric[data-severity="high"]
+  .ledger-focus-metric__track
+  span {
+  background: var(--absence-strong);
+}
+
+.hexmap-page[data-active-metric="absence"]
+  .ledger-focus-metric[data-severity="caution"]
+  .ledger-focus-metric__track
+  span {
+  background: var(--absence);
+}
+
 .ledger-focus-metric > footer {
   display: flex;
   justify-content: space-between;
@@ -883,6 +935,24 @@
   color: var(--ledger-accent);
 }
 
+.hexmap-page[data-active-metric="absence"]
+  .ledger-severity-legend
+  > span[data-severity="high"] {
+  color: var(--absence-strong);
+}
+
+.hexmap-page[data-active-metric="absence"]
+  .ledger-severity-legend
+  > span[data-severity="caution"] {
+  color: var(--absence);
+}
+
+.hexmap-page[data-active-metric="absence"]
+  .ledger-severity-legend
+  > span[data-severity="normal"] {
+  color: var(--absence-rule);
+}
+
 .ledger-severity-legend p {
   margin: 14px 0 0;
   padding-top: 12px;
@@ -958,6 +1028,40 @@
   color: var(--ledger-accent);
 }
 
+.hexmap-page[data-active-metric="absence"]
+  .ledger-province-matrix
+  button[data-severity="high"]:not(.is-active) {
+  border-color: var(--absence);
+  background: var(--absence-soft);
+}
+
+.hexmap-page[data-active-metric="absence"]
+  .ledger-province-matrix
+  button[data-severity="caution"]:not(.is-active) {
+  border-color: var(--absence-rule);
+}
+
+.hexmap-page[data-active-metric="absence"]
+  .ledger-province-matrix
+  button[data-severity="high"]
+  .ledger-province-matrix__severity {
+  color: var(--absence-strong);
+}
+
+.hexmap-page[data-active-metric="absence"]
+  .ledger-province-matrix
+  button[data-severity="caution"]
+  .ledger-province-matrix__severity {
+  color: var(--absence);
+}
+
+.hexmap-page[data-active-metric="absence"]
+  .ledger-province-matrix
+  button[data-severity="normal"]
+  .ledger-province-matrix__severity {
+  color: var(--absence-rule);
+}
+
 .ledger-province-matrix button > strong {
   align-self: end;
   color: var(--ledger-ink);
@@ -1005,6 +1109,20 @@
 .ledger-region-focus > strong[data-severity="high"] {
   background: #eff6c8;
   color: var(--ledger-alert);
+}
+
+.hexmap-page[data-active-metric="absence"]
+  .ledger-region-focus
+  > strong[data-severity="high"] {
+  background: var(--absence);
+  color: var(--absence-on);
+}
+
+.hexmap-page[data-active-metric="absence"]
+  .ledger-region-focus
+  > strong[data-severity="caution"] {
+  background: var(--absence-soft);
+  color: var(--absence-strong);
 }
 
 .ledger-region-stats {

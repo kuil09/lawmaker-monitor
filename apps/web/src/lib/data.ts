@@ -39,6 +39,7 @@ import type {
 const dataRepoBaseUrl =
   import.meta.env.VITE_DATA_REPO_BASE_URL ??
   "https://example.github.io/lawmaker-monitor-data";
+const latestVotesUrlOverride = import.meta.env.VITE_LATEST_VOTES_URL;
 const defaultConstituencyBoundariesIndexPath =
   "exports/constituency_boundaries/index.json";
 const defaultHexmapStaticIndexPath = "exports/hexmap_static/index.json";
@@ -76,8 +77,9 @@ async function fetchOptionalJson<T>(
 }
 
 export function loadLatestVotes(): Promise<LatestVotesExport> {
-  return fetchJson(buildUrl("exports/latest_votes.json"), (payload) =>
-    latestVotesExportSchema.parse(payload)
+  return fetchJson(
+    latestVotesUrlOverride ?? buildUrl("exports/latest_votes.json"),
+    (payload) => latestVotesExportSchema.parse(payload)
   );
 }
 

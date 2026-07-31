@@ -591,17 +591,10 @@ export function HexmapPage({
     selectedMemberRank.percentile
   );
   const activeMetricConfig = getMetricConfig(activeMetric);
-  const proportionalComparisonItems = useMemo<
-    ProportionalComparisonItem[]
-  >(
+  const proportionalComparisonItems = useMemo<ProportionalComparisonItem[]>(
     () =>
       proportionalMembers.map((member) => {
         const value = getMetricValue(member, activeMetric);
-        const rank = getMemberRank(
-          proportionalMembers,
-          member.memberId,
-          activeMetric
-        );
         return {
           memberId: member.memberId,
           name: member.name,
@@ -609,9 +602,6 @@ export function HexmapPage({
           photoUrl: member.photoUrl,
           primaryLabel: activeMetricConfig.label,
           primaryValue: formatMetricValue(activeMetric, value),
-          secondaryLabel: "비례대표 내 순위",
-          secondaryValue:
-            rank.rank == null ? "비교 자료 없음" : `${rank.rank} / ${rank.total}`,
           basisValue: activeMetricConfig.basis,
           sortValue: value ?? Number.NEGATIVE_INFINITY
         };
@@ -683,7 +673,7 @@ export function HexmapPage({
   }
 
   return (
-    <main className="hexmap-page">
+    <main className="hexmap-page" data-active-metric={activeMetric}>
       <header className="hexmap-page__header">
         <div>
           <p className="hexmap-page__eyebrow">REGIONAL EVIDENCE LEDGER</p>

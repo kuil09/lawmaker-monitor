@@ -1,15 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="16" fill="#171411" />
+  <title>국회 출석부</title>
+  <rect width="64" height="64" rx="14" fill="#1d1b18" />
+  <path d="M14 13h36v38H14z" fill="#fffefb" />
+  <path d="M20 13v38" stroke="#1d1b18" stroke-width="3" />
+  <g fill="#1d1b18">
+    <circle cx="26" cy="24" r="2" />
+    <circle cx="28.5" cy="20" r="2" />
+    <circle cx="32" cy="18" r="2" />
+    <circle cx="36" cy="18.5" r="2" />
+    <circle cx="39.5" cy="21" r="2" />
+    <circle cx="42" cy="24.5" r="2" />
+    <path d="M32 23h4v4h-4z" />
+  </g>
   <path
-    d="M16 46V22.5L32 14l16 8.5V46H39.5V31.5h-15V46Z"
-    fill="#f4f1eb"
-  />
-  <path
-    d="M24 46V37h16v9"
+    d="M28 34h14M28 41h7"
     fill="none"
-    stroke="#982d22"
+    stroke="#1d1b18"
     stroke-linecap="round"
-    stroke-linejoin="round"
-    stroke-width="3"
+    stroke-width="2.6"
   />
+  <path
+    d="m34 43 4 4 9-12"
+    fill="none"
+    stroke="#d8f33f"
+    stroke-linecap="square"
+    stroke-linejoin="miter"
+    stroke-width="4.5"
+  />
+  <path d="M16.5 21h7M16.5 31h7M16.5 41h7" stroke="#d8f33f" stroke-width="3" />
 </svg>

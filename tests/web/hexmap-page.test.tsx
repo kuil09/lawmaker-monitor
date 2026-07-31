@@ -56,6 +56,10 @@ describe("HexmapPage", () => {
     expect(
       screen.getByRole("tab", { name: "결석률 본회의 기준" })
     ).toHaveAttribute("aria-selected", "true");
+    expect(document.querySelector(".hexmap-page")).toHaveAttribute(
+      "data-active-metric",
+      "absence"
+    );
     expect(screen.getByRole("button", { name: /김아라/ })).toBeInTheDocument();
     expect(
       screen.getByRole("complementary", { name: "선택한 의원의 기록" })
@@ -72,8 +76,8 @@ describe("HexmapPage", () => {
       })
     ).toHaveAttribute("href", "#calendar?member=M003");
     expect(
-      within(proportionalComparison!).getByText("비례대표 내 순위")
-    ).toBeInTheDocument();
+      within(proportionalComparison!).queryByText("비례대표 내 순위")
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("deck.gl 지역 탐색")).not.toBeInTheDocument();
     expect(document.querySelector("canvas")).not.toBeInTheDocument();
 

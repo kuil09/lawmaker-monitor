@@ -52,6 +52,20 @@ const trends: AccountabilityTrendsExport = {
       currentWindowNoCount: 23,
       currentWindowAbstainCount: 0,
       currentWindowAbsentCount: 0
+    },
+    {
+      ...trendBase,
+      memberId: "M003",
+      name: "김부재",
+      party: "무소속",
+      previousWindowEligibleCount: 23,
+      previousWindowNoCount: 0,
+      previousWindowAbstainCount: 0,
+      previousWindowAbsentCount: 0,
+      currentWindowEligibleCount: 23,
+      currentWindowNoCount: 0,
+      currentWindowAbstainCount: 0,
+      currentWindowAbsentCount: 23
     }
   ]
 };
@@ -75,23 +89,30 @@ describe("watch queue change language", () => {
     expect(
       screen.getAllByText("주된 표결 기록: 직전 찬성 23건 → 최근 반대 23건")
     ).toHaveLength(2);
-    expect(screen.getAllByText("변화 기록")).toHaveLength(2);
+    expect(screen.getAllByText("변화 기록")).toHaveLength(3);
     expect(
       screen.getAllByText(/찬성·반대·기권은 표결에 참여한 기록입니다/)
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(
       screen.getAllByRole("table", { name: "직전과 최근 표결 기록 비교" })
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(
       screen.getAllByRole("rowheader", { name: "표결 참여" })
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(
       screen.getAllByRole("rowheader", { name: "표결 불참" })
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(screen.queryByText(/높아졌습니다|낮아졌습니다/)).toBeNull();
     expect(screen.queryByText("개선 확인")).toBeNull();
     expect(screen.queryByText(/반대·기권·불참:/)).toBeNull();
     expect(screen.queryByText("직전 비중")).toBeNull();
     expect(screen.queryByText("최근 비중")).toBeNull();
+    expect(
+      screen
+        .getByRole("heading", {
+          name: "주된 표결 기록: 직전 찬성 23건 → 최근 불참 23건"
+        })
+        .closest("article")
+    ).toHaveClass("is-absence-record");
   });
 });

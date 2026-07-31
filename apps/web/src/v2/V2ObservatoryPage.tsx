@@ -1,7 +1,5 @@
 import { ArrowRightIcon } from "@phosphor-icons/react/dist/csr/ArrowRight";
-import { BinocularsIcon } from "@phosphor-icons/react/dist/csr/Binoculars";
 import { CurrencyKrwIcon } from "@phosphor-icons/react/dist/csr/CurrencyKrw";
-import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
 import { ScalesIcon } from "@phosphor-icons/react/dist/csr/Scales";
 import { TableIcon } from "@phosphor-icons/react/dist/csr/Table";
 import { UsersThreeIcon } from "@phosphor-icons/react/dist/csr/UsersThree";
@@ -538,7 +536,6 @@ export function V2ObservatoryPage({
   const [activeLens, setActiveLens] = useState<ObservatoryLens>("attendance");
   const [showPrimaryTable, setShowPrimaryTable] = useState(false);
   const [showTrendTable, setShowTrendTable] = useState(false);
-  const [showMethod, setShowMethod] = useState(false);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const config =
@@ -588,22 +585,6 @@ export function V2ObservatoryPage({
     }
     return buildAssetTrend(memberAssetsIndex);
   }, [accountabilityTrends, activeLens, activityCalendar, memberAssetsIndex]);
-  const lowestPoint = useMemo(
-    () =>
-      [...points].sort((left, right) => left.score - right.score)[0] ?? null,
-    [points]
-  );
-  const highestSupportPoint = useMemo(
-    () =>
-      points
-        .filter((point) => point.supportValue != null)
-        .sort(
-          (left, right) =>
-            (right.supportValue ?? Number.NEGATIVE_INFINITY) -
-            (left.supportValue ?? Number.NEGATIVE_INFINITY)
-        )[0] ?? null,
-    [points]
-  );
   const resolvedXDomain = useMemo<[number, number]>(
     () =>
       activeLens === "assets" ? getPaddedAxisDomain(points, "x") : [0, 100],
@@ -663,13 +644,6 @@ export function V2ObservatoryPage({
     event.preventDefault();
     selectLens(LENS_CONFIGS[nextIndex]!.key, true);
   }
-
-  const insightTitle =
-    activeLens === "attendance"
-      ? "위로 갈수록 반대·기권 비중이 높고, 오른쪽으로 갈수록 출석률이 높습니다."
-      : activeLens === "voting"
-        ? "오른쪽으로 갈수록 찬성 비중이 높고, 위로 갈수록 당 기준과 다른 표결 비중이 높습니다."
-        : "오른쪽으로 갈수록 순재산이 크고, 위로 갈수록 부동산 공개액이 큽니다. 부채는 비교 카드와 근거 목록에서 함께 확인합니다.";
 
   return (
     <main className="v2-observatory" id="v2-main-content">
@@ -894,90 +868,6 @@ export function V2ObservatoryPage({
               </div>
             )}
           </section>
-
-          <aside className="v2-insight-card" aria-labelledby="v2-insight-title">
-            <div className="v2-insight-card__heading">
-              <BinocularsIcon size={23} weight="duotone" />
-              <h2 id="v2-insight-title">이번 주 관찰</h2>
-            </div>
-            <p className="v2-insight-card__lead">{insightTitle}</p>
-            <dl className="v2-insight-card__stats">
-              <div>
-                <dt>대상 의원</dt>
-                <dd>{points.length}명</dd>
-              </div>
-              <div>
-                <dt>관찰 범위</dt>
-                <dd>
-                  {trendData.length > 0
-                    ? `최근 ${trendData.length}구간`
-                    : "현재 공개분"}
-                </dd>
-              </div>
-            </dl>
-
-            {lowestPoint && highestSupportPoint ? (
-              <div className="v2-insight-note">
-                <InfoIcon size={18} />
-                <p>
-                  {activeLens === "assets" ? (
-                    <>
-                      <MemberDetailLink
-                        memberId={highestSupportPoint.memberId}
-                        name={highestSupportPoint.name}
-                        onNavigate={onOpenMember}
-                      />
-                      {` 의원이 현재 비교군에서 총자산 대비 부채비율이 가장 높습니다.`}
-                    </>
-                  ) : (
-                    <>
-                      <MemberDetailLink
-                        memberId={lowestPoint.memberId}
-                        name={lowestPoint.name}
-                        onNavigate={onOpenMember}
-                      />
-                      {` 의원은 ${config.scoreLabel}이 가장 낮고, `}
-                      <MemberDetailLink
-                        memberId={highestSupportPoint.memberId}
-                        name={highestSupportPoint.name}
-                        onNavigate={onOpenMember}
-                      />
-                      {` 의원은 ${config.supportLabel}이 가장 높습니다.`}
-                    </>
-                  )}
-                </p>
-              </div>
-            ) : null}
-
-            <button
-              type="button"
-              className="v2-button v2-button--primary"
-              onClick={onOpenDistribution}
-            >
-              근거 의원 보기
-              <ArrowRightIcon size={19} />
-            </button>
-
-            <button
-              type="button"
-              className="v2-method-toggle"
-              aria-expanded={showMethod}
-              aria-controls="v2-method-copy"
-              onClick={() => setShowMethod((current) => !current)}
-            >
-              관찰 기준 자세히 보기
-            </button>
-            {showMethod ? (
-              <p id="v2-method-copy" className="v2-method-copy">
-                공개 기록표결, 의원 활동 캘린더, 정기 재산공개를 동일 의원
-                식별자로 연결합니다. 당내 이탈률은 정당별 다수 방향이 형성된
-                표결에 참여한 건 중 다수 방향과 다른 선택을 한 비중입니다.
-                재산의 부채비율은 공개 채무를 순재산과 채무의 합으로 나눠
-                계산하며, 분모가 0원 이하인 경우 산정하지 않습니다. 값이 없는
-                항목은 순위와 평균에서 제외합니다.
-              </p>
-            ) : null}
-          </aside>
 
           <section
             className="v3-scatter-card"

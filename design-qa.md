@@ -275,11 +275,11 @@
 - Fix: retained the accessible filter-first DOM order, converted state filters to compact chips, and omitted duplicate scope metadata on the mobile breakpoint. The first evidence record now appears in the initial mobile viewport.
 - Member portrait treatment: the shared SVG filter and generated share cards use grayscale, contrast shaping, paper grain, and halftone overlays. Party color is not used as a portrait or card theme.
 - Member share evidence: 298 fragment-free canonical pages and 298 unique 1200 × 630 PNG cards were generated. The representative card `/Users/gun9/Developer/lawmaker-monitor/apps/web/dist/member-cards/T2T8225E.png` contains a real portrait, party, representation status, denominated performance facts, latest meeting-minutes agenda, and ingestion date.
-- Sponsorship safety: only `verified` records with HTTPS official sources render an account number or copy controls. Missing and unpublished data link to the official NEC donation center; load failure is a separate retryable state. Duplicate records, unsafe URL schemes, future review dates, and multiple current verified accounts are rejected.
+- Sponsorship safety: the product publishes and renders only official NEC committee registration and online donation routes. Direct-deposit bank, account-number, account-holder, and copy controls are excluded from the public export, member detail, and external share cards. Missing data links to the official NEC donation center; load failure is a separate retryable state.
 - Share cache integrity: the OG image version includes both the data snapshot and meeting-summary generation metadata. Minute-summary deployments read the data repository's raw main branch rather than waiting for its Pages cache.
 - Interaction verification: all three state filters update a dedicated result-count live region; member evidence links route to the accountability ledger; share link copy and Web Share fallback expose a fragment-free canonical URL; verified-only clipboard behavior is covered by regression tests.
 - Console and responsive verification: the 12-scenario UI suite passed across 390 × 844, 768 × 1024, and 1440 × 900 with no unexpected console errors, request failures, or horizontal overflow.
-- Accepted boundary: the published data repository currently contains no nationally verified sponsorship-account export. The production UI therefore exposes the official verification path and never invents or copies an unverified account.
+- Accepted boundary: the production UI exposes the official NEC verification and online donation paths without publishing or copying direct-deposit account details.
 
 ## Pass 17 Verification
 
@@ -318,5 +318,132 @@
 - Saturated civic-teal hue scan: zero matches.
 - `git diff --check`: passed.
 - `.github/workflows`: unchanged.
+
+final result: passed
+
+### Pass 19 — Plenary Chamber Vote Board
+
+- Official source truth: `/Users/gun9/Developer/lawmaker-monitor/artifacts/official-plenary-seat-chart-2024-12-04.jpg` at 1396 × 986. The chart is extracted from the 22nd National Assembly, 418th session, 15th plenary meeting record and is marked as based on September 19, 2024.
+- Final local implementation: `/Users/gun9/Developer/lawmaker-monitor/artifacts/plenary-chamber-component.png` at 1214 × 923.
+- Same-input comparison: `/Users/gun9/Developer/lawmaker-monitor/artifacts/plenary-chamber-reference-comparison.png` at 2428 × 720.
+- P1: the official chart contains historical named seat assignments, while the current product export does not contain a verified current member-to-seat mapping or individual affirmative-vote list.
+- Fix: the implementation adopts only the official fan-shaped 300-seat geometry. It explicitly labels member positions as pending current assignment verification, renders only known no, abstain, and absence records as verified outcomes, and separates unlinked affirmative selections from vacant seats.
+- Data fidelity: the selected live vote displays the published counts of 181 affirmative, 0 no, 6 abstentions, and 112 absences. The detail panel reports linked-list coverage as 0/0, 6/6, and 107/112 instead of implying complete coverage.
+- Interaction: the vote selector switches among the twelve latest recorded votes, outcome filters visually mute unrelated seats, and selecting a known seat exposes the member identity, party, constituency or proportional status, outcome explanation, and canonical member record link.
+- Accessibility: all 300 seats are native buttons with descriptive accessible names; filters use `aria-pressed`; the detail panel is a polite live region; outcome states use shape, outline, and color rather than color alone.
+- Responsive evidence: the component has zero horizontal overflow at 390 × 844 and remains keyboard-operable. Browser console verification produced zero warnings and zero errors.
+- Accepted boundary: party-sorted provisional positions are an interaction scaffold, not a claim about the current official assigned seat. Production adoption requires a current official seating-chart ingestion and verification step.
+
+## Pass 19 Verification
+
+- `npm test -- tests/web/plenary-seats.test.tsx`: 2 tests passed.
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm run build --workspace @lawmaker-monitor/web`: passed; 298 canonical member share pages generated.
+- Browser interaction: vote change, outcome filtering, member-seat selection, and canonical member navigation passed.
+- Browser console: zero warnings and zero errors.
+- Horizontal overflow: zero at 390 × 844.
+- `.github/workflows`: unchanged.
+
+final result: passed
+
+### Pass 20 — Chair-Centered Member Portrait Vote Board
+
+- Official geometry reference: `/Users/gun9/Developer/lawmaker-monitor/artifacts/official-plenary-seat-chart-2024-12-04.jpg` at 1396 × 986.
+- Final desktop evidence: `/Users/gun9/Developer/lawmaker-monitor/artifacts/plenary-chamber-member-portraits.png` at 1214 × 1275.
+- Final mobile evidence: `/Users/gun9/Developer/lawmaker-monitor/artifacts/plenary-chamber-mobile.png` at 390 × 844.
+- Same-input comparison: `/Users/gun9/Developer/lawmaker-monitor/artifacts/plenary-chamber-reference-comparison.png` at 2428 × 1276.
+- P1: the first prototype did not preserve affirmative member identities, so an affirmative tally could not be traced to individual lawmakers.
+- Fix: the latest twelve roll calls now publish lean individual `yes`, `no`, `abstain`, and verified `absent` records. Legacy source identifiers fall back to normalized names without converting unknown members into inferred outcomes.
+- Portrait layout: every occupied seat renders the official member portrait in the product-wide grayscale halftone treatment. The 300-seat fan is oriented around a visible chair position, and portrait selection opens the member's party, constituency or proportional status, recorded outcome, and canonical accountability record.
+- Affirmative interaction: selecting the affirmative filter left 171 explicitly linked portraits visible for the local compatibility fixture. The selected affirmative member detail reported the official result and opened the correct member record.
+- Data boundary: the live compatibility fixture links 171/181 affirmative, 0/0 no, 6/6 abstention, and 107/112 absence identities. Missing identities remain visibly unlinked. A normal post-change ingest rebuild will read the complete individual records already collected from the National Assembly roll-call endpoint.
+- Responsive evidence: the page remained 390 px wide with zero document overflow. The 980 px chamber canvas stays inside its own 346 px horizontal viewport and opens centered at `scrollLeft = 317`.
+- Browser console: zero warnings and zero errors.
+- Portrait mask correction: the shared SVG newsprint filter and the global button background both exposed rectangular regions at the 24.8 px seat size. The chamber now paints portraits as masked background layers with CSS grayscale and contrast, applies an explicit radial mask, circular clip, hidden overflow, and border-box sizing, and forces the seat button canvas to stay transparent. The magnified evidence is `/Users/gun9/Developer/lawmaker-monitor/artifacts/plenary-chamber-mask-zoom.png`.
+- Outcome semantics: affirmative remains a lime circle, opposition uses a purple diamond outside the circular portrait, abstention keeps its dashed ring, and absence keeps the intentionally faded treatment. Opposition is therefore distinguishable by shape without depending on color.
+- Accepted boundary: the current party-sorted portrait positions preserve the official chamber orientation but are not represented as verified current assigned seats. The interface keeps the provisional-status badge until a current official member-to-seat source is ingested.
+
+## Pass 20 Verification
+
+- `npm test`: 58 files, 265 tests passed.
+- `npm test -- tests/ingest/pipeline.test.ts tests/web/plenary-seats.test.tsx`: 19 tests passed.
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm run build --workspace @lawmaker-monitor/web`: passed; 298 canonical member share pages generated.
+- Browser interaction: affirmative filtering, member portrait selection, result detail, and canonical member navigation passed.
+- Browser responsive check: zero document overflow at 390 × 844; chamber-only horizontal scrolling passed.
+- `git diff --check`: passed.
+- `.github/workflows`: unchanged.
+
+final result: passed
+
+### Pass 21 — Balanced Seat Density and Vote-Record Seat Maps
+
+- User feedback source: `/var/folders/3j/s53_zmzx43qb9v6xmsgxq9w80000gn/T/codex-clipboard-18dc5a2c-2e7c-4f28-a7d1-01beaa748a2d.png` at 2830 × 1272.
+- Revised desktop implementation: `/Users/gun9/Developer/lawmaker-monitor/artifacts/plenary-chamber-density-adjusted.png` at 1440 × 1000 from the local `#votes` route.
+- Same-input comparison: `/Users/gun9/Developer/lawmaker-monitor/artifacts/plenary-chamber-density-comparison.png` at 3298 × 900. Both sides were normalized to 900 px high before horizontal composition.
+- Vote-record seating map: `/Users/gun9/Developer/lawmaker-monitor/artifacts/vote-record-seat-map.png` at 1440 × 1000.
+- Responsive evidence: `/Users/gun9/Developer/lawmaker-monitor/artifacts/vote-record-seat-map-mobile.png` at 390 × 844.
+- P2 found in the source feedback: the outermost row placed 48 portraits across a 130-degree fan, leaving the perimeter almost edge-to-edge and visually heavier than the inner rows.
+- Fix: redistributed all 300 seats across 11 rows with 37 seats on the outermost row and widened the fan to 144 degrees. The resulting outer-center pitch increased from approximately 25 px to 33 px at the base 980 px canvas while preserving the 300-seat total and chair-centered orientation.
+- Information controls: the main chamber now provides party selection and member search by name, party, or constituency. The live result count reflects the intersection of the outcome, party, and query filters without changing the underlying official tally.
+- Vote-record redesign: the former no/abstain/absence roster list is replaced by an on-demand seating map. It includes affirmative choices, exposes linked-name coverage for every outcome, supports party and member filtering, and renders only when its evidence disclosure is open.
+- Data boundary: absent or affirmative identities that are not present in the published member list remain visually unlinked; the map does not infer missing choices.
+- Typography: the existing newspaper display hierarchy and compact evidence labels are preserved.
+- Spacing and layout: outer-row density is reduced, the fan has more lateral breathing room, and both filter rails collapse to one column on narrow screens.
+- Colors and tokens: active controls use the saved lemon-lime product accent; party colors are not used as generic UI emphasis.
+- Image quality: official portraits retain the grayscale circular mask with no rectangular photo edge. Opposition keeps the distinct purple diamond, abstention the dashed ring, and absence the faded treatment.
+- Copy: “공개 선택 배치도” and the linked-name counts clarify that the view represents public individual records rather than an inferred full roster.
+- Browser interactions verified: party filter reduced the chamber to four Progressive Party members, the query `박은정` returned one proportional member, reset restored the complete map, and opening one evidence record rendered exactly one 300-seat record map with an affirmative tab.
+- Responsive measurement: the document remained 390 px wide at a 390 × 844 viewport. The 760 px compact chamber canvas stays inside its own 284 px horizontal viewport.
+- Runtime check: no Vite error overlay or alert boundary was present. Desktop document width matched the 1440 px viewport.
+- Focused-region comparison was required because the task concerns seat pitch and portrait masking. The normalized side-by-side evidence shows a visibly sparser perimeter while retaining the same portrait scale and semantic outcome shapes.
+- Remaining P3: the compact mobile map still requires horizontal exploration by design; a future minimap could improve orientation without shrinking portraits below a recognizable size.
+
+## Pass 21 Verification
+
+- `npm test`: 58 files, 267 tests passed.
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- Targeted Prettier check for all changed chamber and vote-record files: passed.
+- Repository-wide `npm run format:check`: blocked only by eight pre-existing, unrelated files; no file in this change set was listed.
+- `npm run build --workspace @lawmaker-monitor/web`: passed with 298 generated member share pages.
+- `git diff --check`: passed.
+- Browser desktop and mobile interaction checks: passed.
+
+final result: passed
+
+### Pass 22 — Unified Plenary Vote Record Explorer
+
+- Source visual truth: the existing “본회의장 표결판” rendered in `/Users/gun9/Developer/lawmaker-monitor/artifacts/plenary-board-unified-comparison.png`.
+- Final desktop implementation: `/Users/gun9/Developer/lawmaker-monitor/artifacts/plenary-archive-board-final.png` at a 1280 × 720 CSS viewport and 1× density.
+- Final mobile implementation: `/Users/gun9/Developer/lawmaker-monitor/artifacts/plenary-archive-board-mobile.png` at a 390 × 844 CSS viewport and 1× density.
+- Focused outcome evidence: `/Users/gun9/Developer/lawmaker-monitor/artifacts/plenary-chamber-lime-yes-borders.png` at a 1280 × 720 CSS viewport.
+- Same-input comparison: `/Users/gun9/Developer/lawmaker-monitor/artifacts/plenary-board-unified-comparison.png` contains the source chamber and the archive chamber in the same rendered page and data state. No density normalization was required.
+- P1 found: the prior lower explorer used a vertical sequence of independent vote cards, so its search, result-list, roster, and evidence interactions did not match the chamber-first model introduced above it.
+- Fix: replaced the lower timeline with an archive mode of the same chamber component. The unified flow is now record search → record condition → bill selection → outcome filter → party/member filter → seat selection → official evidence.
+- Preservation: named and recorded public votes remain searchable; secret votes remain excluded from the public seat explorer. Official source links and the meeting-minutes opinion panel remain attached to the selected vote.
+- P2 found during responsive comparison: the three-column archive toolbar would not fit a narrow viewport.
+- Fix: the archive search, record-condition filters, and count stack into one column at tablet width; record-condition buttons use two columns on mobile. The 390 px document has zero horizontal overflow.
+- Typography: the archive reuses the newspaper display title, compact evidence labels, and serif bill hierarchy of the source chamber.
+- Spacing and layout: both boards use the same header, bill selector, outcome controls, member filters, bill summary, fan-shaped seat canvas, detail panel, and source footer. The archive adds only a preceding record-search rail.
+- Colors and tokens: controls retain the product lemon-lime accent. Affirmative member portrait borders now use the bright lemon-lime token directly; opposition remains a purple diamond, abstention remains a dashed ring, and absence remains faded.
+- Image quality: official grayscale member portraits preserve their circular masks. The focused screenshot confirms that the lemon-lime affirmative ring does not expose rectangular image edges.
+- Copy: the archive title and description explain that the same chamber is used to compare selected outcomes and meeting-minutes evidence.
+- Primary interactions tested in the browser: archive search reduced 1,057 records to one matching bill; the absence filter updated the selected-record set; selecting seat 1 exposed the member, party, district, and recorded outcome.
+- Console/runtime evidence: no Vite error overlay appeared. Automated component tests and the production build completed without application errors.
+- Focused-region comparison was required because the final user adjustment concerns the affirmative portrait border and its separation from other outcome shapes.
+- Remaining P3: the 980 px chamber canvas intentionally scrolls horizontally on mobile to preserve portrait recognition.
+
+## Pass 22 Verification
+
+- `npm test`: 58 files, 267 tests passed.
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm run build --workspace @lawmaker-monitor/web`: passed; 298 canonical member share pages generated.
+- `git diff --check`: passed.
+- Browser desktop and mobile layout checks: passed.
+- Browser archive search, record filtering, and seat-detail interaction checks: passed.
 
 final result: passed

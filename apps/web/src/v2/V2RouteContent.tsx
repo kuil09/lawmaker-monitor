@@ -73,6 +73,7 @@ export function V2RouteContent() {
     voteMinutesOpinions,
     accountabilitySummary,
     accountabilityTrends,
+    billProposalActivity,
     manifest,
     feedError,
     leaderboardError
@@ -209,6 +210,7 @@ export function V2RouteContent() {
         <TrendsPage
           accountabilityTrends={accountabilityTrends}
           accountabilitySummary={accountabilitySummary}
+          billProposalActivity={billProposalActivity}
           assemblyLabel={currentAssemblyLabel}
         />
       </Suspense>

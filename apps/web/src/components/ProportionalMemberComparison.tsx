@@ -11,8 +11,8 @@ export type ProportionalComparisonItem = {
   photoUrl?: string | null;
   primaryLabel: string;
   primaryValue: string;
-  secondaryLabel: string;
-  secondaryValue: string;
+  secondaryLabel?: string;
+  secondaryValue?: string;
   basisValue: string;
   sortValue: number;
 };
@@ -27,11 +27,7 @@ type ProportionalMemberComparisonProps = {
   onOpenMember: (memberId: string) => void;
 };
 
-function ProportionalPortrait({
-  item
-}: {
-  item: ProportionalComparisonItem;
-}) {
+function ProportionalPortrait({ item }: { item: ProportionalComparisonItem }) {
   if (item.photoUrl) {
     return (
       <img
@@ -69,10 +65,7 @@ export function ProportionalMemberComparison({
   const partyCount = new Set(items.map((item) => item.party)).size;
 
   return (
-    <section
-      className="proportional-comparison"
-      aria-labelledby={headingId}
-    >
+    <section className="proportional-comparison" aria-labelledby={headingId}>
       <header className="proportional-comparison__header">
         <div>
           <p>{kicker}</p>
@@ -113,15 +106,21 @@ export function ProportionalMemberComparison({
                   <span>{`${item.party} · 비례대표`}</span>
                   <small>{item.basisValue}</small>
                 </div>
-                <dl className="proportional-comparison__metrics">
+                <dl
+                  className={`proportional-comparison__metrics ${
+                    item.secondaryLabel ? "" : "is-single"
+                  }`.trim()}
+                >
                   <div>
                     <dt>{item.primaryLabel}</dt>
                     <dd>{item.primaryValue}</dd>
                   </div>
-                  <div>
-                    <dt>{item.secondaryLabel}</dt>
-                    <dd>{item.secondaryValue}</dd>
-                  </div>
+                  {item.secondaryLabel ? (
+                    <div>
+                      <dt>{item.secondaryLabel}</dt>
+                      <dd>{item.secondaryValue}</dd>
+                    </div>
+                  ) : null}
                 </dl>
               </li>
             ))}

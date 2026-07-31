@@ -51,6 +51,9 @@ import type {
   NormalizedBundle
 } from "@lawmaker-monitor/schemas";
 
+const POLITICAL_DONATION_CENTER_URL =
+  "https://www.give.go.kr/portal/supporter/supporterSearch/list.do?menuNo=200025";
+
 async function writeBundle(
   outputDir: string,
   bundle: NormalizedBundle
@@ -107,6 +110,55 @@ async function loadPublishedSponsorshipAccounts(
   }
 }
 
+function isPoliticalDonationCenterUrl(value: string): boolean {
+  try {
+    return new URL(value).hostname === "www.give.go.kr";
+  } catch {
+    return false;
+  }
+}
+
+export function toPublicSponsorshipRoutes(
+  payload: MemberSponsorshipAccountsExport
+): MemberSponsorshipAccountsExport {
+  const recordsByMemberId = new Map<
+    string,
+    MemberSponsorshipAccountsExport["accounts"][number]
+  >();
+
+  for (const account of payload.accounts) {
+    const donationUrl =
+      account.donationUrl && isPoliticalDonationCenterUrl(account.donationUrl)
+        ? account.donationUrl
+        : undefined;
+    const sourceUrl = isPoliticalDonationCenterUrl(account.sourceUrl)
+      ? account.sourceUrl
+      : (donationUrl ?? POLITICAL_DONATION_CENTER_URL);
+    const publicRecord: MemberSponsorshipAccountsExport["accounts"][number] = {
+      recordId: `sponsorship-${account.memberId}-official`,
+      memberId: account.memberId,
+      status: "unverified",
+      sourceUrl,
+      reviewedAt: payload.generatedAt,
+      reason:
+        "Only official sponsorship committee and donation links are published.",
+      ...(donationUrl ? { donationUrl } : {})
+    };
+    const existing = recordsByMemberId.get(account.memberId);
+
+    if (!existing?.donationUrl || publicRecord.donationUrl) {
+      recordsByMemberId.set(account.memberId, publicRecord);
+    }
+  }
+
+  return validateMemberSponsorshipAccountsExport({
+    ...payload,
+    accounts: [...recordsByMemberId.values()].sort((left, right) =>
+      left.memberId.localeCompare(right.memberId)
+    )
+  });
+}
+
 function parsePositiveInteger(
   value: string | undefined,
   fallback: number
@@ -120,9 +172,10 @@ async function resolveMemberSponsorshipAccounts(args: {
   normalized: NormalizedBuildArtifacts;
   accountabilitySummary: ReturnType<typeof buildAccountabilitySummaryExport>;
 }): Promise<MemberSponsorshipAccountsExport | null> {
-  const existing = await loadPublishedSponsorshipAccounts(
+  const published = await loadPublishedSponsorshipAccounts(
     args.runtimeConfig.dataRepoDir
   );
+  const existing = published ? toPublicSponsorshipRoutes(published) : null;
   if (args.runtimeConfig.env.COLLECT_SPONSORSHIP_ACCOUNTS !== "true") {
     return existing;
   }
@@ -133,7 +186,6 @@ async function resolveMemberSponsorshipAccounts(args: {
       assemblyNo: args.normalized.currentAssembly.assemblyNo,
       assemblyLabel: args.normalized.currentAssembly.label,
       snapshotId: args.normalized.snapshotId,
-      previousAccounts: existing,
       timeoutMs: parsePositiveInteger(
         args.runtimeConfig.env.SPONSORSHIP_FETCH_TIMEOUT_MS,
         10_000
@@ -145,7 +197,7 @@ async function resolveMemberSponsorshipAccounts(args: {
     });
 
     console.info(
-      `[sponsorship] matched ${result.stats.officialSupporters}/${result.stats.directoryMembers} official committees; verified ${result.stats.verifiedAccounts} direct accounts; retained ${result.stats.officialDonationOnly} official donation-only records.`
+      `[sponsorship] matched ${result.stats.officialSupporters}/${result.stats.directoryMembers} official committees; published official links only.`
     );
     for (const warning of result.warnings.slice(0, 25)) {
       console.warn(`[sponsorship] ${warning}`);
@@ -156,12 +208,12 @@ async function resolveMemberSponsorshipAccounts(args: {
       );
     }
 
-    return validateMemberSponsorshipAccountsExport(result.exportData);
+    return toPublicSponsorshipRoutes(result.exportData);
   } catch (error) {
     console.warn(
       `[sponsorship] collection failed; ${
         existing
-          ? "preserving the last verified export"
+          ? "preserving the last sanitized official-link export"
           : "no prior export is available"
       }: ${error instanceof Error ? error.message : String(error)}`
     );

@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import { load } from "cheerio";
 
 import type {
@@ -11,64 +9,8 @@ import type {
 const GIVE_ORIGIN = "https://www.give.go.kr";
 const GIVE_LIST_PATH =
   "/portal/supporter/supporterSearch/list.do?gubCd=GUB101&search=Y&menuNo=200025&pageSize=5";
-const CURRENT_ASSEMBLY_START_DATE = "2024-05-30";
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_CONCURRENCY = 4;
-const MAX_NAVER_CANDIDATES = 5;
-const MAX_OFFICIAL_PROFILE_CANDIDATES = 3;
-const ACCOUNT_NUMBER_PATTERN = /\b\d{2,6}(?:[- ]\d{2,8}){2,5}\b/g;
-const PHONE_PREFIXES = new Set([
-  "010",
-  "011",
-  "016",
-  "017",
-  "018",
-  "019",
-  "02",
-  "031",
-  "032",
-  "033",
-  "041",
-  "042",
-  "043",
-  "044",
-  "051",
-  "052",
-  "053",
-  "054",
-  "055",
-  "061",
-  "062",
-  "063",
-  "064"
-]);
-const BANK_ALIASES = [
-  ["NH농협", "농협"],
-  ["농협은행", "농협"],
-  ["농협", "농협"],
-  ["KB국민", "국민은행"],
-  ["국민은행", "국민은행"],
-  ["신한은행", "신한은행"],
-  ["우리은행", "우리은행"],
-  ["하나은행", "하나은행"],
-  ["IBK기업", "기업은행"],
-  ["기업은행", "기업은행"],
-  ["우체국", "우체국"],
-  ["SC제일", "SC제일은행"],
-  ["제일은행", "SC제일은행"],
-  ["카카오뱅크", "카카오뱅크"],
-  ["토스뱅크", "토스뱅크"],
-  ["케이뱅크", "케이뱅크"],
-  ["부산은행", "부산은행"],
-  ["대구은행", "iM뱅크"],
-  ["iM뱅크", "iM뱅크"],
-  ["광주은행", "광주은행"],
-  ["전북은행", "전북은행"],
-  ["제주은행", "제주은행"],
-  ["새마을금고", "새마을금고"],
-  ["신협", "신협"],
-  ["수협", "수협"]
-] as const;
 
 const REQUEST_HEADERS = {
   Accept: "text/html,application/xhtml+xml",
@@ -98,33 +40,13 @@ export type OfficialSupporterRecord = {
   homepageUrl: string | null;
 };
 
-export type NaverSearchCandidate = {
-  logNo: string;
-  title: string;
-  snippet: string;
-  score: number;
-};
-
-export type OfficialProfileCandidate = {
-  url: string;
-  score: number;
-};
-
-export type ExtractedSponsorshipAccount = {
-  bankName: string;
-  accountNumber: string;
-  accountHolder: string;
-  sourcePublishedAt: string | null;
-};
-
 export type SponsorshipCollectionResult = {
   exportData: MemberSponsorshipAccountsExport;
   warnings: string[];
   stats: {
     directoryMembers: number;
     officialSupporters: number;
-    verifiedAccounts: number;
-    officialDonationOnly: number;
+    officialRoutes: number;
   };
 };
 
@@ -137,10 +59,6 @@ function normalizeWhitespace(value: string): string {
 
 function normalizeName(value: string): string {
   return value.replace(/\s+/g, "").trim();
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function toAbsoluteUrl(
@@ -271,206 +189,6 @@ export function parseOfficialSupporterListPage(html: string): {
   };
 }
 
-export function extractNaverBlogId(
-  value: string | null | undefined
-): string | null {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const url = new URL(value);
-    const hostname = url.hostname.toLowerCase();
-    if (hostname === "blog.naver.com" || hostname === "m.blog.naver.com") {
-      const blogId = url.pathname.split("/").filter(Boolean)[0];
-      return blogId && /^[A-Za-z0-9_.-]+$/.test(blogId) ? blogId : null;
-    }
-    if (hostname.endsWith(".blog.me")) {
-      const blogId = hostname.slice(0, -".blog.me".length);
-      return blogId && /^[A-Za-z0-9_.-]+$/.test(blogId) ? blogId : null;
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
-function extractLogNo(value: string | undefined): string | null {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const url = new URL(value, "https://blog.naver.com");
-    const queryLogNo = url.searchParams.get("logNo");
-    if (queryLogNo && /^\d+$/.test(queryLogNo)) {
-      return queryLogNo;
-    }
-    const pathLogNo = url.pathname.split("/").filter(Boolean).at(-1);
-    return pathLogNo && /^\d+$/.test(pathLogNo) ? pathLogNo : null;
-  } catch {
-    return null;
-  }
-}
-
-function scoreNaverSearchCandidate(title: string, snippet: string): number {
-  const combined = `${title} ${snippet}`;
-  let score = 0;
-  if (/후원\s*계좌/.test(combined)) {
-    score += 8;
-  }
-  if (/후원\s*안내/.test(title)) {
-    score += 6;
-  }
-  if (/계좌\s*입금/.test(combined)) {
-    score += 4;
-  }
-  if (BANK_ALIASES.some(([alias]) => combined.includes(alias))) {
-    score += 2;
-  }
-  if (title.includes("후원")) {
-    score += 1;
-  }
-  return score;
-}
-
-export function parseNaverSearchCandidates(
-  html: string
-): NaverSearchCandidate[] {
-  const $ = load(html);
-  const candidates = new Map<string, NaverSearchCandidate>();
-
-  $("a.s_link").each((_, anchor) => {
-    const href = $(anchor).attr("href");
-    const logNo = extractLogNo(href);
-    if (!logNo) {
-      return;
-    }
-
-    const resultBlock = $(anchor).closest("table");
-    const title = normalizeWhitespace($(anchor).text());
-    const snippet = normalizeWhitespace(resultBlock.text()).replace(title, "");
-    const candidate = {
-      logNo,
-      title,
-      snippet,
-      score: scoreNaverSearchCandidate(title, snippet)
-    };
-    const existing = candidates.get(logNo);
-    if (!existing || candidate.score > existing.score) {
-      candidates.set(logNo, candidate);
-    }
-  });
-
-  return [...candidates.values()]
-    .filter((candidate) => candidate.score > 0)
-    .sort(
-      (left, right) =>
-        right.score - left.score || right.logNo.localeCompare(left.logNo)
-    );
-}
-
-function parseKoreanPublishedDate(value: string): string | null {
-  const match = value.match(
-    /(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})(?:\.\s*(\d{1,2}):(\d{2}))?/
-  );
-  if (!match) {
-    return null;
-  }
-
-  const [, year, month, day, hour = "00", minute = "00"] = match;
-  const normalized = `${year}-${month!.padStart(2, "0")}-${day!.padStart(
-    2,
-    "0"
-  )}T${hour.padStart(2, "0")}:${minute}:00+09:00`;
-  return Number.isNaN(Date.parse(normalized)) ? null : normalized;
-}
-
-function normalizeAccountNumber(value: string): string {
-  return value.replace(/\s+/g, "-").replace(/-+/g, "-");
-}
-
-function isPlausibleAccountNumber(value: string): boolean {
-  const segments = value.split(/[- ]+/);
-  const digits = value.replace(/\D/g, "");
-  if (segments.length < 3 || digits.length < 10 || digits.length > 18) {
-    return false;
-  }
-
-  return !(
-    segments.length === 3 &&
-    PHONE_PREFIXES.has(segments[0] ?? "") &&
-    digits.length <= 11
-  );
-}
-
-function findBankName(context: string): string | null {
-  return BANK_ALIASES.find(([alias]) => context.includes(alias))?.[1] ?? null;
-}
-
-export function extractSponsorshipAccountFromNaverPost(args: {
-  html: string;
-  memberName: string;
-  supporterName: string;
-  minimumPublishedDate?: string;
-}): ExtractedSponsorshipAccount | null {
-  const $ = load(args.html);
-  const contentRoot = $(".se-main-container").first();
-  const rawText =
-    contentRoot.length > 0 ? contentRoot.text() : $("body").first().text();
-  const text = normalizeWhitespace(rawText);
-  const publishedAt = parseKoreanPublishedDate(
-    $(".se_publishDate, ._postAddDate").first().text()
-  );
-  const minimumPublishedDate =
-    args.minimumPublishedDate ?? CURRENT_ASSEMBLY_START_DATE;
-
-  if (
-    !text.includes(args.memberName) ||
-    !text.includes("후원") ||
-    !publishedAt ||
-    publishedAt.slice(0, 10) < minimumPublishedDate
-  ) {
-    return null;
-  }
-
-  const holderPattern = new RegExp(
-    `(?:국회의원\\s*)?${escapeRegExp(args.memberName)}\\s*후원회`
-  );
-  const holderMatch = text.match(holderPattern);
-  if (!holderMatch) {
-    return null;
-  }
-
-  for (const match of text.matchAll(ACCOUNT_NUMBER_PATTERN)) {
-    const accountNumber = normalizeAccountNumber(match[0]);
-    if (!isPlausibleAccountNumber(accountNumber)) {
-      continue;
-    }
-
-    const start = Math.max(0, (match.index ?? 0) - 180);
-    const end = Math.min(
-      text.length,
-      (match.index ?? 0) + match[0].length + 180
-    );
-    const context = text.slice(start, end);
-    const bankName = findBankName(context);
-    if (!bankName || !context.includes("후원")) {
-      continue;
-    }
-
-    return {
-      bankName,
-      accountNumber,
-      accountHolder: normalizeWhitespace(holderMatch[0]),
-      sourcePublishedAt: publishedAt
-    };
-  }
-
-  return null;
-}
-
 async function fetchText(args: {
   fetchImpl: typeof fetch;
   url: string;
@@ -542,350 +260,6 @@ async function collectOfficialSupporters(args: {
   return [...firstPage.records, ...remainingRecords.flat()];
 }
 
-function buildNaverSearchUrl(blogId: string): string {
-  const url = new URL("/PostSearchList.naver", "https://blog.naver.com");
-  url.searchParams.set("blogId", blogId);
-  url.searchParams.set("SearchText", "후원");
-  url.searchParams.set("directAccess", "true");
-  return url.toString();
-}
-
-function buildNaverOfficialProfileSearchUrl(memberName: string): string {
-  const url = new URL("/search.naver", "https://m.search.naver.com");
-  url.searchParams.set("query", `${memberName} 의원 후원계좌`);
-  return url.toString();
-}
-
-function buildNaverPostFetchUrl(blogId: string, logNo: string): string {
-  const url = new URL("/PostView.naver", "https://blog.naver.com");
-  url.searchParams.set("blogId", blogId);
-  url.searchParams.set("logNo", logNo);
-  url.searchParams.set("redirect", "Dlog");
-  url.searchParams.set("widgetTypeCall", "true");
-  url.searchParams.set("directAccess", "true");
-  return url.toString();
-}
-
-function normalizeYoutubeProfileUrl(value: string): string | null {
-  try {
-    const url = new URL(value);
-    if (
-      url.hostname !== "www.youtube.com" &&
-      url.hostname !== "youtube.com" &&
-      url.hostname !== "m.youtube.com"
-    ) {
-      return null;
-    }
-
-    const pathSegments = url.pathname.split("/").filter(Boolean);
-    if (
-      (pathSegments[0] === "channel" && pathSegments[1]) ||
-      pathSegments[0]?.startsWith("@")
-    ) {
-      const normalizedPath =
-        pathSegments[0] === "channel"
-          ? `/channel/${pathSegments[1]}`
-          : `/${pathSegments[0]}`;
-      return new URL(normalizedPath, "https://www.youtube.com").toString();
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
-export function parseOfficialProfileCandidates(args: {
-  html: string;
-  memberName: string;
-  party: string;
-}): OfficialProfileCandidate[] {
-  const $ = load(args.html);
-  const candidates = new Map<string, OfficialProfileCandidate>();
-  const normalizedMemberName = normalizeName(args.memberName);
-
-  $('a[href*="youtube.com/channel/"], a[href*="youtube.com/@"]').each(
-    (_, anchor) => {
-      const url = normalizeYoutubeProfileUrl($(anchor).attr("href") ?? "");
-      if (!url) {
-        return;
-      }
-
-      const resultRoot = $(anchor).closest(".fds-web-root");
-      const contextRoot =
-        resultRoot.length > 0
-          ? resultRoot
-          : $(anchor).closest(".fds-web-normal-doc-root");
-      const context = normalizeWhitespace(contextRoot.text());
-      const normalizedContext = normalizeName(context);
-      const holderPattern = new RegExp(
-        `(?:국회의원\\s*)?${escapeRegExp(args.memberName)}\\s*후원회`
-      );
-      const hasCurrentAssemblyIdentity =
-        /제\s*22대\s*국회의원/.test(context) || context.includes(args.party);
-
-      if (
-        !normalizedContext.includes(normalizedMemberName) ||
-        !context.includes("국회의원") ||
-        !context.includes("후원") ||
-        !holderPattern.test(context) ||
-        !hasCurrentAssemblyIdentity
-      ) {
-        return;
-      }
-
-      const score =
-        (context.includes(args.party) ? 6 : 0) +
-        (/제\s*22대\s*국회의원/.test(context) ? 5 : 0) +
-        (context.includes("후원계좌") ? 4 : 0) +
-        (context.includes(args.memberName) ? 2 : 0);
-      const existing = candidates.get(url);
-      if (!existing || score > existing.score) {
-        candidates.set(url, { url, score });
-      }
-    }
-  );
-
-  return [...candidates.values()]
-    .sort((left, right) => right.score - left.score)
-    .slice(0, MAX_OFFICIAL_PROFILE_CANDIDATES);
-}
-
-export function extractSponsorshipAccountFromOfficialProfile(args: {
-  html: string;
-  memberName: string;
-  party: string;
-}): ExtractedSponsorshipAccount | null {
-  const $ = load(args.html);
-  const descriptionParts = [
-    $('meta[name="description"]').attr("content"),
-    $('meta[property="og:description"]').attr("content"),
-    $('meta[name="twitter:description"]').attr("content")
-  ].filter((value): value is string => Boolean(value));
-  const text = normalizeWhitespace(descriptionParts.join(" "));
-  const holderPattern = new RegExp(
-    `(?:국회의원\\s*)?${escapeRegExp(args.memberName)}\\s*후원회`
-  );
-  const holderMatch = text.match(holderPattern);
-  const hasCurrentAssemblyIdentity =
-    /제\s*22대\s*국회의원/.test(text) || text.includes(args.party);
-
-  if (
-    !text.includes(args.memberName) ||
-    !text.includes("국회의원") ||
-    !text.includes("후원") ||
-    !holderMatch ||
-    !hasCurrentAssemblyIdentity
-  ) {
-    return null;
-  }
-
-  for (const match of text.matchAll(ACCOUNT_NUMBER_PATTERN)) {
-    const accountNumber = normalizeAccountNumber(match[0]);
-    if (!isPlausibleAccountNumber(accountNumber)) {
-      continue;
-    }
-
-    const start = Math.max(0, (match.index ?? 0) - 180);
-    const end = Math.min(
-      text.length,
-      (match.index ?? 0) + match[0].length + 180
-    );
-    const context = text.slice(start, end);
-    const bankName = findBankName(context);
-    if (!bankName || !context.includes("후원")) {
-      continue;
-    }
-
-    return {
-      bankName,
-      accountNumber,
-      accountHolder: normalizeWhitespace(holderMatch[0]),
-      sourcePublishedAt: null
-    };
-  }
-
-  return null;
-}
-
-function extractLinkedNaverBlogUrls(args: {
-  html: string;
-  memberName: string;
-  party: string;
-}): string[] {
-  const directAccount = extractSponsorshipAccountFromOfficialProfile(args);
-  const $ = load(args.html);
-  const profileText = normalizeWhitespace(
-    [
-      $('meta[name="description"]').attr("content"),
-      $('meta[property="og:description"]').attr("content"),
-      $("title").text()
-    ]
-      .filter(Boolean)
-      .join(" ")
-  );
-  const hasCurrentAssemblyIdentity =
-    /제\s*22대\s*국회의원/.test(profileText) ||
-    profileText.includes(args.party);
-
-  if (
-    !directAccount &&
-    (!profileText.includes(args.memberName) || !hasCurrentAssemblyIdentity)
-  ) {
-    return [];
-  }
-
-  const urls = new Set<string>();
-  for (const match of args.html.matchAll(
-    /https:\\?\/\\?\/(?:m\.)?blog\.naver\.com\\?\/([A-Za-z0-9_.-]+)/g
-  )) {
-    if (match[1]) {
-      urls.add(`https://blog.naver.com/${match[1]}`);
-    }
-  }
-  return [...urls];
-}
-
-async function findOfficialProfileSponsorshipAccount(args: {
-  member: SponsorshipDirectoryMember;
-  supporter: OfficialSupporterRecord;
-  fetchImpl: typeof fetch;
-  timeoutMs: number;
-}): Promise<
-  | (ExtractedSponsorshipAccount & {
-      sourceUrl: string;
-    })
-  | null
-> {
-  const searchHtml = await fetchText({
-    fetchImpl: args.fetchImpl,
-    url: buildNaverOfficialProfileSearchUrl(args.member.name),
-    timeoutMs: args.timeoutMs
-  });
-  const candidates = parseOfficialProfileCandidates({
-    html: searchHtml,
-    memberName: args.member.name,
-    party: args.member.party
-  });
-
-  for (const candidate of candidates) {
-    const profileHtml = await fetchText({
-      fetchImpl: args.fetchImpl,
-      url: candidate.url,
-      timeoutMs: args.timeoutMs
-    });
-    const account = extractSponsorshipAccountFromOfficialProfile({
-      html: profileHtml,
-      memberName: args.member.name,
-      party: args.member.party
-    });
-    if (account) {
-      return {
-        ...account,
-        sourceUrl: candidate.url
-      };
-    }
-
-    for (const blogUrl of extractLinkedNaverBlogUrls({
-      html: profileHtml,
-      memberName: args.member.name,
-      party: args.member.party
-    })) {
-      const blogAccount = await findNaverSponsorshipAccount({
-        member: args.member,
-        supporter: args.supporter,
-        sourceUrl: blogUrl,
-        fetchImpl: args.fetchImpl,
-        timeoutMs: args.timeoutMs
-      });
-      if (blogAccount) {
-        return blogAccount;
-      }
-    }
-  }
-
-  return null;
-}
-
-async function findNaverSponsorshipAccount(args: {
-  member: SponsorshipDirectoryMember;
-  supporter: OfficialSupporterRecord;
-  sourceUrl: string;
-  fetchImpl: typeof fetch;
-  timeoutMs: number;
-}): Promise<
-  | (ExtractedSponsorshipAccount & {
-      sourceUrl: string;
-    })
-  | null
-> {
-  const blogId = extractNaverBlogId(args.sourceUrl);
-  if (!blogId) {
-    return null;
-  }
-
-  const searchHtml = await fetchText({
-    fetchImpl: args.fetchImpl,
-    url: buildNaverSearchUrl(blogId),
-    timeoutMs: args.timeoutMs
-  });
-  const candidates = parseNaverSearchCandidates(searchHtml).slice(
-    0,
-    MAX_NAVER_CANDIDATES
-  );
-
-  for (const candidate of candidates) {
-    const postHtml = await fetchText({
-      fetchImpl: args.fetchImpl,
-      url: buildNaverPostFetchUrl(blogId, candidate.logNo),
-      timeoutMs: args.timeoutMs
-    });
-    const account = extractSponsorshipAccountFromNaverPost({
-      html: postHtml,
-      memberName: args.member.name,
-      supporterName: args.supporter.supporterName
-    });
-    if (account) {
-      return {
-        ...account,
-        sourceUrl: `https://blog.naver.com/${encodeURIComponent(
-          blogId
-        )}/${encodeURIComponent(candidate.logNo)}`
-      };
-    }
-  }
-
-  return null;
-}
-
-function buildVerifiedRecord(args: {
-  member: SponsorshipDirectoryMember;
-  supporter: OfficialSupporterRecord;
-  account: ExtractedSponsorshipAccount & { sourceUrl: string };
-  generatedAt: string;
-}): MemberSponsorshipAccount {
-  const recordHash = createHash("sha256")
-    .update(
-      `${args.member.memberId}\0${args.account.sourceUrl}\0${args.account.accountNumber}`
-    )
-    .digest("hex")
-    .slice(0, 12);
-
-  return {
-    recordId: `sponsorship-${args.member.memberId}-${recordHash}`,
-    memberId: args.member.memberId,
-    status: "verified",
-    bankName: args.account.bankName,
-    accountNumber: args.account.accountNumber,
-    accountHolder: args.account.accountHolder,
-    sourceUrl: args.account.sourceUrl,
-    verifiedAt: args.generatedAt,
-    ...(args.supporter.donationUrl
-      ? { donationUrl: args.supporter.donationUrl }
-      : {})
-  };
-}
-
 function buildUnverifiedRecord(args: {
   member: SponsorshipDirectoryMember;
   supporter: OfficialSupporterRecord;
@@ -898,7 +272,7 @@ function buildUnverifiedRecord(args: {
     sourceUrl: args.supporter.sourceUrl,
     reviewedAt: args.generatedAt,
     reason:
-      "The official sponsorship committee is registered, but a current direct-deposit account was not found on a member-owned official page.",
+      "The official sponsorship committee and donation links are published without direct payment details.",
     ...(args.supporter.donationUrl
       ? { donationUrl: args.supporter.donationUrl }
       : {})
@@ -940,7 +314,6 @@ export async function collectMemberSponsorshipAccounts(args: {
   assemblyNo: number;
   assemblyLabel: string;
   snapshotId: string;
-  previousAccounts?: MemberSponsorshipAccountsExport | null;
   generatedAt?: string;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
@@ -951,11 +324,6 @@ export async function collectMemberSponsorshipAccounts(args: {
   const timeoutMs = args.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const concurrency = args.concurrency ?? DEFAULT_CONCURRENCY;
   const warnings: string[] = [];
-  const previousVerifiedAccounts = new Map(
-    (args.previousAccounts?.accounts ?? [])
-      .filter((account) => account.status === "verified")
-      .map((account) => [account.memberId, account])
-  );
   const supporters = await collectOfficialSupporters({
     fetchImpl,
     timeoutMs,
@@ -979,96 +347,8 @@ export async function collectMemberSponsorshipAccounts(args: {
     return [{ member, supporter }];
   });
 
-  const accounts = await mapWithConcurrency(
-    membersWithSupporters,
-    concurrency,
-    async ({ member, supporter }): Promise<MemberSponsorshipAccount> => {
-      let hadSourceFailure = false;
-      const sourceUrls = [
-        supporter.homepageUrl,
-        member.officialExternalUrl ?? null
-      ].filter(
-        (value, index, values): value is string =>
-          Boolean(value) && values.indexOf(value) === index
-      );
-
-      for (const sourceUrl of sourceUrls) {
-        try {
-          const account = extractNaverBlogId(sourceUrl)
-            ? await findNaverSponsorshipAccount({
-                member,
-                supporter,
-                sourceUrl,
-                fetchImpl,
-                timeoutMs
-              })
-            : await (async () => {
-                const sourceHtml = await fetchText({
-                  fetchImpl,
-                  url: sourceUrl,
-                  timeoutMs
-                });
-                const extracted = extractSponsorshipAccountFromOfficialProfile({
-                  html: sourceHtml,
-                  memberName: member.name,
-                  party: member.party
-                });
-                return extracted ? { ...extracted, sourceUrl } : null;
-              })();
-          if (account) {
-            return buildVerifiedRecord({
-              member,
-              supporter,
-              account,
-              generatedAt
-            });
-          }
-        } catch (error) {
-          hadSourceFailure = true;
-          warnings.push(
-            `${member.name} (${member.memberId}) sponsorship page failed: ${
-              error instanceof Error ? error.message : String(error)
-            }`
-          );
-        }
-      }
-
-      try {
-        const discoveredAccount = await findOfficialProfileSponsorshipAccount({
-          member,
-          supporter,
-          fetchImpl,
-          timeoutMs
-        });
-        if (discoveredAccount) {
-          return buildVerifiedRecord({
-            member,
-            supporter,
-            account: discoveredAccount,
-            generatedAt
-          });
-        }
-      } catch (error) {
-        hadSourceFailure = true;
-        warnings.push(
-          `${member.name} (${member.memberId}) official profile discovery failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
-      }
-
-      const previousVerifiedAccount = previousVerifiedAccounts.get(
-        member.memberId
-      );
-      if (hadSourceFailure && previousVerifiedAccount) {
-        warnings.push(
-          `${member.name} (${member.memberId}) retained the last verified sponsorship account after a transient source failure.`
-        );
-        return previousVerifiedAccount;
-      }
-
-      return buildUnverifiedRecord({ member, supporter, generatedAt });
-    }
+  const accounts = membersWithSupporters.map(({ member, supporter }) =>
+    buildUnverifiedRecord({ member, supporter, generatedAt })
   );
   accounts.sort((left, right) => left.memberId.localeCompare(right.memberId));
 
@@ -1084,12 +364,7 @@ export async function collectMemberSponsorshipAccounts(args: {
     stats: {
       directoryMembers: args.members.length,
       officialSupporters: membersWithSupporters.length,
-      verifiedAccounts: accounts.filter(
-        (account) => account.status === "verified"
-      ).length,
-      officialDonationOnly: accounts.filter(
-        (account) => account.status === "unverified"
-      ).length
+      officialRoutes: accounts.length
     }
   };
 }

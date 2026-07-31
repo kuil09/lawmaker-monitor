@@ -214,29 +214,24 @@ The reverse path remains available through breadcrumbs and preserved route state
 URLs preserve the selected issue, member, period, evidence type, evidence state,
 and ordering mode so an evidence view can be shared without losing context.
 
-### 4.10 Official sponsorship account
+### 4.10 Official sponsorship links
 
-Every member identity surface may expose an official sponsorship account module.
-It is displayed only when the account has a current, publicly verifiable source.
+Every member identity surface may expose official sponsorship links. The service
+publishes only current Central Election Commission committee-directory and online
+donation URLs.
 
 The module shows:
 
-- Bank name
-- Full published account number
-- Account holder
-- Public-source label and link
-- Last verified date
-- `계좌번호 복사` action
-- `계좌 정보 전체 복사` action
+- Official registration or donation link
+- Public-source label
+- Source review state
+- A clear notice that direct payment details are not provided
 
-The clipboard confirmation uses a short live-region message such as
-`계좌번호가 복사되었습니다`. Copying the account number writes digits and required
-separators only. Copying the full account writes bank, account number, account
-holder, member name, and the official source URL in a readable text block.
-
-The product does not collect donations, store payment information, or imply that
-the account is endorsed by the service. A missing, expired, conflicting, or
-unverified account is shown as an explicit source state and cannot be copied.
+The product does not collect donations, store or reproduce bank-account details,
+or imply that a sponsorship route is endorsed by the service. Users confirm
+eligibility, limits, and current payment instructions on the linked official
+page. Missing or conflicting records fall back to the Central Election
+Commission committee directory.
 
 ### 4.11 Member performance share card
 
@@ -308,7 +303,7 @@ The ledger provides:
   follow-up action
 - A position-history view that uses comparable records only
 - Links from every issue cell to the full Issue Comparison Board
-- A sourced sponsorship-account block in the persistent identity rail
+- An official sponsorship-link block in the persistent identity rail
 - A member performance share-card preview with link copy and system sharing
 
 ### 5.3 Issues and Votes
@@ -330,8 +325,8 @@ Users can compare all relevant lawmakers or narrow the board to committee member
 regional representatives, bill sponsors, or selected members.
 
 Each member identity cell provides a member-ledger link and a compact share action.
-The account number remains inside the member identity drawer and is not repeated
-across the comparison matrix.
+Official sponsorship links remain inside the member identity drawer and are not
+repeated across the comparison matrix. Direct payment details are never rendered.
 
 ### 5.4 Member Explorer
 
@@ -355,7 +350,7 @@ issue. Comparison mode provides both a member-by-member evidence ledger and an
 issue-by-issue matrix.
 
 The row action menu includes `의원 실적 카드 공유`. Selecting a single member opens
-the identity drawer with the verified sponsorship-account module.
+the identity drawer with the official sponsorship-link module.
 
 ### 5.5 Regional Accountability
 
@@ -458,25 +453,22 @@ New ingestion may amend, supersede, or correct an earlier record. The product mu
 - Preserve shareable evidence history
 - Avoid presenting a pipeline correction as real-world behavior change
 
-### 6.5 Sponsorship account record
+### 6.5 Sponsorship link record
 
-The implementation requires a versioned sponsorship-account record:
+The implementation requires a versioned official-link record:
 
 - Member ID
-- Bank name
-- Published account number
-- Account holder
-- Official source URL
-- Source publisher
-- Published date
-- Last verified date
-- Valid-from and valid-to dates when available
-- Verification state
-- Superseded account record ID
+- Central Election Commission committee-directory URL
+- Central Election Commission online donation URL when available
+- Source review date
+- Assembly number
 - Review and correction state
 
-Only records in the current verified state may be copied. Account changes retain
-the prior version for audit history but never leave a superseded account copyable.
+Public exports must remove bank name, account number, account holder, and other
+direct payment instructions from both current and legacy records. Collection
+must not search blogs, social networks, video profiles, or search results for
+payment details. Legacy export and file names may remain for compatibility, but
+their public payload is link-only.
 
 ### 6.6 Member share metadata
 
@@ -588,12 +580,13 @@ A documented no-action state is allowed only when:
 - Source corrections update affected transitions without erasing prior versions.
 - Every lawmaker portrait uses the shared grayscale halftone treatment, with a
   CSS fallback and compact-size legibility guard.
-- A verified official sponsorship account can be copied from the member identity
-  surface with visible success feedback.
-- Missing, expired, conflicting, unverified, and superseded sponsorship accounts
-  cannot be copied and are not rendered as current accounts.
-- `계좌 정보 전체 복사` includes the official source URL and never includes
-  unsupported payment instructions.
+- Every sponsorship surface links only to a Central Election Commission
+  committee-directory or online donation page.
+- Bank name, account number, account holder, and direct payment instructions are
+  absent from UI, share metadata, generated images, and public exports.
+- No sponsorship surface provides account-detail copy controls.
+- Missing or conflicting sponsorship records fall back to the Central Election
+  Commission committee directory.
 - Every member share action previews the exact card that external services receive.
 - Every member has a fragment-free canonical share URL that opens the corresponding
   member accountability ledger.

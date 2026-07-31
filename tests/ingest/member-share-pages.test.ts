@@ -102,12 +102,9 @@ describe("mergeMemberShareSources", () => {
       activity: { voteRecordCount: 35 },
       accountability: { totalRecordedVotes: 40 },
       assets: { latestTotal: 1_500_000 },
-      bills: { leadProposalCount: 12 },
-      sponsorshipAccount: {
-        bankName: "농협",
-        accountNumber: "301-0000-0000-00"
-      }
+      bills: { leadProposalCount: 12 }
     });
+    expect(members[0]).not.toHaveProperty("sponsorshipAccount");
   });
 
   it("rejects member identifiers that could escape the output directory", () => {
@@ -275,6 +272,8 @@ describe("generateMemberSharePages", () => {
     expect(html).toContain(
       "최근 회의록 안건 2026년 7월 28일 · 지역 공공의료 확충의 건"
     );
+    expect(html).not.toContain("301-0000-0000-00");
+    expect(html).not.toContain("공식 후원계좌");
     expect(html).toContain('name="twitter:card" content="summary_large_image"');
     expect(png.subarray(1, 4).toString("ascii")).toBe("PNG");
     expect(png.readUInt32BE(16)).toBe(1200);
@@ -314,9 +313,9 @@ describe("generateMemberSharePages", () => {
     expect(svg).toContain("대표발의 12건 · 처리결과 확인 7건");
     expect(svg).toContain(">불참</text>");
     expect(svg).toContain(">5건</text>");
-    expect(svg).toContain("공식 후원계좌");
-    expect(svg).toContain("농협 301-0000-0000-00");
-    expect(svg).toContain("국회의원 김아라 후원회");
+    expect(svg).not.toContain("공식 후원계좌");
+    expect(svg).not.toContain("301-0000-0000-00");
+    expect(svg).not.toContain("국회의원 김아라 후원회");
     expect(svg).toContain('filter="url(#newsprint)"');
     expect(svg).toContain("<image");
     expect(svg).not.toContain(">김아</text>");
@@ -327,7 +326,7 @@ describe("generateMemberSharePages", () => {
     expect(cardsManifest).toMatchObject({
       snapshotId: "snapshot-123",
       cardVersion: expect.stringMatching(/^[a-f0-9]{16}$/),
-      cardRendererVersion: "member-share-card-v4-grey-newsprint-sponsorship",
+      cardRendererVersion: "member-share-card-v5-grey-newsprint",
       count: 1
     });
   });

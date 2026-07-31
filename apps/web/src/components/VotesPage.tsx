@@ -1,5 +1,5 @@
 import { IssueComparisonBoard } from "./IssueComparisonBoard.js";
-import { VoteCarousel } from "./VoteCarousel.js";
+import { PlenaryChamberVoteMap } from "./PlenaryChamberVoteMap.js";
 import { formatDateTime, getKoreanDateKey } from "../lib/format.js";
 import "../styles/v3-evidence.css";
 
@@ -78,27 +78,23 @@ export function VotesPage({
         </div>
       </dl>
 
+      <PlenaryChamberVoteMap
+        items={latestVotes?.items ?? null}
+        members={memberDirectory}
+        loading={loading}
+        unavailable={unavailable}
+      />
+
       <IssueComparisonBoard items={items} />
 
-      <section
-        className="v3-evidence-workbench"
-        aria-labelledby="latest-vote-records-heading"
-      >
-        <div className="v3-section-heading">
-          <div>
-            <p className="v3-kicker">EVIDENCE TIMELINE</p>
-            <h2 id="latest-vote-records-heading">표결 기록 탐색</h2>
-          </div>
-          <p>검색과 필터는 현재 공개된 기록에만 적용됩니다.</p>
-        </div>
-        <VoteCarousel
-          items={latestVotes?.items ?? null}
-          voteMinutesOpinions={voteMinutesOpinions}
-          memberDirectory={memberDirectory}
-          loading={loading}
-          unavailable={unavailable}
-        />
-      </section>
+      <PlenaryChamberVoteMap
+        mode="archive"
+        items={latestVotes?.items ?? null}
+        members={memberDirectory}
+        loading={loading}
+        unavailable={unavailable}
+        voteMinutesOpinions={voteMinutesOpinions}
+      />
 
       <aside className="v3-method-note" aria-label="표결 데이터 이용 안내">
         <strong>공식 기록 우선</strong>

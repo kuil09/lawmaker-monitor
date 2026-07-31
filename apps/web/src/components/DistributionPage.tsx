@@ -175,13 +175,11 @@ function DistributionPointShape({
   payload,
   selected = false,
   partyColors,
-  onSelectMember,
-  showPhoto
+  onSelectMember
 }: DistributionPointShapeProps & {
   selected?: boolean;
   partyColors: Map<string, string>;
   onSelectMember: (memberId: string) => void;
-  showPhoto: boolean;
 }) {
   const resolvedPhotoUrl = getOptimizedMemberPhotoUrl(payload?.photoUrl);
   const canUsePhoto = useDistributionPointPhoto(resolvedPhotoUrl);
@@ -196,6 +194,12 @@ function DistributionPointShape({
   const markerIdBase = `distribution-point-${payload.memberId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const clipPathId = `${markerIdBase}-clip`;
   const badgeRadius = Math.max(3.4, Math.round(radius * 0.28 * 10) / 10);
+  const absenceLevel =
+    payload.absentRate >= 0.15
+      ? "high"
+      : payload.absentRate >= 0.1
+        ? "elevated"
+        : "none";
 
   return (
     <g
@@ -211,8 +215,15 @@ function DistributionPointShape({
           onSelectMember(payload.memberId);
         }
       }}
+      data-absence-level={absenceLevel}
       style={{ cursor: "pointer" }}
     >
+      {absenceLevel !== "none" ? (
+        <circle
+          className="distribution-chart__absence-ring"
+          r={radius + (absenceLevel === "high" ? 5.5 : 4)}
+        />
+      ) : null}
       {selected ? (
         <circle
           r={radius + 4}
@@ -221,7 +232,7 @@ function DistributionPointShape({
           strokeWidth={2}
         />
       ) : null}
-      {showPhoto && canUsePhoto && resolvedPhotoUrl ? (
+      {canUsePhoto && resolvedPhotoUrl ? (
         <>
           <defs>
             <clipPath id={clipPathId}>
@@ -598,8 +609,8 @@ export function DistributionPage({
   const chartSearchNote = activeBehaviorSummary
     ? `${activeBehaviorSummary.label} 분류가 적용되어 ${formatNumber(behaviorFilteredMembers.length)}명만 먼저 보고 있습니다. 다른 의원을 직접 고르면 분류는 해제됩니다.`
     : activePartyFilter
-      ? `${activePartyFilter}만 표시 중이며, 점은 얼굴 대신 정당색으로 전환됩니다.`
-      : "정당 버튼을 누르면 해당 정당만 남기고 점은 얼굴 대신 정당색으로 전환됩니다.";
+      ? `${activePartyFilter}만 표시 중이며, 의원 초상화와 정당색 표시는 그대로 유지됩니다.`
+      : "정당 버튼을 누르면 해당 정당 의원만 남기고 초상화와 정당색 표시는 그대로 유지됩니다.";
   const filterScopeText =
     activeBehaviorSummary && activePartySummary
       ? `${activeBehaviorSummary.label} · ${activePartySummary.party}`
@@ -853,7 +864,6 @@ export function DistributionPage({
                         {...props}
                         partyColors={partyColors}
                         onSelectMember={handleSelectMember}
-                        showPhoto={!activePartyFilter}
                       />
                     )}
                   />
@@ -866,7 +876,6 @@ export function DistributionPage({
                           selected
                           partyColors={partyColors}
                           onSelectMember={handleSelectMember}
-                          showPhoto={!activePartyFilter}
                         />
                       )}
                     />
@@ -880,7 +889,7 @@ export function DistributionPage({
                 <span>
                   {activePartySummary
                     ? `${activePartySummary.party}만 ${formatNumber(filteredMembers.length)}명 표시 중입니다. 같은 정당을 다시 누르면 전체 보기로 돌아갑니다.`
-                    : "정당을 누르면 해당 정당만 남기고 점은 얼굴 대신 정당색으로 전환됩니다."}
+                    : "정당을 누르면 해당 정당 의원만 남기고 초상화와 정당색 표시는 유지됩니다."}
                 </span>
               </div>
               <ul
@@ -932,7 +941,13 @@ export function DistributionPage({
                 photoUrl={selectedMember.photoUrl}
                 size="large"
               />
-              <p className="distribution-focus__note">
+              <p
+                className={`distribution-focus__note${
+                  selectedMember.currentNegativeOrAbsentStreak > 0
+                    ? " distribution-focus__note--inactivity"
+                    : ""
+                }`}
+              >
                 {`${selectedMember.party} 내부에서는 ${
                   selectedMember.currentNegativeOrAbsentStreak > 0
                     ? `현재 ${formatNumber(selectedMember.currentNegativeOrAbsentStreak)}일 연속으로 반대·기권·불참 패턴이 이어지고 있습니다.`
@@ -981,7 +996,7 @@ export function DistributionPage({
                   )}
                 </small>
               </article>
-              <article className="distribution-focus__metric">
+              <article className="distribution-focus__metric distribution-focus__metric--absence">
                 <span>불참 비중</span>
                 <strong>{formatPercent(selectedMember.absentRate)}</strong>
                 <small>{`${formatNumber(selectedMember.absentVoteCount)}건 불참`}</small>

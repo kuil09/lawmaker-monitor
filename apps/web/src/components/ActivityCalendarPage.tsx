@@ -2528,7 +2528,7 @@ export function ActivityCalendarPage({
         if (active) {
           setSponsorshipAccounts(null);
           setSponsorshipAccountsError(
-            "공식 후원계좌 정보를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요."
+            "공식 후원 링크를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요."
           );
         }
       });
@@ -3121,7 +3121,7 @@ export function ActivityCalendarPage({
                         <dt>반대한 날</dt>
                         <dd>{formatNumber(selectedBreakdown.noDays)}</dd>
                       </div>
-                      <div>
+                      <div className="activity-drawer__summary-item--absence">
                         <dt>불참한 날</dt>
                         <dd>{formatNumber(selectedBreakdown.absentDays)}</dd>
                       </div>

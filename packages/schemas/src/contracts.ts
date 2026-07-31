@@ -38,27 +38,16 @@ export const currentAssemblySchema = z.object({
   unitCd: nonEmptyString
 });
 
-const sponsorshipAccountNumberSchema = z
-  .string()
-  .trim()
-  .regex(
-    /^\d[\d -]{4,30}\d$/,
-    "A verified sponsorship account number must contain only digits, spaces, and hyphens"
-  );
-
 const verifiedMemberSponsorshipAccountSchema = z
   .object({
     recordId: nonEmptyString,
     memberId: nonEmptyString,
     status: z.literal("verified"),
-    bankName: nonEmptyString,
-    accountNumber: sponsorshipAccountNumberSchema,
-    accountHolder: nonEmptyString,
     sourceUrl: httpsUrlString,
     verifiedAt: dateLikeString,
     donationUrl: httpsUrlString.optional()
   })
-  .strict();
+  .strip();
 
 const unverifiedMemberSponsorshipAccountSchema = z
   .object({
@@ -70,16 +59,13 @@ const unverifiedMemberSponsorshipAccountSchema = z
     reason: nonEmptyString,
     donationUrl: httpsUrlString.optional()
   })
-  .strict();
+  .strip();
 
 const supersededMemberSponsorshipAccountSchema = z
   .object({
     recordId: nonEmptyString,
     memberId: nonEmptyString,
     status: z.literal("superseded"),
-    bankName: nonEmptyString,
-    accountNumber: sponsorshipAccountNumberSchema,
-    accountHolder: nonEmptyString,
     sourceUrl: httpsUrlString,
     verifiedAt: dateLikeString,
     supersededAt: dateLikeString,
@@ -87,7 +73,7 @@ const supersededMemberSponsorshipAccountSchema = z
     replacedByRecordId: nonEmptyString.optional(),
     donationUrl: httpsUrlString.optional()
   })
-  .strict();
+  .strip();
 
 export const memberSponsorshipAccountSchema = z.discriminatedUnion("status", [
   verifiedMemberSponsorshipAccountSchema,
@@ -164,6 +150,17 @@ export const memberSponsorshipAccountsExportSchema = z
     });
   });
 
+const latestVoteMemberSchema = z.object({
+  memberId: nonEmptyString.nullable().optional(),
+  memberName: nonEmptyString,
+  party: nonEmptyString,
+  photoUrl: nonEmptyString.url().nullable().optional(),
+  officialProfileUrl: nonEmptyString.url().nullable().optional(),
+  officialExternalUrl: nonEmptyString.url().nullable().optional(),
+  profile: memberPublicProfileSchema.optional(),
+  voteCode: voteCodeSchema
+});
+
 export const latestVoteItemSchema = z.object({
   rollCallId: nonEmptyString,
   meetingId: nonEmptyString,
@@ -181,33 +178,13 @@ export const latestVoteItemSchema = z.object({
     invalid: z.number().int().nonnegative(),
     unknown: z.number().int().nonnegative()
   }),
-  highlightedVotes: z.array(
-    z.object({
-      memberId: nonEmptyString.nullable().optional(),
-      memberName: nonEmptyString,
-      party: nonEmptyString,
-      photoUrl: nonEmptyString.url().nullable().optional(),
-      officialProfileUrl: nonEmptyString.url().nullable().optional(),
-      officialExternalUrl: nonEmptyString.url().nullable().optional(),
-      profile: memberPublicProfileSchema.optional(),
-      voteCode: voteCodeSchema
-    })
-  ),
-  absentVotes: z
-    .array(
-      z.object({
-        memberId: nonEmptyString.nullable().optional(),
-        memberName: nonEmptyString,
-        party: nonEmptyString,
-        photoUrl: nonEmptyString.url().nullable().optional(),
-        officialProfileUrl: nonEmptyString.url().nullable().optional(),
-        officialExternalUrl: nonEmptyString.url().nullable().optional(),
-        profile: memberPublicProfileSchema.optional(),
-        voteCode: voteCodeSchema
-      })
-    )
-    .default([]),
+  highlightedVotes: z.array(latestVoteMemberSchema),
+  absentVotes: z.array(latestVoteMemberSchema).default([]),
   absentListStatus: z.enum(["verified", "unavailable"]).optional(),
+  memberVotes: z.array(latestVoteMemberSchema).default([]),
+  memberVoteListStatus: z
+    .enum(["verified", "partial", "unavailable"])
+    .default("unavailable"),
   officialTally: officialTallySchema.optional(),
   summary: nonEmptyString.nullable().optional(),
   officialSourceUrl: nonEmptyString.url(),

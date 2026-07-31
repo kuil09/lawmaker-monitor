@@ -4,18 +4,21 @@ import "../styles/v3-evidence.css";
 
 import type {
   AccountabilitySummaryExport,
-  AccountabilityTrendsExport
+  AccountabilityTrendsExport,
+  BillProposalActivityExport
 } from "@lawmaker-monitor/schemas";
 
 type TrendsPageProps = {
   accountabilityTrends: AccountabilityTrendsExport | null;
   accountabilitySummary: AccountabilitySummaryExport | null;
+  billProposalActivity?: BillProposalActivityExport | null;
   assemblyLabel: string;
 };
 
 export function TrendsPage({
   accountabilityTrends,
   accountabilitySummary,
+  billProposalActivity = null,
   assemblyLabel
 }: TrendsPageProps) {
   const observedWeekCount = accountabilityTrends?.weeks.length ?? 0;
@@ -44,6 +47,7 @@ export function TrendsPage({
       <ChangeDocket
         accountabilityTrends={accountabilityTrends}
         accountabilitySummary={accountabilitySummary}
+        billProposalActivity={billProposalActivity}
       />
 
       <VisualizationOverview

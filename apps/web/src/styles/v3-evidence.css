@@ -545,7 +545,7 @@
 }
 
 .v3-vote-timeline .vote-card__mini-bar-segment--absent {
-  background: var(--v3-subtle);
+  background: var(--absence, #29292d);
 }
 
 .v3-vote-timeline .vote-card__stats {
@@ -595,7 +595,8 @@
 }
 
 .v3-vote-timeline .vote-card__stat--absent {
-  border-left: 3px solid var(--v3-subtle);
+  border-left: 4px solid var(--absence, #29292d);
+  background: var(--absence-soft, #e4e3df);
 }
 
 .v3-vote-timeline .vote-card__highlight {

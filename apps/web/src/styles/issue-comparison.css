@@ -141,7 +141,7 @@
 }
 
 .issue-comparison__bar .is-absent {
-  background: #777167;
+  background: var(--absence, #29292d);
 }
 
 .issue-comparison article > footer span {

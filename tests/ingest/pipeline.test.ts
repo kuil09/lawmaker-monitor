@@ -453,6 +453,10 @@ describe("data pipeline contracts", () => {
       absent: 1
     });
     expect(latestVotes.items[0]?.absentListStatus).toBe("verified");
+    expect(latestVotes.items[0]?.memberVoteListStatus).toBe("verified");
+    expect(
+      latestVotes.items[0]?.memberVotes.map((vote) => vote.voteCode).sort()
+    ).toEqual(["absent", "no", "yes"]);
     expect(latestVotes.items[0]?.highlightedVotes[0]?.voteCode).toBe("no");
     expect(latestVotes.items[0]?.absentVotes[0]?.voteCode).toBe("absent");
     expect(accountabilitySummary.items[0]).toMatchObject({

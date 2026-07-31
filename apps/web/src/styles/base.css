@@ -298,9 +298,9 @@ input:focus-visible {
 }
 
 .status-badge--absent {
-  border-color: var(--border);
-  background: rgba(0, 0, 0, 0.04);
-  color: var(--text-muted);
+  border-color: var(--absence);
+  background: var(--absence);
+  color: var(--absence-on);
 }
 
 .error-banner,

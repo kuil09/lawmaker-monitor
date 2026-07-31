@@ -138,6 +138,7 @@ type WeekRange = {
   weekEnd: string;
 };
 type AbsentListStatus = "verified" | "unavailable";
+type MemberVoteListStatus = "verified" | "partial" | "unavailable";
 type RollCallVoteResolution = {
   counts: LatestVoteCounts;
   explicitCounts: LatestVoteCounts;
@@ -154,6 +155,7 @@ const highlightVoteOrder: PublicVoteCode[] = [
   "invalid",
   "unknown"
 ];
+const latestPlenaryMemberVoteLimit = 12;
 export const MEMBER_ACTIVITY_MEMBER_DETAILS_DIR =
   "exports/member_activity_calendar_members";
 export const MAX_PUBLISHED_JSON_BYTES = 95 * 1024 * 1024;
@@ -1032,6 +1034,56 @@ function buildLeanLatestVoteMemberMetadata(): Record<string, never> {
   return {};
 }
 
+function buildLeanLatestVoteMember(args: {
+  vote: NormalizedBundle["voteFacts"][number];
+  membersById: Map<string, NormalizedBundle["members"][number]>;
+}): VoteHighlight {
+  const member = args.vote.memberId
+    ? args.membersById.get(args.vote.memberId)
+    : undefined;
+  return {
+    memberId: args.vote.memberId ?? null,
+    memberName:
+      member?.name ?? args.vote.memberName ?? args.vote.memberId ?? "이름 미상",
+    party: member?.party ?? args.vote.party ?? "정당 미상",
+    ...buildLeanLatestVoteMemberMetadata(),
+    voteCode: args.vote.voteCode
+  };
+}
+
+function resolveMemberVoteListStatus(args: {
+  memberVotes: VoteHighlight[];
+  resolution: RollCallVoteResolution;
+}): MemberVoteListStatus {
+  if (args.memberVotes.length === 0) {
+    return "unavailable";
+  }
+
+  const linkedCounts = {
+    yes: 0,
+    no: 0,
+    abstain: 0,
+    absent: 0
+  };
+  for (const memberVote of args.memberVotes) {
+    if (memberVote.voteCode in linkedCounts) {
+      linkedCounts[memberVote.voteCode as keyof typeof linkedCounts] += 1;
+    }
+  }
+
+  const counts = args.resolution.counts;
+  const fullyLinked =
+    linkedCounts.yes === counts.yes &&
+    linkedCounts.no === counts.no &&
+    linkedCounts.abstain === counts.abstain &&
+    linkedCounts.absent === counts.absent &&
+    counts.invalid === 0 &&
+    counts.unknown === 0 &&
+    args.resolution.absentListStatus === "verified";
+
+  return fullyLinked ? "verified" : "partial";
+}
+
 export function buildLatestVotesExport(
   bundle: NormalizedBundle,
   options: ExportBuildOptions = {}
@@ -1050,108 +1102,115 @@ export function buildLatestVotesExport(
       })
     : null;
 
-  const items = sortRollCallsByLatest(bundle.rollCalls).map((rollCall) => {
-    const votes = bundle.voteFacts.filter(
-      (voteFact) => voteFact.rollCallId === rollCall.rollCallId
-    );
-    const eligibleCurrentMembers =
-      rollCall.voteVisibility === "recorded" ||
-      rollCall.voteVisibility === "named"
-        ? getEligibleCurrentMembersForRollCall({
-            currentMembers,
-            eligibleRollCallIdsByMember:
-              eligibleRollCallIdsByMember ?? undefined,
-            rollCallId: rollCall.rollCallId
-          })
-        : [];
-    const resolution = resolveRollCallVoteCounts({
-      rollCall,
-      votes,
-      eligibleCurrentMembers
-    });
-
-    const highlightedVotes = votes
-      .map((vote) => ({
-        ...vote,
-        publicVoteCode: toPublicVoteCode(vote.voteCode)
-      }))
-      .filter((vote) => vote.voteCode === "no" || vote.voteCode === "abstain")
-      .sort(
-        (left, right) =>
-          highlightVoteOrder.indexOf(left.publicVoteCode) -
-          highlightVoteOrder.indexOf(right.publicVoteCode)
-      )
-      .map((vote) => {
-        const member = vote.memberId
-          ? membersById.get(vote.memberId)
-          : undefined;
-        return {
-          memberId: vote.memberId ?? null,
-          memberName:
-            member?.name ?? vote.memberName ?? vote.memberId ?? "이름 미상",
-          party: member?.party ?? vote.party ?? "정당 미상",
-          ...buildLeanLatestVoteMemberMetadata(),
-          voteCode: vote.publicVoteCode
-        };
+  const items = sortRollCallsByLatest(bundle.rollCalls).map(
+    (rollCall, rollCallIndex) => {
+      const votes = bundle.voteFacts.filter(
+        (voteFact) => voteFact.rollCallId === rollCall.rollCallId
+      );
+      const eligibleCurrentMembers =
+        rollCall.voteVisibility === "recorded" ||
+        rollCall.voteVisibility === "named"
+          ? getEligibleCurrentMembersForRollCall({
+              currentMembers,
+              eligibleRollCallIdsByMember:
+                eligibleRollCallIdsByMember ?? undefined,
+              rollCallId: rollCall.rollCallId
+            })
+          : [];
+      const resolution = resolveRollCallVoteCounts({
+        rollCall,
+        votes,
+        eligibleCurrentMembers
       });
 
-    const recordedAbsentVotes: VoteHighlight[] = votes
-      .filter((vote) => vote.voteCode === "absent")
-      .map((vote) => {
-        const member = vote.memberId
-          ? membersById.get(vote.memberId)
-          : undefined;
-        return {
-          memberId: vote.memberId ?? null,
-          memberName:
-            member?.name ?? vote.memberName ?? vote.memberId ?? "이름 미상",
-          party: member?.party ?? vote.party ?? "정당 미상",
+      const highlightedVotes = votes
+        .map((vote) => ({
+          ...vote,
+          publicVoteCode: toPublicVoteCode(vote.voteCode)
+        }))
+        .filter((vote) => vote.voteCode === "no" || vote.voteCode === "abstain")
+        .sort(
+          (left, right) =>
+            highlightVoteOrder.indexOf(left.publicVoteCode) -
+            highlightVoteOrder.indexOf(right.publicVoteCode)
+        )
+        .map((vote) => ({
+          ...buildLeanLatestVoteMember({ vote, membersById }),
+          voteCode: vote.publicVoteCode
+        }));
+
+      const recordedAbsentVotes: VoteHighlight[] = votes
+        .filter((vote) => vote.voteCode === "absent")
+        .map((vote) => buildLeanLatestVoteMember({ vote, membersById }));
+      const derivedAbsentVotes: VoteHighlight[] = eligibleCurrentMembers
+        .filter((member) =>
+          resolution.verifiedDerivedAbsentMemberIds.has(member.memberId)
+        )
+        .map((member) => ({
+          memberId: member.memberId,
+          memberName: member.name,
+          party: member.party,
           ...buildLeanLatestVoteMemberMetadata(),
           voteCode: "absent" as const
-        };
-      });
-    const derivedAbsentVotes: VoteHighlight[] = eligibleCurrentMembers
-      .filter((member) =>
-        resolution.verifiedDerivedAbsentMemberIds.has(member.memberId)
-      )
-      .map((member) => ({
-        memberId: member.memberId,
-        memberName: member.name,
-        party: member.party,
-        ...buildLeanLatestVoteMemberMetadata(),
-        voteCode: "absent" as const
-      }));
-    const absentVotes = [...recordedAbsentVotes, ...derivedAbsentVotes].sort(
-      (left, right) => left.memberName.localeCompare(right.memberName, "ko-KR")
-    );
+        }));
+      const absentVotes = [...recordedAbsentVotes, ...derivedAbsentVotes].sort(
+        (left, right) =>
+          left.memberName.localeCompare(right.memberName, "ko-KR")
+      );
+      const explicitMemberVotes =
+        rollCallIndex < latestPlenaryMemberVoteLimit
+          ? votes
+              .filter(
+                (vote) =>
+                  vote.voteCode === "yes" ||
+                  vote.voteCode === "no" ||
+                  vote.voteCode === "abstain" ||
+                  vote.voteCode === "absent"
+              )
+              .map((vote) => buildLeanLatestVoteMember({ vote, membersById }))
+          : [];
+      const memberVotes =
+        rollCallIndex < latestPlenaryMemberVoteLimit
+          ? [...explicitMemberVotes, ...derivedAbsentVotes].sort(
+              (left, right) =>
+                left.memberName.localeCompare(right.memberName, "ko-KR")
+            )
+          : [];
+      const memberVoteListStatus =
+        rollCallIndex < latestPlenaryMemberVoteLimit
+          ? resolveMemberVoteListStatus({ memberVotes, resolution })
+          : ("unavailable" as const);
 
-    const updatedAt =
-      votes
-        .map((vote) => vote.publishedAt || vote.retrievedAt)
-        .sort((left, right) => right.localeCompare(left))[0] ??
-      rollCall.voteDatetime;
+      const updatedAt =
+        votes
+          .map((vote) => vote.publishedAt || vote.retrievedAt)
+          .sort((left, right) => right.localeCompare(left))[0] ??
+        rollCall.voteDatetime;
 
-    return {
-      rollCallId: rollCall.rollCallId,
-      meetingId: rollCall.meetingId,
-      agendaId: rollCall.agendaId,
-      billName: rollCall.billName,
-      committeeName: rollCall.committeeName,
-      voteDatetime: rollCall.voteDatetime,
-      voteVisibility: rollCall.voteVisibility,
-      sourceStatus: rollCall.sourceStatus,
-      counts: resolution.counts,
-      highlightedVotes,
-      absentVotes,
-      absentListStatus: resolution.absentListStatus,
-      officialTally: rollCall.officialTally,
-      summary: rollCall.summary,
-      officialSourceUrl: rollCall.officialSourceUrl,
-      updatedAt,
-      snapshotId: rollCall.snapshotId,
-      sourceHash: rollCall.sourceHash
-    };
-  });
+      return {
+        rollCallId: rollCall.rollCallId,
+        meetingId: rollCall.meetingId,
+        agendaId: rollCall.agendaId,
+        billName: rollCall.billName,
+        committeeName: rollCall.committeeName,
+        voteDatetime: rollCall.voteDatetime,
+        voteVisibility: rollCall.voteVisibility,
+        sourceStatus: rollCall.sourceStatus,
+        counts: resolution.counts,
+        highlightedVotes,
+        absentVotes,
+        absentListStatus: resolution.absentListStatus,
+        memberVotes,
+        memberVoteListStatus,
+        officialTally: rollCall.officialTally,
+        summary: rollCall.summary,
+        officialSourceUrl: rollCall.officialSourceUrl,
+        updatedAt,
+        snapshotId: rollCall.snapshotId,
+        sourceHash: rollCall.sourceHash
+      };
+    }
+  );
 
   const snapshotId =
     items[0]?.snapshotId ?? bundle.rollCalls[0]?.snapshotId ?? "unknown";

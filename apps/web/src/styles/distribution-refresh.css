@@ -710,6 +710,22 @@
   color: var(--vote-yes);
 }
 
+.distribution-focus__metric--absence {
+  border-color: var(--absence-rule);
+  background: var(--absence-soft);
+  box-shadow: inset 4px 0 0 var(--absence);
+}
+
+.distribution-focus__metric--absence strong {
+  color: var(--absence-strong);
+}
+
+.distribution-focus__note--inactivity {
+  border-left: 4px solid var(--absence);
+  background: var(--absence-soft);
+  color: var(--absence-strong);
+}
+
 .distribution-focus__composition {
   gap: 0.72rem;
 }
@@ -1268,6 +1284,18 @@
 
 .distribution-chart__point:focus-visible circle:first-of-type {
   stroke: var(--distribution-blue);
+  stroke-width: 3px;
+}
+
+.distribution-chart__absence-ring {
+  fill: none;
+  stroke: var(--absence-rule);
+  stroke-width: 1.8px;
+}
+
+.distribution-chart__point[data-absence-level="high"]
+  .distribution-chart__absence-ring {
+  stroke: var(--absence-strong);
   stroke-width: 3px;
 }
 

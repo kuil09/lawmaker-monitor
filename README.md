@@ -53,7 +53,7 @@ The frontend reads public JSON exports and validates them with the schemas packa
 - `exports/member_statement_summaries/<memberId>.json`: locally generated summaries of each member's officially attributed bill-related statements with source evidence
 - `exports/member_assets_index.json`: current-member asset disclosure index with latest summary and per-member history pointers
 - `exports/member_assets_history/<memberId>.json`: lazily loaded member asset disclosure history and category subtotal series
-- `exports/member_sponsorship_accounts.json`: official sponsorship committee routes and direct-deposit accounts that remain visible on a current member-owned source page
+- `exports/member_sponsorship_accounts.json`: official sponsorship committee registration and online donation routes without direct-deposit account details
 - `curated/asset_disclosures.parquet`: mirrored disclosure file metadata
 - `curated/asset_disclosure_records.parquet`: parsed disclosure record summaries per named filer
 - `curated/asset_disclosure_categories.parquet`: parsed category subtotal rows per disclosure record
@@ -230,7 +230,7 @@ See `.env.example` for a concrete local configuration template.
 
 ## Source Policy
 
-Lawmaker Monitor is built around official Assembly sources for vote, meeting, member, committee, and related plenary data. The asset disclosure pipeline also stays on official Assembly surfaces: the property PDF list comes from the public file-service JSON endpoint, and property member mapping comes from cached official JSON OpenAPI responses for current member roster and member history. Sponsorship collection first matches the current member roster against the National Election Commission Political Donation Center. A direct-deposit account is published only when a current-Assembly post on a member-owned page linked by an official source contains the member name, sponsorship committee, bank, account number, and a verifiable publication date. Unverified numbers are never displayed or copied. The ingest pipeline, source monitoring checks, and public export contracts are all designed around keeping that official-source path stable over time.
+Lawmaker Monitor is built around official Assembly sources for vote, meeting, member, committee, and related plenary data. The asset disclosure pipeline also stays on official Assembly surfaces: the property PDF list comes from the public file-service JSON endpoint, and property member mapping comes from cached official JSON OpenAPI responses for current member roster and member history. Sponsorship collection matches the current member roster against the National Election Commission Political Donation Center and publishes only official committee registration and online donation routes. Direct-deposit bank, account-number, and account-holder details are neither collected for the public export nor rendered in the product or external share cards. The ingest pipeline, source monitoring checks, and public export contracts are all designed around keeping that official-source path stable over time.
 
 ## Reference Material
 

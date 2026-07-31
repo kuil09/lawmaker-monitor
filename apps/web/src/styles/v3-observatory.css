@@ -112,7 +112,7 @@
 .v2-observatory__grid {
   display: grid;
   grid-template-areas:
-    "rail map insight"
+    "rail map map"
     "scatter scatter trend"
     "ranking ranking ranking";
   grid-template-columns: 242px minmax(520px, 1fr) 294px;
@@ -360,6 +360,22 @@
 .v2-national-map__district.is-missing {
   stroke: rgba(119, 131, 142, 0.38);
   stroke-dasharray: 1 1;
+}
+
+.v2-national-map[data-metric="absence"] .v2-national-map__district.is-low {
+  fill: #dededb !important;
+}
+
+.v2-national-map[data-metric="absence"] .v2-national-map__district.is-moderate {
+  fill: #aaa9ac !important;
+}
+
+.v2-national-map[data-metric="absence"] .v2-national-map__district.is-caution {
+  fill: #66666b !important;
+}
+
+.v2-national-map[data-metric="absence"] .v2-national-map__district.is-high {
+  fill: var(--absence-strong) !important;
 }
 
 .v2-national-map__district:hover,
@@ -780,7 +796,6 @@
   .v2-observatory__grid {
     grid-template-areas:
       "rail map"
-      "insight map"
       "scatter trend"
       "ranking ranking";
     grid-template-columns: 260px minmax(0, 1fr);
@@ -858,7 +873,6 @@
     grid-template-areas:
       "rail"
       "map"
-      "insight"
       "scatter"
       "trend"
       "ranking";

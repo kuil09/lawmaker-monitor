@@ -23,6 +23,11 @@
     --negative: #34362e;
     --warning: #95622d;
     --neutral: #777066;
+    --absence: #29292d;
+    --absence-strong: #17181b;
+    --absence-soft: #e4e3df;
+    --absence-on: #fffefb;
+    --absence-rule: #6f7075;
     --border: #c8bead;
     --border-strong: #575148;
     --shadow-soft: none;
@@ -43,6 +48,6 @@
     --vote-yes: var(--positive);
     --vote-no: var(--negative);
     --vote-abstain: var(--warning);
-    --vote-absent: var(--neutral);
+    --vote-absent: var(--absence);
   }
 }

@@ -182,6 +182,19 @@
   box-shadow: inset 4px 0 0 var(--watch-verified, #575148);
 }
 
+.watch-queue-record.is-absence-record {
+  background: var(--absence-soft, #e4e3df);
+  box-shadow: inset 5px 0 0 var(--absence, #29292d);
+}
+
+.watch-queue-record.is-absence-record > header small {
+  padding: 0.24rem 0.42rem;
+  background: var(--absence, #29292d);
+  color: var(--absence-on, #fffefb);
+  font-weight: 850;
+  letter-spacing: 0.03em;
+}
+
 .watch-queue-record > header,
 .watch-queue-record > footer {
   display: flex;
@@ -263,6 +276,20 @@
 .watch-queue-record__vote-comparison-head,
 .watch-queue-record__vote-comparison .is-summary {
   background: color-mix(in srgb, var(--watch-rule, #c9c2b3) 18%, transparent);
+}
+
+.watch-queue-record.is-absence-record
+  .watch-queue-record__vote-comparison
+  .is-absence-row {
+  background: var(--absence, #29292d);
+  color: var(--absence-on, #fffefb);
+}
+
+.watch-queue-record.is-absence-record
+  .watch-queue-record__vote-comparison
+  .is-absence-row
+  :where(span, strong) {
+  color: inherit;
 }
 
 .watch-queue-record__vote-comparison-head span {

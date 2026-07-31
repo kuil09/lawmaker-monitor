@@ -36,7 +36,7 @@ const chartPalette = {
   yes: "#177245",
   no: "#34362e",
   abstain: "#c58512",
-  absent: "#758195",
+  absent: "var(--absence)",
   partyLine: "#2457a6",
   grid: "#dfe5ec",
   axis: "#667085",

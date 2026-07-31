@@ -23,6 +23,11 @@
   --wq-verified: #575148;
   --wq-warning: #95622d;
   --wq-focus: #b7e51d;
+  --wq-absence: #29292d;
+  --wq-absence-strong: #17181b;
+  --wq-absence-soft: #e4e3df;
+  --wq-absence-on: #fffefb;
+  --wq-absence-rule: #6f7075;
   --watch-paper: var(--wq-paper);
   --watch-paper-strong: var(--wq-sheet);
   --watch-ink: var(--wq-ink);
@@ -57,6 +62,12 @@
   --negative: #34362e;
   --warning: var(--wq-warning);
   --neutral: #777066;
+  --absence: var(--wq-absence);
+  --absence-strong: var(--wq-absence-strong);
+  --absence-soft: var(--wq-absence-soft);
+  --absence-on: var(--wq-absence-on);
+  --absence-rule: var(--wq-absence-rule);
+  --vote-absent: var(--wq-absence);
   --border: var(--wq-rule);
   --border-strong: var(--wq-rule-strong);
   --shadow-soft: none;
@@ -96,7 +107,8 @@ body:has(.watch-queue-shell) {
     .member-identity__avatar:not(.member-identity__avatar--fallback),
     .ledger-member-card__photo:not(.ledger-member-card__photo--fallback),
     .ledger-member-focus__photo:not(.ledger-member-focus__photo--fallback),
-    .distribution-chart__point image
+    .distribution-chart__point image,
+    .plenary-chamber__seat-photo
   ) {
   background: #d8d0c0;
   filter: grayscale(1) contrast(1.12) brightness(0.98);
@@ -109,7 +121,8 @@ body:has(.watch-queue-shell) {
       .member-identity__avatar:not(.member-identity__avatar--fallback),
       .ledger-member-card__photo:not(.ledger-member-card__photo--fallback),
       .ledger-member-focus__photo:not(.ledger-member-focus__photo--fallback),
-      .distribution-chart__point image
+      .distribution-chart__point image,
+      .plenary-chamber__seat-photo
     ) {
     filter: url("#watch-queue-newsprint-portrait");
   }
@@ -580,6 +593,11 @@ body:has(.watch-queue-shell) {
   color: var(--wq-accent-ink);
 }
 
+.v2-app.v3-shell.watch-queue-shell .ledger-region-tabs button.is-active span,
+.v2-app.v3-shell.watch-queue-shell .ledger-metric-tabs button.is-active small {
+  color: var(--wq-ink-soft);
+}
+
 .v2-app.v3-shell.watch-queue-shell
   :where(input, select, textarea, .member-search-field__input) {
   border-color: var(--wq-rule);
@@ -783,6 +801,19 @@ body:has(.watch-queue-shell) {
   background: var(--wq-sheet-muted);
 }
 
+.v2-app.v3-shell.watch-queue-shell
+  .activity-drawer__summary
+  > .activity-drawer__summary-item--absence {
+  border-left: 4px solid var(--wq-absence);
+  background: var(--wq-absence-soft);
+}
+
+.v2-app.v3-shell.watch-queue-shell
+  .activity-drawer__summary-item--absence
+  :where(dt, dd) {
+  color: var(--wq-absence-strong);
+}
+
 /* Member distribution and regional accountability workspaces. */
 .v2-app.v3-shell.watch-queue-shell .distribution-page {
   padding-top: clamp(1rem, 2vw, 1.65rem);
@@ -806,6 +837,23 @@ body:has(.watch-queue-shell) {
 
 .v2-app.v3-shell.watch-queue-shell .distribution-chart__point image {
   opacity: 0.96;
+}
+
+.v2-app.v3-shell.watch-queue-shell .distribution-focus__note--inactivity {
+  border-color: var(--wq-absence-rule);
+  border-left: 4px solid var(--wq-absence);
+  background: var(--wq-absence-soft);
+  color: var(--wq-absence-strong);
+}
+
+.v2-app.v3-shell.watch-queue-shell .distribution-focus__metric--absence {
+  border-color: var(--wq-absence-rule);
+  background: var(--wq-absence-soft);
+  box-shadow: inset 4px 0 0 var(--wq-absence);
+}
+
+.v2-app.v3-shell.watch-queue-shell .distribution-focus__metric--absence strong {
+  color: var(--wq-absence-strong);
 }
 
 .v2-app.v3-shell.watch-queue-shell .hexmap-page {

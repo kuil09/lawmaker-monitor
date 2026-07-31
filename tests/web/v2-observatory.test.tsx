@@ -468,7 +468,7 @@ describe("v2 observatory", () => {
     expect(secondMemberRow).toHaveTextContent("3.2억");
   });
 
-  it("opens member detail from names in the weekly insight and asset table", () => {
+  it("omits the weekly insight card and opens member detail from the asset table", () => {
     const onOpenMember = vi.fn();
 
     render(
@@ -494,17 +494,9 @@ describe("v2 observatory", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "재산" }));
 
-    const insight = screen
-      .getByRole("heading", { name: "이번 주 관찰" })
-      .closest("aside");
-    expect(insight).not.toBeNull();
-    const insightLink = within(insight!).getByRole("link", {
-      name: "박민 의원 상세 보기"
-    });
-    expect(insightLink).toHaveAttribute("href", "#calendar?member=M002");
-
-    fireEvent.click(insightLink);
-    expect(onOpenMember).toHaveBeenCalledWith("M002");
+    expect(
+      screen.queryByRole("heading", { name: "이번 주 관찰" })
+    ).not.toBeInTheDocument();
 
     const assetTrendCard = screen
       .getByRole("heading", {

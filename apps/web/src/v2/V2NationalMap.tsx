@@ -525,6 +525,7 @@ export function V2NationalMap({
   return (
     <div
       className="v2-national-map"
+      data-metric={metric}
       data-cartogram-cell-count={coloredCartogramCells.length}
       data-feature-count={nationalDistricts.length}
       data-loaded-provinces={staticState.entries.length}

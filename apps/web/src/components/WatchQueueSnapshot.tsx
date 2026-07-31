@@ -114,6 +114,18 @@ function getDominantVoteRecord(window: VoteWindowBreakdown): {
   ].reduce((dominant, item) => (item.count > dominant.count ? item : dominant));
 }
 
+function isAbsenceSignal(record: QueueRecord): boolean {
+  if (record.recordType === "행위 부재") {
+    return true;
+  }
+
+  if (!record.voteComparison) {
+    return false;
+  }
+
+  return getDominantVoteRecord(record.voteComparison.current).key === "absent";
+}
+
 function buildVoteChangeHeadline(
   previous: VoteWindowBreakdown,
   current: VoteWindowBreakdown
@@ -387,7 +399,12 @@ function VoteComparison({
         <div
           key={row.label}
           role="row"
-          className={row.summary ? "is-summary" : undefined}
+          className={[
+            row.summary ? "is-summary" : "",
+            row.label === "표결 불참" ? "is-absence-row" : ""
+          ]
+            .filter(Boolean)
+            .join(" ")}
         >
           <span role="rowheader">{row.label}</span>
           <strong role="cell">{`${formatNumber(row.previous)}건`}</strong>
@@ -531,7 +548,11 @@ export function WatchQueueSnapshot({
             <ol>
               {visibleRecords.map((record) => (
                 <li key={record.id}>
-                  <article className={`watch-queue-record is-${record.tone}`}>
+                  <article
+                    className={`watch-queue-record is-${record.tone}${
+                      isAbsenceSignal(record) ? " is-absence-record" : ""
+                    }`}
+                  >
                     <header>
                       <span>
                         <QueueStateIcon tone={record.tone} />
@@ -664,11 +685,11 @@ export function WatchQueueSnapshot({
             </dl>
           </section>
           <section className="watch-queue-briefing__account">
-            <p>공식 후원 정보</p>
-            <h3>후원회·계좌 확인</h3>
+            <p>공식 후원 링크</p>
+            <h3>공식 후원 경로</h3>
             <span>
-              검증된 계좌만 의원 상세에서 복사할 수 있습니다. 송금 전 공식
-              출처를 다시 확인하세요.
+              의원별 후원회와 온라인 후원 방법은 중앙선관위의 공식 링크에서
+              확인합니다. 계좌 정보는 이 서비스에서 직접 제공하지 않습니다.
             </span>
             <a href={donationCenterUrl} target="_blank" rel="noreferrer">
               중앙선관위 후원회 찾기
