@@ -309,10 +309,12 @@ describe("generateMemberSharePages", () => {
       }
     );
     const svg = renderMemberCardSvg(memberModel);
-    expect(svg).toContain("기록표결 40건 중 불참 5건");
+    expect(svg).toContain("기록표결 40건 중 35건 참여");
     expect(svg).toContain("대표발의 12건 · 처리결과 확인 7건");
-    expect(svg).toContain(">불참</text>");
-    expect(svg).toContain(">5건</text>");
+    expect(svg).toContain(">표결 참여율</text>");
+    expect(svg).toContain(">87.5%</text>");
+    expect(svg).toContain(">35 / 40건</text>");
+    expect(svg).not.toContain(">불참</text>");
     expect(svg).not.toContain("공식 후원계좌");
     expect(svg).not.toContain("301-0000-0000-00");
     expect(svg).not.toContain("국회의원 김아라 후원회");
@@ -326,7 +328,7 @@ describe("generateMemberSharePages", () => {
     expect(cardsManifest).toMatchObject({
       snapshotId: "snapshot-123",
       cardVersion: expect.stringMatching(/^[a-f0-9]{16}$/),
-      cardRendererVersion: "member-share-card-v5-grey-newsprint",
+      cardRendererVersion: "member-share-card-v6-vote-participation-rate",
       count: 1
     });
   });

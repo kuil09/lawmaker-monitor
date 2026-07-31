@@ -24,7 +24,7 @@ const DEFAULT_CARD_FONT_FILES = [
   )
 );
 const CARD_GENERATION_CONCURRENCY = 2;
-const CARD_RENDERER_VERSION = "member-share-card-v5-grey-newsprint";
+const CARD_RENDERER_VERSION = "member-share-card-v6-vote-participation-rate";
 const MEMBER_CARD_PALETTE = Object.freeze({
   paper: "#e7e7e1",
   paperDeep: "#c9cac4",
@@ -79,6 +79,27 @@ function serializeScriptValue(value) {
 
 function formatInteger(value) {
   return new Intl.NumberFormat("ko-KR").format(value);
+}
+
+function formatRatePercent(value) {
+  return `${new Intl.NumberFormat("ko-KR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  }).format(value * 100)}%`;
+}
+
+function getVoteParticipation(accountability) {
+  const totalCount = accountability.totalRecordedVotes;
+  const participatedCount = Math.max(
+    0,
+    totalCount - accountability.absentCount
+  );
+
+  return {
+    totalCount,
+    participatedCount,
+    rate: totalCount > 0 ? participatedCount / totalCount : null
+  };
 }
 
 function formatAssetEok(value) {
@@ -518,10 +539,13 @@ function buildEvidenceFacts(member) {
   const facts = [];
 
   if (member.accountability) {
+    const participation = getVoteParticipation(member.accountability);
     facts.push(
-      `기록표결 ${formatInteger(
-        member.accountability.totalRecordedVotes
-      )}건 중 불참 ${formatInteger(member.accountability.absentCount)}건`
+      participation.rate === null
+        ? "공개 기록표결 자료 없음"
+        : `기록표결 ${formatInteger(
+            participation.totalCount
+          )}건 중 ${formatInteger(participation.participatedCount)}건 참여`
     );
   } else if (member.activity?.voteRecordCount !== undefined) {
     facts.push(
@@ -566,13 +590,20 @@ function buildPerformanceHighlights(member) {
   const highlights = [];
 
   if (member.accountability) {
+    const participation = getVoteParticipation(member.accountability);
     highlights.push({
-      label: "불참",
-      value: `${formatInteger(member.accountability.absentCount)}건`,
+      label: "표결 참여율",
+      value:
+        participation.rate === null
+          ? "자료 없음"
+          : formatRatePercent(participation.rate),
       contextLabel: "기록표결",
-      contextValue: `${formatInteger(
-        member.accountability.totalRecordedVotes
-      )}건`
+      contextValue:
+        participation.rate === null
+          ? "자료 없음"
+          : `${formatInteger(participation.participatedCount)} / ${formatInteger(
+              participation.totalCount
+            )}건`
     });
   } else if (member.activity?.voteRecordCount !== undefined) {
     highlights.push({
