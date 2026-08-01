@@ -518,6 +518,50 @@ describe("member share portraits", () => {
     expect(imageAttempts).toBe(3);
   });
 
+  it("caps an excessive Retry-After before retrying a portrait request", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const fetchImpl = vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(null, {
+            status: 429,
+            headers: { "Retry-After": "3600" }
+          })
+        )
+        .mockResolvedValueOnce(
+          new Response(onePixelPng, {
+            status: 200,
+            headers: { "Content-Type": "image/png" }
+          })
+        );
+
+      const portraitPromise = resolveMemberPortraitDataUrl({
+        member: {
+          memberId: "M001",
+          name: "김아라",
+          photoUrl: "https://images.example.test/M001.jpg"
+        },
+        assemblyNo: 22,
+        fetchImpl,
+        warnings: [],
+        timeoutMs: 1_000
+      });
+
+      await vi.advanceTimersByTimeAsync(1_999);
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(1);
+      await expect(portraitPromise).resolves.toBe(
+        `data:image/png;base64,${onePixelPng.toString("base64")}`
+      );
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("refuses to render a card without a verified portrait", () => {
     expect(() =>
       renderMemberCardSvg({

@@ -40,6 +40,7 @@ const STATEMENT_FETCH_CONCURRENCY = 16;
 const SAFE_MEMBER_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 const PORTRAIT_FETCH_ATTEMPTS = 3;
 const PORTRAIT_RETRY_BASE_DELAY_MS = 250;
+const PORTRAIT_RETRY_MAX_DELAY_MS = 2_000;
 const ASSEMBLY_ORIGIN = "https://www.assembly.go.kr";
 const ASSEMBLY_PORTRAIT_PREFIX = "/static/portal/img/openassm/new/";
 const ASSEMBLY_PORTRAIT_THUMB_PREFIX = `${ASSEMBLY_PORTRAIT_PREFIX}thumb/`;
@@ -213,6 +214,13 @@ function readRetryAfterMs(response) {
   return Number.isNaN(retryAt) ? null : Math.max(0, retryAt - Date.now());
 }
 
+function getPortraitRetryDelayMs(response, attempt) {
+  return Math.min(
+    readRetryAfterMs(response) ?? PORTRAIT_RETRY_BASE_DELAY_MS * 2 ** attempt,
+    PORTRAIT_RETRY_MAX_DELAY_MS
+  );
+}
+
 async function waitForRetry(delayMs) {
   await new Promise((resolvePromise) => setTimeout(resolvePromise, delayMs));
 }
@@ -234,10 +242,7 @@ async function fetchPortraitResource(fetchImpl, url, headers, timeoutMs) {
       }
 
       lastError = new Error(`returned ${response.status}`);
-      await waitForRetry(
-        readRetryAfterMs(response) ??
-          PORTRAIT_RETRY_BASE_DELAY_MS * 2 ** attempt
-      );
+      await waitForRetry(getPortraitRetryDelayMs(response, attempt));
     } catch (error) {
       lastError = error;
       if (attempt === PORTRAIT_FETCH_ATTEMPTS - 1) {
