@@ -24,8 +24,6 @@ describe("entry URL normalization", () => {
       buildEntryUrlWithoutUiParameter(
         "https://kuil09.github.io/lawmaker-monitor/?ui=v1&deploy=abc123#map?province=%EC%84%9C%EC%9A%B8"
       )
-    ).toBe(
-      "/lawmaker-monitor/?deploy=abc123#map?province=%EC%84%9C%EC%9A%B8"
-    );
+    ).toBe("/lawmaker-monitor/?deploy=abc123#map?province=%EC%84%9C%EC%9A%B8");
   });
 });

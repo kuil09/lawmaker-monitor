@@ -725,9 +725,7 @@ function parseSelectedCandidateIndices(
     throw new Error("The local model did not return sentence indices.");
   }
 
-  const parsed = JSON.parse(serialized) as
-    | { indices?: unknown }
-    | unknown[];
+  const parsed = JSON.parse(serialized) as { indices?: unknown } | unknown[];
   const rawIndices = Array.isArray(parsed) ? parsed : parsed.indices;
   if (!Array.isArray(rawIndices)) {
     throw new Error("The local model returned an invalid index payload.");

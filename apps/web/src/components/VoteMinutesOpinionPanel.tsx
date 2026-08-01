@@ -81,9 +81,7 @@ export function VoteMinutesOpinionPanel({
             <QuotesIcon size={17} weight="fill" aria-hidden="true" />
             공식 회의록 대조
           </p>
-          <h4 id={`vote-opinion-title-${vote.rollCallId}`}>
-            선택별 확인 발언
-          </h4>
+          <h4 id={`vote-opinion-title-${vote.rollCallId}`}>선택별 확인 발언</h4>
         </div>
         {opinion ? (
           <p className="vote-opinion-panel__coverage">

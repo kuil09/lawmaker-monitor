@@ -625,15 +625,13 @@ describe("minutes transcript summarization", () => {
           agendaTitle: "테스트 안건",
           billIds: [],
           speakerRole: "위원",
-          text:
-            "현황을 보고받았습니다. 제도 개선이 필요합니다. 예산도 검토해야 합니다. 다음 회의에서 다시 확인하겠습니다.",
+          text: "현황을 보고받았습니다. 제도 개선이 필요합니다. 예산도 검토해야 합니다. 다음 회의에서 다시 확인하겠습니다.",
           statementIds: ["statement-1"],
           sourceUrl:
             "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=1&type=view",
           sourceFragment: "#statement-1"
         },
-        text:
-          "현황을 보고받았습니다. 제도 개선이 필요합니다. 예산도 검토해야 합니다. 다음 회의에서 다시 확인하겠습니다."
+        text: "현황을 보고받았습니다. 제도 개선이 필요합니다. 예산도 검토해야 합니다. 다음 회의에서 다시 확인하겠습니다."
       })
     ).resolves.toBe("제도 개선이 필요합니다.");
 
