@@ -39,18 +39,33 @@ describe("Google Analytics integration", () => {
     expect(normalizeGaMeasurementId("")).toBeNull();
   });
 
-  it("groups traffic by public route without sending member identifiers", () => {
+  it("groups traffic by public route and preserves public member identifiers", () => {
     const page = buildAnalyticsPage(
-      "https://example.test/lawmaker-monitor/?ui=v2&deploy=abc&utm_source=social#calendar?member=SECRET",
+      "https://example.test/lawmaker-monitor/?ui=v2&deploy=abc&utm_source=social#calendar?member=M001&compare=M002&view=compare&note=SECRET",
       "국회 출석부"
     );
 
     expect(page).toEqual({
       location:
-        "https://example.test/lawmaker-monitor/?utm_source=social#calendar",
-      path: "/lawmaker-monitor/?utm_source=social#calendar",
+        "https://example.test/lawmaker-monitor/?utm_source=social#calendar?member=M001&compare=M002",
+      path: "/lawmaker-monitor/?utm_source=social#calendar?member=M001&compare=M002",
       title: "의원 활동 · 국회 출석부"
     });
+  });
+
+  it("preserves public district and province identifiers on map routes", () => {
+    expect(
+      buildAnalyticsPage(
+        "https://example.test/lawmaker-monitor/#map?district=%EC%84%9C%EC%9A%B8%EC%A4%91%EA%B5%AC&metric=negative"
+      ).path
+    ).toBe(
+      "/lawmaker-monitor/#map?district=%EC%84%9C%EC%9A%B8%EC%A4%91%EA%B5%AC"
+    );
+    expect(
+      buildAnalyticsPage(
+        "https://example.test/lawmaker-monitor/#map?province=%EB%B6%80%EC%82%B0&metric=assetTotal"
+      ).path
+    ).toBe("/lawmaker-monitor/#map?province=%EB%B6%80%EC%82%B0");
   });
 
   it("loads gtag with denied storage and records distinct hash routes", () => {
@@ -83,7 +98,7 @@ describe("Google Analytics integration", () => {
     ]);
     expect(getPageViewEvents()).toHaveLength(1);
     expect(getPageViewEvents()[0]?.[2]).toMatchObject({
-      page_path: "/lawmaker-monitor/#calendar",
+      page_path: "/lawmaker-monitor/#calendar?member=M001",
       page_title: "의원 활동 · 국회 출석부"
     });
 
@@ -94,7 +109,8 @@ describe("Google Analytics integration", () => {
     expect(getPageViewEvents()).toHaveLength(2);
     expect(getPageViewEvents()[1]?.[2]).toMatchObject({
       page_path: "/lawmaker-monitor/#votes",
-      page_referrer: "http://localhost:3000/lawmaker-monitor/#calendar",
+      page_referrer:
+        "http://localhost:3000/lawmaker-monitor/#calendar?member=M001",
       page_title: "쟁점·표결 · 국회 출석부"
     });
 
