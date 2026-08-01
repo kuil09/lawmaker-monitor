@@ -43,7 +43,6 @@ export function IssueComparisonBoard({ items }: IssueComparisonBoardProps) {
     >
       <header className="issue-comparison__head">
         <div>
-          <p>ISSUE CONTRAST · 최근 쟁점</p>
           <h2 id="issue-comparison-title">쟁점별 표결 대조</h2>
         </div>
         <p>

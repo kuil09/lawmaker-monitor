@@ -46,14 +46,22 @@ describe("evidence exploration pages", () => {
       screen.getByRole("heading", { name: "표결 기록 탐색" })
     ).toBeInTheDocument();
     expect(
+      screen.queryByRole("heading", { name: "본회의장 표결판" })
+    ).not.toBeInTheDocument();
+    expect(
       screen.getAllByRole("link", { name: "선택 표결 공식 원문" })
-    ).toHaveLength(2);
+    ).toHaveLength(1);
 
     const archiveHeading = screen.getByRole("heading", {
       name: "표결 기록 탐색"
     });
     const archive = archiveHeading.closest("section");
     expect(archive).not.toBeNull();
+    expect(
+      within(archive as HTMLElement).getByRole("heading", {
+        name: "시민투명성법안"
+      })
+    ).toBeInTheDocument();
     fireEvent.change(
       within(archive as HTMLElement).getByRole("searchbox", {
         name: "기록 검색"

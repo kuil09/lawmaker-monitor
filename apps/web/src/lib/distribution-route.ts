@@ -20,13 +20,3 @@ export function buildDistributionHash({
   const query = params.toString();
   return query ? `distribution?${query}` : "distribution";
 }
-
-export function buildDistributionHref({
-  memberId,
-  behaviorFilter
-}: {
-  memberId?: string | null;
-  behaviorFilter?: DistributionBehaviorFilter | null;
-} = {}): string {
-  return `#${buildDistributionHash({ memberId, behaviorFilter })}`;
-}

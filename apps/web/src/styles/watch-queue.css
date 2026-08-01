@@ -388,10 +388,7 @@ body:has(.watch-queue-shell) {
   :where(
     .v2-observatory__eyebrow,
     .v2-card-kicker,
-    .v3-kicker,
-    .hexmap-page__eyebrow,
     .distribution-chart__eyebrow,
-    .distribution-map__eyebrow,
     .ledger-evidence-panel__heading p
   ) {
   color: var(--wq-accent);
@@ -437,7 +434,6 @@ body:has(.watch-queue-shell) {
     .activity-compare__summary-card,
     .distribution-chart,
     .distribution-focus,
-    .distribution-map,
     .distribution-signal-card,
     .ledger-primary,
     .ledger-evidence-panel,
@@ -467,7 +463,6 @@ body:has(.watch-queue-shell) {
     .activity-drawer__section-head,
     .activity-ratio-card__header,
     .distribution-chart__header,
-    .distribution-map__header,
     .ledger-primary__header,
     .ledger-evidence-panel__heading
   ) {
@@ -482,7 +477,6 @@ body:has(.watch-queue-shell) {
     .v3-section-heading h2,
     .activity-page__panel h2,
     .distribution-chart__header h2,
-    .distribution-map__header h2,
     .hexmap-section__heading h2,
     .ledger-primary__header h2
   ) {
@@ -584,9 +578,7 @@ body:has(.watch-queue-shell) {
     .hexmap-metric-tab--active,
     .hexmap-region-list button.is-active,
     .ledger-metric-tabs button.is-active,
-    .ledger-region-tabs button.is-active,
-    .distribution-map__metric-button.is-active,
-    .distribution-map__province-button.is-active
+    .ledger-region-tabs button.is-active
   ) {
   border-color: var(--wq-accent);
   background: var(--wq-accent-highlight);
@@ -620,7 +612,6 @@ body:has(.watch-queue-shell) {
     .v3-chart,
     .v2-chart-frame,
     .distribution-chart__surface,
-    .distribution-map__surface,
     .ledger-district-board
   ) {
   border-color: var(--wq-rule);
@@ -665,7 +656,7 @@ body:has(.watch-queue-shell) {
 }
 
 .v2-app.v3-shell.watch-queue-shell
-  :where(.v2-map-panel, .v2-national-map__canvas, .distribution-map__surface) {
+  :where(.v2-map-panel, .v2-national-map__canvas) {
   border-color: var(--wq-rule);
   border-radius: 1px;
   background: #e8e1d4;
@@ -676,12 +667,7 @@ body:has(.watch-queue-shell) {
 }
 
 .v2-app.v3-shell.watch-queue-shell
-  :where(
-    .v2-map-legend,
-    .ledger-severity-legend,
-    .distribution-chart__legend,
-    .distribution-map__legend
-  ) {
+  :where(.v2-map-legend, .ledger-severity-legend, .distribution-chart__legend) {
   border-color: var(--wq-rule);
   border-radius: 1px;
   background: #fffaf3;
@@ -825,8 +811,6 @@ body:has(.watch-queue-shell) {
     .distribution-chart__legend-button,
     .distribution-party-list,
     .distribution-focus__metric,
-    .distribution-map__metric-button,
-    .distribution-map__province-button,
     .distribution-signal-list__button
   ) {
   border-color: var(--wq-rule);
@@ -1094,7 +1078,6 @@ body:has(.watch-queue-shell) {
       .activity-page__panel,
       .distribution-chart,
       .distribution-focus,
-      .distribution-map,
       .ledger-primary,
       .ledger-evidence-panel
     ) {

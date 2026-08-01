@@ -17,6 +17,7 @@ import "./styles/hexmap.css";
 import "./styles/bill-activity.css";
 import "./styles/minutes-summary.css";
 import "./styles/watch-queue.css";
+import "./styles/member-evaluation.css";
 
 removeLegacyUiParameter();
 initializeGoogleAnalytics({

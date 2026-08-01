@@ -67,7 +67,7 @@ describe("member photo optimization", () => {
     );
   });
 
-  it("shows party and constituency as one affiliation line", () => {
+  it("shows party and the verified region state as one affiliation line", () => {
     const { getByText, rerender } = render(
       <MemberIdentity name="김아라" party="진보당" district="울산 북구" />
     );
@@ -78,6 +78,8 @@ describe("member photo optimization", () => {
       <MemberIdentity name="이서진" party="더불어민주당" district={null} />
     );
 
-    expect(getByText("더불어민주당 · 비례대표")).toBeInTheDocument();
+    expect(
+      getByText("더불어민주당 · 지역 정보 미확인")
+    ).toBeInTheDocument();
   });
 });

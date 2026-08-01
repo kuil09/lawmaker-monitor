@@ -1,10 +1,8 @@
 import { BuildingsIcon } from "@phosphor-icons/react/dist/csr/Buildings";
 import { GlobeSimpleIcon } from "@phosphor-icons/react/dist/csr/GlobeSimple";
-import { HouseIcon } from "@phosphor-icons/react/dist/csr/House";
 import { MinusIcon } from "@phosphor-icons/react/dist/csr/Minus";
 import { MountainsIcon } from "@phosphor-icons/react/dist/csr/Mountains";
 import { QuestionIcon } from "@phosphor-icons/react/dist/csr/Question";
-import { ShareNetworkIcon } from "@phosphor-icons/react/dist/csr/ShareNetwork";
 import { TrendDownIcon } from "@phosphor-icons/react/dist/csr/TrendDown";
 import { TrendUpIcon } from "@phosphor-icons/react/dist/csr/TrendUp";
 import {
@@ -32,8 +30,8 @@ import {
 } from "recharts";
 
 import { MemberDetailLink } from "./MemberDetailLink.js";
+import { MemberEvaluationDossier } from "./MemberEvaluationDossier.js";
 import { MemberIdentity } from "./MemberIdentity.js";
-import { MemberPerformanceShareCard } from "./MemberPerformanceShareCard.js";
 import { MemberSearchField } from "./MemberSearchField.js";
 import { MemberSponsorshipAccount } from "./MemberSponsorshipAccount.js";
 import { MemberStatementSummarySection } from "./MemberStatementSummarySection.js";
@@ -64,9 +62,7 @@ import {
   buildCalendarWeeks,
   buildHeadToHeadSummary,
   buildMonthLabels,
-  getCurrentStreak,
   getMemberDayBreakdown,
-  getLongestStreak,
   rankActivityMembers,
   type CalendarCell
 } from "../lib/member-activity.js";
@@ -82,6 +78,9 @@ import {
 import { buildMemberShareData } from "../lib/member-share.js";
 
 import type {
+  AccountabilitySummaryExport,
+  AccountabilityTrendsExport,
+  BillProposalActivityExport,
   MemberActivityCalendarAssembly,
   MemberActivityCalendarExport,
   MemberActivityCalendarMember,
@@ -97,10 +96,14 @@ type ActivityCalendarPageProps = {
   activityCalendar: MemberActivityCalendarExport | null;
   loading: boolean;
   error: string | null;
-  assemblyLabel?: string | null;
   initialMemberId?: string | null;
   initialCompareMemberId?: string | null;
   initialView?: ActivityViewMode;
+  accountabilitySummary?: AccountabilitySummaryExport | null;
+  accountabilityTrends?: AccountabilityTrendsExport | null;
+  billProposalActivity?: BillProposalActivityExport | null;
+  billProposalActivityLoaded?: boolean;
+  billProposalActivityError?: string | null;
   memberDetails: Record<
     string,
     MemberActivityCalendarMemberDetailExport | undefined
@@ -120,7 +123,6 @@ type ActivityCalendarPageProps = {
     member: MemberActivityCalendarMember
   ) => void | Promise<void>;
   onRetryMemberAssetHistory: (member: MemberActivityCalendarMember) => void;
-  onBack: () => void;
   onRetry: () => void;
 };
 
@@ -132,7 +134,7 @@ const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
 const currentRunLabel = "현재 찬성 없이 이어진 날";
 const longestRunLabel = "가장 길게 찬성 없이 이어진 날";
 const runSummaryCopy =
-  "이 화면은 표결이 있었던 날짜를 하루 단위로 묶어 보여줍니다. 같은 날 표결이 여러 건이면 그날의 대표 상태만 색으로 표시하고, 지금·최장 지표는 찬성이 나오기 전까지 이어진 날짜 수를 뜻합니다.";
+  "참여율은 의원 재임 기간에 공개된 기록표결을 기준으로 계산합니다. 찬성·반대·기권은 참여로, 불참은 별도로 표시합니다. 정당 비교는 공식 당론이 아니라 같은 정당 참여 의원 다수와의 차이입니다.";
 
 function describeDebtRatioStatus(status: DebtRatioStatus): string {
   switch (status) {
@@ -2441,10 +2443,14 @@ export function ActivityCalendarPage({
   activityCalendar,
   loading,
   error,
-  assemblyLabel,
   initialMemberId,
   initialCompareMemberId,
   initialView = "single",
+  accountabilitySummary = null,
+  accountabilityTrends = null,
+  billProposalActivity = null,
+  billProposalActivityLoaded = false,
+  billProposalActivityError = null,
   memberDetails,
   memberDetailErrors,
   memberDetailLoading,
@@ -2457,7 +2463,6 @@ export function ActivityCalendarPage({
   onRetryMemberDetail,
   onEnsureMemberAssetHistory,
   onRetryMemberAssetHistory,
-  onBack,
   onRetry
 }: ActivityCalendarPageProps) {
   const [activeView, setActiveView] = useState<ActivityViewMode>(initialView);
@@ -2488,29 +2493,43 @@ export function ActivityCalendarPage({
   const compareCandidates = rankedMembers.filter(
     (member) => member.memberId !== selectedMemberId
   );
-  const districtByMemberId = useMemo(
-    () =>
-      new Map(
-        (memberAssetsIndex?.members ?? []).map((member) => [
-          member.memberId,
-          member.district
-        ])
-      ),
-    [memberAssetsIndex]
-  );
-  const memberOptions = rankedMembers.map((member) => ({
-    id: member.memberId,
-    label: `${member.name} · ${formatMemberAffiliation(
-      member.party,
-      districtByMemberId.get(member.memberId)
-    )}`
-  }));
+  const districtByMemberId = useMemo(() => {
+    const districts = new Map<string, string>();
+
+    for (const member of memberAssetsIndex?.members ?? []) {
+      const district = member.district?.trim();
+      if (district) {
+        districts.set(member.memberId, district);
+      }
+    }
+
+    for (const member of billProposalActivity?.items ?? []) {
+      const district = member.district?.trim();
+      if (district) {
+        districts.set(member.memberId, district);
+      }
+    }
+
+    for (const member of accountabilitySummary?.items ?? []) {
+      const district = member.district?.trim();
+      if (district) {
+        districts.set(member.memberId, district);
+      }
+    }
+
+    return districts;
+  }, [accountabilitySummary, billProposalActivity, memberAssetsIndex]);
+  const formatMemberOptionLabel = (member: MemberActivityCalendarMember) => {
+    const district = districtByMemberId.get(member.memberId);
+    const affiliation = district
+      ? formatMemberAffiliation(member.party, district)
+      : `${member.party} · 지역 정보 미확인`;
+
+    return `${member.name} · ${affiliation}`;
+  };
   const compareOptions = compareCandidates.map((member) => ({
     id: member.memberId,
-    label: `${member.name} · ${formatMemberAffiliation(
-      member.party,
-      districtByMemberId.get(member.memberId)
-    )}`
+    label: formatMemberOptionLabel(member)
   }));
 
   useEffect(() => {
@@ -2595,6 +2614,24 @@ export function ActivityCalendarPage({
   }, [initialMemberId, rankedMembers, selectedAssembly]);
 
   const selectedMember = getMemberById(selectedAssembly, selectedMemberId);
+  const selectedAccountabilityItem = selectedMember
+    ? (accountabilitySummary?.items.find(
+        (entry) => entry.memberId === selectedMember.memberId
+      ) ?? null)
+    : null;
+  const selectedAccountabilityMover = selectedMember
+    ? (accountabilityTrends?.movers.find(
+        (entry) => entry.memberId === selectedMember.memberId
+      ) ?? null)
+    : null;
+  const selectedBillProposalActivity = selectedMember
+    ? (billProposalActivity?.items.find(
+        (entry) => entry.memberId === selectedMember.memberId
+      ) ?? null)
+    : null;
+  const selectedDistrict = selectedMember
+    ? districtByMemberId.get(selectedMember.memberId)
+    : undefined;
   const selectedMemberDetail = selectedMember
     ? (memberDetails[selectedMember.memberId] ?? null)
     : null;
@@ -2634,6 +2671,9 @@ export function ActivityCalendarPage({
     );
   }, [selectedMember, sponsorshipAccounts]);
   const compareMember = getMemberById(selectedAssembly, compareMemberId);
+  const compareDistrict = compareMember
+    ? districtByMemberId.get(compareMember.memberId)
+    : undefined;
   const compareMemberAssetIndex = compareMember
     ? (memberAssetsIndex?.members.find(
         (entry) => entry.memberId === compareMember.memberId
@@ -2650,12 +2690,7 @@ export function ActivityCalendarPage({
     : false;
   const comparisonSummary =
     selectedAssembly && selectedMember && compareMember
-      ? buildHeadToHeadSummary(
-          selectedAssembly,
-          selectedMember,
-          compareMember,
-          true
-        )
+      ? buildHeadToHeadSummary(selectedMember, compareMember, true)
       : null;
   const selectedBreakdown = selectedMember
     ? getMemberDayBreakdown(selectedMember)
@@ -2842,7 +2877,7 @@ export function ActivityCalendarPage({
       memberId: selectedMember.memberId,
       name: selectedMember.name,
       party: selectedMember.party,
-      district: selectedMemberAssetIndex?.district
+      district: selectedDistrict
     });
     const shareUrl = shareData.url;
     if (!shareUrl) {
@@ -2864,7 +2899,7 @@ export function ActivityCalendarPage({
 
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(shareUrl);
-        setShareNotice("의원 실적 카드 링크를 복사했습니다.");
+        setShareNotice("의원 공개기록 링크를 복사했습니다.");
         return;
       }
     } catch (error) {
@@ -2880,101 +2915,65 @@ export function ActivityCalendarPage({
 
   return (
     <section className="activity-page" aria-labelledby="activity-page-title">
-      <header className="activity-page__masthead">
-        <div>
-          <p className="section-label">활동 캘린더</p>
-          <h1 id="activity-page-title">의원 표결 활동 그래프</h1>
-          <p className="activity-page__copy">
-            {`${assemblyLabel ?? selectedAssembly?.label ?? "최신 국회"} 기준 개인 보기와 VS 비교`}
-          </p>
-        </div>
-        <div className="activity-page__actions">
-          <button
-            type="button"
-            className="activity-page__action-button activity-page__back"
-            onClick={onBack}
-            aria-label="홈으로"
-            title="홈으로"
-          >
-            <HouseIcon aria-hidden="true" size={19} weight="regular" />
-          </button>
-        </div>
-      </header>
-
+      <h1 id="activity-page-title" className="sr-only">
+        의원 공개기록
+      </h1>
       <section className="activity-page__panel">
-        <header className="activity-drawer__header">
-          <div>
-            <h2>{`${assemblyLabel ?? selectedAssembly?.label ?? "최신 국회"} 기준`}</h2>
+        <div className="activity-page__modebar">
+          <div
+            className="activity-drawer__tabs"
+            role="tablist"
+            aria-label="의원 기록 보기"
+          >
+            <button
+              type="button"
+              role="tab"
+              id="activity-single-tab"
+              aria-controls="activity-analysis-panel"
+              aria-selected={activeView === "single"}
+              className={
+                activeView === "single"
+                  ? "activity-drawer__tab is-active"
+                  : "activity-drawer__tab"
+              }
+              onClick={() => setActiveView("single")}
+            >
+              공개기록
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id="activity-compare-tab"
+              aria-controls="activity-analysis-panel"
+              aria-selected={activeView === "compare"}
+              className={
+                activeView === "compare"
+                  ? "activity-drawer__tab is-active"
+                  : "activity-drawer__tab"
+              }
+              onClick={() => setActiveView("compare")}
+            >
+              두 의원 비교
+            </button>
           </div>
           <button
             type="button"
             className="activity-page__help-button"
-            aria-label={isHelpOpen ? "설명 닫기" : "설명 보기"}
+            aria-label={
+              isHelpOpen ? "기록 기준 설명 닫기" : "기록 기준 설명 보기"
+            }
             aria-expanded={isHelpOpen}
             onClick={() => setIsHelpOpen((current) => !current)}
           >
             <QuestionIcon aria-hidden="true" size={19} weight="bold" />
           </button>
-        </header>
+        </div>
 
         {isHelpOpen ? (
           <p className="activity-page__panel-copy activity-page__panel-copy--help">
             {runSummaryCopy}
           </p>
         ) : null}
-
-        <div
-          className="activity-drawer__tabs"
-          role="tablist"
-          aria-label="활동 분석 보기"
-        >
-          <button
-            type="button"
-            role="tab"
-            id="activity-single-tab"
-            aria-controls="activity-analysis-panel"
-            aria-selected={activeView === "single"}
-            className={
-              activeView === "single"
-                ? "activity-drawer__tab is-active"
-                : "activity-drawer__tab"
-            }
-            onClick={() => setActiveView("single")}
-          >
-            개인 분석
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id="activity-compare-tab"
-            aria-controls="activity-analysis-panel"
-            aria-selected={activeView === "compare"}
-            className={
-              activeView === "compare"
-                ? "activity-drawer__tab is-active"
-                : "activity-drawer__tab"
-            }
-            onClick={() => setActiveView("compare")}
-          >
-            VS 비교
-          </button>
-        </div>
-
-        <div className="activity-drawer__toolbar">
-          <MemberSearchField
-            label="기준 의원 찾기"
-            options={memberOptions}
-            selectedId={selectedMemberId}
-            onSelect={setSelectedMemberId}
-            placeholder="다른 의원 이름 또는 정당을 입력하세요"
-            className="activity-drawer__field activity-drawer__field--wide"
-            disabled={memberOptions.length === 0}
-          />
-        </div>
-        <p className="activity-drawer__toolbar-hint">
-          입력값을 지우고 다른 이름이나 정당을 입력하면 기준 의원을 바꿀 수
-          있습니다.
-        </p>
 
         {shareError ? <p className="error-banner">{shareError}</p> : null}
         {shareNotice ? <p className="info-banner">{shareNotice}</p> : null}
@@ -3012,143 +3011,50 @@ export function ActivityCalendarPage({
                   : "activity-compare-tab"
               }
             >
-              {activeView === "single" &&
-              selectedMember &&
-              selectedBreakdown ? (
+              {activeView === "single" && selectedMember ? (
                 <>
-                  <div className="activity-drawer__member-header">
-                    <div className="activity-drawer__member-primary">
-                      <div className="activity-drawer__identity-row">
-                        <MemberIdentity
-                          name={selectedMember.name}
-                          party={selectedMember.party}
-                          district={selectedMemberAssetIndex?.district}
-                          photoUrl={selectedMember.photoUrl}
-                          calendarHref={buildCalendarHref({
-                            memberId: selectedMember.memberId
-                          })}
-                          size="large"
-                          avatarVariant="activity-card"
-                        />
-                        <div className="activity-page__member-actions">
-                          <ExternalSiteLink
-                            url={selectedMember.officialExternalUrl}
-                          />
-                          <button
-                            type="button"
-                            className="activity-page__action-button activity-page__share"
-                            onClick={handleShare}
-                            disabled={
-                              isSharing || !selectedAssembly || !selectedMember
-                            }
-                            aria-label={isSharing ? "링크 준비 중" : "공유하기"}
-                            title={isSharing ? "링크 준비 중" : "공유하기"}
-                          >
-                            <ShareNetworkIcon
-                              aria-hidden="true"
-                              size={19}
-                              weight="regular"
-                            />
-                            <span>
-                              {isSharing ? "링크 준비 중" : "공유하기"}
-                            </span>
-                          </button>
-                        </div>
-                      </div>
-                      <p className="activity-drawer__member-copy">
-                        {`반대 ${formatNumber(selectedBreakdown.noDays)}일 · 기권 ${formatNumber(selectedBreakdown.abstainDays)}일 · 불참 ${formatNumber(selectedBreakdown.absentDays)}일`}
-                      </p>
-                      <div className="activity-drawer__member-context">
-                        <div className="activity-drawer__committee-memberships">
-                          <strong>현재 소속 위원회</strong>
-                          {selectedMember.committeeMemberships?.length ? (
-                            <div className="activity-drawer__committee-chips">
-                              {selectedMember.committeeMemberships.map(
-                                (committeeName) => (
-                                  <span
-                                    key={`${selectedMember.memberId}:${committeeName}`}
-                                    className="activity-drawer__committee-chip"
-                                  >
-                                    {committeeName}
-                                  </span>
-                                )
-                              )}
-                            </div>
-                          ) : (
-                            <p className="activity-drawer__committee-fallback">
-                              위원회 소속 미확인
-                            </p>
-                          )}
-                        </div>
-                        {selectedMember.homeCommitteeAlerts?.length ? (
-                          <div
-                            className="activity-drawer__committee-alerts"
-                            aria-label="소속 위원회 주의"
-                          >
-                            {selectedMember.homeCommitteeAlerts.map((alert) => (
-                              <div
-                                key={`${selectedMember.memberId}:${alert.committeeName}`}
-                                className="activity-drawer__committee-alert"
-                              >
-                                <strong>{alert.message}</strong>
-                                <p>
-                                  {`${alert.committeeName} 참여율 ${formatNumber(
-                                    Math.round(alert.participationRate * 100)
-                                  )}% (참여 ${formatNumber(alert.participatedRollCallCount)} / 대상 ${formatNumber(
-                                    alert.eligibleRollCallCount
-                                  )})`}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                    <dl className="activity-drawer__summary">
-                      <div>
-                        <dt>{currentRunLabel}</dt>
-                        <dd>
-                          {formatNumber(getCurrentStreak(selectedMember, true))}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>{longestRunLabel}</dt>
-                        <dd>
-                          {formatNumber(getLongestStreak(selectedMember, true))}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>반대한 날</dt>
-                        <dd>{formatNumber(selectedBreakdown.noDays)}</dd>
-                      </div>
-                      <div className="activity-drawer__summary-item--absence">
-                        <dt>불참한 날</dt>
-                        <dd>{formatNumber(selectedBreakdown.absentDays)}</dd>
-                      </div>
-                    </dl>
-                  </div>
-                  <div className="activity-drawer__accountability-tools">
-                    <MemberSponsorshipAccount
-                      account={selectedSponsorshipAccount}
-                      memberName={selectedMember.name}
-                      loading={sponsorshipAccounts === undefined}
-                      error={sponsorshipAccountsError}
-                      onRetry={() =>
-                        setSponsorshipAccountsLoadAttempt(
-                          (current) => current + 1
-                        )
-                      }
-                    />
-                    <MemberPerformanceShareCard
-                      member={{
-                        memberId: selectedMember.memberId,
-                        name: selectedMember.name,
-                        party: selectedMember.party,
-                        district: selectedMemberAssetIndex?.district
-                      }}
-                    />
-                  </div>
+                  <MemberEvaluationDossier
+                    assembly={selectedAssembly}
+                    member={selectedMember}
+                    accountabilityItem={selectedAccountabilityItem}
+                    accountabilityMover={selectedAccountabilityMover}
+                    accountabilityTrends={accountabilityTrends}
+                    billItem={selectedBillProposalActivity}
+                    billOutcomeDataAvailable={Boolean(
+                      billProposalActivity?.outcomeDataAvailable
+                    )}
+                    billDataLoaded={billProposalActivityLoaded}
+                    billDataError={billProposalActivityError}
+                    assetIndex={selectedMemberAssetIndex}
+                    assetHistory={selectedMemberAssetHistory}
+                    assetHistoryLoading={selectedMemberAssetHistoryLoading}
+                    assetHistoryError={selectedMemberAssetHistoryError}
+                    voteRecords={
+                      selectedMemberDetail?.voteRecords ??
+                      selectedMember.voteRecords ??
+                      []
+                    }
+                    voteRecordCount={selectedMember.voteRecordCount}
+                    voteRecordsLoading={selectedMemberDetailLoading}
+                    voteRecordsError={selectedMemberDetailError}
+                    resolvedDistrict={selectedDistrict}
+                    officialUrl={
+                      selectedMember.officialExternalUrl ??
+                      selectedMember.officialProfileUrl
+                    }
+                    onShare={() => void handleShare()}
+                    shareState={
+                      isSharing
+                        ? "working"
+                        : shareError
+                          ? "error"
+                          : shareNotice
+                            ? "done"
+                            : "idle"
+                    }
+                  />
                   <section
+                    id="member-calendar"
                     className="activity-drawer__calendar-card"
                     aria-label="활동 캘린더 요약"
                   >
@@ -3168,37 +3074,54 @@ export function ActivityCalendarPage({
                     />
                   </section>
                   <ActivityRatioChart member={selectedMember} />
-                  <MemberAssetSection
-                    indexEntry={selectedMemberAssetIndex}
-                    indexError={memberAssetsIndexError}
-                    history={selectedMemberAssetHistory}
-                    loading={selectedMemberAssetHistoryLoading}
-                    error={selectedMemberAssetHistoryError}
-                    onRetry={
-                      selectedMember
-                        ? () => onRetryMemberAssetHistory(selectedMember)
-                        : null
-                    }
-                  />
-                  <MemberStatementSummarySection
-                    memberId={selectedMember.memberId}
-                  />
-                  <ActivityCommitteeSections member={selectedMember} />
-                  <ActivityVoteRecordSections
-                    records={
-                      selectedMemberDetail?.voteRecords ??
-                      selectedMember.voteRecords ??
-                      []
-                    }
-                    recordCount={selectedMember.voteRecordCount}
-                    loading={selectedMemberDetailLoading}
-                    error={selectedMemberDetailError}
-                    onRetry={
-                      selectedMember
-                        ? () => onRetryMemberDetail(selectedMember)
-                        : null
-                    }
-                  />
+                  <div id="member-assets">
+                    <MemberAssetSection
+                      indexEntry={selectedMemberAssetIndex}
+                      indexError={memberAssetsIndexError}
+                      history={selectedMemberAssetHistory}
+                      loading={selectedMemberAssetHistoryLoading}
+                      error={selectedMemberAssetHistoryError}
+                      onRetry={() => onRetryMemberAssetHistory(selectedMember)}
+                    />
+                  </div>
+                  <div id="member-statements">
+                    <MemberStatementSummarySection
+                      memberId={selectedMember.memberId}
+                    />
+                  </div>
+                  <div id="member-committees">
+                    <ActivityCommitteeSections member={selectedMember} />
+                  </div>
+                  <div id="member-votes">
+                    <ActivityVoteRecordSections
+                      records={
+                        selectedMemberDetail?.voteRecords ??
+                        selectedMember.voteRecords ??
+                        []
+                      }
+                      recordCount={selectedMember.voteRecordCount}
+                      loading={selectedMemberDetailLoading}
+                      error={selectedMemberDetailError}
+                      onRetry={() => onRetryMemberDetail(selectedMember)}
+                    />
+                  </div>
+                  <section
+                    id="member-support"
+                    className="activity-drawer__support-section"
+                    aria-label={`${selectedMember.name} 의원 공식 후원 경로`}
+                  >
+                    <MemberSponsorshipAccount
+                      account={selectedSponsorshipAccount}
+                      memberName={selectedMember.name}
+                      loading={sponsorshipAccounts === undefined}
+                      error={sponsorshipAccountsError}
+                      onRetry={() =>
+                        setSponsorshipAccountsLoadAttempt(
+                          (current) => current + 1
+                        )
+                      }
+                    />
+                  </section>
                 </>
               ) : null}
 
@@ -3252,7 +3175,7 @@ export function ActivityCalendarPage({
                           <MemberIdentity
                             name={selectedMember.name}
                             party={selectedMember.party}
-                            district={selectedMemberAssetIndex?.district}
+                            district={selectedDistrict}
                             photoUrl={selectedMember.photoUrl}
                             calendarHref={buildCalendarHref({
                               memberId: selectedMember.memberId
@@ -3272,7 +3195,7 @@ export function ActivityCalendarPage({
                           <MemberIdentity
                             name={compareMember.name}
                             party={compareMember.party}
-                            district={compareMemberAssetIndex?.district}
+                            district={compareDistrict}
                             photoUrl={compareMember.photoUrl}
                             calendarHref={buildCalendarHref({
                               memberId: compareMember.memberId

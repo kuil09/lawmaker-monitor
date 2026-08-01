@@ -26,7 +26,7 @@ import {
   isOfficialAssemblyMinutesViewerUrl,
   type AssemblyMinutesTranscript
 } from "../minutes-transcript.js";
-import { readJsonFile, writeJsonFile } from "../utils.js";
+import { readJsonFile, readPositiveInteger, writeJsonFile } from "../utils.js";
 import { buildVoteMinutesOpinionsExport } from "../vote-minutes-opinions.js";
 
 import type {
@@ -68,11 +68,6 @@ type SummaryState = {
   latestMirroredMeetingDate: string | null;
   latestSummarizedMeetingDate: string | null;
 };
-
-function readPositiveInteger(name: string, fallback: number): number {
-  const parsed = Number.parseInt(process.env[name] ?? "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
 
 function loadConfig(): SummaryConfig {
   const repositoryRoot = resolve(
@@ -142,10 +137,7 @@ async function mapWithConcurrency<T, R>(
   }
 
   await Promise.all(
-    Array.from(
-      { length: Math.min(concurrency, items.length) },
-      runWorker
-    )
+    Array.from({ length: Math.min(concurrency, items.length) }, runWorker)
   );
   return results;
 }

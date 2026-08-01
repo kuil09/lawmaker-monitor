@@ -676,7 +676,6 @@ export function HexmapPage({
     <main className="hexmap-page" data-active-metric={activeMetric}>
       <header className="hexmap-page__header">
         <div>
-          <p className="hexmap-page__eyebrow">REGIONAL EVIDENCE LEDGER</p>
           <div className="hexmap-page__title-row">
             <h1 className="hexmap-page__title">지역별 국회 기록 탐색</h1>
             <p>

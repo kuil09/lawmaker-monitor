@@ -1,6 +1,5 @@
 @layer feature {
   .distribution-page__masthead,
-  .distribution-map,
   .distribution-chart,
   .distribution-focus,
   .distribution-signal-card,
@@ -24,17 +23,6 @@
 .distribution-signal-grid,
 .distribution-page__headline,
 .distribution-page__search,
-.distribution-map,
-.distribution-map__eyebrow,
-.distribution-map__header,
-.distribution-map__controls,
-.distribution-map__province-picker,
-.distribution-map__province-list,
-.distribution-map__metric-list,
-.distribution-map__layout,
-.distribution-map__detail-actions,
-.distribution-map__detail-metrics,
-.distribution-map__detail-facts,
 .distribution-chart__header,
 .distribution-chart__legend,
 .distribution-focus__header,
@@ -50,7 +38,6 @@
 }
 
 .distribution-page__masthead::before,
-.distribution-map::before,
 .distribution-chart::before,
 .distribution-focus::before,
 .distribution-signal-card::before,
@@ -136,330 +123,12 @@
   grid-template-columns: minmax(0, 1.2fr) minmax(16rem, 0.9fr);
   align-items: start;
 }
-
-.distribution-map h2,
 .distribution-chart h2,
-.distribution-map__detail h3,
 .distribution-signal-card h3 {
   margin: 0.1rem 0 0;
   font-size: clamp(1.18rem, 2.1vw, 1.52rem);
   line-height: 1.18;
   word-break: keep-all;
-}
-
-.distribution-map__summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: 0.72rem;
-}
-
-.distribution-map__eyebrow {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.distribution-map__controls {
-  gap: 0.72rem;
-}
-
-.distribution-map__province-picker {
-  max-width: 18rem;
-}
-
-.distribution-map__field-label {
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.distribution-map__province-select {
-  width: 100%;
-  min-height: 2.95rem;
-  padding: 0.75rem 0.95rem;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.88);
-  color: var(--accent-strong);
-  font: inherit;
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.1);
-}
-
-.distribution-map__province-select:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
-  outline-offset: 2px;
-}
-
-.distribution-map__control-note {
-  margin: 0;
-  max-width: 32rem;
-  color: var(--text-muted);
-  line-height: 1.6;
-}
-
-.distribution-map__province-list,
-.distribution-map__metric-list {
-  grid-template-columns: repeat(auto-fit, minmax(5.5rem, max-content));
-  align-items: start;
-}
-
-.distribution-map__province-button,
-.distribution-map__metric-button,
-.distribution-map__detail-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  min-height: 2.75rem;
-  padding: 0.7rem 0.9rem;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.82);
-  color: var(--accent-strong);
-}
-
-.distribution-map__province-button,
-.distribution-map__metric-button {
-  justify-content: space-between;
-}
-
-.distribution-map__province-button.is-active,
-.distribution-map__metric-button.is-active,
-.distribution-map__detail-action:not(:disabled) {
-  border-color: color-mix(in srgb, var(--accent) 24%, transparent);
-  box-shadow: 0 14px 28px color-mix(in srgb, var(--accent) 14%, transparent);
-}
-
-.distribution-map__province-button.is-active,
-.distribution-map__metric-button.is-active {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--accent) 14%, transparent),
-    rgba(255, 255, 255, 0.94)
-  );
-}
-
-.distribution-map__province-button strong {
-  color: var(--text-muted);
-  font-size: 0.78rem;
-}
-
-.distribution-map__legend {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-}
-
-.distribution-map__legend-scale {
-  flex: 1 1 0%;
-  min-width: 0;
-  height: 0.88rem;
-  border-radius: 999px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  background: linear-gradient(
-    90deg,
-    var(--map-color-low, #e8eaf0),
-    var(--map-color-high, #3730a3)
-  );
-}
-
-.distribution-map__legend-scale span {
-  display: none;
-}
-
-.distribution-map__selected-label {
-  margin: 0.55rem 0 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.72);
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--text);
-  text-align: center;
-}
-
-.distribution-map__legend-label {
-  flex: none;
-  color: var(--text-muted);
-  font-size: 0.76rem;
-  font-weight: 700;
-  line-height: 1.35;
-  white-space: nowrap;
-}
-
-.distribution-map__layout {
-  grid-template-columns: minmax(0, 1.45fr) minmax(18rem, 0.92fr);
-  align-items: start;
-}
-
-.distribution-map__surface-frame {
-  position: relative;
-  min-width: 0;
-}
-
-.distribution-map__mobile-detail-shell {
-  display: none;
-}
-
-.distribution-map__surface,
-.distribution-map__detail,
-.distribution-map__state {
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 22px;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.86),
-    rgba(238, 240, 244, 0.94)
-  );
-}
-
-.distribution-map__surface {
-  min-height: 32rem;
-  padding: 0.95rem;
-}
-
-.distribution-map__svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.distribution-map__region {
-  stroke: rgba(0, 0, 0, 0.24);
-  stroke-width: 1.4;
-  transition:
-    fill 180ms ease,
-    stroke 180ms ease,
-    stroke-width 180ms ease,
-    filter 180ms ease;
-}
-
-.distribution-map__region:hover,
-.distribution-map__region:focus-visible {
-  stroke: rgba(0, 0, 0, 0.64);
-  stroke-width: 2.2;
-  filter: saturate(1.05);
-}
-
-.distribution-map__region.is-selected {
-  stroke: rgba(0, 0, 0, 0.94);
-  stroke-width: 3;
-  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.18));
-}
-
-.distribution-map__detail,
-.distribution-map__state {
-  display: grid;
-  gap: 0.75rem;
-  padding: 1rem;
-}
-
-.distribution-map__detail--compact {
-  gap: 0.65rem;
-  padding: 0.9rem;
-  border-color: color-mix(in srgb, var(--accent) 16%, transparent);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.97),
-    rgba(238, 240, 244, 0.98)
-  );
-  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.16);
-}
-
-.distribution-map__detail-area {
-  margin: 0;
-  color: var(--text-muted);
-  line-height: 1.55;
-}
-
-.distribution-map__detail-actions {
-  margin-top: -0.1rem;
-}
-
-.distribution-map__detail-action:disabled {
-  color: var(--text-muted);
-  opacity: 0.9;
-  cursor: default;
-}
-
-.distribution-map__detail-metrics {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.distribution-map__detail-metrics article {
-  display: grid;
-  gap: 0.16rem;
-  padding: 0.82rem 0.88rem;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.78);
-}
-
-.distribution-map__detail-metrics span,
-.distribution-map__detail-facts dt {
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.distribution-map__detail-metrics strong {
-  font-size: 1.15rem;
-  line-height: 1;
-  letter-spacing: -0.03em;
-}
-
-.distribution-map__detail--compact .distribution-map__detail-area {
-  font-size: 0.84rem;
-}
-
-.distribution-map__detail--compact .distribution-map__detail-actions {
-  margin-top: 0;
-}
-
-.distribution-map__detail--compact .distribution-map__detail-metrics {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.55rem;
-}
-
-.distribution-map__detail--compact .distribution-map__detail-metrics article {
-  padding: 0.7rem 0.68rem;
-  border-radius: 16px;
-}
-
-.distribution-map__detail--compact .distribution-map__detail-metrics span {
-  font-size: 0.64rem;
-  letter-spacing: 0.04em;
-}
-
-.distribution-map__detail--compact .distribution-map__detail-metrics strong {
-  font-size: 0.98rem;
-}
-
-.distribution-map__detail-facts {
-  margin: 0;
-}
-
-.distribution-map__detail-facts > div {
-  display: grid;
-  gap: 0.12rem;
-  padding-top: 0.72rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.distribution-map__detail-facts > div:first-child {
-  padding-top: 0;
-  border-top: none;
-}
-
-.distribution-map__detail-facts dd {
-  margin: 0;
-  color: var(--text-muted);
-  line-height: 1.55;
 }
 
 .distribution-chart__filter-row {
@@ -495,8 +164,6 @@
   grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
   gap: 0.72rem;
 }
-
-.distribution-map__help-button,
 .distribution-chart__help-button {
   display: inline-flex;
   align-items: center;
@@ -514,21 +181,15 @@
   font-weight: 900;
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.12);
 }
-
-.distribution-map__help-button:focus-visible,
 .distribution-chart__help-button:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
   outline-offset: 2px;
 }
-
-.distribution-map__help-button:hover,
 .distribution-chart__help-button:hover {
   border-color: color-mix(in srgb, var(--accent) 24%, transparent);
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 16px 30px color-mix(in srgb, var(--accent) 16%, transparent);
 }
-
-.distribution-map__help-panel,
 .distribution-chart__help-panel {
   display: grid;
   gap: 0.5rem;
@@ -536,10 +197,6 @@
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.66);
-}
-
-.distribution-map__help-panel {
-  margin-top: 0.25rem;
 }
 
 .distribution-chart__help-panel {
@@ -930,7 +587,6 @@
 @media (max-width: 980px) {
   .distribution-page__masthead,
   .distribution-page__layout,
-  .distribution-map__layout,
   .distribution-chart__header,
   .distribution-chart__legend,
   .distribution-signal-grid {
@@ -940,7 +596,6 @@
 
 @media (max-width: 760px) {
   .distribution-page__masthead,
-  .distribution-map,
   .distribution-chart,
   .distribution-focus,
   .distribution-signal-card,
@@ -958,60 +613,12 @@
     padding: 0.55rem;
     border-radius: 18px;
   }
-
-  .distribution-map__header,
-  .distribution-map__controls {
-    gap: 0.65rem;
-  }
-
-  .distribution-map__summary-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.55rem;
-  }
-
-  .distribution-map__summary-grid .chart-card__summary {
-    padding: 0.78rem 0.72rem;
-  }
-
-  .distribution-map__summary-grid .chart-card__summary strong {
-    font-size: 1.02rem;
-  }
-
-  .distribution-map__legend {
-    gap: 0.45rem;
-  }
-
-  .distribution-map__help-panel {
-    padding: 0.8rem 0.85rem;
-    border-radius: 16px;
-  }
-
-  .distribution-map__surface,
-  .distribution-map__detail,
-  .distribution-map__state {
-    padding: 0.8rem;
-    border-radius: 18px;
-  }
-
-  .distribution-map__mobile-detail-shell {
-    display: block;
-    position: static;
-    margin-top: 0.8rem;
-  }
-
-  .distribution-map__layout > .distribution-map__detail {
-    display: none;
-  }
-
-  .distribution-map__help-button,
   .distribution-chart__help-button {
     width: 2.75rem;
     height: 2.75rem;
     min-width: 2.75rem;
     min-height: 2.75rem;
   }
-
-  .distribution-map__detail-metrics,
   .distribution-focus__metric-grid,
   .distribution-focus__composition-list,
   .distribution-party-list__stats {
@@ -1639,27 +1246,4 @@
   .distribution-signal-grid {
     grid-template-columns: minmax(0, 1fr);
   }
-}
-
-/* Keep the regional map inside the same flat public-service system. */
-.distribution-page .distribution-map {
-  padding: 1rem;
-  border: 1px solid var(--distribution-border);
-  border-radius: 7px;
-  background: #ffffff;
-  box-shadow: none;
-}
-
-.distribution-page .distribution-map::before {
-  display: none;
-}
-
-.distribution-page .distribution-map__surface,
-.distribution-page .distribution-map__detail,
-.distribution-page .distribution-map__state,
-.distribution-page .distribution-map__detail--compact {
-  border-color: var(--distribution-border);
-  border-radius: 6px;
-  background: #f5f7fa;
-  box-shadow: none;
 }

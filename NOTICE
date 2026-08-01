@@ -19,11 +19,6 @@ each installed package are authoritative and must be preserved when required.
 
 Runtime and distributed application dependencies:
 
-- deck.gl packages (@deck.gl/aggregation-layers, @deck.gl/core,
-  @deck.gl/geo-layers, @deck.gl/layers, and @deck.gl/react) — MIT
-  https://github.com/visgl/deck.gl
-- DuckDB-Wasm (@duckdb/duckdb-wasm) — MIT
-  https://github.com/duckdb/duckdb-wasm
 - Phosphor Icons for React (@phosphor-icons/react) — MIT
   https://github.com/phosphor-icons/react
 - React and React DOM (react and react-dom) — MIT
@@ -34,8 +29,6 @@ Runtime and distributed application dependencies:
   https://github.com/recharts/recharts
 - H3 for JavaScript (h3-js) — Apache-2.0
   https://github.com/uber/h3-js
-- html-to-image — MIT
-  https://github.com/bubkoo/html-to-image
 - Proj4js (proj4) — MIT
   https://github.com/proj4js/proj4js
 - TopoJSON Client and TopoJSON Server (topojson-client and topojson-server) — ISC

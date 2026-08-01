@@ -27,7 +27,6 @@ export type CalendarWeek = {
   days: CalendarCell[];
 };
 
-export type CalendarComparableState = Exclude<CalendarDisplayState, "empty">;
 export type HeadToHeadSummary = {
   leftNegativeDays: number;
   rightNegativeDays: number;
@@ -276,17 +275,7 @@ export function buildMonthLabels(weeks: CalendarWeek[]): string[] {
   });
 }
 
-export function buildStateByDate(
-  _assembly: MemberActivityCalendarAssembly,
-  member: MemberActivityCalendarMember
-): Map<string, CalendarComparableState> {
-  return new Map(
-    member.dayStates.map((dayState) => [dayState.date, dayState.state])
-  );
-}
-
 export function buildHeadToHeadSummary(
-  assembly: MemberActivityCalendarAssembly,
   left: MemberActivityCalendarMember,
   right: MemberActivityCalendarMember,
   includeAbsent: boolean

@@ -28,7 +28,7 @@ import {
 } from "../components/ProportionalMemberComparison.js";
 import { WatchQueueSnapshot } from "../components/WatchQueueSnapshot.js";
 import { buildWeeklyTrendChartData } from "../lib/charts.js";
-import { convertThousandWonToEok } from "../lib/format.js";
+import { convertThousandWonToEok, formatShortDate } from "../lib/format.js";
 import { getPartyCssColor } from "../lib/geo-utils.js";
 import { calculateDebtRatio } from "../lib/member-assets.js";
 import {
@@ -190,11 +190,6 @@ function getWeekKey(dateValue: string): string {
   const offset = day === 0 ? -6 : 1 - day;
   date.setUTCDate(date.getUTCDate() + offset);
   return date.toISOString().slice(0, 10);
-}
-
-function formatShortDate(dateValue: string): string {
-  const [, month, day] = dateValue.split("-");
-  return `${Number(month)}/${Number(day)}`;
 }
 
 function buildAttendanceTrend(

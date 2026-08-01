@@ -4,7 +4,6 @@ import {
   billProposalActivityExportSchema,
   constituencyBoundariesIndexExportSchema,
   hexmapStaticIndexExportSchema,
-  hexmapStaticProvinceArtifactSchema,
   latestVotesExportSchema,
   memberAssetsHistoryExportSchema,
   memberAssetsIndexExportSchema,
@@ -23,7 +22,6 @@ import type {
   BillProposalActivityExport,
   ConstituencyBoundariesIndexExport,
   HexmapStaticIndexExport,
-  HexmapStaticProvinceArtifact,
   LatestVotesExport,
   MemberActivityCalendarExport,
   MemberActivityCalendarMemberDetailExport,
@@ -218,18 +216,6 @@ export function loadHexmapStaticIndex(
   return fetchOptionalJson(buildUrl(indexPath), (payload) =>
     hexmapStaticIndexExportSchema.parse(payload)
   );
-}
-
-export function loadHexmapStaticProvinceArtifact(
-  path: string
-): Promise<HexmapStaticProvinceArtifact | null> {
-  return fetchOptionalJson(buildUrl(path), (payload) =>
-    hexmapStaticProvinceArtifactSchema.parse(payload)
-  );
-}
-
-export function getDataRepoBaseUrl(): string {
-  return dataRepoBaseUrl;
 }
 
 export function buildDataUrl(path: string): string {

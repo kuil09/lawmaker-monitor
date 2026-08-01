@@ -117,12 +117,6 @@ export function rankAccountabilityItems(
   });
 }
 
-export function rankSupportItems(
-  items: AccountabilitySummaryItem[]
-): AccountabilitySummaryItem[] {
-  return rankLeaderboardItems(items, "yes");
-}
-
 export function rankLeaderboardItems(
   items: AccountabilitySummaryItem[],
   metric: LeaderboardMetric

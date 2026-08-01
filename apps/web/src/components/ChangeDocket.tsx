@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { MemberIdentity } from "./MemberIdentity.js";
 import { buildCalendarHref } from "../lib/calendar-route.js";
+import { formatPercent, formatShortDate } from "../lib/format.js";
 import "../styles/change-docket.css";
 
 import type {
@@ -105,18 +106,6 @@ function getRate(args: {
   return (
     (args.noCount + args.abstainCount + args.absentCount) / args.eligibleCount
   );
-}
-
-function formatPercent(value: number): string {
-  return `${(value * 100).toFixed(1)}%`;
-}
-
-function formatShortDate(value: string): string {
-  const [year, month, day] = value.slice(0, 10).split("-");
-  if (!year || !month || !day) {
-    return value;
-  }
-  return `${Number(month)}/${Number(day)}`;
 }
 
 function normalizeSearchValue(value: string): string {
@@ -309,7 +298,6 @@ export function ChangeDocket({
     <section className="change-docket" aria-labelledby="change-docket-title">
       <header className="change-docket__head">
         <div>
-          <p>LIVE MEMBER DOCKET</p>
           <h2 id="change-docket-title">의원 활동 현황판</h2>
           <span>
             의원 전원을 최근 공개 표결과 입법 기록에 따라 한 화면에서

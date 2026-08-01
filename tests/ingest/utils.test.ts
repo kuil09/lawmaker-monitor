@@ -3,10 +3,45 @@ import { describe, expect, it, vi } from "vitest";
 import {
   fetchTextWithTimeout,
   mapWithConcurrency,
+  readPositiveInteger,
   retryFetch
 } from "../../packages/ingest/src/utils.js";
 
 describe("ingest utils", () => {
+  it("reads positive integer environment values and preserves fallbacks", () => {
+    const name = "INGEST_UTILS_TEST_POSITIVE_INTEGER";
+    const original = process.env[name];
+
+    try {
+      const cases: Array<[string | undefined, number]> = [
+        [undefined, 17],
+        ["", 17],
+        ["   ", 17],
+        ["0", 17],
+        ["-3", 17],
+        ["nope", 17],
+        ["12.8", 12],
+        ["42", 42]
+      ];
+
+      for (const [value, expected] of cases) {
+        if (value === undefined) {
+          delete process.env[name];
+        } else {
+          process.env[name] = value;
+        }
+
+        expect(readPositiveInteger(name, 17)).toBe(expected);
+      }
+    } finally {
+      if (original === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = original;
+      }
+    }
+  });
+
   it("preserves input order while limiting concurrency", async () => {
     let activeWorkers = 0;
     let maxConcurrentWorkers = 0;

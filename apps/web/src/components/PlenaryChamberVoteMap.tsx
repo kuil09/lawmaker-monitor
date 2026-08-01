@@ -177,20 +177,24 @@ export function PlenaryChamberVoteMap({
         .includes(normalizedArchiveQuery);
     });
   }, [archiveFilter, mode, normalizedArchiveQuery, recordedVotes]);
+  const defaultVote =
+    mode === "archive"
+      ? (availableVotes.find((item) => item.voteVisibility === "recorded") ??
+        availableVotes[0])
+      : availableVotes[0];
 
   useEffect(() => {
-    const firstAvailableVote = availableVotes[0];
     if (
-      firstAvailableVote &&
+      defaultVote &&
       !availableVotes.some((vote) => vote.rollCallId === selectedVoteId)
     ) {
-      setSelectedVoteId(firstAvailableVote.rollCallId);
+      setSelectedVoteId(defaultVote.rollCallId);
     }
-  }, [availableVotes, selectedVoteId]);
+  }, [availableVotes, defaultVote, selectedVoteId]);
 
   const selectedVote =
     availableVotes.find((vote) => vote.rollCallId === selectedVoteId) ??
-    availableVotes[0] ??
+    defaultVote ??
     null;
   const assignments = useMemo(
     () =>
@@ -325,11 +329,6 @@ export function PlenaryChamberVoteMap({
     >
       <header className="plenary-chamber__header">
         <div>
-          <p className="v3-kicker">
-            {mode === "archive"
-              ? "PUBLIC VOTE ARCHIVE"
-              : "PLENARY SEAT VIEW · LOCAL PROTOTYPE"}
-          </p>
           <h2 id={headingId}>
             {mode === "archive" ? "표결 기록 탐색" : "본회의장 표결판"}
           </h2>

@@ -85,10 +85,14 @@ describe("watch queue change language", () => {
 
     expect(
       screen.getAllByText("주된 표결 기록: 직전 반대 23건 → 최근 찬성 23건")
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(
       screen.getAllByText("주된 표결 기록: 직전 찬성 23건 → 최근 반대 23건")
-    ).toHaveLength(2);
+    ).toHaveLength(1);
+    expect(screen.queryByText("HOT ISSUES")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "지금 주목할 변화" })
+    ).not.toBeInTheDocument();
     expect(screen.getAllByText("변화 기록")).toHaveLength(3);
     expect(
       screen.getAllByText(/찬성·반대·기권은 표결에 참여한 기록입니다/)

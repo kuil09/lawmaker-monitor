@@ -84,6 +84,11 @@ export function toNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+export function readPositiveInteger(name: string, fallback: number): number {
+  const parsed = Number.parseInt(process.env[name] ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export function ensureUrl(value: string | undefined, fallback: string): string {
   if (!value) {
     return fallback;

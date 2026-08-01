@@ -52,14 +52,6 @@
   padding: 2px 2px 20px;
 }
 
-.hexmap-page__eyebrow {
-  margin: 0 0 7px;
-  color: var(--ledger-accent);
-  font-size: 0.72rem;
-  font-weight: 850;
-  letter-spacing: 0.13em;
-}
-
 .hexmap-page__title-row {
   display: flex;
   align-items: baseline;

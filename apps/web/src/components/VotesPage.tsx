@@ -38,7 +38,6 @@ export function VotesPage({
     <main className="v3-evidence-page v3-votes-page">
       <header className="v3-page-header">
         <div className="v3-page-header__copy">
-          <p className="v3-kicker">PUBLIC VOTE RECORDS</p>
           <h1>{`${assemblyLabel} 쟁점·표결 대조`}</h1>
           <p>
             날짜와 안건으로 기록을 좁히고, 반대·기권·불참 내역을 공식 출처와
@@ -79,15 +78,6 @@ export function VotesPage({
       </dl>
 
       <PlenaryChamberVoteMap
-        items={latestVotes?.items ?? null}
-        members={memberDirectory}
-        loading={loading}
-        unavailable={unavailable}
-      />
-
-      <IssueComparisonBoard items={items} />
-
-      <PlenaryChamberVoteMap
         mode="archive"
         items={latestVotes?.items ?? null}
         members={memberDirectory}
@@ -95,6 +85,8 @@ export function VotesPage({
         unavailable={unavailable}
         voteMinutesOpinions={voteMinutesOpinions}
       />
+
+      <IssueComparisonBoard items={items} />
 
       <aside className="v3-method-note" aria-label="표결 데이터 이용 안내">
         <strong>공식 기록 우선</strong>

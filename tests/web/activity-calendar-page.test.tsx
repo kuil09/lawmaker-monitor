@@ -41,7 +41,6 @@ function renderActivityCalendarPage(
       activityCalendar={activityCalendarFixture}
       loading={false}
       error={null}
-      assemblyLabel={activityCalendarFixture.assemblyLabel}
       memberDetails={{}}
       memberDetailErrors={{}}
       memberDetailLoading={{}}
@@ -54,7 +53,6 @@ function renderActivityCalendarPage(
       onRetryMemberDetail={vi.fn()}
       onEnsureMemberAssetHistory={vi.fn()}
       onRetryMemberAssetHistory={vi.fn()}
-      onBack={vi.fn()}
       onRetry={vi.fn()}
       {...overrides}
     />
@@ -62,22 +60,23 @@ function renderActivityCalendarPage(
 }
 
 describe("activity calendar profile avatars", () => {
-  it("applies the activity-card avatar variant to the single-view header profile", async () => {
-    const { container } = renderActivityCalendarPage({
+  it("renders the activity-card portrait in the single-member evidence dossier", async () => {
+    const { container, getByText } = renderActivityCalendarPage({
       initialMemberId: "M001"
     });
 
     await waitFor(() => {
       expect(
         container.querySelector(
-          ".activity-drawer__member-primary .member-identity--activity-card.member-identity--large"
+          ".member-evaluation__portrait .member-identity--activity-card.member-identity--large"
         )
       ).not.toBeNull();
     });
 
+    expect(getByText("공개 기록으로 판단하는 김아라 의원")).toBeInTheDocument();
     expect(
       container.querySelector(
-        ".activity-drawer__member-primary .member-identity__avatar--activity-card"
+        ".member-evaluation__portrait .member-identity__avatar--activity-card"
       )
     ).not.toBeNull();
     expect(

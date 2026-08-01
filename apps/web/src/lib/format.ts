@@ -107,6 +107,15 @@ export function formatPercent(value: number): string {
   return percentFormatter.format(value);
 }
 
+export function formatShortDate(value: string): string {
+  const [year, month, day] = value.slice(0, 10).split("-");
+  if (!year || !month || !day) {
+    return value;
+  }
+
+  return `${Number(month)}/${Number(day)}`;
+}
+
 export function formatVoteCodeLabel(value: VoteCode): string {
   return voteCodeLabels[value] ?? value;
 }
@@ -117,15 +126,4 @@ export function formatVoteVisibilityLabel(value: VoteVisibility): string {
 
 export function formatSourceStatusLabel(value: SourceStatus): string {
   return sourceStatusLabels[value] ?? value;
-}
-
-export function isSameKoreanDay(
-  left: string,
-  right: Date = new Date()
-): boolean {
-  try {
-    return getKoreanDateKey(left) === dayKeyFormatter.format(right);
-  } catch {
-    return false;
-  }
 }

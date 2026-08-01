@@ -6,7 +6,12 @@ import { useMemo, useState } from "react";
 
 import { MemberIdentity } from "./MemberIdentity.js";
 import { buildCalendarHref } from "../lib/calendar-route.js";
-import { formatDate, formatDateTime, formatNumber } from "../lib/format.js";
+import {
+  formatDate,
+  formatDateTime,
+  formatNumber,
+  formatPercent
+} from "../lib/format.js";
 import { formatMemberAffiliation } from "../lib/member-affiliation.js";
 import "../styles/watch-queue-snapshot.css";
 
@@ -144,10 +149,6 @@ function buildVoteChangeHeadline(
   return `최근 ${formatNumber(
     current.eligibleCount
   )}건의 표결 선택이 직전 구간과 달라졌습니다.`;
-}
-
-function formatPercent(value: number): string {
-  return `${(value * 100).toFixed(1)}%`;
 }
 
 function parseTimestamp(value: string | null | undefined): number {
@@ -477,7 +478,6 @@ export function WatchQueueSnapshot({
     >
       <header className="watch-queue-snapshot__heading">
         <div>
-          <p>국회 출석부 · 최근 수집 기록</p>
           <h2 id="watch-queue-snapshot-title">국회 출석부</h2>
         </div>
         <p>
@@ -646,24 +646,6 @@ export function WatchQueueSnapshot({
 
         <aside className="watch-queue-briefing" aria-label="국회 출석부 브리핑">
           <section>
-            <p>HOT ISSUES</p>
-            <h3>지금 주목할 변화</h3>
-            <ol>
-              {records.slice(0, 3).map((record) => (
-                <li key={`brief:${record.id}`}>
-                  <button
-                    type="button"
-                    onClick={() => onOpenMember(record.memberId)}
-                  >
-                    <strong>{record.name}</strong>
-                    <span>{record.headline}</span>
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </section>
-          <section>
-            <p>SOURCE COVERAGE</p>
             <h3>공개 범위</h3>
             <dl>
               <div>
@@ -685,7 +667,6 @@ export function WatchQueueSnapshot({
             </dl>
           </section>
           <section className="watch-queue-briefing__account">
-            <p>공식 후원 링크</p>
             <h3>공식 후원 경로</h3>
             <span>
               의원별 후원회와 온라인 후원 방법은 중앙선관위의 공식 링크에서

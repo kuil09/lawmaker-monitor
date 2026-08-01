@@ -230,7 +230,6 @@ export function VisualizationOverview({
     >
       <div className="v3-trend-toolbar">
         <div>
-          <p className="v3-kicker">EVIDENCE DASHBOARD</p>
           <h2 id="trend-dashboard-heading">{`${assemblyLabel} 주간 관측 대시보드`}</h2>
           <p>동일한 기간 조건으로 참여 구성과 당내 이탈을 함께 비교합니다.</p>
         </div>
@@ -314,7 +313,6 @@ export function VisualizationOverview({
         <article className="v3-evidence-panel">
           <header className="v3-evidence-panel__header">
             <div>
-              <p className="v3-kicker">01 · PARTICIPATION</p>
               <h3>주간 참여 구성</h3>
               <p>찬성·반대·기권·불참이 전체 공개 기록에서 차지한 비중입니다.</p>
             </div>
@@ -502,7 +500,6 @@ export function VisualizationOverview({
         <article className="v3-evidence-panel">
           <header className="v3-evidence-panel__header">
             <div>
-              <p className="v3-kicker">02 · PARTY-LINE</p>
               <h3>당내 이탈 추이</h3>
               <p>
                 당 기준이 성립하고 의원이 실제 참여한 표결에서 다른 선택을 한
@@ -651,7 +648,6 @@ export function VisualizationOverview({
               >
                 <div className="v3-mover-section__heading">
                   <div>
-                    <p className="v3-kicker">RECENT MOVERS</p>
                     <h4 id="mover-heading">최근 4주 이탈률이 늘어난 의원</h4>
                   </div>
                   <span>{`${partyLineMovers.length}명`}</span>

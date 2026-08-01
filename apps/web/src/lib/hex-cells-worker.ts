@@ -1,5 +1,3 @@
-import { useRef } from "react";
-
 import type { ConstituencyBoundaryTopology } from "./constituency-map.js";
 import type { StaticHexCellsResult } from "./hex-cells.js";
 import type { HexCellsWorkerOutput } from "../workers/hex-cells.worker.js";
@@ -86,14 +84,4 @@ export function setSharedHexCellsWorkerClientForTests(
   client: HexCellsWorkerClient | null
 ): void {
   sharedHexCellsWorkerClient = client;
-}
-
-export function useHexCellsWorker(): HexCellsWorkerClient {
-  const workerClientRef = useRef<HexCellsWorkerClient | null>(null);
-
-  if (!workerClientRef.current) {
-    workerClientRef.current = getSharedHexCellsWorkerClient();
-  }
-
-  return workerClientRef.current;
 }

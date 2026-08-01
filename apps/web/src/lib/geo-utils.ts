@@ -130,31 +130,6 @@ export function extractReprojectedFeatures(
   });
 }
 
-export type MemberGeoPoint = {
-  longitude: number;
-  latitude: number;
-  districtKey: string;
-  label: string;
-};
-
-// Approximate a visual centroid from sampled outer-ring vertices.
-function computeCentroid(ring: number[][], step = 50): [number, number] {
-  let sumLng = 0,
-    sumLat = 0,
-    count = 0;
-  for (let i = 0; i < ring.length; i += step) {
-    const point = ring[i];
-    const [x, y] = point ?? [];
-    if (x === undefined || y === undefined) continue;
-    const [lng, lat] = toWgs84(x, y);
-    sumLng += lng;
-    sumLat += lat;
-    count++;
-  }
-  if (count === 0) return [0, 0];
-  return [sumLng / count, sumLat / count];
-}
-
 // Shared H3 visualization types and constants.
 
 export type H3DataCell = {
@@ -216,32 +191,6 @@ export function getSequentialMetricColor(
   ) as [number, number, number, number];
 }
 
-// t is a normalized value in [0, 1].
-// t=0 -> lighter via white blend, t=0.5 -> base party color, t=1 -> darker via black blend.
-export function getMetricModulatedColor(
-  party: string,
-  t: number
-): [number, number, number, number] {
-  const [r, g, b, a] = getPartyColor(party);
-  if (t <= 0.5) {
-    const whiteMix = (0.5 - t) * 1.2;
-    return [
-      Math.round(r + (255 - r) * whiteMix),
-      Math.round(g + (255 - g) * whiteMix),
-      Math.round(b + (255 - b) * whiteMix),
-      a
-    ];
-  } else {
-    const darkMix = (t - 0.5) * 0.5;
-    return [
-      Math.round(r * (1 - darkMix)),
-      Math.round(g * (1 - darkMix)),
-      Math.round(b * (1 - darkMix)),
-      a
-    ];
-  }
-}
-
 export function createLogNormalizer(
   values: readonly number[]
 ): (raw: number) => number {
@@ -290,52 +239,4 @@ export function getDetailRes(features: ExtrudedFeature[]): number {
   if (span > 2) return 6;
   if (span > 0.8) return 7;
   return 8;
-}
-
-export function extractCentroids(
-  topology: ConstituencyBoundaryTopology
-): MemberGeoPoint[] {
-  const collection = feature(topology, topology.objects.constituencies) as {
-    type: "FeatureCollection";
-    features: Array<{
-      type: "Feature";
-      properties: Record<string, unknown>;
-      geometry: { type: string; coordinates: unknown };
-    }>;
-  };
-
-  return collection.features.flatMap((f) => {
-    const label =
-      (f.properties.memberDistrictLabel as string | undefined) ?? "";
-    if (!label) return [];
-
-    let ring: number[][];
-    if (f.geometry.type === "Polygon") {
-      const polygon = f.geometry.coordinates as number[][][];
-      const firstRing = polygon[0];
-      if (!firstRing) return [];
-      ring = firstRing;
-    } else if (f.geometry.type === "MultiPolygon") {
-      const polys = f.geometry.coordinates as number[][][][];
-      const firstRing = polys[0]?.[0];
-      if (!firstRing) return [];
-      ring = polys.reduce((best, poly) => {
-        const candidate = poly[0];
-        if (!candidate) return best;
-        return candidate.length > best.length ? candidate : best;
-      }, firstRing);
-    } else {
-      return [];
-    }
-
-    const [longitude, latitude] = computeCentroid(ring);
-    return [
-      {
-        longitude,
-        latitude,
-        districtKey: normalizeConstituencyLookupKey(label),
-        label
-      }
-    ];
-  });
 }

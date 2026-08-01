@@ -27,7 +27,6 @@ export function TrendsPage({
     <main className="v3-evidence-page v3-trends-page">
       <header className="v3-page-header">
         <div className="v3-page-header__copy">
-          <p className="v3-kicker">ACCOUNTABILITY TRENDS</p>
           <h1>변화 전후 책임 원장</h1>
           <p>
             잘한 변화와 추가 확인이 필요한 변화를 같은 기간·같은 분모로 비교하고

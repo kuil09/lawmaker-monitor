@@ -17,7 +17,6 @@
 .v2-app.v3-shell .v2-observatory__eyebrow,
 .v2-app.v3-shell .v3-rank-rail__list em,
 .v2-app.v3-shell .v2-map-detail-link,
-.v2-app.v3-shell .hexmap-page__eyebrow,
 .v2-app.v3-shell .hexmap-section__heading p,
 .v2-app.v3-shell .hexmap-detail-header > div > p {
   color: var(--v3-accent);

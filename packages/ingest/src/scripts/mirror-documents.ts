@@ -38,10 +38,12 @@ import {
 } from "../minutes-transcript.js";
 import {
   readJsonFile,
+  readPositiveInteger,
   readString,
   resolvePathFromRoot,
   sha256,
   sha256Buffer,
+  toNumber,
   writeJsonFile
 } from "../utils.js";
 
@@ -171,20 +173,6 @@ function readRequiredEnv(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) {
     throw new Error(`${name} must be configured.`);
-  }
-
-  return value;
-}
-
-function readPositiveInteger(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (!raw) {
-    return fallback;
-  }
-
-  const value = Number.parseInt(raw, 10);
-  if (!Number.isFinite(value) || value <= 0) {
-    return fallback;
   }
 
   return value;
@@ -482,11 +470,6 @@ async function extractAssemblyFormValues(page: Page): Promise<FormValueMap> {
   }
 
   return formValues;
-}
-
-function toNumber(value: unknown): number {
-  const parsed = Number.parseInt(readString(value) ?? "", 10);
-  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 export function normalizeCompactAssemblyDate(value: unknown): string | null {

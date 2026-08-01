@@ -261,14 +261,13 @@ Lawmaker Monitor depends on open-source tools and libraries across the web
 application, geospatial visualization, data ingestion, and test pipeline.
 
 - UI and visualization: [React](https://react.dev/),
-  [deck.gl](https://deck.gl/), [Recharts](https://recharts.org/), and
+  [Recharts](https://recharts.org/), and
   [Phosphor Icons](https://phosphoricons.com/)
 - Social preview rendering: [resvg-js](https://github.com/yisibl/resvg-js) and
   [Noto Sans KR via Expo Google Fonts](https://github.com/expo/google-fonts)
-- Geospatial and analytical processing:
-  [H3](https://h3geo.org/), [TopoJSON](https://github.com/topojson/topojson),
-  [Proj4js](https://proj4js.org/), and
-  [DuckDB-Wasm](https://duckdb.org/docs/stable/clients/wasm/overview)
+- Geospatial processing: [H3](https://h3geo.org/),
+  [TopoJSON](https://github.com/topojson/topojson), and
+  [Proj4js](https://proj4js.org/)
 - Data ingestion: [PDF.js](https://mozilla.github.io/pdf.js/),
   [Playwright](https://playwright.dev/),
   [Cheerio](https://cheerio.js.org/), and

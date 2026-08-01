@@ -13,14 +13,6 @@
   border-bottom: 2px solid var(--watch-ink, #171512);
 }
 
-.issue-comparison__head > div > p {
-  margin: 0 0 0.25rem;
-  color: var(--watch-accent, #5b6c00);
-  font-size: 0.72rem;
-  font-weight: 820;
-  letter-spacing: 0.12em;
-}
-
 .issue-comparison__head h2 {
   margin: 0;
   font-family: var(--font-editorial, var(--font-display));

@@ -17,13 +17,6 @@ export type RealEstateFocusSummary = {
   deltaAmount: number;
 };
 
-export type AssetAllocationSummary = {
-  positiveAssetTotal: number;
-  realEstateAmount: number;
-  otherAssetAmount: number;
-  realEstateShare: number;
-};
-
 export type DebtRatioStatus =
   | "none"
   | "below-half"
@@ -212,48 +205,6 @@ export function buildDebtFocusSummary(
   };
 }
 
-export function buildLatestAssetAllocationSummary(
-  history: MemberAssetsHistoryExport | null,
-  scopeMode: AssetScopeMode = "familyIncluded"
-): AssetAllocationSummary | null {
-  const snapshot = resolveAssetHistorySnapshot(history, scopeMode);
-  if (!snapshot || snapshot.series.length === 0) {
-    return null;
-  }
-
-  const latestReportedAt = snapshot.latestSummary.reportedAt;
-  const positiveAssetTotal = snapshot.categorySeries.reduce((sum, series) => {
-    const amount =
-      series.points.find((point) => point.reportedAt === latestReportedAt)
-        ?.currentAmount ?? 0;
-    return amount > 0 ? sum + amount : sum;
-  }, 0);
-
-  if (positiveAssetTotal <= 0) {
-    return null;
-  }
-
-  const realEstateAmount = Math.max(
-    getLatestRealEstateTotalFromHistory(history, scopeMode) ?? 0,
-    0
-  );
-  const normalizedRealEstateAmount = Math.min(
-    realEstateAmount,
-    positiveAssetTotal
-  );
-  const otherAssetAmount = Math.max(
-    positiveAssetTotal - normalizedRealEstateAmount,
-    0
-  );
-
-  return {
-    positiveAssetTotal,
-    realEstateAmount: normalizedRealEstateAmount,
-    otherAssetAmount,
-    realEstateShare: normalizedRealEstateAmount / positiveAssetTotal
-  };
-}
-
 export function applyMemberAssetsIndexFallbacks(
   index: MemberAssetsIndexExport | null,
   histories: Record<string, MemberAssetsHistoryExport | undefined>
@@ -299,6 +250,3 @@ export function applyMemberAssetsIndexFallbacks(
     members
   };
 }
-
-export const applyMemberAssetsIndexRealEstateFallbacks =
-  applyMemberAssetsIndexFallbacks;

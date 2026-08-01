@@ -74,9 +74,11 @@ export function V2RouteContent() {
     accountabilitySummary,
     accountabilityTrends,
     billProposalActivity,
+    billProposalActivityLoaded,
     manifest,
     feedError,
-    leaderboardError
+    leaderboardError,
+    billProposalActivityError
   } = useAppBootstrapData();
   const shouldLoadActivityCalendar =
     routeState.route === "calendar" ||
@@ -126,7 +128,6 @@ export function V2RouteContent() {
               !activityCalendarState.activityError)
           }
           errors={distributionErrors}
-          assemblyLabel={currentAssemblyLabel}
           initialMemberId={routeState.memberId}
           initialBehaviorFilter={routeState.behaviorFilter}
           onBack={navigateHome}
@@ -160,6 +161,11 @@ export function V2RouteContent() {
           initialMemberId={routeState.memberId}
           initialCompareMemberId={routeState.compareMemberId}
           initialView={routeState.view}
+          accountabilitySummary={accountabilitySummary}
+          accountabilityTrends={accountabilityTrends}
+          billProposalActivity={billProposalActivity}
+          billProposalActivityLoaded={billProposalActivityLoaded}
+          billProposalActivityError={billProposalActivityError}
           memberDetails={activityCalendarState.activityMemberDetails}
           memberDetailErrors={activityCalendarState.activityMemberDetailErrors}
           memberDetailLoading={
@@ -180,7 +186,6 @@ export function V2RouteContent() {
             memberAssetsState.ensureMemberAssetHistoryLoaded
           }
           onRetryMemberAssetHistory={memberAssetsState.retryMemberAssetHistory}
-          onBack={navigateHome}
           onRetry={() =>
             void activityCalendarState.ensureActivityCalendarLoaded()
           }
