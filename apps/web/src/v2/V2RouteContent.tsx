@@ -128,6 +128,7 @@ export function V2RouteContent() {
               !activityCalendarState.activityError)
           }
           errors={distributionErrors}
+          assemblyLabel={currentAssemblyLabel}
           initialMemberId={routeState.memberId}
           initialBehaviorFilter={routeState.behaviorFilter}
           onBack={navigateHome}
@@ -157,7 +158,6 @@ export function V2RouteContent() {
           activityCalendar={activityCalendarState.activityCalendar}
           loading={activityCalendarState.isActivityLoading}
           error={activityCalendarState.activityError}
-          assemblyLabel={currentAssemblyLabel}
           initialMemberId={routeState.memberId}
           initialCompareMemberId={routeState.compareMemberId}
           initialView={routeState.view}
