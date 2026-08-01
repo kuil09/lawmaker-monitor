@@ -446,4 +446,23 @@ final result: passed
 - Browser desktop and mobile layout checks: passed.
 - Browser archive search, record filtering, and seat-detail interaction checks: passed.
 
+### Pass 23 — Member Public-Evidence Dossier
+
+- Selected visual target: `/Users/gun9/.codex/generated_images/019fbb35-37bf-7a73-b9d5-6108332b1b0c/call_6ZqAQPEtGAjwI271qqy3jGPS.png`.
+- Production desktop capture: `/Users/gun9/Developer/lawmaker-monitor/artifacts/product-design/member-detail-2026-08-01/06-production-desktop-final.png`.
+- Production mobile capture: `/Users/gun9/Developer/lawmaker-monitor/artifacts/product-design/member-detail-2026-08-01/07-production-mobile-final.png`.
+- Same-height comparison input: `/Users/gun9/Developer/lawmaker-monitor/artifacts/product-design/member-detail-2026-08-01/09-target-vs-production.png`.
+- Production state: `https://kuil09.github.io/lawmaker-monitor/?deploy=71fd03f#calendar?member=T2T8225E`, commit `71fd03f9a2546613f11d96587efc7e611b8c6579`.
+- Information hierarchy: the identity masthead exposes party, term, committees, observation period, region, official page, and share action once. The dossier then separates confirmed participation, records requiring context, and records whose interpretation must be withheld.
+- Citizen judgment flow: three keyboard-accessible question tabs disclose participation change, comparison with the majority of participating same-party lawmakers, and property or bill records. Each metric retains its denominator, observation window, caveat, and official-source context.
+- Neutrality: the interface does not assign a score or infer motive. Absence, opposition, abstention, same-party difference, asset change, and bill-result coverage are presented as distinct facts with explicit interpretation limits.
+- Region semantics: the production member shows `비례대표`; constituency members retain their published constituency, while missing source data renders `지역 정보 미확인` without inference.
+- Visual fidelity: the implementation preserves the selected editorial direction through grayscale portraiture, warm paper surfaces, hard rules, restrained corners, compact civic typography, three evidence columns, a ledger table, and lemon-lime interaction accents. Product-shell naming and navigation remain consistent with the rest of the site.
+- Responsive evidence: the document measured `1614 / 1614 px` on desktop and `390 / 390 px` on mobile for viewport versus document width. No page-level horizontal overflow was found. The portrait measured `160 × 200 px` on desktop and `104 × 130 px` on mobile.
+- Interaction evidence: all three judgment tabs, the record-method disclosure, the public-record mode, and the two-member comparison mode were exercised in production. Selected tab and panel semantics updated correctly.
+- Accessibility and runtime: landmarks, headings, tablists, tabpanels, tables, source links, and descriptive controls are present in the production accessibility tree. Desktop and mobile console checks returned no warnings or errors.
+- Analytics: the production document loads the configured GA4 script for `G-7Y1Q2DDDZ6`; the analytics unit coverage verifies consent defaults, configuration, public member identifiers, and hash-route page views.
+- Automated verification: 59 files and 270 tests passed before deployment. After the cascade correction, typecheck, lint, the six focused member-route tests, `git diff --check`, and the exact production build passed again; the build generated 298 canonical member pages.
+- Deployment verification: GitHub Pages workflow `30690035412` completed successfully for `71fd03f` before production browser QA.
+
 final result: passed
