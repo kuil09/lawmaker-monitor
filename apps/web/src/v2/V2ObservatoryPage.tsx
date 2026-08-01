@@ -81,7 +81,16 @@ type TrendPoint = {
   primary: number | null;
   secondary: number | null;
   tertiary: number | null;
+  quaternary?: number | null;
+  quinary?: number | null;
 };
+
+type TrendValueKey =
+  | "primary"
+  | "secondary"
+  | "tertiary"
+  | "quaternary"
+  | "quinary";
 
 type RankingRow = {
   memberId: string;
@@ -106,6 +115,7 @@ type LensConfig = {
   trendKicker: string;
   trendTitle: string;
   trendSeries: [string, string, string];
+  trendAdditionalSeries?: readonly string[];
   trendCategoryLabel: string;
   rankingTitle: string;
   scoreLabel: string;
@@ -116,21 +126,26 @@ type LensConfig = {
 const LENS_CONFIGS: LensConfig[] = [
   {
     key: "attendance",
-    label: "출석",
+    label: "표결 참여",
     icon: UsersThreeIcon,
     mapMetric: "absence",
-    mapTitle: "지역별 결석률 분포",
+    mapTitle: "지역별 재임 누적 표결 불참률 분포",
     scatterTitle: "정당별 의원 분포",
-    xLabel: "출석률",
+    xLabel: "확인된 재임 누적 표결 참여율",
     yLabel: "반대·기권 비중",
     trendKicker: "시간 흐름",
-    trendTitle: "최근 12주 출석률 추이",
-    trendSeries: ["최고", "전체 평균", "최저"],
+    trendTitle: "최근 12주 공개 기록표결 확인된 참여율 추이",
+    trendSeries: [
+      "최고 확인된 참여율",
+      "평균 확인된 참여율",
+      "최저 확인된 참여율"
+    ],
+    trendAdditionalSeries: ["확인 불가 비중"],
     trendCategoryLabel: "기간",
-    rankingTitle: "의원 출석률 상위 5 / 하위 5",
-    scoreLabel: "평균 출석률",
+    rankingTitle: "의원 확인된 표결 참여율 상위 5 / 하위 5",
+    scoreLabel: "확인된 표결 참여율",
     supportLabel: "반대·기권 비중",
-    basisLabel: "출석 실적 기준"
+    basisLabel: "재임 중 참여 대상 공개 기록표결 기준"
   },
   {
     key: "voting",
@@ -143,7 +158,8 @@ const LENS_CONFIGS: LensConfig[] = [
     yLabel: "당내 이탈률",
     trendKicker: "시간 흐름",
     trendTitle: "최근 12주 표결 구성 추이",
-    trendSeries: ["찬성", "반대", "불참"],
+    trendSeries: ["찬성", "반대", "기권"],
+    trendAdditionalSeries: ["불참", "확인 불가"],
     trendCategoryLabel: "기간",
     rankingTitle: "찬성 비중 상위 5 / 하위 5",
     scoreLabel: "찬성 비중",
@@ -201,18 +217,24 @@ function buildAttendanceTrend(
 
   const memberWeeks = new Map<
     string,
-    Map<string, { attended: number; total: number }>
+    Map<string, { attended: number; unresolved: number; total: number }>
   >();
 
   for (const member of calendar.assembly.members) {
-    const weeks = new Map<string, { attended: number; total: number }>();
+    const weeks = new Map<
+      string,
+      { attended: number; unresolved: number; total: number }
+    >();
     for (const day of member.dayStates) {
       const weekKey = getWeekKey(day.date);
-      const current = weeks.get(weekKey) ?? { attended: 0, total: 0 };
-      current.total += 1;
-      if (day.state !== "absent") {
-        current.attended += 1;
-      }
+      const current = weeks.get(weekKey) ?? {
+        attended: 0,
+        unresolved: 0,
+        total: 0
+      };
+      current.total += day.totalRollCalls;
+      current.attended += day.yesCount + day.noCount + day.abstainCount;
+      current.unresolved += day.unknownCount;
       weeks.set(weekKey, current);
     }
     memberWeeks.set(member.memberId, weeks);
@@ -227,23 +249,43 @@ function buildAttendanceTrend(
   return weekKeys.map((weekKey) => {
     const rates = [...memberWeeks.values()].flatMap((weeks) => {
       const week = weeks.get(weekKey);
-      return week && week.total > 0 ? [(week.attended / week.total) * 100] : [];
+      if (!week || week.total <= 0) {
+        return [];
+      }
+      const resolved = Math.max(0, week.total - week.unresolved);
+      return [
+        {
+          confirmedParticipation:
+            resolved > 0 ? (week.attended / resolved) * 100 : null,
+          unresolved: (week.unresolved / week.total) * 100
+        }
+      ];
     });
+    const confirmedRates = rates.flatMap((rate) =>
+      rate.confirmedParticipation === null ? [] : [rate.confirmedParticipation]
+    );
 
     if (rates.length === 0) {
       return {
         label: formatShortDate(weekKey),
         primary: null,
         secondary: null,
-        tertiary: null
+        tertiary: null,
+        quaternary: null
       };
     }
 
     return {
       label: formatShortDate(weekKey),
-      primary: Math.max(...rates),
-      secondary: rates.reduce((sum, value) => sum + value, 0) / rates.length,
-      tertiary: Math.min(...rates)
+      primary: confirmedRates.length > 0 ? Math.max(...confirmedRates) : null,
+      secondary:
+        confirmedRates.length > 0
+          ? confirmedRates.reduce((sum, rate) => sum + rate, 0) /
+            confirmedRates.length
+          : null,
+      tertiary: confirmedRates.length > 0 ? Math.min(...confirmedRates) : null,
+      quaternary:
+        rates.reduce((sum, rate) => sum + rate.unresolved, 0) / rates.length
     };
   });
 }
@@ -257,7 +299,9 @@ function buildVotingTrend(
       label: point.label,
       primary: point.yesShare,
       secondary: point.noShare,
-      tertiary: point.absentShare
+      tertiary: point.abstainShare,
+      quaternary: point.absentShare,
+      quinary: point.unresolvedShare
     }));
 }
 
@@ -288,6 +332,9 @@ function buildPoints(
   return members.flatMap((member): ObservatoryPoint[] => {
     const district = member.district ?? "비례대표";
     if (lens === "attendance") {
+      if (!member.participationRateAvailable) {
+        return [];
+      }
       return [
         {
           memberId: member.memberId,
@@ -300,7 +347,7 @@ function buildPoints(
           score: member.attendanceRate * 100,
           supportValue: member.negativeRate * 100,
           pointWeight: 1,
-          basisValue: `${member.attendedDays}일`
+          basisValue: `${member.participatedRollCallCount}/${member.resolvedRollCallCount}건 확인`
         }
       ];
     }
@@ -608,6 +655,51 @@ export function V2ObservatoryPage({
   const excludedVotingPointCount =
     activeLens === "voting" ? members.length - points.length : 0;
   const latestTrendPoint = trendData[trendData.length - 1] ?? null;
+  const trendLineSeries: Array<{
+    dataKey: TrendValueKey;
+    label: string;
+    color: string;
+  }> = [
+    {
+      dataKey: "secondary",
+      label: config.trendSeries[1],
+      color: "#575148"
+    },
+    {
+      dataKey: "primary",
+      label: config.trendSeries[0],
+      color: "#95622d"
+    },
+    {
+      dataKey: "tertiary",
+      label: config.trendSeries[2],
+      color: "#5b6c00"
+    },
+    ...(config.trendAdditionalSeries ?? []).slice(0, 2).map(
+      (
+        label,
+        index
+      ): {
+        dataKey: TrendValueKey;
+        label: string;
+        color: string;
+      } => ({
+        dataKey: index === 0 ? "quaternary" : "quinary",
+        label,
+        color: index === 0 ? "#7d7468" : "#a85e3d"
+      })
+    )
+  ];
+  const trendTableSeries = [...trendLineSeries].sort((left, right) => {
+    const order: TrendValueKey[] = [
+      "primary",
+      "secondary",
+      "tertiary",
+      "quaternary",
+      "quinary"
+    ];
+    return order.indexOf(left.dataKey) - order.indexOf(right.dataKey);
+  });
 
   function selectLens(lens: ObservatoryLens, focus = false) {
     setActiveLens(lens);
@@ -645,10 +737,10 @@ export function V2ObservatoryPage({
       <header className="v2-observatory__hero">
         <div>
           <p className="v2-observatory__eyebrow">
-            국회 출석부 · {assemblyLabel} 공식 기록
+            국회 출석부 · {assemblyLabel} 공개 기록표결
           </p>
           <h1 className="v2-observatory__title" tabIndex={-1}>
-            실시간 국회 출석부
+            실시간 국회 공개 기록표결
           </h1>
           <p className="v2-observatory__intro">
             최근 발언·의안·표결의 변화와 행위 부재를 근거 단위로 비교하고
@@ -992,18 +1084,16 @@ export function V2ObservatoryPage({
                 activeLens === "assets" ? "재산 비교 범례" : "추세 범례"
               }
             >
-              <span>
-                <i className="v2-dot v2-dot--green" aria-hidden="true" />
-                {config.trendSeries[1]}
-              </span>
-              <span>
-                <i className="v2-dot v2-dot--blue" aria-hidden="true" />
-                {config.trendSeries[0]}
-              </span>
-              <span>
-                <i className="v2-dot v2-dot--red" aria-hidden="true" />
-                {config.trendSeries[2]}
-              </span>
+              {trendLineSeries.map((series) => (
+                <span key={series.dataKey}>
+                  <i
+                    className="v2-dot"
+                    style={{ backgroundColor: series.color }}
+                    aria-hidden="true"
+                  />
+                  {series.label}
+                </span>
+              ))}
             </div>
             {activeLens === "assets" ? (
               <p className="v2-trend-scale-note">
@@ -1021,6 +1111,11 @@ export function V2ObservatoryPage({
                       <th scope="col">{config.trendSeries[0]}</th>
                       <th scope="col">{config.trendSeries[1]}</th>
                       <th scope="col">{config.trendSeries[2]}</th>
+                      {(config.trendAdditionalSeries ?? []).map((label) => (
+                        <th key={label} scope="col">
+                          {label}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -1037,17 +1132,15 @@ export function V2ObservatoryPage({
                             point.label
                           )}
                         </th>
-                        {[point.primary, point.secondary, point.tertiary].map(
-                          (value, index) => (
-                            <td key={`${point.label}-${index}`}>
-                              {value == null
-                                ? "—"
-                                : activeLens === "assets"
-                                  ? formatEok(value)
-                                  : formatPercentValue(value)}
-                            </td>
-                          )
-                        )}
+                        {trendTableSeries.map((series) => (
+                          <td key={`${point.label}-${series.dataKey}`}>
+                            {point[series.dataKey] == null
+                              ? "—"
+                              : activeLens === "assets"
+                                ? formatEok(point[series.dataKey]!)
+                                : formatPercentValue(point[series.dataKey]!)}
+                          </td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>
@@ -1148,33 +1241,18 @@ export function V2ObservatoryPage({
                         return formatPercentValue(Number(rawValue ?? 0));
                       }}
                     />
-                    <Line
-                      type="monotone"
-                      dataKey="secondary"
-                      name={config.trendSeries[1]}
-                      stroke="#575148"
-                      strokeWidth={2}
-                      dot={{ r: 2.5 }}
-                      connectNulls
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="primary"
-                      name={config.trendSeries[0]}
-                      stroke="#95622d"
-                      strokeWidth={2}
-                      dot={{ r: 2.5 }}
-                      connectNulls
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="tertiary"
-                      name={config.trendSeries[2]}
-                      stroke="#5b6c00"
-                      strokeWidth={2}
-                      dot={{ r: 2.5 }}
-                      connectNulls
-                    />
+                    {trendLineSeries.map((series) => (
+                      <Line
+                        key={series.dataKey}
+                        type="monotone"
+                        dataKey={series.dataKey}
+                        name={series.label}
+                        stroke={series.color}
+                        strokeWidth={2}
+                        dot={{ r: 2.5 }}
+                        connectNulls
+                      />
+                    ))}
                   </LineChart>
                 )}
                 {latestTrendPoint && activeLens !== "assets" ? (

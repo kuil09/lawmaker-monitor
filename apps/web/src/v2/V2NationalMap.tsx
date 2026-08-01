@@ -294,7 +294,7 @@ export function V2NationalMap({
 }: V2NationalMapProps) {
   const metricLabel =
     metric === "absence"
-      ? "결석률"
+      ? "재임 누적 표결 불참률"
       : metric === "negative"
         ? "반대·기권률"
         : metric === "realEstate"
@@ -302,7 +302,7 @@ export function V2NationalMap({
           : "공개 총재산";
   const distributionLabel =
     metric === "absence"
-      ? "결석률"
+      ? "누적 표결 불참률"
       : metric === "negative"
         ? "표결 성향"
         : "재산";
@@ -340,15 +340,22 @@ export function V2NationalMap({
       }
 
       const assetSummary = assetByMemberId.get(item.memberId);
+      const resolvedVoteCount = Math.max(
+        0,
+        item.totalRecordedVotes - (item.unresolvedCount ?? 0)
+      );
       return [
         {
           memberId: item.memberId,
           name: item.name,
           party: item.party,
           district: item.district,
-          absentRate: item.absentRate,
-          noRate: item.noRate,
-          abstainRate: item.abstainRate,
+          absentRate:
+            resolvedVoteCount > 0 ? item.absentCount / resolvedVoteCount : 0,
+          noRate: resolvedVoteCount > 0 ? item.noCount / resolvedVoteCount : 0,
+          abstainRate:
+            resolvedVoteCount > 0 ? item.abstainCount / resolvedVoteCount : 0,
+          voteMetricsAvailable: resolvedVoteCount > 0,
           assetTotal: assetSummary?.assetTotal ?? null,
           realEstateTotal: assetSummary?.realEstateTotal ?? null
         }

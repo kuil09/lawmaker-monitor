@@ -188,6 +188,57 @@ describe("evidence exploration pages", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps unresolved voting windows out of the steady comparison state", () => {
+    const trendsWithUnresolvedWindow: AccountabilityTrendsExport = {
+      ...accountabilityTrendsFixture,
+      movers: accountabilityTrendsFixture.movers.map((mover) =>
+        mover.memberId === "M001"
+          ? {
+              ...mover,
+              previousWindowEligibleCount: 2,
+              previousWindowNoCount: 0,
+              previousWindowAbstainCount: 0,
+              previousWindowAbsentCount: 0,
+              previousWindowUnresolvedCount: 1,
+              currentWindowEligibleCount: 2,
+              currentWindowNoCount: 0,
+              currentWindowAbstainCount: 0,
+              currentWindowAbsentCount: 0,
+              currentWindowUnresolvedCount: 0
+            }
+          : mover
+      )
+    };
+
+    render(
+      <TrendsPage
+        accountabilityTrends={trendsWithUnresolvedWindow}
+        accountabilitySummary={accountabilitySummaryFixture}
+        billProposalActivity={billProposalActivityFixture}
+        assemblyLabel="제22대 국회"
+      />
+    );
+
+    const memberItem = screen
+      .getByRole("link", { name: /김아라/ })
+      .closest("li");
+    expect(memberItem?.getAttribute("data-docket-status")).toContain(
+      "unobserved"
+    );
+    expect(memberItem?.getAttribute("data-docket-status")).not.toContain(
+      "steady"
+    );
+    expect(
+      within(memberItem as HTMLElement).getByText("관측 대기")
+    ).toBeInTheDocument();
+    expect(
+      within(memberItem as HTMLElement).getByText("확인 불가")
+    ).toBeInTheDocument();
+    expect(
+      within(memberItem as HTMLElement).queryByText("0.0%")
+    ).not.toBeInTheDocument();
+  });
+
   it("reveals long vote histories in bounded pages", () => {
     const paginationItems = Array.from({ length: 25 }, (_, index) => ({
       ...latestVotesFixture.items[0],

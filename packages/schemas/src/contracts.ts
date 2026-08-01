@@ -258,6 +258,7 @@ export const accountabilitySummaryItemSchema = z.object({
   noCount: z.number().int().nonnegative(),
   abstainCount: z.number().int().nonnegative(),
   absentCount: z.number().int().nonnegative().default(0),
+  unresolvedCount: z.number().int().nonnegative().default(0),
   noRate: z.number().min(0).max(1),
   abstainRate: z.number().min(0).max(1),
   absentRate: z.number().min(0).max(1).default(0),
@@ -385,6 +386,7 @@ export const weeklyAssemblyTrendPointSchema = z.object({
   noCount: z.number().int().nonnegative(),
   abstainCount: z.number().int().nonnegative(),
   absentCount: z.number().int().nonnegative(),
+  unresolvedCount: z.number().int().nonnegative().default(0),
   eligibleVoteCount: z.number().int().nonnegative(),
   partyLineOpportunityCount: z.number().int().nonnegative().default(0),
   partyLineParticipationCount: z.number().int().nonnegative().default(0),
@@ -402,6 +404,7 @@ export const accountabilityMoverWindowSchema = z.object({
   previousWindowNoCount: z.number().int().nonnegative(),
   previousWindowAbstainCount: z.number().int().nonnegative(),
   previousWindowAbsentCount: z.number().int().nonnegative(),
+  previousWindowUnresolvedCount: z.number().int().nonnegative().default(0),
   previousWindowPartyLineOpportunityCount: z
     .number()
     .int()
@@ -421,6 +424,7 @@ export const accountabilityMoverWindowSchema = z.object({
   currentWindowNoCount: z.number().int().nonnegative(),
   currentWindowAbstainCount: z.number().int().nonnegative(),
   currentWindowAbsentCount: z.number().int().nonnegative(),
+  currentWindowUnresolvedCount: z.number().int().nonnegative().default(0),
   currentWindowPartyLineOpportunityCount: z
     .number()
     .int()
@@ -457,7 +461,7 @@ export const memberActivityDayStateSchema = z.object({
   totalRollCalls: z.number().int().nonnegative().default(0),
   state: z
     .enum(["yes", "no", "abstain", "absent", "unknown", "missing"])
-    .transform((state) => (state === "missing" ? "absent" : state))
+    .transform((state) => (state === "missing" ? "unknown" : state))
 });
 
 export const memberActivityVoteRecordSchema = z.object({
@@ -465,7 +469,7 @@ export const memberActivityVoteRecordSchema = z.object({
   billName: nonEmptyString,
   committeeName: nonEmptyString.nullable().optional(),
   voteDatetime: nonEmptyString,
-  voteCode: z.enum(["yes", "no", "abstain", "absent"]),
+  voteCode: z.enum(["yes", "no", "abstain", "absent", "unknown"]),
   officialSourceUrl: nonEmptyString.url().nullable().optional()
 });
 
@@ -474,7 +478,8 @@ export const memberActivityCommitteeSummarySchema = z.object({
   eligibleRollCallCount: z.number().int().nonnegative(),
   participatedRollCallCount: z.number().int().nonnegative(),
   absentRollCallCount: z.number().int().nonnegative(),
-  participationRate: z.number().min(0).max(1),
+  unresolvedRollCallCount: z.number().int().nonnegative().default(0),
+  participationRate: z.number().min(0).max(1).nullable(),
   yesCount: z.number().int().nonnegative(),
   noCount: z.number().int().nonnegative(),
   abstainCount: z.number().int().nonnegative(),
@@ -505,6 +510,7 @@ const memberActivityCalendarMemberBaseSchema = z
     longestNegativeOrAbsentStreak: z.number().int().nonnegative(),
     negativeDays: z.number().int().nonnegative(),
     absentDays: z.number().int().nonnegative(),
+    unknownDays: z.number().int().nonnegative().default(0),
     committeeMemberships: z.array(nonEmptyString).default([]),
     committeeSummaries: z
       .array(memberActivityCommitteeSummarySchema)
@@ -548,7 +554,8 @@ export const memberActivityCalendarMemberSchema = z.preprocess((input) => {
     longestNegativeOrAbsentStreak:
       record.longestNegativeOrAbsentStreak ??
       record.longestNegativeOrMissingStreak,
-    absentDays: record.absentDays ?? record.missingDays,
+    absentDays: record.absentDays ?? 0,
+    unknownDays: record.unknownDays ?? record.missingDays ?? 0,
     voteRecordCount: record.voteRecordCount ?? voteRecords.length,
     voteRecordsPath:
       record.voteRecordsPath ??

@@ -16,6 +16,7 @@ export type SummaryItem = {
   absentRate: number;
   noRate: number;
   abstainRate: number;
+  voteMetricsAvailable?: boolean;
   realEstateTotal?: number | null;
   assetTotal?: number | null;
 };
@@ -109,6 +110,13 @@ export function endPerformanceSpan(span: PerformanceSpan): number {
 }
 
 function getMetricValue(item: SummaryItem, metric: MapMetric): number | null {
+  if (
+    (metric === "absence" || metric === "negative") &&
+    item.voteMetricsAvailable === false
+  ) {
+    return null;
+  }
+
   if (metric === "absence") {
     return item.absentRate;
   }

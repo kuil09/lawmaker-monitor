@@ -24,7 +24,7 @@ const DEFAULT_CARD_FONT_FILES = [
   )
 );
 const CARD_GENERATION_CONCURRENCY = 2;
-const CARD_RENDERER_VERSION = "member-share-card-v6-vote-participation-rate";
+const CARD_RENDERER_VERSION = "member-share-card-v7-unresolved-vote-coverage";
 const MEMBER_CARD_PALETTE = Object.freeze({
   paper: "#e7e7e1",
   paperDeep: "#c9cac4",
@@ -90,16 +90,23 @@ function formatRatePercent(value) {
 }
 
 function getVoteParticipation(accountability) {
-  const totalCount = accountability.totalRecordedVotes;
+  const totalCount = Math.max(0, accountability.totalRecordedVotes);
+  const unresolvedCount = Math.min(
+    totalCount,
+    Math.max(0, accountability.unresolvedCount ?? 0)
+  );
+  const resolvedCount = Math.max(0, totalCount - unresolvedCount);
   const participatedCount = Math.max(
     0,
-    totalCount - accountability.absentCount
+    resolvedCount - accountability.absentCount
   );
 
   return {
     totalCount,
+    resolvedCount,
+    unresolvedCount,
     participatedCount,
-    rate: totalCount > 0 ? participatedCount / totalCount : null
+    rate: resolvedCount > 0 ? participatedCount / resolvedCount : null
   };
 }
 
@@ -547,10 +554,20 @@ function buildEvidenceFacts(member) {
     const participation = getVoteParticipation(member.accountability);
     facts.push(
       participation.rate === null
-        ? "공개 기록표결 자료 없음"
-        : `기록표결 ${formatInteger(
-            participation.totalCount
-          )}건 중 ${formatInteger(participation.participatedCount)}건 참여`
+        ? participation.totalCount > 0
+          ? `기록표결 ${formatInteger(
+              participation.totalCount
+            )}건 · 의원별 표결행 ${formatInteger(
+              participation.unresolvedCount
+            )}건 확인 불가`
+          : "공개 기록표결 자료 없음"
+        : `확인된 기록표결 ${formatInteger(
+            participation.resolvedCount
+          )}건 중 ${formatInteger(participation.participatedCount)}건 참여${
+            participation.unresolvedCount > 0
+              ? ` · 확인 불가 ${formatInteger(participation.unresolvedCount)}건`
+              : ""
+          }`
     );
   } else if (member.activity?.voteRecordCount !== undefined) {
     facts.push(
@@ -597,18 +614,26 @@ function buildPerformanceHighlights(member) {
   if (member.accountability) {
     const participation = getVoteParticipation(member.accountability);
     highlights.push({
-      label: "표결 참여율",
+      label: "확인된 표결 참여율",
       value:
         participation.rate === null
-          ? "자료 없음"
+          ? "산정 불가"
           : formatRatePercent(participation.rate),
-      contextLabel: "기록표결",
+      contextLabel: "의원별 표결행",
       contextValue:
         participation.rate === null
-          ? "자료 없음"
+          ? participation.totalCount > 0
+            ? `확인 불가 ${formatInteger(
+                participation.unresolvedCount
+              )} / ${formatInteger(participation.totalCount)}건`
+            : "자료 없음"
           : `${formatInteger(participation.participatedCount)} / ${formatInteger(
-              participation.totalCount
-            )}건`
+              participation.resolvedCount
+            )}건${
+              participation.unresolvedCount > 0
+                ? ` · 미확인 ${formatInteger(participation.unresolvedCount)}건`
+                : ""
+            }`
     });
   } else if (member.activity?.voteRecordCount !== undefined) {
     highlights.push({

@@ -54,7 +54,7 @@ describe("HexmapPage", () => {
       "true"
     );
     expect(
-      screen.getByRole("tab", { name: "결석률 본회의 기준" })
+      screen.getByRole("tab", { name: "표결 불참률 본회의 기준" })
     ).toHaveAttribute("aria-selected", "true");
     expect(document.querySelector(".hexmap-page")).toHaveAttribute(
       "data-active-metric",
@@ -66,7 +66,7 @@ describe("HexmapPage", () => {
     ).toHaveTextContent("김아라");
     const proportionalComparison = screen
       .getByRole("heading", {
-        name: "결석률 · 비례대표 의원 비교"
+        name: "표결 불참률 · 비례대표 의원 비교"
       })
       .closest("section");
     expect(proportionalComparison).not.toBeNull();
@@ -162,16 +162,18 @@ describe("HexmapPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "시·도 요약" }));
 
     expect(
-      screen.getByRole("heading", { name: "시·도별 결석률 분포" })
+      screen.getByRole("heading", { name: "시·도별 표결 불참률 분포" })
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("시·도별 결석률 비교")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("시·도별 표결 불참률 비교")
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("complementary", { name: "선택한 지역의 요약" })
     ).toHaveTextContent("서울");
     expect(screen.getByText(/전국 상대 순위/)).toBeInTheDocument();
 
     const busanSummaryButton = screen
-      .getByLabelText("시·도별 결석률 비교")
+      .getByLabelText("시·도별 표결 불참률 비교")
       .querySelector<HTMLButtonElement>('button[data-province="부산"]');
     expect(busanSummaryButton).not.toBeNull();
     fireEvent.click(busanSummaryButton!);
@@ -211,5 +213,35 @@ describe("HexmapPage", () => {
     expect(
       screen.queryByRole("heading", { name: "지역별 국회 기록 탐색" })
     ).not.toBeInTheDocument();
+  });
+
+  it("shows unresolved vote coverage as missing data instead of zero absence", () => {
+    const unresolvedSummary = {
+      ...accountabilitySummaryFixture,
+      items: accountabilitySummaryFixture.items.map(
+        (item: { memberId: string }) =>
+          item.memberId === "M001"
+            ? {
+                ...item,
+                totalRecordedVotes: 537,
+                noCount: 0,
+                abstainCount: 0,
+                absentCount: 0,
+                unresolvedCount: 537,
+                noRate: 0,
+                abstainRate: 0,
+                absentRate: 0
+              }
+            : item
+      )
+    };
+
+    renderPage({ accountabilitySummary: unresolvedSummary });
+
+    const detail = screen.getByRole("complementary", {
+      name: "선택한 의원의 기록"
+    });
+    expect(within(detail).getAllByText("자료 없음").length).toBeGreaterThan(0);
+    expect(within(detail).queryByText("표결 불참률 0.0%")).toBeNull();
   });
 });

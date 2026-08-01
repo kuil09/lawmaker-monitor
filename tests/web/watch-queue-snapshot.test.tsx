@@ -70,6 +70,28 @@ const trends: AccountabilityTrendsExport = {
   ]
 };
 
+const unresolvedTrends: AccountabilityTrendsExport = {
+  ...trends,
+  movers: [
+    {
+      ...trendBase,
+      memberId: "M004",
+      name: "확인불가",
+      party: "국민의힘",
+      previousWindowEligibleCount: 23,
+      previousWindowNoCount: 23,
+      previousWindowAbstainCount: 0,
+      previousWindowAbsentCount: 0,
+      previousWindowUnresolvedCount: 0,
+      currentWindowEligibleCount: 23,
+      currentWindowNoCount: 0,
+      currentWindowAbstainCount: 0,
+      currentWindowAbsentCount: 0,
+      currentWindowUnresolvedCount: 3
+    }
+  ]
+};
+
 describe("watch queue change language", () => {
   it("separates vote participation from yes, no, abstain, and absence", () => {
     render(
@@ -118,5 +140,23 @@ describe("watch queue change language", () => {
         })
         .closest("article")
     ).toHaveClass("is-absence-record");
+  });
+
+  it("does not infer a change when either comparison window is unresolved", () => {
+    render(
+      <WatchQueueSnapshot
+        accountabilitySummary={null}
+        accountabilityTrends={unresolvedTrends}
+        billProposalActivity={null}
+        loading={false}
+        unavailable={false}
+        onOpenMember={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText("확인불가")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "전체 0건 중 0건 표시"
+    );
   });
 });

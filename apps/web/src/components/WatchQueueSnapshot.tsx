@@ -29,6 +29,7 @@ type VoteWindowBreakdown = {
   noCount: number;
   abstainCount: number;
   absentCount: number;
+  unresolvedCount: number;
 };
 
 type QueueRecord = {
@@ -93,21 +94,27 @@ function buildVoteWindowBreakdown(args: {
   noCount: number;
   abstainCount: number;
   absentCount: number;
+  unresolvedCount: number;
 }): VoteWindowBreakdown {
   return {
     eligibleCount: args.eligibleCount,
     yesCount: Math.max(
       0,
-      args.eligibleCount - args.noCount - args.abstainCount - args.absentCount
+      args.eligibleCount -
+        args.noCount -
+        args.abstainCount -
+        args.absentCount -
+        args.unresolvedCount
     ),
     noCount: args.noCount,
     abstainCount: args.abstainCount,
-    absentCount: args.absentCount
+    absentCount: args.absentCount,
+    unresolvedCount: args.unresolvedCount
   };
 }
 
 function getDominantVoteRecord(window: VoteWindowBreakdown): {
-  key: "yes" | "no" | "abstain" | "absent";
+  key: "yes" | "no" | "abstain" | "absent" | "unknown";
   label: string;
   count: number;
 } {
@@ -115,7 +122,12 @@ function getDominantVoteRecord(window: VoteWindowBreakdown): {
     { key: "yes" as const, label: "찬성", count: window.yesCount },
     { key: "no" as const, label: "반대", count: window.noCount },
     { key: "abstain" as const, label: "기권", count: window.abstainCount },
-    { key: "absent" as const, label: "불참", count: window.absentCount }
+    { key: "absent" as const, label: "불참", count: window.absentCount },
+    {
+      key: "unknown" as const,
+      label: "확인 불가",
+      count: window.unresolvedCount
+    }
   ].reduce((dominant, item) => (item.count > dominant.count ? item : dominant));
 }
 
@@ -170,6 +182,13 @@ function buildChangeRecords(
 
   return (trends?.movers ?? [])
     .flatMap((mover): QueueRecord[] => {
+      if (
+        (mover.previousWindowUnresolvedCount ?? 0) > 0 ||
+        (mover.currentWindowUnresolvedCount ?? 0) > 0
+      ) {
+        return [];
+      }
+
       const previousValue = getWindowNegativeRate({
         noCount: mover.previousWindowNoCount,
         abstainCount: mover.previousWindowAbstainCount,
@@ -197,13 +216,15 @@ function buildChangeRecords(
         eligibleCount: mover.previousWindowEligibleCount,
         noCount: mover.previousWindowNoCount,
         abstainCount: mover.previousWindowAbstainCount,
-        absentCount: mover.previousWindowAbsentCount
+        absentCount: mover.previousWindowAbsentCount,
+        unresolvedCount: mover.previousWindowUnresolvedCount ?? 0
       });
       const currentBreakdown = buildVoteWindowBreakdown({
         eligibleCount: mover.currentWindowEligibleCount,
         noCount: mover.currentWindowNoCount,
         abstainCount: mover.currentWindowAbstainCount,
-        absentCount: mover.currentWindowAbsentCount
+        absentCount: mover.currentWindowAbsentCount,
+        unresolvedCount: mover.currentWindowUnresolvedCount ?? 0
       });
       return [
         {
@@ -317,13 +338,13 @@ function buildAbsenceRecords(
         district: member.district ?? null,
         photoUrl: member.photoUrl,
         recordType: "행위 부재" as const,
-        headline: `공개 기록표결 결석률이 ${formatPercent(absenceRate)}입니다.`,
+        headline: `공개 기록표결 불참률이 ${formatPercent(absenceRate)}입니다.`,
         rationale:
           "공개된 기록표결 중 불참으로 기록된 건수를 같은 분모로 비교했습니다.",
         previousValue: null,
         currentValue: absenceRate,
         delta: null,
-        currentLabel: "결석률",
+        currentLabel: "표결 불참률",
         actionLabel: "표결별 결석 근거 보기",
         basisLabel: `${formatNumber(
           member.totalRecordedVotes
@@ -377,6 +398,12 @@ function VoteComparison({
       label: "표결 불참",
       previous: comparison.previous.absentCount,
       current: comparison.current.absentCount,
+      summary: true
+    },
+    {
+      label: "확인 불가",
+      previous: comparison.previous.unresolvedCount,
+      current: comparison.current.unresolvedCount,
       summary: true
     }
   ];
@@ -478,11 +505,11 @@ export function WatchQueueSnapshot({
     >
       <header className="watch-queue-snapshot__heading">
         <div>
-          <h2 id="watch-queue-snapshot-title">국회 출석부</h2>
+          <h2 id="watch-queue-snapshot-title">공개 기록표결 현황</h2>
         </div>
         <p>
-          최근 수집된 공개 기록을 변화·결과·행위 부재 기준으로 확인하고 공식
-          근거까지 따라갑니다.
+          회의 출석률이 아닌 최근 공개 기록표결을 변화·결과·명시 불참·확인
+          불가로 나눠 확인하고 공식 근거까지 따라갑니다.
           {latestGeneratedAt ? (
             <time dateTime={latestGeneratedAt}>
               {` 최근 수집 ${formatDateTime(latestGeneratedAt)}`}
@@ -492,7 +519,10 @@ export function WatchQueueSnapshot({
       </header>
 
       <div className="watch-queue-workbench">
-        <aside className="watch-queue-filters" aria-label="국회 출석부 필터">
+        <aside
+          className="watch-queue-filters"
+          aria-label="공개 기록표결 현황 필터"
+        >
           <div>
             <h3>증거 상태</h3>
             {filterLabels.map((filter) => (
@@ -644,7 +674,10 @@ export function WatchQueueSnapshot({
           ) : null}
         </div>
 
-        <aside className="watch-queue-briefing" aria-label="국회 출석부 브리핑">
+        <aside
+          className="watch-queue-briefing"
+          aria-label="공개 기록표결 현황 브리핑"
+        >
           <section>
             <h3>공개 범위</h3>
             <dl>

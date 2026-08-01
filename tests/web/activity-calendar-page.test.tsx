@@ -2,7 +2,7 @@ import React from "react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { render, waitFor } from "@testing-library/react";
+import { render, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ActivityCalendarPage } from "../../apps/web/src/components/ActivityCalendarPage.js";
@@ -107,5 +107,57 @@ describe("activity calendar profile avatars", () => {
         ".activity-compare__column .member-identity__avatar--activity-card"
       )
     ).toHaveLength(2);
+  });
+
+  it("does not rank a committee or show zero percent when its vote rows are unresolved", async () => {
+    const activityCalendarWithUnknown = {
+      ...activityCalendarFixture,
+      assembly: {
+        ...activityCalendarFixture.assembly,
+        members: activityCalendarFixture.assembly.members.map(
+          (member: { memberId: string }) =>
+            member.memberId === "M001"
+              ? {
+                  ...member,
+                  committeeSummaries: [
+                    {
+                      committeeName: "보건복지위원회",
+                      eligibleRollCallCount: 34,
+                      participatedRollCallCount: 0,
+                      absentRollCallCount: 0,
+                      unresolvedRollCallCount: 34,
+                      participationRate: 0,
+                      yesCount: 0,
+                      noCount: 0,
+                      abstainCount: 0,
+                      isCurrentCommittee: true,
+                      recentVoteRecords: []
+                    }
+                  ]
+                }
+              : member
+        )
+      }
+    };
+    const { getByRole } = renderActivityCalendarPage({
+      activityCalendar: activityCalendarWithUnknown,
+      initialMemberId: "M001"
+    });
+
+    const committeeRegion = await waitFor(() =>
+      getByRole("region", {
+        name: "위원회 소관 안건 본회의 확인된 표결 참여율"
+      })
+    );
+    expect(
+      within(committeeRegion).getByRole("heading", {
+        name: "표결행 확인 부족"
+      })
+    ).toBeInTheDocument();
+    expect(within(committeeRegion).getByText("산정 불가")).toBeInTheDocument();
+    expect(
+      within(committeeRegion).getByText(/확인 불가 34/)
+    ).toBeInTheDocument();
+    expect(within(committeeRegion).queryByText("0%")).toBeNull();
   });
 });

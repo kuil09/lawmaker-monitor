@@ -725,6 +725,29 @@ describe("data pipeline contracts", () => {
       voteRecordsPath: "exports/member_activity_calendar_members/M002.json"
     });
     expect(
+      memberActivityCalendarMemberSchema.parse({
+        ...summaryMemberWithoutEmbeddedRecords,
+        absentDays: undefined,
+        missingDays: 2,
+        dayStates: [
+          {
+            date: "2026-03-20",
+            yesCount: 0,
+            noCount: 0,
+            abstainCount: 0,
+            absentCount: 0,
+            unknownCount: 1,
+            totalRollCalls: 1,
+            state: "missing"
+          }
+        ]
+      })
+    ).toMatchObject({
+      absentDays: 0,
+      unknownDays: 2,
+      dayStates: [expect.objectContaining({ state: "unknown" })]
+    });
+    expect(
       memberActivityCalendarMemberDetailExportSchema.parse(
         memberActivityCalendarMemberDetailFixture
       )
@@ -1282,6 +1305,7 @@ describe("data pipeline contracts", () => {
       )
     ).toMatchObject({
       absentDays: 0,
+      unknownDays: 0,
       negativeDays: 1
     });
   });
@@ -1375,7 +1399,8 @@ describe("data pipeline contracts", () => {
     expect(accountabilitySummary.items[0]).toMatchObject({
       totalRecordedVotes: 2,
       noCount: 1,
-      absentCount: 1
+      absentCount: 0,
+      unresolvedCount: 1
     });
     expect(
       memberActivityCalendar.assembly.members[0]?.committeeSummaries
@@ -1385,8 +1410,9 @@ describe("data pipeline contracts", () => {
           committeeName: "법제사법위원회",
           eligibleRollCallCount: 2,
           participatedRollCallCount: 1,
-          absentRollCallCount: 1,
-          participationRate: 0.5
+          absentRollCallCount: 0,
+          unresolvedRollCallCount: 1,
+          participationRate: 1
         })
       ])
     );
@@ -1394,11 +1420,13 @@ describe("data pipeline contracts", () => {
       expect.objectContaining({
         date: "2026-03-20",
         noCount: 1,
-        absentCount: 1,
+        absentCount: 0,
+        unknownCount: 1,
         totalRollCalls: 2,
-        state: "absent"
+        state: "no"
       })
     ]);
+    expect(memberActivityCalendar.assembly.members[0]?.unknownDays).toBe(1);
   });
 
   it("uses official roll-call totals but avoids deriving absent names when row totals do not match", () => {
@@ -1536,38 +1564,43 @@ describe("data pipeline contracts", () => {
       accountabilitySummary.items.find((item) => item.memberId === "M003")
     ).toMatchObject({
       totalRecordedVotes: 1,
-      absentCount: 1
+      absentCount: 0,
+      unresolvedCount: 1
     });
     expect(
       accountabilitySummary.items.find((item) => item.memberId === "M004")
     ).toMatchObject({
       totalRecordedVotes: 1,
-      absentCount: 1
+      absentCount: 0,
+      unresolvedCount: 1
     });
     expect(
       accountabilityTrends.movers.find((member) => member.memberId === "M003")
     ).toMatchObject({
       currentWindowEligibleCount: 1,
-      currentWindowAbsentCount: 1
+      currentWindowAbsentCount: 0,
+      currentWindowUnresolvedCount: 1
     });
     expect(
       accountabilityTrends.movers.find((member) => member.memberId === "M004")
     ).toMatchObject({
       currentWindowEligibleCount: 1,
-      currentWindowAbsentCount: 1
+      currentWindowAbsentCount: 0,
+      currentWindowUnresolvedCount: 1
     });
     expect(
       memberActivityCalendar.assembly.members.find(
         (member) => member.memberId === "M003"
       )
     ).toMatchObject({
-      absentDays: 1,
+      absentDays: 0,
+      unknownDays: 1,
       dayStates: [
         expect.objectContaining({
           date: "2026-03-24",
-          absentCount: 1,
-          unknownCount: 0,
-          state: "absent"
+          absentCount: 0,
+          unknownCount: 1,
+          state: "unknown"
         })
       ]
     });
@@ -1576,7 +1609,8 @@ describe("data pipeline contracts", () => {
         (member) => member.memberId === "M004"
       )
     ).toMatchObject({
-      absentDays: 1
+      absentDays: 0,
+      unknownDays: 1
     });
   });
 

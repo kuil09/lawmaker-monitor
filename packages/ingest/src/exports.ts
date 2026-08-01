@@ -62,9 +62,12 @@ type ExportBuildOptions = {
 type PublicVoteCode = Exclude<VoteCode, "absent">;
 type MemberCentricVoteCode = Extract<
   VoteCode,
-  "yes" | "no" | "abstain" | "absent"
+  "yes" | "no" | "abstain" | "absent" | "unknown"
 >;
-type PartyLineMajorityVoteCode = Exclude<MemberCentricVoteCode, "absent">;
+type PartyLineMajorityVoteCode = Exclude<
+  MemberCentricVoteCode,
+  "absent" | "unknown"
+>;
 type VoteHighlight = {
   memberId: string | null;
   memberName: string;
@@ -104,7 +107,8 @@ type CommitteeSummary = {
   eligibleRollCallCount: number;
   participatedRollCallCount: number;
   absentRollCallCount: number;
-  participationRate: number;
+  unresolvedRollCallCount: number;
+  participationRate: number | null;
   yesCount: number;
   noCount: number;
   abstainCount: number;
@@ -123,6 +127,7 @@ type WindowVoteCounts = {
   noCount: number;
   abstainCount: number;
   absentCount: number;
+  unresolvedCount: number;
   partyLineOpportunityCount: number;
   partyLineParticipationCount: number;
   partyLineDefectionCount: number;
@@ -144,7 +149,6 @@ type RollCallVoteResolution = {
   explicitCounts: LatestVoteCounts;
   absentListStatus?: AbsentListStatus;
   explicitAbsentMemberIds: Set<string>;
-  verifiedDerivedAbsentMemberIds: Set<string>;
   missingEligibleMemberIds: Set<string>;
 };
 
@@ -310,6 +314,7 @@ function createWindowVoteCounts(): WindowVoteCounts {
     noCount: 0,
     abstainCount: 0,
     absentCount: 0,
+    unresolvedCount: 0,
     partyLineOpportunityCount: 0,
     partyLineParticipationCount: 0,
     partyLineDefectionCount: 0
@@ -377,20 +382,14 @@ function resolveRollCallVoteCounts(args: {
     ? Math.max(officialTally.registeredCount - officialTally.presentCount, 0)
     : null;
   let absentListStatus: AbsentListStatus | undefined;
-  let verifiedDerivedAbsentMemberIds = new Set<string>();
-
   if (canDeriveAbsences) {
     if (officialTally) {
-      const expectedDerivedAbsentCount = Math.max(
-        (officialAbsentCount ?? 0) - explicitAbsentMemberIds.size,
-        0
-      );
       const presentMatches = rowPresentCount === officialTally.presentCount;
-      const missingMatches =
-        missingEligibleMemberIds.size === expectedDerivedAbsentCount;
-      if (presentMatches && missingMatches) {
+      const explicitAbsencesMatch =
+        explicitAbsentMemberIds.size === officialAbsentCount;
+      const rosterIsComplete = missingEligibleMemberIds.size === 0;
+      if (presentMatches && explicitAbsencesMatch && rosterIsComplete) {
         absentListStatus = "verified";
-        verifiedDerivedAbsentMemberIds = new Set(missingEligibleMemberIds);
       } else {
         absentListStatus = "unavailable";
       }
@@ -419,14 +418,13 @@ function resolveRollCallVoteCounts(args: {
     explicitCounts,
     absentListStatus,
     explicitAbsentMemberIds,
-    verifiedDerivedAbsentMemberIds,
     missingEligibleMemberIds
   };
 }
 
 function accumulateVoteCounts(
   target: WindowVoteCounts,
-  voteCode?: VoteCode
+  voteCode: MemberCentricVoteCode
 ): void {
   target.eligibleCount += 1;
 
@@ -440,8 +438,13 @@ function accumulateVoteCounts(
     return;
   }
 
-  if (!voteCode || voteCode === "absent") {
+  if (voteCode === "absent") {
     target.absentCount += 1;
+    return;
+  }
+
+  if (voteCode === "unknown") {
+    target.unresolvedCount += 1;
   }
 }
 
@@ -454,7 +457,8 @@ function resolveCalendarState(bucket: DayBucket): CalendarState {
     { state: "absent", count: bucket.absentCount, priority: 4 },
     { state: "no", count: bucket.noCount, priority: 3 },
     { state: "abstain", count: bucket.abstainCount, priority: 2 },
-    { state: "yes", count: bucket.yesCount, priority: 1 }
+    { state: "yes", count: bucket.yesCount, priority: 1 },
+    { state: "unknown", count: bucket.unknownCount, priority: 0 }
   ];
   const bestMatch = rankedStates.reduce<{
     state: CalendarState;
@@ -687,12 +691,13 @@ function resolveMemberCentricVoteCode(args: {
   if (
     explicitVoteCode === "yes" ||
     explicitVoteCode === "no" ||
-    explicitVoteCode === "abstain"
+    explicitVoteCode === "abstain" ||
+    explicitVoteCode === "absent"
   ) {
     return explicitVoteCode;
   }
 
-  return "absent";
+  return "unknown";
 }
 
 function resolvePartyLineMajorityVoteCode(args: {
@@ -758,7 +763,7 @@ function buildPartyLineMajoritiesByRollCall(args: {
         memberId: member.memberId,
         voteCodeLookup: args.voteCodeLookup
       });
-      if (voteCode === "absent") {
+      if (voteCode === "absent" || voteCode === "unknown") {
         continue;
       }
 
@@ -810,7 +815,7 @@ function accumulatePartyLineCounts(args: {
 }): void {
   args.target.partyLineOpportunityCount += 1;
 
-  if (args.voteCode === "absent") {
+  if (args.voteCode === "absent" || args.voteCode === "unknown") {
     return;
   }
 
@@ -904,6 +909,7 @@ function buildCommitteeSummariesByMember(args: {
         eligibleRollCallCount: 0,
         participatedRollCallCount: 0,
         absentRollCallCount: 0,
+        unresolvedRollCallCount: 0,
         yesCount: 0,
         noCount: 0,
         abstainCount: 0
@@ -924,8 +930,10 @@ function buildCommitteeSummariesByMember(args: {
       } else if (voteCode === "abstain") {
         currentSummary.participatedRollCallCount += 1;
         currentSummary.abstainCount += 1;
-      } else {
+      } else if (voteCode === "absent") {
         currentSummary.absentRollCallCount += 1;
+      } else {
+        currentSummary.unresolvedRollCallCount += 1;
       }
 
       summaryByCommittee.set(committeeName, currentSummary);
@@ -941,21 +949,27 @@ function buildCommitteeSummariesByMember(args: {
     const voteRecords =
       args.memberVoteRecordsByMember.get(member.memberId) ?? [];
     const summaries = [...summaryByCommittee.values()]
-      .map((summary) => ({
-        ...summary,
-        participationRate:
-          summary.eligibleRollCallCount === 0
-            ? 0
-            : summary.participatedRollCallCount / summary.eligibleRollCallCount,
-        isCurrentCommittee: currentCommittees.has(summary.committeeName),
-        recentVoteRecords: voteRecords
-          .filter(
-            (record) =>
-              normalizeCommitteeName(record.committeeName) ===
-              summary.committeeName
-          )
-          .slice(0, 3)
-      }))
+      .map((summary) => {
+        const resolvedRollCallCount = Math.max(
+          0,
+          summary.eligibleRollCallCount - summary.unresolvedRollCallCount
+        );
+        return {
+          ...summary,
+          participationRate:
+            resolvedRollCallCount === 0
+              ? null
+              : summary.participatedRollCallCount / resolvedRollCallCount,
+          isCurrentCommittee: currentCommittees.has(summary.committeeName),
+          recentVoteRecords: voteRecords
+            .filter(
+              (record) =>
+                normalizeCommitteeName(record.committeeName) ===
+                summary.committeeName
+            )
+            .slice(0, 3)
+        };
+      })
       .filter((summary) => summary.eligibleRollCallCount > 0)
       .sort((left, right) => {
         if (right.eligibleRollCallCount !== left.eligibleRollCallCount) {
@@ -974,20 +988,27 @@ function buildCommitteeSummariesByMember(args: {
 function buildHomeCommitteeAlerts(
   summaries: CommitteeSummary[]
 ): HomeCommitteeAlert[] {
-  return summaries
-    .filter(
-      (summary) =>
-        summary.isCurrentCommittee &&
-        summary.eligibleRollCallCount >= 5 &&
-        summary.participationRate < 0.5
-    )
-    .map((summary) => ({
-      committeeName: summary.committeeName,
-      participationRate: summary.participationRate,
-      eligibleRollCallCount: summary.eligibleRollCallCount,
-      participatedRollCallCount: summary.participatedRollCallCount,
-      message: "현재 소속 위원회 표결 참여율이 낮습니다."
-    }));
+  return summaries.flatMap((summary) => {
+    if (
+      !summary.isCurrentCommittee ||
+      summary.eligibleRollCallCount < 5 ||
+      summary.unresolvedRollCallCount > 0 ||
+      summary.participationRate === null ||
+      summary.participationRate >= 0.5
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        committeeName: summary.committeeName,
+        participationRate: summary.participationRate,
+        eligibleRollCallCount: summary.eligibleRollCallCount,
+        participatedRollCallCount: summary.participatedRollCallCount,
+        message: "현재 소속 위원회가 소관한 본회의 기록표결 참여율이 낮습니다."
+      }
+    ];
+  });
 }
 
 function toPublicMemberProfile(
@@ -1142,20 +1163,8 @@ export function buildLatestVotesExport(
       const recordedAbsentVotes: VoteHighlight[] = votes
         .filter((vote) => vote.voteCode === "absent")
         .map((vote) => buildLeanLatestVoteMember({ vote, membersById }));
-      const derivedAbsentVotes: VoteHighlight[] = eligibleCurrentMembers
-        .filter((member) =>
-          resolution.verifiedDerivedAbsentMemberIds.has(member.memberId)
-        )
-        .map((member) => ({
-          memberId: member.memberId,
-          memberName: member.name,
-          party: member.party,
-          ...buildLeanLatestVoteMemberMetadata(),
-          voteCode: "absent" as const
-        }));
-      const absentVotes = [...recordedAbsentVotes, ...derivedAbsentVotes].sort(
-        (left, right) =>
-          left.memberName.localeCompare(right.memberName, "ko-KR")
+      const absentVotes = recordedAbsentVotes.sort((left, right) =>
+        left.memberName.localeCompare(right.memberName, "ko-KR")
       );
       const explicitMemberVotes =
         rollCallIndex < latestPlenaryMemberVoteLimit
@@ -1171,9 +1180,8 @@ export function buildLatestVotesExport(
           : [];
       const memberVotes =
         rollCallIndex < latestPlenaryMemberVoteLimit
-          ? [...explicitMemberVotes, ...derivedAbsentVotes].sort(
-              (left, right) =>
-                left.memberName.localeCompare(right.memberName, "ko-KR")
+          ? explicitMemberVotes.sort((left, right) =>
+              left.memberName.localeCompare(right.memberName, "ko-KR")
             )
           : [];
       const memberVoteListStatus =
@@ -1300,6 +1308,7 @@ export function buildAccountabilitySummaryExport(
       let noCount = 0;
       let abstainCount = 0;
       let absentCount = 0;
+      let unresolvedCount = 0;
       let partyLineOpportunityCount = 0;
       let partyLineParticipationCount = 0;
       let partyLineDefectionCount = 0;
@@ -1317,6 +1326,8 @@ export function buildAccountabilitySummaryExport(
           abstainCount += 1;
         } else if (voteCode === "absent") {
           absentCount += 1;
+        } else if (voteCode === "unknown") {
+          unresolvedCount += 1;
         }
 
         const party = resolveMemberPartyForRollCall({
@@ -1329,7 +1340,7 @@ export function buildAccountabilitySummaryExport(
           : undefined;
         if (partyMajority) {
           partyLineOpportunityCount += 1;
-          if (voteCode !== "absent") {
+          if (voteCode !== "absent" && voteCode !== "unknown") {
             partyLineParticipationCount += 1;
             if (voteCode !== partyMajority.voteCode) {
               partyLineDefectionCount += 1;
@@ -1351,6 +1362,7 @@ export function buildAccountabilitySummaryExport(
         noCount,
         abstainCount,
         absentCount,
+        unresolvedCount,
         noRate: noCount / denominator,
         abstainRate: abstainCount / denominator,
         absentRate: absentCount / denominator,
@@ -1680,6 +1692,7 @@ export function buildAccountabilityTrendsExport(
         noCount: 0,
         abstainCount: 0,
         absentCount: 0,
+        unresolvedCount: 0,
         eligibleVoteCount: 0,
         partyLineOpportunityCount: 0,
         partyLineParticipationCount: 0,
@@ -1767,6 +1780,8 @@ export function buildAccountabilityTrendsExport(
           weeklyTrend.abstainCount += 1;
         } else if (voteCode === "absent") {
           weeklyTrend.absentCount += 1;
+        } else if (voteCode === "unknown") {
+          weeklyTrend.unresolvedCount += 1;
         }
         if (partyMajority) {
           accumulatePartyLineCounts({
@@ -1819,6 +1834,7 @@ export function buildAccountabilityTrendsExport(
           noCount: 0,
           abstainCount: 0,
           absentCount: 0,
+          unresolvedCount: 0,
           eligibleVoteCount: 0,
           partyLineOpportunityCount: 0,
           partyLineParticipationCount: 0,
@@ -1841,6 +1857,7 @@ export function buildAccountabilityTrendsExport(
           previousWindowNoCount: mover?.previous.noCount ?? 0,
           previousWindowAbstainCount: mover?.previous.abstainCount ?? 0,
           previousWindowAbsentCount: mover?.previous.absentCount ?? 0,
+          previousWindowUnresolvedCount: mover?.previous.unresolvedCount ?? 0,
           previousWindowPartyLineOpportunityCount:
             mover?.previous.partyLineOpportunityCount ?? 0,
           previousWindowPartyLineParticipationCount:
@@ -1851,6 +1868,7 @@ export function buildAccountabilityTrendsExport(
           currentWindowNoCount: mover?.current.noCount ?? 0,
           currentWindowAbstainCount: mover?.current.abstainCount ?? 0,
           currentWindowAbsentCount: mover?.current.absentCount ?? 0,
+          currentWindowUnresolvedCount: mover?.current.unresolvedCount ?? 0,
           currentWindowPartyLineOpportunityCount:
             mover?.current.partyLineOpportunityCount ?? 0,
           currentWindowPartyLineParticipationCount:
@@ -1988,11 +2006,14 @@ export function buildMemberActivityCalendarArtifacts(
       );
       const sequence = [...eligibleDates]
         .sort(compareDateKeys)
-        .map((date) => stateByDate.get(date) ?? "absent");
+        .map((date) => stateByDate.get(date) ?? "unknown");
       const negativeDays = sequence.filter(
         (state) => state === "no" || state === "abstain"
       ).length;
       const absentDays = sequence.filter((state) => state === "absent").length;
+      const unknownDays = normalizedDayStates.filter(
+        (dayState) => dayState.unknownCount > 0
+      ).length;
       const committeeSummaries =
         committeeSummariesByMember.get(member.memberId) ?? [];
       memberDetails.push({
@@ -2016,6 +2037,7 @@ export function buildMemberActivityCalendarArtifacts(
         longestNegativeOrAbsentStreak: calculateLongestStreak(sequence, true),
         negativeDays,
         absentDays,
+        unknownDays,
         committeeSummaries,
         homeCommitteeAlerts: buildHomeCommitteeAlerts(committeeSummaries),
         dayStates: normalizedDayStates,

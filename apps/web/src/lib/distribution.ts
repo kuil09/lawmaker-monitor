@@ -1,5 +1,5 @@
-import { getYesCount } from "./accountability.js";
-import { getMemberAttendanceSummary } from "./member-activity.js";
+import { buildParticipationSnapshot, getYesCount } from "./accountability.js";
+import { getMemberDayBreakdown } from "./member-activity.js";
 
 import type {
   AccountabilitySummaryExport,
@@ -32,8 +32,12 @@ export type DistributionMemberPoint = {
   negativeRate: number;
   disruptionRate: number;
   attendanceRate: number;
-  eligibleDays: number;
-  attendedDays: number;
+  participationRateAvailable: boolean;
+  participationCoverageRate: number | null;
+  eligibleRollCallCount: number;
+  resolvedRollCallCount: number;
+  participatedRollCallCount: number;
+  unresolvedRollCallCount: number;
   yesDays: number;
   noDays: number;
   abstainDays: number;
@@ -66,6 +70,7 @@ export type DistributionBehaviorSummary = {
 export type DistributionPartySummary = {
   party: string;
   memberCount: number;
+  comparableMemberCount: number;
   averageAttendanceRate: number;
   averageSupportRate: number;
   averageNegativeRate: number;
@@ -227,10 +232,22 @@ export function buildDistributionMembers(
         return [];
       }
 
-      const attendanceSummary = getMemberAttendanceSummary(activityMember);
+      const dayBreakdown = getMemberDayBreakdown(activityMember);
+      const participation = buildParticipationSnapshot(
+        item.totalRecordedVotes,
+        item.absentCount,
+        item.unresolvedCount ?? 0
+      );
       const yesCount = getYesCount(item);
-      const negativeRate = item.noRate + item.abstainRate;
-      const disruptionRate = negativeRate + item.absentRate;
+      const resolvedCount = participation.resolvedCount;
+      const yesRate = resolvedCount > 0 ? yesCount / resolvedCount : 0;
+      const noRate = resolvedCount > 0 ? item.noCount / resolvedCount : 0;
+      const abstainRate =
+        resolvedCount > 0 ? item.abstainCount / resolvedCount : 0;
+      const absentRate =
+        resolvedCount > 0 ? item.absentCount / resolvedCount : 0;
+      const negativeRate = noRate + abstainRate;
+      const disruptionRate = negativeRate + absentRate;
 
       return [
         {
@@ -250,21 +267,22 @@ export function buildDistributionMembers(
           partyLineParticipationCount: item.partyLineParticipationCount,
           partyLineDefectionCount: item.partyLineDefectionCount,
           partyLineDefectionRate: item.partyLineDefectionRate,
-          yesRate:
-            item.totalRecordedVotes > 0
-              ? yesCount / item.totalRecordedVotes
-              : 0,
-          noRate: item.noRate,
-          abstainRate: item.abstainRate,
-          absentRate: item.absentRate,
+          yesRate,
+          noRate,
+          abstainRate,
+          absentRate,
           negativeRate,
           disruptionRate,
-          attendanceRate: attendanceSummary.attendanceRate,
-          eligibleDays: attendanceSummary.eligibleDays,
-          attendedDays: attendanceSummary.attendedDays,
-          yesDays: attendanceSummary.yesDays,
-          noDays: attendanceSummary.noDays,
-          abstainDays: attendanceSummary.abstainDays,
+          attendanceRate: participation.rate ?? 0,
+          participationRateAvailable: participation.rate !== null,
+          participationCoverageRate: participation.coverageRate,
+          eligibleRollCallCount: participation.eligibleCount,
+          resolvedRollCallCount: participation.resolvedCount,
+          participatedRollCallCount: participation.participatedCount,
+          unresolvedRollCallCount: participation.unresolvedCount,
+          yesDays: dayBreakdown.yesDays,
+          noDays: dayBreakdown.noDays,
+          abstainDays: dayBreakdown.abstainDays,
           absentDayCount: activityMember.absentDays,
           negativeDayCount: activityMember.negativeDays,
           currentNegativeStreak: activityMember.currentNegativeStreak,
@@ -283,6 +301,12 @@ export function buildDistributionMembers(
     .sort((left, right) => {
       if (right.disruptionRate !== left.disruptionRate) {
         return right.disruptionRate - left.disruptionRate;
+      }
+
+      if (
+        right.participationRateAvailable !== left.participationRateAvailable
+      ) {
+        return right.participationRateAvailable ? 1 : -1;
       }
 
       if (left.attendanceRate !== right.attendanceRate) {
@@ -326,19 +350,24 @@ export function buildDistributionPartySummaries(
 
   return [...groups.entries()]
     .map(([party, partyMembers]) => {
-      const totalAttendanceRate = partyMembers.reduce(
+      const comparableMembers = partyMembers.filter(
+        (member) => member.participationRateAvailable
+      );
+      const comparableMemberCount = comparableMembers.length;
+      const divisor = Math.max(comparableMemberCount, 1);
+      const totalAttendanceRate = comparableMembers.reduce(
         (sum, member) => sum + member.attendanceRate,
         0
       );
-      const totalSupportRate = partyMembers.reduce(
+      const totalSupportRate = comparableMembers.reduce(
         (sum, member) => sum + member.yesRate,
         0
       );
-      const totalNegativeRate = partyMembers.reduce(
+      const totalNegativeRate = comparableMembers.reduce(
         (sum, member) => sum + member.negativeRate,
         0
       );
-      const totalAbsenceRate = partyMembers.reduce(
+      const totalAbsenceRate = comparableMembers.reduce(
         (sum, member) => sum + member.absentRate,
         0
       );
@@ -351,10 +380,11 @@ export function buildDistributionPartySummaries(
       return {
         party,
         memberCount: partyMembers.length,
-        averageAttendanceRate: totalAttendanceRate / partyMembers.length,
-        averageSupportRate: totalSupportRate / partyMembers.length,
-        averageNegativeRate: totalNegativeRate / partyMembers.length,
-        averageAbsenceRate: totalAbsenceRate / partyMembers.length,
+        comparableMemberCount,
+        averageAttendanceRate: totalAttendanceRate / divisor,
+        averageSupportRate: totalSupportRate / divisor,
+        averageNegativeRate: totalNegativeRate / divisor,
+        averageAbsenceRate: totalAbsenceRate / divisor,
         topCurrentStreak
       };
     })

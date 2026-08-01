@@ -84,8 +84,10 @@ describe("member evaluation dossier", () => {
       within(evidenceGrid!).getByText("2 / 2 (100.0%)")
     ).toBeInTheDocument();
     expect(
-      within(evidenceGrid!).getByText("분모: 의원별 참여 대상 공개 기록표결")
-    ).toBeInTheDocument();
+      within(evidenceGrid!).getAllByText(
+        "확인된 표결 2건 / 전체 대상 2건 · 확인 불가 0건"
+      ).length
+    ).toBeGreaterThanOrEqual(4);
     expect(
       getByText("반대 여부는 의안별 판단 기록이며 평가 점수가 아닙니다.")
     ).toBeInTheDocument();
@@ -98,6 +100,53 @@ describe("member evaluation dossier", () => {
 
     expect(getAllByText(/2025년 3월 27일/).length).toBeGreaterThan(0);
     expect(getAllByText(/2025년 4월 29일/).length).toBeGreaterThan(0);
+  });
+
+  it("shows participation as unavailable when every member vote row is unresolved", () => {
+    const unresolvedItem = {
+      ...accountabilityItem,
+      totalRecordedVotes: 537,
+      noCount: 0,
+      abstainCount: 0,
+      absentCount: 0,
+      unresolvedCount: 537,
+      noRate: 0,
+      abstainRate: 0,
+      absentRate: 0,
+      lastVoteAt: null
+    };
+    const { container } = render(
+      <MemberEvaluationDossier
+        assembly={activity.assembly}
+        member={member}
+        accountabilityItem={unresolvedItem}
+        voteRecords={[]}
+        voteRecordCount={537}
+        voteRecordsLoading={false}
+        voteRecordsError={null}
+        resolvedDistrict="비례대표"
+        onShare={vi.fn()}
+      />
+    );
+    const evidenceGrid = container.querySelector(
+      ".member-evaluation__evidence-grid"
+    );
+
+    expect(evidenceGrid).not.toBeNull();
+    expect(
+      within(evidenceGrid!).getAllByText("산정 불가").length
+    ).toBeGreaterThanOrEqual(4);
+    expect(
+      within(evidenceGrid!).getByText(
+        "537건 모두 의원별 표결행을 확인할 수 없습니다."
+      )
+    ).toBeInTheDocument();
+    expect(
+      within(evidenceGrid!).getByText(
+        "확인 불가 537건 · 불참으로 추론하지 않음"
+      )
+    ).toBeInTheDocument();
+    expect(within(evidenceGrid!).queryByText("0 / 537 (0.0%)")).toBeNull();
   });
 
   it("does not infer proportional representation when region data is missing", () => {

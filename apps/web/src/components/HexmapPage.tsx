@@ -67,8 +67,8 @@ const METRIC_CONFIGS: Array<{
 }> = [
   {
     key: "absence",
-    label: "결석률",
-    shortLabel: "결석률",
+    label: "표결 불참률",
+    shortLabel: "불참률",
     basis: "본회의 기준",
     description: "공개된 본회의 표결 중 결석으로 기록된 비율"
   },
@@ -108,6 +108,7 @@ type RegionalMember = {
   photoUrl: string | null;
   absentRate: number;
   negativeRate: number;
+  voteMetricsAvailable: boolean;
   realEstateTotal: number | null;
   assetTotal: number | null;
   assemblyNo: number;
@@ -199,9 +200,9 @@ function getMetricValue(
 ): number | null {
   switch (metric) {
     case "absence":
-      return member.absentRate;
+      return member.voteMetricsAvailable ? member.absentRate : null;
     case "negative":
-      return member.negativeRate;
+      return member.voteMetricsAvailable ? member.negativeRate : null;
     case "realEstate":
       return member.realEstateTotal;
     case "assetTotal":
@@ -383,6 +384,10 @@ export function HexmapPage({
         const province = getProvinceFromDistrict(sourceDistrict);
         const district = normalizeDistrictLabel(sourceDistrict, province);
         const assets = assetsByMemberId.get(item.memberId);
+        const resolvedVoteCount = Math.max(
+          0,
+          item.totalRecordedVotes - (item.unresolvedCount ?? 0)
+        );
         return {
           memberId: item.memberId,
           name: item.name,
@@ -391,8 +396,13 @@ export function HexmapPage({
           province,
           districtGroup: getDistrictGroup(district, province),
           photoUrl: getOptimizedMemberPhotoUrl(item.photoUrl),
-          absentRate: item.absentRate,
-          negativeRate: item.noRate + item.abstainRate,
+          absentRate:
+            resolvedVoteCount > 0 ? item.absentCount / resolvedVoteCount : 0,
+          negativeRate:
+            resolvedVoteCount > 0
+              ? (item.noCount + item.abstainCount) / resolvedVoteCount
+              : 0,
+          voteMetricsAvailable: resolvedVoteCount > 0,
           realEstateTotal: assets?.realEstateTotal ?? null,
           assetTotal: assets?.assetTotal ?? null,
           assemblyNo: item.assemblyNo,

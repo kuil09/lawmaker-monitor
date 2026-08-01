@@ -211,7 +211,7 @@ export function V2RouteContent() {
 
   if (routeState.route === "trends") {
     return (
-      <Suspense fallback={<RouteLoadingFallback title="출석 추이" />}>
+      <Suspense fallback={<RouteLoadingFallback title="표결 참여 추이" />}>
         <TrendsPage
           accountabilityTrends={accountabilityTrends}
           accountabilitySummary={accountabilitySummary}
