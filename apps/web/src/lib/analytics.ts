@@ -2,6 +2,11 @@ const GA_MEASUREMENT_ID_PATTERN = /^G-[A-Z0-9]+$/;
 const ANALYTICS_SCRIPT_ATTRIBUTE = "data-lawmaker-monitor-analytics";
 const ANALYTICS_CLEANUP_KEY = "__lawmakerMonitorAnalyticsCleanup";
 const CAMPAIGN_PARAMETER_PREFIX = "utm_";
+const ROUTE_IDENTIFIER_PARAMETERS: Record<string, readonly string[]> = {
+  calendar: ["member", "compare"],
+  distribution: ["member"],
+  map: ["district", "province"]
+};
 
 type GtagArguments = [command: string, ...parameters: unknown[]];
 type Gtag = (...args: GtagArguments) => void;
@@ -37,6 +42,26 @@ function getRouteName(url: URL): string {
   return url.hash.slice(1).split("?")[0]?.trim().toLowerCase() || "home";
 }
 
+function buildRouteIdentifierSearch(url: URL, routeName: string): string {
+  const searchStart = url.hash.indexOf("?");
+  if (searchStart < 0) {
+    return "";
+  }
+
+  const sourceParameters = new URLSearchParams(url.hash.slice(searchStart + 1));
+  const identifierParameters = new URLSearchParams();
+
+  for (const key of ROUTE_IDENTIFIER_PARAMETERS[routeName] ?? []) {
+    const value = sourceParameters.get(key)?.trim();
+    if (value) {
+      identifierParameters.set(key, value);
+    }
+  }
+
+  const search = identifierParameters.toString();
+  return search ? `?${search}` : "";
+}
+
 function buildCampaignSearch(searchParams: URLSearchParams): string {
   const campaignParameters = new URLSearchParams();
 
@@ -57,7 +82,9 @@ export function buildAnalyticsPage(
   const url = new URL(href);
   const normalizedDocumentTitle = documentTitle.trim() || "국회 출석부";
   const routeName = getRouteName(url);
-  const routeHash = routeName === "home" ? "" : `#${routeName}`;
+  const routeIdentifierSearch = buildRouteIdentifierSearch(url, routeName);
+  const routeHash =
+    routeName === "home" ? "" : `#${routeName}${routeIdentifierSearch}`;
   const campaignSearch = buildCampaignSearch(url.searchParams);
   const path = `${url.pathname}${campaignSearch}${routeHash}`;
   const routeTitle = ROUTE_TITLES[routeName];
