@@ -224,4 +224,37 @@ describe("hex-cells", () => {
       memberNames: ["김아라"]
     });
   });
+
+  it("keeps unresolved vote coverage neutral instead of mapping it as zero absence", () => {
+    const hydrated = hydrateHexCells(
+      [
+        {
+          h3Index: "8730c16f0ffffff",
+          districtKey: "부산남구",
+          districtLabel: "부산 남구",
+          provinceShortName: "부산"
+        }
+      ],
+      [
+        {
+          memberId: "M004",
+          name: "확인불가",
+          party: "미래개혁당",
+          district: "부산 남구",
+          absentRate: 0,
+          noRate: 0,
+          abstainRate: 0,
+          voteMetricsAvailable: false
+        }
+      ] satisfies SummaryItem[],
+      "absence"
+    );
+
+    expect(hydrated[0]).toMatchObject({
+      memberCount: 1,
+      metricMemberCount: 0,
+      metric: 0,
+      memberNames: ["확인불가"]
+    });
+  });
 });

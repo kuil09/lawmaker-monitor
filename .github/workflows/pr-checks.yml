@@ -29,6 +29,7 @@ jobs:
         run: npm run build --workspace @lawmaker-monitor/web
         env:
           VITE_DATA_REPO_BASE_URL: http://127.0.0.1:4174
+          SKIP_MEMBER_SHARE_GENERATION: "1"
 
       - name: Run lint
         run: npm run lint

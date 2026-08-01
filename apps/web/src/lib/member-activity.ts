@@ -43,6 +43,7 @@ export type MemberDayBreakdown = {
   noDays: number;
   abstainDays: number;
   absentDays: number;
+  unknownDays: number;
 };
 
 export type MemberAttendanceSummary = MemberDayBreakdown & {
@@ -99,7 +100,10 @@ export function getMemberDayBreakdown(
     noDays: member.dayStates.filter((day) => day.state === "no").length,
     abstainDays: member.dayStates.filter((day) => day.state === "abstain")
       .length,
-    absentDays: member.dayStates.filter((day) => day.state === "absent").length
+    absentDays: member.dayStates.filter((day) => day.state === "absent").length,
+    unknownDays: member.dayStates.filter(
+      (day) => day.state === "unknown" || day.unknownCount > 0
+    ).length
   };
 }
 
@@ -108,7 +112,10 @@ export function getMemberAttendanceSummary(
 ): MemberAttendanceSummary {
   const breakdown = getMemberDayBreakdown(member);
   const eligibleDays = member.dayStates.length;
-  const attendedDays = Math.max(0, eligibleDays - breakdown.absentDays);
+  const attendedDays = Math.max(
+    0,
+    eligibleDays - breakdown.absentDays - breakdown.unknownDays
+  );
 
   return {
     ...breakdown,

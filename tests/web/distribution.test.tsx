@@ -37,7 +37,9 @@ describe("distribution helpers", () => {
       partyLineParticipationCount: 0,
       partyLineDefectionCount: 0,
       partyLineDefectionRate: 0,
-      attendanceRate: 2 / 3,
+      attendanceRate: 0.5,
+      eligibleRollCallCount: 2,
+      participatedRollCallCount: 1,
       currentNegativeOrAbsentStreak: 3
     });
     expect(members[1]).toMatchObject({
@@ -58,11 +60,75 @@ describe("distribution helpers", () => {
     expect(partySummaries).toHaveLength(1);
     expect(partySummaries[0]?.party).toBe("미래개혁당");
     expect(partySummaries[0]?.memberCount).toBe(2);
-    expect(partySummaries[0]?.averageAttendanceRate).toBeCloseTo(5 / 6);
+    expect(partySummaries[0]?.comparableMemberCount).toBe(2);
+    expect(partySummaries[0]?.averageAttendanceRate).toBeCloseTo(0.75);
     expect(partySummaries[0]?.averageSupportRate).toBeCloseTo(0.25);
     expect(partySummaries[0]?.averageNegativeRate).toBeCloseTo(0.5);
     expect(partySummaries[0]?.averageAbsenceRate).toBeCloseTo(0.25);
     expect(partySummaries[0]?.topCurrentStreak).toBe(3);
+  });
+
+  it("keeps fully unresolved members out of participation rates and party averages", () => {
+    const baseAccountability = accountabilitySummaryFixture.items.find(
+      (item: { memberId: string }) => item.memberId === "M001"
+    );
+    const baseActivity = memberActivityCalendarFixture.assembly.members.find(
+      (item: { memberId: string }) => item.memberId === "M001"
+    );
+    const accountabilityWithUnknown = {
+      ...accountabilitySummaryFixture,
+      items: [
+        ...accountabilitySummaryFixture.items,
+        {
+          ...baseAccountability,
+          memberId: "M004",
+          name: "확인불가",
+          totalRecordedVotes: 537,
+          noCount: 0,
+          abstainCount: 0,
+          absentCount: 0,
+          unresolvedCount: 537,
+          noRate: 0,
+          abstainRate: 0,
+          absentRate: 0
+        }
+      ]
+    };
+    const activityWithUnknown = {
+      ...memberActivityCalendarFixture,
+      assembly: {
+        ...memberActivityCalendarFixture.assembly,
+        members: [
+          ...memberActivityCalendarFixture.assembly.members,
+          {
+            ...baseActivity,
+            memberId: "M004",
+            name: "확인불가"
+          }
+        ]
+      }
+    };
+
+    const members = buildDistributionMembers(
+      accountabilityWithUnknown,
+      activityWithUnknown
+    );
+    const unknownMember = members.find((member) => member.memberId === "M004");
+    const partySummary = buildDistributionPartySummaries(members)[0];
+
+    expect(unknownMember).toMatchObject({
+      participationRateAvailable: false,
+      eligibleRollCallCount: 537,
+      resolvedRollCallCount: 0,
+      unresolvedRollCallCount: 537,
+      participatedRollCallCount: 0,
+      absentVoteCount: 0
+    });
+    expect(partySummary).toMatchObject({
+      memberCount: 3,
+      comparableMemberCount: 2
+    });
+    expect(partySummary?.averageAttendanceRate).toBeCloseTo(0.75);
   });
 
   it("builds behavior archetype summaries and matching cohorts", () => {

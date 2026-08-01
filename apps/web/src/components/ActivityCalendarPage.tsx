@@ -134,7 +134,7 @@ const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
 const currentRunLabel = "현재 찬성 없이 이어진 날";
 const longestRunLabel = "가장 길게 찬성 없이 이어진 날";
 const runSummaryCopy =
-  "참여율은 의원 재임 기간에 공개된 기록표결을 기준으로 계산합니다. 찬성·반대·기권은 참여로, 불참은 별도로 표시합니다. 정당 비교는 공식 당론이 아니라 같은 정당 참여 의원 다수와의 차이입니다.";
+  "확인된 참여율은 의원 재임 기간에 공개된 기록표결 중 의원별 표결행을 확인한 건만 기준으로 계산합니다. 찬성·반대·기권은 참여로, 불참과 확인 불가는 별도로 표시합니다. 정당 비교는 공식 당론이 아니라 같은 정당 참여 의원 다수와의 차이입니다.";
 
 function describeDebtRatioStatus(status: DebtRatioStatus): string {
   switch (status) {
@@ -253,7 +253,8 @@ function buildRatioData(member: MemberActivityCalendarMember): RatioDatum[] {
     breakdown.yesDays +
     breakdown.noDays +
     breakdown.abstainDays +
-    breakdown.absentDays;
+    breakdown.absentDays +
+    breakdown.unknownDays;
 
   const toPercent = (value: number): number =>
     total === 0 ? 0 : Math.round((value / total) * 100);
@@ -278,6 +279,11 @@ function buildRatioData(member: MemberActivityCalendarMember): RatioDatum[] {
       label: "불참",
       percent: toPercent(breakdown.absentDays),
       color: "var(--vote-absent)"
+    },
+    {
+      label: "확인 불가",
+      percent: toPercent(breakdown.unknownDays),
+      color: "var(--ink-muted)"
     }
   ];
 }
@@ -289,7 +295,8 @@ function renderRatioAxisTick({ x = 0, y = 0, payload }: RatioTickProps) {
       찬성: "var(--vote-yes)",
       반대: "var(--vote-no)",
       기권: "var(--vote-abstain)",
-      불참: "var(--vote-absent)"
+      불참: "var(--vote-absent)",
+      "확인 불가": "var(--ink-muted)"
     }[label] ?? "var(--ink-muted)";
 
   return (
@@ -1602,10 +1609,13 @@ function ActivityRatioChart({
   const data = buildRatioData(member);
 
   return (
-    <section className="activity-ratio-card" aria-label="활동 비율">
+    <section
+      className="activity-ratio-card"
+      aria-label="일별 대표 표결 상태 비율"
+    >
       <div className="activity-ratio-card__header">
-        <h4>활동 비율</h4>
-        <p>캘린더 날짜 기준 비율</p>
+        <h4>일별 대표 표결 상태 비율</h4>
+        <p>본회의 출석률이 아닌 공개 기록표결 기준</p>
       </div>
       <div className="activity-ratio-card__body">
         <div className="activity-ratio-card__chart">
@@ -1667,11 +1677,11 @@ function ActivityCompareRatioChart({
   return (
     <section
       className="activity-ratio-card activity-ratio-card--compare"
-      aria-label="비율 비교"
+      aria-label="일별 대표 표결 상태 비율 비교"
     >
       <div className="activity-ratio-card__header">
-        <h4>비율 비교</h4>
-        <p>캘린더 날짜 기준 비율</p>
+        <h4>일별 대표 표결 상태 비율 비교</h4>
+        <p>본회의 출석률이 아닌 공개 기록표결 기준</p>
       </div>
       <div className="activity-ratio-compare__legend">
         <div className="activity-ratio-compare__legend-item activity-ratio-compare__legend-item--left">
@@ -1728,7 +1738,7 @@ function ActivityCompareRatioChart({
         <div
           className="activity-ratio-compare__table"
           role="table"
-          aria-label="비율 비교 표"
+          aria-label="일별 대표 표결 상태 비율 비교 표"
         >
           <div
             className="activity-ratio-compare__row activity-ratio-compare__row--head"
@@ -1828,6 +1838,11 @@ function ActivityVoteRecordSections({
       voteCode: "absent",
       label: "불참",
       records: records.filter((record) => record.voteCode === "absent")
+    },
+    {
+      voteCode: "unknown",
+      label: "확인 불가",
+      records: records.filter((record) => record.voteCode === "unknown")
     }
   ];
   const groupedRecords: Array<{
@@ -2007,8 +2022,29 @@ function ActivityCommitteeSections({
 }: {
   member: MemberActivityCalendarMember;
 }) {
-  const committeeSummaries = (member.committeeSummaries ?? []).filter(
-    (summary) => summary.eligibleRollCallCount >= 5
+  const committeeSummaries = (member.committeeSummaries ?? [])
+    .filter((summary) => summary.eligibleRollCallCount >= 5)
+    .map((summary) => {
+      const resolvedRollCallCount = Math.max(
+        0,
+        summary.eligibleRollCallCount - (summary.unresolvedRollCallCount ?? 0)
+      );
+      return {
+        ...summary,
+        resolvedRollCallCount,
+        confirmedParticipationRate:
+          resolvedRollCallCount > 0
+            ? summary.participatedRollCallCount / resolvedRollCallCount
+            : null
+      };
+    });
+  const comparableCommitteeSummaries = committeeSummaries.filter(
+    (summary) =>
+      summary.resolvedRollCallCount >= 5 &&
+      summary.confirmedParticipationRate !== null
+  );
+  const unavailableCommitteeSummaries = committeeSummaries.filter(
+    (summary) => summary.resolvedRollCallCount < 5
   );
   const [expandedSections, setExpandedSections] = useState<
     Record<string, boolean>
@@ -2018,10 +2054,15 @@ function ActivityCommitteeSections({
     return null;
   }
 
-  const mostResponsiveCommittees = [...committeeSummaries].sort(
+  const mostResponsiveCommittees = [...comparableCommitteeSummaries].sort(
     (left, right) => {
-      if (right.participationRate !== left.participationRate) {
-        return right.participationRate - left.participationRate;
+      if (
+        right.confirmedParticipationRate !== left.confirmedParticipationRate
+      ) {
+        return (
+          (right.confirmedParticipationRate ?? 0) -
+          (left.confirmedParticipationRate ?? 0)
+        );
       }
 
       if (right.eligibleRollCallCount !== left.eligibleRollCallCount) {
@@ -2031,10 +2072,15 @@ function ActivityCommitteeSections({
       return left.committeeName.localeCompare(right.committeeName, "ko-KR");
     }
   );
-  const leastResponsiveCommittees = [...committeeSummaries].sort(
+  const leastResponsiveCommittees = [...comparableCommitteeSummaries].sort(
     (left, right) => {
-      if (left.participationRate !== right.participationRate) {
-        return left.participationRate - right.participationRate;
+      if (
+        left.confirmedParticipationRate !== right.confirmedParticipationRate
+      ) {
+        return (
+          (left.confirmedParticipationRate ?? 0) -
+          (right.confirmedParticipationRate ?? 0)
+        );
       }
 
       if (right.eligibleRollCallCount !== left.eligibleRollCallCount) {
@@ -2048,28 +2094,37 @@ function ActivityCommitteeSections({
   const sections = [
     {
       id: "most-responsive",
-      title: "관심 높은 위원회",
-      description: "참여율 높은 순",
+      title: "확인된 소관 안건 참여율 높은 위원회",
+      description: "확인된 본회의 기록표결 참여율 높은 순",
       summaries: mostResponsiveCommittees
     },
     {
       id: "least-responsive",
-      title: "무관심한 위원회",
-      description: "참여율 낮은 순",
+      title: "확인된 소관 안건 참여율 낮은 위원회",
+      description: "확인된 본회의 기록표결 참여율 낮은 순",
       summaries: leastResponsiveCommittees
+    },
+    {
+      id: "unavailable",
+      title: "표결행 확인 부족",
+      description: "확인된 기록표결 5건 미만 · 참여율 순위 제외",
+      summaries: unavailableCommitteeSummaries
     }
-  ];
+  ].filter((section) => section.summaries.length > 0);
   const visibleCommitteeCount = Math.min(
     INITIAL_VISIBLE_COMMITTEE_COUNT,
-    committeeSummaries.length
+    comparableCommitteeSummaries.length
   );
 
   return (
-    <section className="activity-committee-sections" aria-label="위원회 반응도">
+    <section
+      className="activity-committee-sections"
+      aria-label="위원회 소관 안건 본회의 확인된 표결 참여율"
+    >
       <div className="activity-committee-sections__header">
-        <h4>위원회 반응도</h4>
+        <h4>위원회 소관 안건 본회의 확인된 표결 참여율</h4>
         <p>
-          {`대상 표결 5건 이상 위원회 ${formatNumber(committeeSummaries.length)}곳 중 상위·하위 ${formatNumber(visibleCommitteeCount)}곳만 먼저 보여주고, 나머지는 필요할 때 펼칩니다.`}
+          {`실제 위원회 출석률이 아니라, 해당 위원회가 소관한 본회의 기록표결 기준입니다. 전체 대상 5건 이상 ${formatNumber(committeeSummaries.length)}곳 중 표결행이 5건 이상 확인된 ${formatNumber(comparableCommitteeSummaries.length)}곳을 비교하며, 상위·하위 ${formatNumber(visibleCommitteeCount)}곳만 먼저 보여줍니다.`}
         </p>
       </div>
       <div className="activity-committee-sections__groups">
@@ -2116,10 +2171,18 @@ function ActivityCommitteeSections({
                               </span>
                             ) : null}
                           </div>
-                          <strong>{`${formatNumber(Math.round(summary.participationRate * 100))}%`}</strong>
+                          <strong>
+                            {summary.confirmedParticipationRate === null
+                              ? "산정 불가"
+                              : `${formatNumber(
+                                  Math.round(
+                                    summary.confirmedParticipationRate * 100
+                                  )
+                                )}%`}
+                          </strong>
                         </div>
                         <p className="activity-committee-card__meta">
-                          {`참여 ${formatNumber(summary.participatedRollCallCount)} / 대상 ${formatNumber(summary.eligibleRollCallCount)} · 불참 ${formatNumber(summary.absentRollCallCount)}`}
+                          {`확인된 참여 ${formatNumber(summary.participatedRollCallCount)} / 확인된 표결 ${formatNumber(summary.resolvedRollCallCount)} · 전체 대상 ${formatNumber(summary.eligibleRollCallCount)} · 명시 불참 ${formatNumber(summary.absentRollCallCount)} · 확인 불가 ${formatNumber(summary.unresolvedRollCallCount ?? 0)}`}
                         </p>
                         <div
                           className="activity-committee-card__bar"

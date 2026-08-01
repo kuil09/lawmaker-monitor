@@ -8,10 +8,12 @@ export type WeeklyTrendChartDatum = {
   noShare: number | null;
   abstainShare: number | null;
   absentShare: number | null;
+  unresolvedShare: number | null;
   yesCount: number;
   noCount: number;
   abstainCount: number;
   absentCount: number;
+  unresolvedCount: number;
   eligibleVoteCount: number;
   negativeRate: number;
 };
@@ -60,8 +62,7 @@ export function buildWeeklyTrendChartData(
   }
 
   return trends.weeks.map((week) => {
-    const total =
-      week.yesCount + week.noCount + week.abstainCount + week.absentCount;
+    const total = week.eligibleVoteCount;
 
     return {
       weekStart: week.weekStart,
@@ -71,10 +72,13 @@ export function buildWeeklyTrendChartData(
       noShare: total > 0 ? (week.noCount / total) * 100 : null,
       abstainShare: total > 0 ? (week.abstainCount / total) * 100 : null,
       absentShare: total > 0 ? (week.absentCount / total) * 100 : null,
+      unresolvedShare:
+        total > 0 ? ((week.unresolvedCount ?? 0) / total) * 100 : null,
       yesCount: week.yesCount,
       noCount: week.noCount,
       abstainCount: week.abstainCount,
       absentCount: week.absentCount,
+      unresolvedCount: week.unresolvedCount ?? 0,
       eligibleVoteCount: week.eligibleVoteCount,
       negativeRate:
         week.eligibleVoteCount > 0

@@ -309,9 +309,9 @@ describe("generateMemberSharePages", () => {
       }
     );
     const svg = renderMemberCardSvg(memberModel);
-    expect(svg).toContain("기록표결 40건 중 35건 참여");
+    expect(svg).toContain("확인된 기록표결 40건 중 35건 참여");
     expect(svg).toContain("대표발의 12건 · 처리결과 확인 7건");
-    expect(svg).toContain(">표결 참여율</text>");
+    expect(svg).toContain(">확인된 표결 참여율</text>");
     expect(svg).toContain(">87.5%</text>");
     expect(svg).toContain(">35 / 40건</text>");
     expect(svg).not.toContain(">불참</text>");
@@ -328,9 +328,44 @@ describe("generateMemberSharePages", () => {
     expect(cardsManifest).toMatchObject({
       snapshotId: "snapshot-123",
       cardVersion: expect.stringMatching(/^[a-f0-9]{16}$/),
-      cardRendererVersion: "member-share-card-v6-vote-participation-rate",
+      cardRendererVersion: "member-share-card-v7-unresolved-vote-coverage",
       count: 1
     });
+  });
+
+  it("does not turn unresolved member vote rows into participation metadata", () => {
+    const memberModel = buildMemberCardModel(
+      {
+        memberId: "MRS4949T",
+        name: "이소희",
+        party: "국민의힘",
+        district: "비례대표",
+        photoUrl: "https://images.example.test/MRS4949T.jpg",
+        accountability: {
+          totalRecordedVotes: 537,
+          absentCount: 0,
+          unresolvedCount: 537,
+          partyLineDefectionCount: 0,
+          partyLineParticipationCount: 0
+        }
+      },
+      {
+        appBaseUrl: "https://app.example.test/lawmaker-monitor/",
+        assemblyLabel: "제22대 국회",
+        generatedAt: "2026-07-30T10:00:00.000Z",
+        snapshotId: "snapshot-123"
+      }
+    );
+    const svg = renderMemberCardSvg(memberModel);
+
+    expect(memberModel.description).toContain(
+      "기록표결 537건 · 의원별 표결행 537건 확인 불가"
+    );
+    expect(memberModel.description).not.toContain("537건 참여");
+    expect(svg).toContain(">확인된 표결 참여율</text>");
+    expect(svg).toContain(">산정 불가</text>");
+    expect(svg).toContain(">확인 불가 537 / 537건</text>");
+    expect(svg).not.toContain(">0.0%</text>");
   });
 
   it("fails generation when remote member data is unavailable", async () => {

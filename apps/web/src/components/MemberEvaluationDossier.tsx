@@ -14,6 +14,7 @@ import { WarningDiamondIcon } from "@phosphor-icons/react/dist/csr/WarningDiamon
 import { useMemo, useState } from "react";
 
 import { MemberIdentity } from "./MemberIdentity.js";
+import { buildParticipationSnapshot } from "../lib/accountability.js";
 import {
   formatAssetEok,
   formatAssetEokDelta,
@@ -366,32 +367,60 @@ export function MemberEvaluationDossier({
   const latestAssetPoint = assetSeries.at(-1) ?? null;
   const previousAssetPoint =
     assetSeries.length >= 2 ? (assetSeries.at(-2) ?? null) : null;
-  const participatedVoteCount = accountabilityItem
-    ? Math.max(
-        0,
-        accountabilityItem.totalRecordedVotes - accountabilityItem.absentCount
+  const participationSnapshot = accountabilityItem
+    ? buildParticipationSnapshot(
+        accountabilityItem.totalRecordedVotes,
+        accountabilityItem.absentCount,
+        accountabilityItem.unresolvedCount ?? 0
       )
     : null;
 
   const confirmedItems = useMemo<EvidenceItem[]>(() => {
     const items: EvidenceItem[] = [];
-    if (accountabilityItem && participatedVoteCount !== null) {
+    if (
+      accountabilityItem &&
+      participationSnapshot &&
+      participationSnapshot.rate !== null
+    ) {
       items.push({
         id: "plenary-participation",
-        label: "공개 기록표결 참여율",
+        label: "확인된 공개 기록표결 참여율",
         value: formatRatio(
-          participatedVoteCount,
-          accountabilityItem.totalRecordedVotes,
+          participationSnapshot.participatedCount,
+          participationSnapshot.resolvedCount,
           "산정 가능한 기록표결 없음"
         ),
         detail: `관찰 기간 ${formatDate(assembly.startDate)} – ${observationDate}`,
-        status: "분모: 의원별 참여 대상 공개 기록표결",
+        status: `확인된 표결 ${formatNumber(
+          participationSnapshot.resolvedCount
+        )}건 / 전체 대상 ${formatNumber(
+          participationSnapshot.eligibleCount
+        )}건 · 확인 불가 ${formatNumber(
+          participationSnapshot.unresolvedCount
+        )}건`,
+        href: "#member-votes"
+      });
+    } else if (
+      accountabilityItem &&
+      participationSnapshot &&
+      participationSnapshot.eligibleCount > 0
+    ) {
+      items.push({
+        id: "plenary-participation-unresolved",
+        label: "확인된 공개 기록표결 참여율",
+        value: "산정 불가",
+        detail: `${formatNumber(
+          participationSnapshot.eligibleCount
+        )}건 모두 의원별 표결행을 확인할 수 없습니다.`,
+        status: `확인 불가 ${formatNumber(
+          participationSnapshot.unresolvedCount
+        )}건 · 불참으로 추론하지 않음`,
         href: "#member-votes"
       });
     } else {
       items.push({
         id: "plenary-participation-missing",
-        label: "공개 기록표결 참여율",
+        label: "확인된 공개 기록표결 참여율",
         value: "집계 자료 없음",
         detail: `${assembly.label} 참여 분모와 건수를 확인할 수 없습니다.`,
         status: "데이터 상태: 미확인"
@@ -453,11 +482,11 @@ export function MemberEvaluationDossier({
     billItem,
     committeeNames,
     observationDate,
-    participatedVoteCount
+    participationSnapshot
   ]);
 
   const reviewItems = useMemo<EvidenceItem[]>(() => {
-    if (!accountabilityItem) {
+    if (!accountabilityItem || !participationSnapshot) {
       return [
         {
           id: "review-missing",
@@ -469,48 +498,43 @@ export function MemberEvaluationDossier({
       ];
     }
 
+    const reviewValue = (count: number): string =>
+      participationSnapshot.resolvedCount > 0
+        ? formatRatio(
+            count,
+            participationSnapshot.resolvedCount,
+            "산정 가능한 기록표결 없음"
+          )
+        : "산정 불가";
+    const reviewStatus = `확인된 표결 ${formatNumber(
+      participationSnapshot.resolvedCount
+    )}건 / 전체 대상 ${formatNumber(
+      participationSnapshot.eligibleCount
+    )}건 · 확인 불가 ${formatNumber(participationSnapshot.unresolvedCount)}건`;
     const items: EvidenceItem[] = [
       {
         id: "absence",
         label: "본회의 기록표결 불참",
-        value: formatRatio(
-          accountabilityItem.absentCount,
-          accountabilityItem.totalRecordedVotes,
-          "산정 가능한 기록표결 없음"
-        ),
+        value: reviewValue(accountabilityItem.absentCount),
         detail:
           "불참 사유는 표결 기록만으로 알 수 없어 원문·공식 설명 확인이 필요합니다.",
-        status: `분모: 기록표결 ${formatNumber(
-          accountabilityItem.totalRecordedVotes
-        )}건`,
+        status: reviewStatus,
         href: "#member-votes"
       },
       {
         id: "no-votes",
         label: "반대 표결",
-        value: formatRatio(
-          accountabilityItem.noCount,
-          accountabilityItem.totalRecordedVotes,
-          "산정 가능한 기록표결 없음"
-        ),
+        value: reviewValue(accountabilityItem.noCount),
         detail: "반대 여부는 의안별 판단 기록이며 평가 점수가 아닙니다.",
-        status: `분모: 기록표결 ${formatNumber(
-          accountabilityItem.totalRecordedVotes
-        )}건`,
+        status: reviewStatus,
         href: "#member-votes"
       },
       {
         id: "abstain-votes",
         label: "기권 표결",
-        value: formatRatio(
-          accountabilityItem.abstainCount,
-          accountabilityItem.totalRecordedVotes,
-          "산정 가능한 기록표결 없음"
-        ),
+        value: reviewValue(accountabilityItem.abstainCount),
         detail: "기권 여부도 의안별 판단 기록이며 평가 점수가 아닙니다.",
-        status: `분모: 기록표결 ${formatNumber(
-          accountabilityItem.totalRecordedVotes
-        )}건`,
+        status: reviewStatus,
         href: "#member-votes"
       }
     ];
@@ -533,7 +557,7 @@ export function MemberEvaluationDossier({
     }
 
     return items;
-  }, [accountabilityItem]);
+  }, [accountabilityItem, participationSnapshot]);
 
   const holdItems = useMemo<EvidenceItem[]>(() => {
     const items: EvidenceItem[] = [];

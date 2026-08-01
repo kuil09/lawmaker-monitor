@@ -78,8 +78,6 @@ describe("member photo optimization", () => {
       <MemberIdentity name="이서진" party="더불어민주당" district={null} />
     );
 
-    expect(
-      getByText("더불어민주당 · 지역 정보 미확인")
-    ).toBeInTheDocument();
+    expect(getByText("더불어민주당 · 지역 정보 미확인")).toBeInTheDocument();
   });
 });

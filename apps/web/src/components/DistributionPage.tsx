@@ -86,6 +86,13 @@ function formatPercentPointDelta(value: number): string {
   return `평균 대비 ${prefix}${Math.abs(value * 100).toFixed(1)}%p`;
 }
 
+function formatKnownVoteRate(
+  member: DistributionMemberPoint,
+  value: number
+): string {
+  return member.participationRateAvailable ? formatPercent(value) : "산정 불가";
+}
+
 function buildPartyColorMap(
   members: DistributionMemberPoint[]
 ): Map<string, string> {
@@ -97,15 +104,17 @@ function buildPartyColorMap(
 function buildChartPoints(
   members: DistributionMemberPoint[]
 ): DistributionChartPoint[] {
-  return members.map((member) => ({
-    ...member,
-    attendancePercent: Number((member.attendanceRate * 100).toFixed(1)),
-    negativePercent: Number((member.negativeRate * 100).toFixed(1)),
-    radius:
-      7 +
-      Math.min(member.currentNegativeOrAbsentStreak, 4) +
-      Math.min(member.absentVoteCount, 3)
-  }));
+  return members
+    .filter((member) => member.participationRateAvailable)
+    .map((member) => ({
+      ...member,
+      attendancePercent: Number((member.attendanceRate * 100).toFixed(1)),
+      negativePercent: Number((member.negativeRate * 100).toFixed(1)),
+      radius:
+        7 +
+        Math.min(member.currentNegativeOrAbsentStreak, 4) +
+        Math.min(member.absentVoteCount, 3)
+    }));
 }
 
 function useDistributionPointPhoto(photoUrl?: string | null): boolean {
@@ -297,7 +306,7 @@ function DistributionTooltipPanel({ active, payload }: TooltipProps) {
       }`}</p>
       <ul>
         <li>
-          <span>출석률</span>
+          <span>확인된 표결 참여율</span>
           <strong>{formatPercent(point.attendanceRate)}</strong>
         </li>
         <li>
@@ -416,6 +425,13 @@ export function DistributionPage({
     () => filterDistributionMembersByBehavior(members, activeBehaviorFilter),
     [activeBehaviorFilter, members]
   );
+  const comparableBehaviorMembers = useMemo(
+    () =>
+      behaviorFilteredMembers.filter(
+        (member) => member.participationRateAvailable
+      ),
+    [behaviorFilteredMembers]
+  );
   const partySummaries = useMemo(
     () => buildDistributionPartySummaries(behaviorFilteredMembers),
     [behaviorFilteredMembers]
@@ -484,20 +500,20 @@ export function DistributionPage({
     partySummaries.find((summary) => summary.party === activePartyFilter) ??
     null;
   const averageAttendanceRate =
-    behaviorFilteredMembers.length > 0
-      ? behaviorFilteredMembers.reduce(
+    comparableBehaviorMembers.length > 0
+      ? comparableBehaviorMembers.reduce(
           (sum, member) => sum + member.attendanceRate,
           0
-        ) / behaviorFilteredMembers.length
+        ) / comparableBehaviorMembers.length
       : 0;
   const averageNegativeRate =
-    behaviorFilteredMembers.length > 0
-      ? behaviorFilteredMembers.reduce(
+    comparableBehaviorMembers.length > 0
+      ? comparableBehaviorMembers.reduce(
           (sum, member) => sum + member.negativeRate,
           0
-        ) / behaviorFilteredMembers.length
+        ) / comparableBehaviorMembers.length
       : 0;
-  const highNegativeMembers = [...behaviorFilteredMembers]
+  const highNegativeMembers = [...comparableBehaviorMembers]
     .sort((left, right) => {
       if (right.negativeRate !== left.negativeRate) {
         return right.negativeRate - left.negativeRate;
@@ -512,7 +528,7 @@ export function DistributionPage({
       );
     })
     .slice(0, 5);
-  const attendanceRiskMembers = [...behaviorFilteredMembers]
+  const attendanceRiskMembers = [...comparableBehaviorMembers]
     .sort((left, right) => {
       if (left.attendanceRate !== right.attendanceRate) {
         return left.attendanceRate - right.attendanceRate;
@@ -605,7 +621,7 @@ export function DistributionPage({
 
   const chartHeading = activeBehaviorSummary
     ? `${activeBehaviorSummary.label} 의원을 먼저 보고 있습니다.`
-    : "위로 갈수록 반대·기권 비중이 낮고, 오른쪽으로 갈수록 출석률이 높습니다.";
+    : "위로 갈수록 반대·기권 비중이 낮고, 오른쪽으로 갈수록 재임 누적 표결 참여율이 높습니다.";
   const chartSearchNote = activeBehaviorSummary
     ? `${activeBehaviorSummary.label} 분류가 적용되어 ${formatNumber(behaviorFilteredMembers.length)}명만 먼저 보고 있습니다. 다른 의원을 직접 고르면 분류는 해제됩니다.`
     : activePartyFilter
@@ -770,12 +786,13 @@ export function DistributionPage({
                     role="note"
                   >
                     <p className="distribution-page__copy">
-                      출석률과 반대·기권 비중을 한 좌표에 두고, 불참과 연속
-                      패턴을 함께 읽는 첫 분포 화면입니다.
+                      확인된 재임 누적 표결 참여율과 반대·기권 비중을 한 좌표에
+                      두고, 불참과 일별 연속 패턴을 함께 읽는 분포 화면입니다.
                     </p>
                     <p className="distribution-chart__copy">
-                      가로축은 출석률, 세로축은 반대·기권 비중이며 값이 낮을수록
-                      위로 올라갑니다. 점 크기는 현재 반대·기권·불참 연속 패턴을
+                      가로축은 의원별 응답이 확인된 기록표결만 사용합니다.
+                      의원별 표결행을 확인할 수 없는 경우에는 산정과 순위에서
+                      제외하며, 점 크기만 일별 대표 상태의 현재 연속 패턴을
                       반영합니다.
                     </p>
                     <p className="distribution-page__search-note">
@@ -794,13 +811,21 @@ export function DistributionPage({
                   <small>{filterScopeText}</small>
                 </div>
                 <div className="chart-card__summary">
-                  <span>평균 출석률</span>
-                  <strong>{formatPercent(averageAttendanceRate)}</strong>
-                  <small>캘린더 날짜 기준</small>
+                  <span>의원별 확인된 참여율 단순평균</span>
+                  <strong>
+                    {comparableBehaviorMembers.length > 0
+                      ? formatPercent(averageAttendanceRate)
+                      : "산정 불가"}
+                  </strong>
+                  <small>{`의원별 표결행 확인 ${formatNumber(comparableBehaviorMembers.length)}명 기준`}</small>
                 </div>
                 <div className="chart-card__summary">
                   <span>평균 반대·기권 비중</span>
-                  <strong>{formatPercent(averageNegativeRate)}</strong>
+                  <strong>
+                    {comparableBehaviorMembers.length > 0
+                      ? formatPercent(averageNegativeRate)
+                      : "산정 불가"}
+                  </strong>
                   <small>
                     {activeBehaviorSummary
                       ? "행동 분류 기준"
@@ -817,16 +842,20 @@ export function DistributionPage({
                   margin={{ top: 22, right: 28, bottom: 34, left: 12 }}
                 >
                   <CartesianGrid stroke="rgba(72, 56, 40, 0.12)" />
-                  <ReferenceLine
-                    x={Number((averageAttendanceRate * 100).toFixed(1))}
-                    stroke="rgba(91, 108, 0, 0.22)"
-                    strokeDasharray="4 4"
-                  />
-                  <ReferenceLine
-                    y={Number((averageNegativeRate * 100).toFixed(1))}
-                    stroke="rgba(91, 108, 0, 0.22)"
-                    strokeDasharray="4 4"
-                  />
+                  {comparableBehaviorMembers.length > 0 ? (
+                    <>
+                      <ReferenceLine
+                        x={Number((averageAttendanceRate * 100).toFixed(1))}
+                        stroke="rgba(91, 108, 0, 0.22)"
+                        strokeDasharray="4 4"
+                      />
+                      <ReferenceLine
+                        y={Number((averageNegativeRate * 100).toFixed(1))}
+                        stroke="rgba(91, 108, 0, 0.22)"
+                        strokeDasharray="4 4"
+                      />
+                    </>
+                  ) : null}
                   <XAxis
                     type="number"
                     dataKey="attendancePercent"
@@ -834,7 +863,7 @@ export function DistributionPage({
                     tick={{ fill: "rgba(29, 24, 18, 0.72)", fontSize: 12 }}
                     tickFormatter={(value) => `${value}%`}
                     label={{
-                      value: "출석률",
+                      value: "확인된 표결 참여율",
                       position: "insideBottom",
                       offset: -12
                     }}
@@ -979,27 +1008,46 @@ export function DistributionPage({
 
             <div className="distribution-focus__metric-grid">
               <article className="distribution-focus__metric">
-                <span>출석률</span>
-                <strong>{formatPercent(selectedMember.attendanceRate)}</strong>
+                <span>확인된 표결 참여율</span>
+                <strong>
+                  {selectedMember.participationRateAvailable
+                    ? formatPercent(selectedMember.attendanceRate)
+                    : "산정 불가"}
+                </strong>
                 <small>
-                  {`${formatNumber(selectedMember.attendedDays)}일 / 대상 ${formatNumber(
-                    selectedMember.eligibleDays
-                  )}일`}
+                  {`확인된 참여 ${formatNumber(selectedMember.participatedRollCallCount)}건 / 확인된 표결 ${formatNumber(
+                    selectedMember.resolvedRollCallCount
+                  )}건 · 전체 대상 ${formatNumber(
+                    selectedMember.eligibleRollCallCount
+                  )}건 · 확인 불가 ${formatNumber(
+                    selectedMember.unresolvedRollCallCount
+                  )}건`}
                 </small>
               </article>
               <article className="distribution-focus__metric distribution-focus__metric--alert">
                 <span>반대·기권 비중</span>
-                <strong>{formatPercent(selectedMember.negativeRate)}</strong>
+                <strong>
+                  {selectedMember.participationRateAvailable
+                    ? formatPercent(selectedMember.negativeRate)
+                    : "산정 불가"}
+                </strong>
                 <small>
-                  {formatPercentPointDelta(
-                    selectedMember.negativeRate - averageNegativeRate
-                  )}
+                  {selectedMember.participationRateAvailable &&
+                  comparableBehaviorMembers.length > 0
+                    ? formatPercentPointDelta(
+                        selectedMember.negativeRate - averageNegativeRate
+                      )
+                    : "의원별 표결행을 확인할 수 없습니다."}
                 </small>
               </article>
               <article className="distribution-focus__metric distribution-focus__metric--absence">
                 <span>불참 비중</span>
-                <strong>{formatPercent(selectedMember.absentRate)}</strong>
-                <small>{`${formatNumber(selectedMember.absentVoteCount)}건 불참`}</small>
+                <strong>
+                  {selectedMember.participationRateAvailable
+                    ? formatPercent(selectedMember.absentRate)
+                    : "산정 불가"}
+                </strong>
+                <small>{`${formatNumber(selectedMember.absentVoteCount)}건 명시 불참`}</small>
               </article>
               <article className="distribution-focus__metric">
                 <span>현재 연속 패턴</span>
@@ -1033,19 +1081,33 @@ export function DistributionPage({
               <div className="distribution-focus__composition-list">
                 <span>
                   <i className="distribution-focus__dot distribution-focus__dot--yes" />
-                  찬성 {formatPercent(selectedMember.yesRate)}
+                  찬성{" "}
+                  {formatKnownVoteRate(selectedMember, selectedMember.yesRate)}
                 </span>
                 <span>
                   <i className="distribution-focus__dot distribution-focus__dot--no" />
-                  반대 {formatPercent(selectedMember.noRate)}
+                  반대{" "}
+                  {formatKnownVoteRate(selectedMember, selectedMember.noRate)}
                 </span>
                 <span>
                   <i className="distribution-focus__dot distribution-focus__dot--abstain" />
-                  기권 {formatPercent(selectedMember.abstainRate)}
+                  기권{" "}
+                  {formatKnownVoteRate(
+                    selectedMember,
+                    selectedMember.abstainRate
+                  )}
                 </span>
                 <span>
                   <i className="distribution-focus__dot distribution-focus__dot--absent" />
-                  불참 {formatPercent(selectedMember.absentRate)}
+                  불참{" "}
+                  {formatKnownVoteRate(
+                    selectedMember,
+                    selectedMember.absentRate
+                  )}
+                </span>
+                <span>
+                  확인 불가{" "}
+                  {formatNumber(selectedMember.unresolvedRollCallCount)}건
                 </span>
               </div>
             </div>
@@ -1068,11 +1130,14 @@ export function DistributionPage({
                 <dd>{`${formatNumber(selectedMember.absentDayCount)}일`}</dd>
               </div>
               <div>
-                <dt>출석률 위치</dt>
+                <dt>확인된 참여율 위치</dt>
                 <dd>
-                  {formatPercentPointDelta(
-                    selectedMember.attendanceRate - averageAttendanceRate
-                  )}
+                  {selectedMember.participationRateAvailable &&
+                  comparableBehaviorMembers.length > 0
+                    ? formatPercentPointDelta(
+                        selectedMember.attendanceRate - averageAttendanceRate
+                      )
+                    : "산정 불가"}
                 </dd>
               </div>
             </dl>
@@ -1091,7 +1156,7 @@ export function DistributionPage({
         />
         <DistributionSignalList
           title="시그널 2"
-          description="출석률이 낮은 의원"
+          description="확인된 재임 누적 표결 참여율이 낮은 의원"
           members={attendanceRiskMembers}
           selectedMemberId={selectedMemberId}
           onSelectMember={handleSelectMember}
@@ -1148,7 +1213,12 @@ export function DistributionPage({
                     <strong>{`${formatNumber(summary.memberCount)}명`}</strong>
                   </div>
                   <div className="distribution-party-list__stats">
-                    <span>{`평균 출석률 ${formatPercent(summary.averageAttendanceRate)}`}</span>
+                    <span>
+                      {summary.comparableMemberCount > 0
+                        ? `평균 확인된 참여율 ${formatPercent(summary.averageAttendanceRate)}`
+                        : "평균 확인된 참여율 산정 불가"}
+                    </span>
+                    <span>{`표결행 확인 ${formatNumber(summary.comparableMemberCount)} / ${formatNumber(summary.memberCount)}명`}</span>
                     <span>{`평균 반대·기권 ${formatPercent(summary.averageNegativeRate)}`}</span>
                     <span>{`평균 불참 ${formatPercent(summary.averageAbsenceRate)}`}</span>
                     <span>{`최대 연속 ${formatNumber(summary.topCurrentStreak)}일`}</span>

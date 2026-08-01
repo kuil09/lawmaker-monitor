@@ -44,9 +44,7 @@ function resolveMemberVoteCode(args: {
     return highlightedVote.voteCode;
   }
 
-  if (
-    args.item.absentVotes.some((vote) => vote.memberId === args.memberId)
-  ) {
+  if (args.item.absentVotes.some((vote) => vote.memberId === args.memberId)) {
     return "absent";
   }
 
@@ -103,11 +101,7 @@ export function buildVoteMinutesOpinionsExport(args: {
           memberId: summary.memberId,
           voteRecordsByMemberId: args.voteRecordsByMemberId
         });
-        if (
-          voteCode !== "yes" &&
-          voteCode !== "no" &&
-          voteCode !== "abstain"
-        ) {
+        if (voteCode !== "yes" && voteCode !== "no" && voteCode !== "abstain") {
           return [];
         }
 
@@ -147,9 +141,8 @@ export function buildVoteMinutesOpinionsExport(args: {
         billName: item.billName,
         majorityVoteCode: resolveMajorityVoteCode(item.counts),
         matchMethod: "bill_id" as const,
-        sourceMeetingCount: new Set(
-          evidence.map((entry) => entry.documentId)
-        ).size,
+        sourceMeetingCount: new Set(evidence.map((entry) => entry.documentId))
+          .size,
         sourceStatementCount: evidence.length,
         latestMeetingDate: evidence[0]?.meetingDate ?? item.voteDatetime,
         evidence

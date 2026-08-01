@@ -71,7 +71,7 @@ const statusMeta: Record<
   },
   unobserved: {
     label: "관측 대기",
-    shortLabel: "대기",
+    shortLabel: "관측 대기",
     description: "두 구간을 비교할 공개 표결 기록이 충분하지 않습니다."
   }
 };
@@ -148,22 +148,27 @@ function buildDocketItems(
         return [];
       }
 
-      const previousRate = mover
-        ? getRate({
-            noCount: mover.previousWindowNoCount,
-            abstainCount: mover.previousWindowAbstainCount,
-            absentCount: mover.previousWindowAbsentCount,
-            eligibleCount: mover.previousWindowEligibleCount
-          })
-        : null;
-      const currentRate = mover
-        ? getRate({
-            noCount: mover.currentWindowNoCount,
-            abstainCount: mover.currentWindowAbstainCount,
-            absentCount: mover.currentWindowAbsentCount,
-            eligibleCount: mover.currentWindowEligibleCount
-          })
-        : null;
+      const hasUnresolvedWindow =
+        (mover?.previousWindowUnresolvedCount ?? 0) > 0 ||
+        (mover?.currentWindowUnresolvedCount ?? 0) > 0;
+      const previousRate =
+        mover && !hasUnresolvedWindow
+          ? getRate({
+              noCount: mover.previousWindowNoCount,
+              abstainCount: mover.previousWindowAbstainCount,
+              absentCount: mover.previousWindowAbsentCount,
+              eligibleCount: mover.previousWindowEligibleCount
+            })
+          : null;
+      const currentRate =
+        mover && !hasUnresolvedWindow
+          ? getRate({
+              noCount: mover.currentWindowNoCount,
+              abstainCount: mover.currentWindowAbstainCount,
+              absentCount: mover.currentWindowAbsentCount,
+              eligibleCount: mover.currentWindowEligibleCount
+            })
+          : null;
       const delta =
         previousRate === null || currentRate === null
           ? null
@@ -400,7 +405,7 @@ export function ChangeDocket({
                 ) : (
                   <div className="change-docket__unobserved-value">
                     <dt>표결 비교</dt>
-                    <dd>관측 대기</dd>
+                    <dd>확인 불가</dd>
                   </div>
                 )}
               </dl>

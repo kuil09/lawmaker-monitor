@@ -14,7 +14,7 @@ vi.mock("../../apps/web/src/v2/V2NationalMap.js", () => ({
   V2NationalMap: ({ metric }: { metric: string }) => {
     const metricLabel =
       metric === "absence"
-        ? "결석률"
+        ? "재임 누적 표결 불참률"
         : metric === "negative"
           ? "반대·기권률"
           : "공개 부동산액";
@@ -125,7 +125,7 @@ describe("v2 observatory", () => {
     );
 
     const watchQueueHeading = screen.getByRole("heading", {
-      name: "국회 출석부"
+      name: "공개 기록표결 현황"
     });
     const explorerHeading = screen.getByRole("heading", {
       name: "전국 지표 탐색"
@@ -142,8 +142,16 @@ describe("v2 observatory", () => {
     expect(
       screen.getByRole("tablist", { name: "전국 지표 탐색 선택" })
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: "최근 12주 공개 기록표결 확인된 참여율 추이"
+      })
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText("추세 범례")).getByText("확인 불가 비중")
+    ).toBeInTheDocument();
 
-    const attendanceTab = screen.getByRole("tab", { name: "출석" });
+    const attendanceTab = screen.getByRole("tab", { name: "표결 참여" });
     const observatoryPanel = screen.getByRole("tabpanel");
     expect(attendanceTab).toHaveAttribute(
       "aria-controls",
@@ -154,18 +162,20 @@ describe("v2 observatory", () => {
       "v2-lens-tab-attendance"
     );
     expect(
-      screen.getByRole("region", { name: "지역별 결석률 분포" })
+      screen.getByRole("region", {
+        name: "지역별 재임 누적 표결 불참률 분포"
+      })
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("region", { name: "지역별 출석률 분포" })
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("region", {
-        name: "전국 지역구 결석률 카토그램"
+        name: "전국 지역구 재임 누적 표결 불참률 카토그램"
       })
     ).toBeInTheDocument();
     const mapLegend = screen.getByLabelText(
-      "결석률 비교 단계. 실제 값과 전국 순위를 함께 확인할 수 있습니다."
+      "재임 누적 표결 불참률 비교 단계. 실제 값과 전국 순위를 함께 확인할 수 있습니다."
     );
     expect(
       within(mapLegend).getByText("1 낮음 · 전국 하위 50%")
@@ -185,7 +195,7 @@ describe("v2 observatory", () => {
     ).not.toBeInTheDocument();
     const proportionalComparison = screen
       .getByRole("heading", {
-        name: "출석 · 비례대표 의원 비교"
+        name: "표결 참여 · 비례대표 의원 비교"
       })
       .closest("section");
     expect(proportionalComparison).not.toBeNull();
@@ -208,6 +218,9 @@ describe("v2 observatory", () => {
       screen.getByRole("heading", {
         name: "표결 성향 · 비례대표 의원 비교"
       })
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText("추세 범례")).getByText("확인 불가")
     ).toBeInTheDocument();
     expect(observatoryPanel).toHaveAttribute(
       "aria-labelledby",

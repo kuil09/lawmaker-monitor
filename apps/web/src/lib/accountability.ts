@@ -8,14 +8,78 @@ export type LeaderboardMetric =
   | "absent"
   | "partyLine";
 
+export function getUnresolvedCount(item: AccountabilitySummaryItem): number {
+  return item.unresolvedCount ?? 0;
+}
+
 export function getYesCount(item: AccountabilitySummaryItem): number {
   return Math.max(
     0,
     item.totalRecordedVotes -
       item.noCount -
       item.abstainCount -
-      item.absentCount
+      item.absentCount -
+      getUnresolvedCount(item)
   );
+}
+
+export function getParticipationCount(item: AccountabilitySummaryItem): number {
+  return Math.max(
+    0,
+    item.totalRecordedVotes - item.absentCount - getUnresolvedCount(item)
+  );
+}
+
+export function getParticipationRate(
+  item: AccountabilitySummaryItem
+): number | null {
+  const resolvedCount = Math.max(
+    0,
+    item.totalRecordedVotes - getUnresolvedCount(item)
+  );
+  return resolvedCount > 0 ? getParticipationCount(item) / resolvedCount : null;
+}
+
+export function buildParticipationSnapshot(
+  eligibleCount: number,
+  absentCount: number,
+  unresolvedCount: number
+): {
+  eligibleCount: number;
+  resolvedCount: number;
+  participatedCount: number;
+  absentCount: number;
+  unresolvedCount: number;
+  coverageRate: number | null;
+  rate: number | null;
+} {
+  const normalizedEligibleCount = Math.max(0, eligibleCount);
+  const normalizedUnresolvedCount = Math.min(
+    normalizedEligibleCount,
+    Math.max(0, unresolvedCount)
+  );
+  const resolvedCount = Math.max(
+    0,
+    normalizedEligibleCount - normalizedUnresolvedCount
+  );
+  const normalizedAbsentCount = Math.min(
+    resolvedCount,
+    Math.max(0, absentCount)
+  );
+  const participatedCount = Math.max(0, resolvedCount - normalizedAbsentCount);
+
+  return {
+    eligibleCount: normalizedEligibleCount,
+    resolvedCount,
+    participatedCount,
+    absentCount: normalizedAbsentCount,
+    unresolvedCount: normalizedUnresolvedCount,
+    coverageRate:
+      normalizedEligibleCount > 0
+        ? resolvedCount / normalizedEligibleCount
+        : null,
+    rate: resolvedCount > 0 ? participatedCount / resolvedCount : null
+  };
 }
 
 export function getYesRate(item: AccountabilitySummaryItem): number {

@@ -37,6 +37,7 @@ const chartPalette = {
   no: "#34362e",
   abstain: "#c58512",
   absent: "var(--absence)",
+  unresolved: "#7d7468",
   partyLine: "#2457a6",
   grid: "#dfe5ec",
   axis: "#667085",
@@ -61,6 +62,7 @@ function WeeklyTrendTooltipPanel({ active, payload }: TooltipProps) {
         noCount: number;
         abstainCount: number;
         absentCount: number;
+        unresolvedCount: number;
         eligibleVoteCount: number;
       }
     | undefined;
@@ -89,6 +91,10 @@ function WeeklyTrendTooltipPanel({ active, payload }: TooltipProps) {
           <div>
             <dt>불참</dt>
             <dd>{formatNumber(datum.absentCount)}</dd>
+          </div>
+          <div>
+            <dt>확인 불가</dt>
+            <dd>{formatNumber(datum.unresolvedCount)}</dd>
           </div>
         </dl>
       ) : (
@@ -184,27 +190,40 @@ export function VisualizationOverview({
     (item) => item.eligibleVoteCount > 0
   );
   const latestActiveWeek = activeWeeks.at(-1) ?? null;
-  const peakAbsentWeek = activeWeeks.reduce<typeof latestActiveWeek>(
+  const resolvedWeeks = activeWeeks.filter(
+    (item) => item.eligibleVoteCount - item.unresolvedCount > 0
+  );
+  const latestResolvedWeek = resolvedWeeks.at(-1) ?? null;
+  const peakAbsentWeek = resolvedWeeks.reduce<typeof latestResolvedWeek>(
     (currentPeak, week) => {
       if (!currentPeak) {
         return week;
       }
 
-      const peakRate = currentPeak.absentCount / currentPeak.eligibleVoteCount;
-      const nextRate = week.absentCount / week.eligibleVoteCount;
+      const peakRate =
+        currentPeak.absentCount /
+        (currentPeak.eligibleVoteCount - currentPeak.unresolvedCount);
+      const nextRate =
+        week.absentCount / (week.eligibleVoteCount - week.unresolvedCount);
       return nextRate > peakRate ? week : currentPeak;
     },
     null
   );
-  const latestParticipationRate = latestActiveWeek
-    ? (latestActiveWeek.eligibleVoteCount - latestActiveWeek.absentCount) /
-      latestActiveWeek.eligibleVoteCount
+  const latestParticipationRate = latestResolvedWeek
+    ? (latestResolvedWeek.eligibleVoteCount -
+        latestResolvedWeek.absentCount -
+        latestResolvedWeek.unresolvedCount) /
+      (latestResolvedWeek.eligibleVoteCount -
+        latestResolvedWeek.unresolvedCount)
     : null;
-  const latestAbsenceRate = latestActiveWeek
-    ? latestActiveWeek.absentCount / latestActiveWeek.eligibleVoteCount
+  const latestAbsenceRate = latestResolvedWeek
+    ? latestResolvedWeek.absentCount /
+      (latestResolvedWeek.eligibleVoteCount -
+        latestResolvedWeek.unresolvedCount)
     : null;
   const peakAbsenceRate = peakAbsentWeek
-    ? peakAbsentWeek.absentCount / peakAbsentWeek.eligibleVoteCount
+    ? peakAbsentWeek.absentCount /
+      (peakAbsentWeek.eligibleVoteCount - peakAbsentWeek.unresolvedCount)
     : null;
 
   const activePartyLineWeeks = partyLineTrendData.filter(
@@ -264,16 +283,16 @@ export function VisualizationOverview({
 
       <dl className="v3-metric-strip" aria-label="현재 추세 요약">
         <div>
-          <dt>최근 참여율</dt>
+          <dt>최근 확인된 참여율</dt>
           <dd>
             {latestParticipationRate !== null
               ? formatPercent(latestParticipationRate)
               : "—"}
           </dd>
           <small>
-            {latestActiveWeek
-              ? `${latestActiveWeek.weekStart} 시작 주`
-              : "표결 대기"}
+            {latestResolvedWeek
+              ? `${latestResolvedWeek.weekStart} 시작 주 · 확인된 표결 기준`
+              : "확인된 표결 대기"}
           </small>
         </div>
         <div className="v3-metric-strip__alert">
@@ -284,9 +303,9 @@ export function VisualizationOverview({
               : "—"}
           </dd>
           <small>
-            {latestActiveWeek
-              ? `${formatNumber(latestActiveWeek.absentCount)}건`
-              : "표결 대기"}
+            {latestResolvedWeek
+              ? `${formatNumber(latestResolvedWeek.absentCount)}건 명시 불참`
+              : "확인된 표결 대기"}
           </small>
         </div>
         <div>
@@ -314,7 +333,10 @@ export function VisualizationOverview({
           <header className="v3-evidence-panel__header">
             <div>
               <h3>주간 참여 구성</h3>
-              <p>찬성·반대·기권·불참이 전체 공개 기록에서 차지한 비중입니다.</p>
+              <p>
+                찬성·반대·기권·불참·확인 불가가 전체 공개 기록에서 차지한
+                비중입니다.
+              </p>
             </div>
             <span>{trendWindowPhrase}</span>
           </header>
@@ -326,7 +348,7 @@ export function VisualizationOverview({
                   <div
                     className="v3-chart"
                     role="img"
-                    aria-label={`${trendWindowPhrase} 찬성, 반대, 기권, 불참 비중 누적 영역 차트`}
+                    aria-label={`${trendWindowPhrase} 찬성, 반대, 기권, 불참, 확인 불가 비중 누적 영역 차트`}
                   >
                     <ResponsiveContainer width="100%" height={300}>
                       <AreaChart
@@ -399,6 +421,17 @@ export function VisualizationOverview({
                           connectNulls={false}
                           name="불참"
                         />
+                        <Area
+                          type="monotone"
+                          dataKey="unresolvedShare"
+                          stackId="vote-share"
+                          stroke={chartPalette.unresolved}
+                          fill={chartPalette.unresolved}
+                          fillOpacity={0.82}
+                          strokeWidth={1.5}
+                          connectNulls={false}
+                          name="확인 불가"
+                        />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
@@ -418,6 +451,10 @@ export function VisualizationOverview({
                     <span>
                       <i style={{ backgroundColor: chartPalette.absent }} />
                       불참
+                    </span>
+                    <span>
+                      <i style={{ backgroundColor: chartPalette.unresolved }} />
+                      확인 불가
                     </span>
                   </div>
                 </div>
@@ -440,16 +477,21 @@ export function VisualizationOverview({
                     </small>
                   </div>
                   <div>
-                    <span>최근 참여 건수</span>
+                    <span>최근 확인된 참여 건수</span>
                     <strong>
                       {latestActiveWeek
                         ? formatNumber(
                             latestActiveWeek.eligibleVoteCount -
-                              latestActiveWeek.absentCount
+                              latestActiveWeek.absentCount -
+                              latestActiveWeek.unresolvedCount
                           )
                         : "—"}
                     </strong>
-                    <small>전체 eligible 기록 기준</small>
+                    <small>
+                      {latestActiveWeek
+                        ? `전체 eligible 기록 기준 · 확인 불가 ${formatNumber(latestActiveWeek.unresolvedCount)}건`
+                        : "전체 eligible 기록 기준"}
+                    </small>
                   </div>
                   <p>
                     빈 주간은 선으로 연결하지 않아 미관측을 0%로 오해하지 않게
@@ -469,6 +511,7 @@ export function VisualizationOverview({
                         <th scope="col">반대</th>
                         <th scope="col">기권</th>
                         <th scope="col">불참</th>
+                        <th scope="col">확인 불가</th>
                         <th scope="col">분모</th>
                       </tr>
                     </thead>
@@ -480,6 +523,7 @@ export function VisualizationOverview({
                           <td>{formatNumber(week.noCount)}</td>
                           <td>{formatNumber(week.abstainCount)}</td>
                           <td>{formatNumber(week.absentCount)}</td>
+                          <td>{formatNumber(week.unresolvedCount)}</td>
                           <td>
                             {week.eligibleVoteCount > 0
                               ? formatNumber(week.eligibleVoteCount)
