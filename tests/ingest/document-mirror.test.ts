@@ -25,6 +25,8 @@ import {
   splitAssemblySearchWindowsByDay
 } from "../../packages/ingest/src/assembly-mirror-policy.js";
 import {
+  assertAssemblyMinutesSearchFallbackPayloadMatchesCandidate,
+  assertAssemblyMinutesViewerPayloadMatchesCandidate,
   assertAssemblySearchResponsesComplete,
   buildAssemblyFileServiceSourceSnapshot,
   buildAssemblyMinutesCatalogCandidate,
@@ -48,6 +50,41 @@ import { parseOfficialMinutesAttendanceHtml } from "../../packages/ingest/src/of
 import { parseAssemblyMinutesViewerHtml } from "../../packages/ingest/src/minutes-transcript.js";
 import { buildMinutesSummaryGroups } from "../../packages/ingest/src/minutes-summarization.js";
 import { sha256Buffer } from "../../packages/ingest/src/utils.js";
+
+function buildViewerIntegrityFixture(args?: {
+  minutesId?: string;
+  meetingDate?: string;
+  publishedCount?: number;
+  names?: string[];
+}): string {
+  const minutesId = args?.minutesId ?? "57073";
+  const meetingDate = args?.meetingDate ?? "2026.07.30";
+  const names = args?.names ?? ["이소희", "김위원"];
+  const publishedCount = args?.publishedCount ?? names.length;
+  const [year, month, day] = meetingDate.split(".");
+  return `
+    <div id="header">
+      <h2><span class="date">(${meetingDate}.)</span></h2>
+    </div>
+    <div class="minutes_header">
+      <div class="place"><p class="con">${year}년 ${month}월 ${day}일</p></div>
+    </div>
+    <div class="minutes_footer">
+      <div class="list">
+        <p><strong>◯출석 위원(${publishedCount}인)</strong></p>
+        <div class="con">
+          ${names
+            .map(
+              (name, index) =>
+                `<a href="/members/member-${index}"><span class="name">${name}</span></a>`
+            )
+            .join("")}
+        </div>
+      </div>
+    </div>
+    <script>const mnts_id = ${minutesId};</script>
+  `;
+}
 
 describe("document mirror helpers", () => {
   it("keeps the recent safety floor for both official minutes collectors", () => {
@@ -145,6 +182,96 @@ describe("document mirror helpers", () => {
       await rm(path);
       await expect(
         mirroredDocumentMatchesMetadata(root, metadata)
+      ).resolves.toBe(false);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("validates the official viewer meeting identity, date, and attendance", () => {
+    const sourceUrl =
+      "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=57073&type=view";
+    const validHtml = buildViewerIntegrityFixture();
+
+    expect(() =>
+      assertAssemblyMinutesViewerPayloadMatchesCandidate({
+        html: validHtml,
+        sourceUrl,
+        responseUrl: sourceUrl,
+        expectedMinutesId: "57073",
+        expectedMeetingDate: "2026-07-30"
+      })
+    ).not.toThrow();
+    expect(() =>
+      assertAssemblyMinutesViewerPayloadMatchesCandidate({
+        html: buildViewerIntegrityFixture({ minutesId: "57054" }),
+        sourceUrl,
+        expectedMinutesId: "57073",
+        expectedMeetingDate: "2026-07-30"
+      })
+    ).toThrow(/payload id mismatch/);
+    expect(() =>
+      assertAssemblyMinutesViewerPayloadMatchesCandidate({
+        html: buildViewerIntegrityFixture({
+          meetingDate: "2026.07.29"
+        }),
+        sourceUrl,
+        expectedMinutesId: "57073",
+        expectedMeetingDate: "2026-07-30"
+      })
+    ).toThrow(/payload date mismatch/);
+    expect(() =>
+      assertAssemblyMinutesViewerPayloadMatchesCandidate({
+        html: buildViewerIntegrityFixture({
+          publishedCount: 2,
+          names: ["이소희"]
+        }),
+        sourceUrl,
+        expectedMinutesId: "57073",
+        expectedMeetingDate: "2026-07-30"
+      })
+    ).toThrow(/attendance list count mismatch/);
+    expect(() =>
+      assertAssemblyMinutesViewerPayloadMatchesCandidate({
+        html: buildViewerIntegrityFixture({
+          publishedCount: 2,
+          names: ["이소희", "이소희"]
+        }),
+        sourceUrl,
+        expectedMinutesId: "57073",
+        expectedMeetingDate: "2026-07-30"
+      })
+    ).toThrow(/unique 1/);
+  });
+
+  it("does not reuse a hash-valid official viewer cached under the wrong meeting", async () => {
+    const root = await mkdtemp(
+      join(tmpdir(), "document-mirror-semantic-reuse-")
+    );
+    try {
+      const relativePath = "raw/assembly-minutes/57073/latest.html";
+      const path = join(root, relativePath);
+      const body = Buffer.from(
+        buildViewerIntegrityFixture({ minutesId: "57054" })
+      );
+      await mkdir(join(root, "raw/assembly-minutes/57073"), {
+        recursive: true
+      });
+      await writeFile(path, body);
+
+      await expect(
+        mirroredDocumentMatchesMetadata(root, {
+          latestRelativePath: relativePath,
+          currentBytes: body.byteLength,
+          currentContentSha256: sha256Buffer(body),
+          sourceUrl:
+            "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=57073&type=view",
+          publishedDate: "2026-07-30",
+          sourceMetadata: {
+            minutesId: "57073",
+            classCode: "2"
+          }
+        })
       ).resolves.toBe(false);
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -946,6 +1073,22 @@ describe("document mirror helpers", () => {
     ]);
     expect(html).toContain("official-search-rows");
     expect(html).toContain(sourceUrl);
+    expect(() =>
+      assertAssemblyMinutesSearchFallbackPayloadMatchesCandidate({
+        html,
+        expectedMinutesId: "52713",
+        expectedMeetingDate: "2025-02-26",
+        expectedClassCode: "2"
+      })
+    ).not.toThrow();
+    expect(() =>
+      assertAssemblyMinutesSearchFallbackPayloadMatchesCandidate({
+        html: html.replace('"MNTS_ID":"52713"', '"MNTS_ID":"52714"'),
+        expectedMinutesId: "52713",
+        expectedMeetingDate: "2025-02-26",
+        expectedClassCode: "2"
+      })
+    ).toThrow(/embedded row mismatch/);
   });
 
   it("separates official search speaker names from their roles", () => {

@@ -103,6 +103,7 @@ function buildCurrentMemberResolvers(
       memberName: string | null | undefined;
       officialProfileUrl?: string | null;
       voteDate: string;
+      excludedMemberIds?: ReadonlySet<string>;
     }): MemberRecord | null {
       const profileKey = normalizeOfficialProfileUrl(args.officialProfileUrl);
       const profileCandidates = profileKey
@@ -123,11 +124,20 @@ function buildCurrentMemberResolvers(
       if (!nameKey) {
         return null;
       }
-      const nameCandidates = (byName.get(nameKey) ?? []).filter((member) =>
-        isDateWithinTenure(args.voteDate, member.memberId, tenureIndex)
+      const eligibleNameCandidates = (byName.get(nameKey) ?? []).filter(
+        (member) =>
+          isDateWithinTenure(args.voteDate, member.memberId, tenureIndex)
+      );
+      const nameCandidates = eligibleNameCandidates.filter(
+        (member) => !args.excludedMemberIds?.has(member.memberId)
       );
       if (nameCandidates.length === 1) {
         return nameCandidates[0] ?? null;
+      }
+      if (eligibleNameCandidates.length > 0 && nameCandidates.length === 0) {
+        throw new Error(
+          `Official vote member name conflicts with already identified rows on ${args.voteDate}: ${args.memberName}.`
+        );
       }
       if (nameCandidates.length > 1) {
         throw new Error(
@@ -279,29 +289,54 @@ export function mergeOfficialVoteFacts(args: {
         )
         .map((member) => member.memberId)
     );
+    const explicitNonparticipantMemberIds = new Set(
+      voteFacts
+        .filter(
+          (fact) =>
+            fact.rollCallId === rollCall.rollCallId &&
+            fact.voteCode === "absent" &&
+            fact.memberId &&
+            currentMemberIds.has(fact.memberId)
+        )
+        .map((fact) => fact.memberId as string)
+    );
     voteFacts = voteFacts.filter((fact) => {
       if (fact.rollCallId !== rollCall.rollCallId) {
         return true;
+      }
+      if (fact.memberId) {
+        return !currentMemberIds.has(fact.memberId);
       }
       const member = resolver.resolve({
         memberName: fact.memberName,
         voteDate
       });
-      return !(
-        (fact.memberId && currentMemberIds.has(fact.memberId)) ||
-        (member && currentMemberIds.has(member.memberId))
-      );
+      return !(member && currentMemberIds.has(member.memberId));
     });
 
-    for (const record of info.records) {
+    const reservedMemberIds = new Set(explicitNonparticipantMemberIds);
+    const identityOrderedRecords = [...info.records].sort(
+      (left, right) =>
+        Number(Boolean(normalizeOfficialProfileUrl(right.officialProfileUrl))) -
+        Number(Boolean(normalizeOfficialProfileUrl(left.officialProfileUrl)))
+    );
+
+    for (const record of identityOrderedRecords) {
       const member = resolver.resolve({
         memberName: record.memberName,
         officialProfileUrl: record.officialProfileUrl,
-        voteDate
+        voteDate,
+        excludedMemberIds: reservedMemberIds
       });
       if (!member) {
         continue;
       }
+      if (reservedMemberIds.has(member.memberId)) {
+        throw new Error(
+          `Official vote sources assign conflicting rows to ${member.memberId} for ${rollCall.rollCallId}.`
+        );
+      }
+      reservedMemberIds.add(member.memberId);
 
       voteFacts.push({
         rollCallId: rollCall.rollCallId,

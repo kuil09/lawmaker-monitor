@@ -131,13 +131,17 @@ function readSectionNames(html: string, sectionPattern: RegExp): string[] {
     heading.text().match(/\((\d+)인\)/)?.[1] ?? "",
     10
   );
-  if (Number.isFinite(publishedCount) && publishedCount !== names.length) {
+  const uniqueNames = [...new Set(names)];
+  if (
+    Number.isFinite(publishedCount) &&
+    (publishedCount !== names.length || publishedCount !== uniqueNames.length)
+  ) {
     throw new Error(
-      `Official minutes attendance list count mismatch: heading ${publishedCount}, parsed ${names.length}.`
+      `Official minutes attendance list count mismatch: heading ${publishedCount}, parsed ${names.length}, unique ${uniqueNames.length}.`
     );
   }
 
-  return [...new Set(names)];
+  return uniqueNames;
 }
 
 export function parseOfficialMinutesAttendanceHtml(html: string): {

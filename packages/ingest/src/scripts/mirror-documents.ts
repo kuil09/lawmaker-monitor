@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { load } from "cheerio";
 import {
   chromium,
   request,
@@ -36,6 +37,7 @@ import {
   isOfficialAssemblyMinutesViewerUrl,
   parseAssemblyMinutesViewerHtml
 } from "../minutes-transcript.js";
+import { parseOfficialMinutesAttendanceHtml } from "../official-attendance.js";
 import {
   readJsonFile,
   readPositiveInteger,
@@ -1812,6 +1814,178 @@ async function downloadDocument(
   );
 }
 
+function readExpectedMinutesId(args: {
+  sourceUrl: string;
+  sourceMetadata?: Record<string, string | number | null>;
+}): string {
+  const minutesId =
+    readString(args.sourceMetadata?.minutesId) ??
+    new URL(args.sourceUrl).searchParams.get("id");
+  if (!minutesId) {
+    throw new Error(
+      `Official Assembly minutes artifact has no expected meeting id: ${args.sourceUrl}.`
+    );
+  }
+  return minutesId;
+}
+
+function assertOfficialMinutesAttendanceIsComplete(html: string): void {
+  const attendance = parseOfficialMinutesAttendanceHtml(html);
+  if (attendance.presentNames.length === 0) {
+    throw new Error(
+      "Official Assembly minutes artifact contains no verified attendance list."
+    );
+  }
+}
+
+export function assertAssemblyMinutesViewerPayloadMatchesCandidate(args: {
+  html: string;
+  sourceUrl: string;
+  responseUrl?: string;
+  expectedMinutesId: string;
+  expectedMeetingDate: string;
+}): void {
+  if (!isOfficialAssemblyMinutesViewerUrl(args.sourceUrl)) {
+    throw new Error(
+      `Official Assembly minutes viewer validation received an invalid source URL: ${args.sourceUrl}.`
+    );
+  }
+  if (
+    args.responseUrl &&
+    (!isOfficialAssemblyMinutesViewerUrl(args.responseUrl) ||
+      new URL(args.responseUrl).searchParams.get("id") !==
+        args.expectedMinutesId)
+  ) {
+    throw new Error(
+      `Official Assembly minutes viewer returned an unexpected response URL for ${args.expectedMinutesId}: ${args.responseUrl}.`
+    );
+  }
+
+  const embeddedMinutesIds = [
+    ...args.html.matchAll(
+      /\b(?:const|let|var)\s+mnts_id\s*=\s*["']?(\d+)["']?/g
+    )
+  ].flatMap((match) => (match[1] ? [match[1]] : []));
+  const uniqueMinutesIds = [...new Set(embeddedMinutesIds)];
+  if (
+    uniqueMinutesIds.length !== 1 ||
+    uniqueMinutesIds[0] !== args.expectedMinutesId
+  ) {
+    throw new Error(
+      `Official Assembly minutes viewer payload id mismatch: expected ${args.expectedMinutesId}, received ${uniqueMinutesIds.join(", ") || "(missing)"}.`
+    );
+  }
+
+  const $ = load(args.html);
+  const meetingDates = [
+    $("#header h2 .date").first().text(),
+    $(".minutes_header .place .con").first().text()
+  ]
+    .map((value) => normalizeDocumentDate(value))
+    .filter((value): value is string => Boolean(value));
+  const uniqueMeetingDates = [...new Set(meetingDates)];
+  if (
+    uniqueMeetingDates.length !== 1 ||
+    uniqueMeetingDates[0] !== args.expectedMeetingDate
+  ) {
+    throw new Error(
+      `Official Assembly minutes viewer payload date mismatch for ${args.expectedMinutesId}: expected ${args.expectedMeetingDate}, received ${uniqueMeetingDates.join(", ") || "(missing)"}.`
+    );
+  }
+
+  assertOfficialMinutesAttendanceIsComplete(args.html);
+}
+
+export function assertAssemblyMinutesSearchFallbackPayloadMatchesCandidate(args: {
+  html: string;
+  expectedMinutesId: string;
+  expectedMeetingDate: string;
+  expectedClassCode?: string;
+}): void {
+  const $ = load(args.html);
+  const sourceUrl = $('meta[name="official-search-source"]')
+    .first()
+    .attr("content");
+  let parsedSourceUrl: URL;
+  try {
+    parsedSourceUrl = new URL(sourceUrl ?? "");
+  } catch {
+    throw new Error(
+      `Official Assembly minutes search fallback has no valid source URL for ${args.expectedMinutesId}.`
+    );
+  }
+  if (
+    parsedSourceUrl.origin !== officialAssemblyMinutesOrigin ||
+    parsedSourceUrl.pathname !== "/assembly/mnts/search/search.do"
+  ) {
+    throw new Error(
+      `Official Assembly minutes search fallback has an unexpected source URL for ${args.expectedMinutesId}: ${sourceUrl ?? "(missing)"}.`
+    );
+  }
+
+  const embeddedRows = $("#official-search-rows").first().text();
+  let rows: AssemblySearchItem[];
+  try {
+    const parsedRows = JSON.parse(embeddedRows) as unknown;
+    if (!Array.isArray(parsedRows) || parsedRows.length === 0) {
+      throw new Error("missing rows");
+    }
+    rows = parsedRows as AssemblySearchItem[];
+  } catch {
+    throw new Error(
+      `Official Assembly minutes search fallback has no complete embedded rows for ${args.expectedMinutesId}.`
+    );
+  }
+
+  for (const row of rows) {
+    const minutesId = readString(row.MNTS_ID);
+    const meetingDate = normalizeCompactAssemblyDate(
+      readString(row.DATE) ?? readString(row.RDATE)
+    );
+    const classCode = readString(row.CLASS_CD);
+    if (
+      minutesId !== args.expectedMinutesId ||
+      meetingDate !== args.expectedMeetingDate ||
+      (args.expectedClassCode && classCode !== args.expectedClassCode)
+    ) {
+      throw new Error(
+        `Official Assembly minutes search fallback embedded row mismatch for ${args.expectedMinutesId}.`
+      );
+    }
+  }
+
+  assertOfficialMinutesAttendanceIsComplete(args.html);
+}
+
+function assertMirroredAssemblyMinutesArtifact(args: {
+  body: Buffer;
+  sourceUrl: string;
+  responseUrl?: string;
+  publishedDate: string;
+  sourceMetadata?: Record<string, string | number | null>;
+}): void {
+  const html = args.body.toString("utf8");
+  const expectedMinutesId = readExpectedMinutesId(args);
+  const retrievalMethod = readString(args.sourceMetadata?.retrievalMethod);
+  if (retrievalMethod === "official_minutes_search_api_fallback") {
+    assertAssemblyMinutesSearchFallbackPayloadMatchesCandidate({
+      html,
+      expectedMinutesId,
+      expectedMeetingDate: args.publishedDate,
+      expectedClassCode: readString(args.sourceMetadata?.classCode)
+    });
+    return;
+  }
+
+  assertAssemblyMinutesViewerPayloadMatchesCandidate({
+    html,
+    sourceUrl: args.sourceUrl,
+    responseUrl: args.responseUrl,
+    expectedMinutesId,
+    expectedMeetingDate: args.publishedDate
+  });
+}
+
 async function downloadAssemblyMinutesSearchFallback(args: {
   api: APIRequestContext;
   candidate: MirrorCandidate;
@@ -1890,6 +2064,23 @@ async function mirrorCandidate(
   let downloaded: DownloadedDocument;
   try {
     downloaded = await downloadDocument(api, downloadTarget, config.timeoutMs);
+    if (
+      config.mode === "assembly_minutes_catalog" &&
+      isOfficialAssemblyMinutesViewerUrl(candidate.sourceUrl)
+    ) {
+      if (!candidate.publishedDate) {
+        throw new Error(
+          "Official Assembly minutes candidate has no published date."
+        );
+      }
+      assertMirroredAssemblyMinutesArtifact({
+        body: downloaded.body,
+        sourceUrl: candidate.sourceUrl,
+        responseUrl: downloaded.responseUrl,
+        publishedDate: candidate.publishedDate,
+        sourceMetadata: candidate.sourceMetadata
+      });
+    }
   } catch (downloadError) {
     if (
       config.mode !== "assembly_minutes_catalog" ||
@@ -1905,6 +2096,20 @@ async function mirrorCandidate(
         api,
         candidate,
         config
+      });
+      if (!candidate.publishedDate) {
+        throw new Error(
+          "Official Assembly minutes fallback candidate has no published date."
+        );
+      }
+      assertMirroredAssemblyMinutesArtifact({
+        body: downloaded.body,
+        sourceUrl: candidate.sourceUrl,
+        publishedDate: candidate.publishedDate,
+        sourceMetadata: {
+          ...candidate.sourceMetadata,
+          ...downloaded.sourceMetadata
+        }
       });
     } catch (fallbackError) {
       throw new AggregateError(
@@ -2214,14 +2419,35 @@ export async function mirroredDocumentMatchesMetadata(
   metadata: Pick<
     MirroredDocumentMetadata,
     "latestRelativePath" | "currentBytes" | "currentContentSha256"
-  >
+  > &
+    Partial<
+      Pick<
+        MirroredDocumentMetadata,
+        "sourceUrl" | "publishedDate" | "sourceMetadata"
+      >
+    >
 ): Promise<boolean> {
   try {
     const body = await readFile(join(dataRepoDir, metadata.latestRelativePath));
-    return (
-      body.byteLength === metadata.currentBytes &&
-      sha256Buffer(body) === metadata.currentContentSha256
-    );
+    if (
+      body.byteLength !== metadata.currentBytes ||
+      sha256Buffer(body) !== metadata.currentContentSha256
+    ) {
+      return false;
+    }
+    if (
+      metadata.sourceUrl &&
+      metadata.publishedDate &&
+      isOfficialAssemblyMinutesViewerUrl(metadata.sourceUrl)
+    ) {
+      assertMirroredAssemblyMinutesArtifact({
+        body,
+        sourceUrl: metadata.sourceUrl,
+        publishedDate: metadata.publishedDate,
+        sourceMetadata: metadata.sourceMetadata
+      });
+    }
+    return true;
   } catch {
     return false;
   }
