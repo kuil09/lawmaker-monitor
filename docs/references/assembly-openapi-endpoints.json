@@ -269,6 +269,34 @@
       ]
     },
     {
+      "key": "plenaryMinutesCatalog",
+      "source": "official_sheet_service",
+      "serviceCode": "OO1X9P001017YF13038",
+      "koreanName": "본회의 회의록 목록",
+      "officialUrl": "https://open.assembly.go.kr/portal/data/sheet/searchSheetData.do",
+      "role": "complete plenary minutes discovery",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "The official sheet service publishes a complete dated catalog with National Assembly minutes viewer identifiers.",
+        "Runtime verifies the published total against every received row before advancing the discovery cursor."
+      ]
+    },
+    {
+      "key": "committeeMinutesCatalog",
+      "source": "official_sheet_service",
+      "serviceCode": "OR137O001023MZ19321",
+      "koreanName": "위원회 회의록 목록",
+      "officialUrl": "https://open.assembly.go.kr/portal/data/sheet/searchSheetData.do",
+      "role": "complete committee minutes discovery",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "The official sheet service publishes a complete dated catalog with National Assembly minutes viewer identifiers.",
+        "Runtime deduplicates agenda rows by CONFER_NUM and rejects conflicting meeting metadata."
+      ]
+    },
+    {
       "key": "memberCommitteeCareerSheet",
       "source": "official_sheet_service",
       "serviceCode": "ORNDP7000993P115502",

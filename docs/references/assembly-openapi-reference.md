@@ -40,7 +40,10 @@ The runtime still uses these official OpenAPI endpoints, but this repository upd
 
 ## Runtime Rules
 
-1. Runtime collection must not use `searchSheetData.do` or `downloadSheetData.do`.
+1. Runtime collection may use `searchSheetData.do` or official file services
+   only for dataset identifiers explicitly registered in
+   `assembly-openapi-endpoints.json`; unregistered sheet fallbacks remain
+   forbidden.
 2. Raw snapshot manifests must contain only official endpoint kinds and official service URLs.
 3. Public export shape should stay stable when runtime sources change.
 4. If an official source cannot supply a required field, the build should fail instead of silently restoring a legacy fallback.

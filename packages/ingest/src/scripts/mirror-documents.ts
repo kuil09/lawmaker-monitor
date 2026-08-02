@@ -16,8 +16,8 @@ import {
   resolveEffectiveRecentDays,
   resolveNextBackfillCursorDate,
   resolvePublishedBackfillCursor,
+  shiftIsoDate,
   sortDatedItemsNewestFirst,
-  splitAssemblySearchWindowsByDay,
   type AssemblySearchWindow
 } from "../assembly-mirror-policy.js";
 import {
@@ -54,9 +54,10 @@ import type {
   MirroredDocumentMetadataLookups
 } from "../document-mirror.js";
 
-type MirrorMode =
+export type MirrorMode =
   | "generic"
   | "assembly_minutes_search"
+  | "assembly_minutes_catalog"
   | "assembly_file_service";
 
 type MirrorConfig = {
@@ -72,6 +73,7 @@ type MirrorConfig = {
   nextSelector?: string;
   maxPages: number;
   maxDownloads: number;
+  downloadConcurrency: number;
   pageSize: number;
   pageDelayMs: number;
   timeoutMs: number;
@@ -80,6 +82,7 @@ type MirrorConfig = {
   indexPath: string;
   statePath: string;
   userAgent: string;
+  assemblyNo: number;
   recentDays: number;
   backfillStartDate: string;
   backfillDays: number;
@@ -102,8 +105,24 @@ type MirrorCandidate = {
 };
 
 type MirrorOutcome =
-  | { type: "downloaded"; metadata: MirroredDocumentMetadata; updated: boolean }
-  | { type: "unchanged"; metadata: MirroredDocumentMetadata };
+  | {
+      type: "downloaded";
+      metadata: MirroredDocumentMetadata;
+      updated: boolean;
+      downloaded: DownloadedDocument;
+    }
+  | {
+      type: "unchanged";
+      metadata: MirroredDocumentMetadata;
+      downloaded: DownloadedDocument;
+    };
+
+type DownloadedDocument = {
+  body: Buffer;
+  responseUrl: string;
+  contentType: string;
+  contentDisposition?: string;
+};
 
 type MetadataLookups = MirroredDocumentMetadataLookups;
 
@@ -157,6 +176,31 @@ type AssemblyFileServiceResponse = {
   data?: AssemblyFileServiceItem[];
 };
 
+export type AssemblyMinutesCatalogItem = Record<string, unknown>;
+
+type AssemblyMinutesCatalogResponse = {
+  total?: number | string;
+  data?: AssemblyMinutesCatalogItem[];
+};
+
+export type AssemblyMinutesCatalogService = {
+  infId: string;
+  kind: "plenary" | "committee";
+};
+
+const officialAssemblyOpenDataOrigin = "https://open.assembly.go.kr";
+const officialAssemblyMinutesOrigin = "https://record.assembly.go.kr";
+const assemblyMinutesCatalogServices: AssemblyMinutesCatalogService[] = [
+  {
+    infId: "OO1X9P001017YF13038",
+    kind: "plenary"
+  },
+  {
+    infId: "OR137O001023MZ19321",
+    kind: "committee"
+  }
+];
+
 const assemblyMinuteRecordKeys = [
   "record1",
   "record2",
@@ -194,6 +238,17 @@ function compactDate(date: string): string {
 function parseServiceInfId(startUrl: string): string | undefined {
   const matched = startUrl.match(/\/selectServicePage\.do\/([^/?#]+)/);
   return matched?.[1];
+}
+
+export function resolveMirrorRecentDays(
+  mode: MirrorMode,
+  configuredDays: number,
+  minimumDays: number
+): number {
+  return mode === "assembly_minutes_search" ||
+    mode === "assembly_minutes_catalog"
+    ? resolveEffectiveRecentDays(configuredDays, minimumDays)
+    : configuredDays;
 }
 
 export function resolveMirrorDataRepoDir(
@@ -243,7 +298,8 @@ function loadConfig(): MirrorConfig {
       process.env.MIRROR_NEXT_SELECTOR?.trim() ||
       ".page_nav a.next:not([disabled])",
     maxPages: readPositiveInteger("MIRROR_MAX_PAGES", 25),
-    maxDownloads: readPositiveInteger("MIRROR_MAX_DOWNLOADS", 80),
+    maxDownloads: readPositiveInteger("MIRROR_MAX_DOWNLOADS", 500),
+    downloadConcurrency: readPositiveInteger("MIRROR_DOWNLOAD_CONCURRENCY", 4),
     pageSize: readPositiveInteger("MIRROR_PAGE_SIZE", 100),
     pageDelayMs: readPositiveInteger("MIRROR_PAGE_DELAY_MS", 1000),
     timeoutMs: readPositiveInteger("MIRROR_TIMEOUT_MS", 20_000),
@@ -260,13 +316,12 @@ function loadConfig(): MirrorConfig {
     userAgent:
       process.env.MIRROR_USER_AGENT?.trim() ||
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    recentDays:
-      mode === "assembly_minutes_search"
-        ? resolveEffectiveRecentDays(
-            configuredRecentDays,
-            readPositiveInteger("MIRROR_MIN_RECENT_DAYS", 30)
-          )
-        : configuredRecentDays,
+    assemblyNo: readPositiveInteger("MIRROR_ASSEMBLY_NO", 22),
+    recentDays: resolveMirrorRecentDays(
+      mode,
+      configuredRecentDays,
+      readPositiveInteger("MIRROR_MIN_RECENT_DAYS", 30)
+    ),
     backfillStartDate:
       process.env.MIRROR_BACKFILL_START_DATE?.trim() || "2024-05-30",
     backfillDays: readPositiveInteger("MIRROR_BACKFILL_DAYS", 7),
@@ -677,9 +732,12 @@ function collectAssemblyCandidatesFromResponse(
         config,
         discoveredFromUrl
       );
-      if (candidate) {
-        candidates.push(candidate);
+      if (!candidate) {
+        throw new Error(
+          `Official Assembly minutes search returned a ${key} row without MNTS_ID.`
+        );
       }
+      candidates.push(candidate);
     }
   }
 
@@ -695,9 +753,12 @@ function collectAssemblyCandidatesFromResponse(
         config,
         discoveredFromUrl
       );
-      if (candidate) {
-        candidates.push(candidate);
+      if (!candidate) {
+        throw new Error(
+          `Official Assembly minutes search returned a ${key} row without APNDX_ID.`
+        );
       }
+      candidates.push(candidate);
     }
   }
 
@@ -720,6 +781,37 @@ export function responsePageCount(
   }
 
   return totalPages;
+}
+
+export function assertAssemblySearchResponsesComplete(
+  responses: AssemblySearchResponse[],
+  includeAppendices: boolean
+): void {
+  const first = responses[0];
+  if (!first) {
+    throw new Error("Official Assembly minutes search returned no response.");
+  }
+
+  const keys = includeAppendices
+    ? [...assemblyMinuteRecordKeys, ...assemblyAppendixRecordKeys]
+    : [...assemblyMinuteRecordKeys];
+  for (const key of keys) {
+    const expected = first[key]?.totalCount ?? 0;
+    const received = responses.reduce(
+      (total, response) => total + (response[key]?.resultList?.length ?? 0),
+      0
+    );
+    const inconsistentTotal = responses.some((response) => {
+      const totalCount = response[key]?.totalCount;
+      return totalCount !== undefined && totalCount !== expected;
+    });
+
+    if (inconsistentTotal || received !== expected) {
+      throw new Error(
+        `Official Assembly minutes search was incomplete for ${key}: expected ${expected}, received ${received}.`
+      );
+    }
+  }
 }
 
 async function postAssemblySearch(
@@ -818,7 +910,7 @@ async function collectAssemblyCandidates(
       maxBackfillWindows: config.backfillWindowsPerRun
     }
   );
-  const windows = splitAssemblySearchWindowsByDay(coarseWindows);
+  const windows = coarseWindows;
   const candidates: MirrorCandidate[] = [];
   let pagesVisited = 0;
   let discoveredCandidates = 0;
@@ -832,6 +924,7 @@ async function collectAssemblyCandidates(
       config,
       buildAssemblyMinutesParams(baseValues, window, 1, config.pageSize)
     );
+    const minutesResponses = [minutesFirst];
     pagesVisited += 1;
     const minutesDiscoveryUrl = `${config.startUrl}#minutes:${window.startDate}:${window.endDate}:1`;
     const minutesCandidates = collectAssemblyCandidatesFromResponse(
@@ -859,6 +952,7 @@ async function collectAssemblyCandidates(
           config.pageSize
         )
       );
+      minutesResponses.push(response);
       pagesVisited += 1;
       const discoveryUrl = `${config.startUrl}#minutes:${window.startDate}:${window.endDate}:${pageNumber}`;
       const pageCandidates = collectAssemblyCandidatesFromResponse(
@@ -870,6 +964,7 @@ async function collectAssemblyCandidates(
       discoveredCandidates += pageCandidates.length;
       candidates.push(...pageCandidates);
     }
+    assertAssemblySearchResponsesComplete(minutesResponses, false);
 
     if (config.includeAppendices) {
       await page.waitForTimeout(config.pageDelayMs);
@@ -878,6 +973,7 @@ async function collectAssemblyCandidates(
         config,
         buildAssemblyAppendixParams(baseValues, window, 1, config.pageSize)
       );
+      const appendixResponses = [appendixFirst];
       pagesVisited += 1;
       const appendixDiscoveryUrl = `${config.startUrl}#appendix:${window.startDate}:${window.endDate}:1`;
       const appendixCandidates = collectAssemblyCandidatesFromResponse(
@@ -905,6 +1001,7 @@ async function collectAssemblyCandidates(
             config.pageSize
           )
         );
+        appendixResponses.push(response);
         pagesVisited += 1;
         const discoveryUrl = `${config.startUrl}#appendix:${window.startDate}:${window.endDate}:${pageNumber}`;
         const pageCandidates = collectAssemblyCandidatesFromResponse(
@@ -916,6 +1013,7 @@ async function collectAssemblyCandidates(
         discoveredCandidates += pageCandidates.length;
         candidates.push(...pageCandidates);
       }
+      assertAssemblySearchResponsesComplete(appendixResponses, true);
     }
   }
 
@@ -943,6 +1041,343 @@ function isDateWithinSearchWindow(
   window: AssemblySearchWindow
 ): boolean {
   return date >= window.startDate && date <= window.endDate;
+}
+
+function mergeAssemblySearchWindows(
+  windows: AssemblySearchWindow[]
+): AssemblySearchWindow[] {
+  const sorted = [...windows].sort((left, right) =>
+    left.startDate.localeCompare(right.startDate)
+  );
+  const merged: AssemblySearchWindow[] = [];
+  for (const window of sorted) {
+    const previous = merged.at(-1);
+    if (previous && window.startDate <= shiftIsoDate(previous.endDate, 1)) {
+      previous.endDate =
+        previous.endDate >= window.endDate ? previous.endDate : window.endDate;
+      continue;
+    }
+    merged.push({ ...window });
+  }
+  return merged;
+}
+
+function parseAssemblyCatalogTotal(
+  response: AssemblyMinutesCatalogResponse,
+  service: AssemblyMinutesCatalogService
+): number {
+  const total =
+    typeof response.total === "number"
+      ? response.total
+      : Number.parseInt(response.total ?? "", 10);
+  if (!Number.isInteger(total) || total < 0 || !Array.isArray(response.data)) {
+    throw new Error(
+      `Official Assembly minutes catalog ${service.infId} returned an invalid total or data array.`
+    );
+  }
+  return total;
+}
+
+export function buildAssemblyMinutesCatalogParams(args: {
+  service: AssemblyMinutesCatalogService;
+  window: AssemblySearchWindow;
+  assemblyNo: number;
+  rows: number;
+}): URLSearchParams {
+  const params = new URLSearchParams({
+    rows: String(args.rows),
+    infId: args.service.infId,
+    infSeq: "1",
+    DAE_NUM: String(args.assemblyNo),
+    CLASS_NAME: "",
+    TITLE: "",
+    SUB_NAME: ""
+  });
+  if (args.service.kind === "committee") {
+    params.set("COMM_NAME", "");
+  }
+  params.append("CONF_DATE", args.window.startDate);
+  params.append("CONF_DATE", args.window.endDate);
+  return params;
+}
+
+async function fetchAssemblyMinutesCatalogWindow(args: {
+  api: APIRequestContext;
+  config: MirrorConfig;
+  service: AssemblyMinutesCatalogService;
+  window: AssemblySearchWindow;
+}): Promise<{
+  items: AssemblyMinutesCatalogItem[];
+  pagesVisited: number;
+  discoveredFromUrl: string;
+}> {
+  const rows = 50_000;
+  const discoveredFromUrl = `${officialAssemblyOpenDataOrigin}/portal/data/service/selectServicePage.do/${args.service.infId}`;
+  const items: AssemblyMinutesCatalogItem[] = [];
+  let expectedTotal: number | null = null;
+  let pageNumber = 1;
+
+  while (expectedTotal === null || items.length < expectedTotal) {
+    const response = await args.api.post(
+      `${officialAssemblyOpenDataOrigin}/portal/data/sheet/searchSheetData.do?page=${pageNumber}`,
+      {
+        headers: {
+          "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+          "x-requested-with": "XMLHttpRequest",
+          referer: discoveredFromUrl
+        },
+        data: buildAssemblyMinutesCatalogParams({
+          service: args.service,
+          window: args.window,
+          assemblyNo: args.config.assemblyNo,
+          rows
+        }).toString(),
+        timeout: args.config.timeoutMs,
+        failOnStatusCode: true
+      }
+    );
+    const payload = (await response.json()) as AssemblyMinutesCatalogResponse;
+    const total = parseAssemblyCatalogTotal(payload, args.service);
+    if (expectedTotal !== null && total !== expectedTotal) {
+      throw new Error(
+        `Official Assembly minutes catalog ${args.service.infId} changed total during pagination: expected ${expectedTotal}, received ${total}.`
+      );
+    }
+    expectedTotal = total;
+    const pageItems = payload.data ?? [];
+    if (pageItems.length === 0 && items.length < expectedTotal) {
+      throw new Error(
+        `Official Assembly minutes catalog ${args.service.infId} stopped before total ${expectedTotal}.`
+      );
+    }
+    items.push(...pageItems);
+    pageNumber += 1;
+  }
+
+  if (items.length !== expectedTotal) {
+    throw new Error(
+      `Official Assembly minutes catalog ${args.service.infId} was incomplete: expected ${expectedTotal}, received ${items.length}.`
+    );
+  }
+
+  return {
+    items,
+    pagesVisited: pageNumber - 1,
+    discoveredFromUrl
+  };
+}
+
+function parseAssemblySessionNo(value: string | undefined): string | null {
+  return value?.match(/제\s*(\d+)\s*회/)?.[1] ?? null;
+}
+
+export function buildAssemblyMinutesCatalogCandidate(args: {
+  item: AssemblyMinutesCatalogItem;
+  config: {
+    assemblyNo: number;
+    sourceId: string;
+  };
+  service: AssemblyMinutesCatalogService;
+  discoveredFromUrl: string;
+}): MirrorCandidate {
+  const minutesId = readString(args.item.CONFER_NUM);
+  const rawLink = readString(args.item.CONF_LINK_URL)?.replaceAll("&amp;", "&");
+  const publishedDate = normalizeDocumentDate(
+    readString(args.item.CONF_DATE) ?? ""
+  );
+  const assemblyNo = readString(args.item.DAE_NUM);
+  const className = readString(args.item.CLASS_NAME);
+  const committeeName = readString(args.item.COMM_NAME);
+  const sessionNo = parseAssemblySessionNo(readString(args.item.TITLE));
+  if (
+    !minutesId ||
+    !rawLink ||
+    !publishedDate ||
+    assemblyNo !== String(args.config.assemblyNo)
+  ) {
+    throw new Error(
+      `Official Assembly minutes catalog ${args.service.infId} returned a row without a valid meeting id, link, date, or assembly number.`
+    );
+  }
+
+  const linkedUrl = new URL(rawLink, officialAssemblyMinutesOrigin);
+  if (
+    linkedUrl.origin !== officialAssemblyMinutesOrigin ||
+    linkedUrl.pathname !== "/assembly/viewer/minutes/xml.do" ||
+    linkedUrl.searchParams.get("id") !== minutesId
+  ) {
+    throw new Error(
+      `Official Assembly minutes catalog ${args.service.infId} returned a mismatched viewer link for ${minutesId}.`
+    );
+  }
+
+  const expectedClassNames =
+    args.service.kind === "plenary"
+      ? new Set(["국회본회의"])
+      : new Set(["상임위원회", "예산결산특별위원회", "특별위원회"]);
+  if (!className || !expectedClassNames.has(className)) {
+    throw new Error(
+      `Official Assembly minutes catalog ${args.service.infId} returned unexpected class ${className ?? "(missing)"}.`
+    );
+  }
+  if (args.service.kind === "committee" && !committeeName) {
+    throw new Error(
+      `Official Assembly minutes catalog ${args.service.infId} returned committee minutes without COMM_NAME.`
+    );
+  }
+
+  const meetingName =
+    args.service.kind === "plenary" ? "국회본회의" : committeeName!;
+  const viewerUrl = `${officialAssemblyMinutesOrigin}/assembly/viewer/minutes/xml.do?id=${encodeURIComponent(minutesId)}&type=view`;
+  return {
+    documentId: `${args.config.sourceId}-minutes-${minutesId}`,
+    title: [
+      `제${args.config.assemblyNo}대`,
+      sessionNo ? `제${sessionNo}회` : null,
+      meetingName,
+      "회의록"
+    ]
+      .filter((value): value is string => Boolean(value))
+      .join(" "),
+    sourceUrl: viewerUrl,
+    downloadUrl: viewerUrl,
+    publishedDate,
+    discoveredFromUrl: args.discoveredFromUrl,
+    sourceMetadata: {
+      minutesId,
+      assemblyNo,
+      sessionNo,
+      committeeName: args.service.kind === "committee" ? committeeName! : null,
+      meetingSubtitle: readString(args.item.SUB_NAME) ?? null,
+      catalogInfId: args.service.infId,
+      className
+    }
+  };
+}
+
+function mergeAssemblyMinutesCatalogCandidate(
+  candidatesById: Map<string, MirrorCandidate>,
+  candidate: MirrorCandidate
+): void {
+  const documentId = candidate.documentId;
+  if (!documentId) {
+    throw new Error("Official Assembly minutes candidate has no document id.");
+  }
+  const existing = candidatesById.get(documentId);
+  if (!existing) {
+    candidatesById.set(documentId, candidate);
+    return;
+  }
+  const existingCommittee = existing.sourceMetadata?.committeeName ?? null;
+  const candidateCommittee = candidate.sourceMetadata?.committeeName ?? null;
+  if (
+    existing.sourceUrl !== candidate.sourceUrl ||
+    existing.publishedDate !== candidate.publishedDate ||
+    existingCommittee !== candidateCommittee ||
+    existing.title !== candidate.title
+  ) {
+    throw new Error(
+      `Official Assembly minutes catalog returned conflicting rows for ${documentId}.`
+    );
+  }
+  if (
+    !existing.sourceMetadata?.meetingSubtitle &&
+    candidate.sourceMetadata?.meetingSubtitle
+  ) {
+    candidatesById.set(documentId, {
+      ...existing,
+      sourceMetadata: {
+        ...existing.sourceMetadata,
+        meetingSubtitle: candidate.sourceMetadata.meetingSubtitle
+      }
+    });
+  }
+}
+
+async function collectAssemblyMinutesCatalogCandidates(
+  api: APIRequestContext,
+  config: MirrorConfig,
+  existingState: DocumentMirrorState | null,
+  cutoffDate: string
+): Promise<CandidateCollectionResult> {
+  if (config.includeAppendices) {
+    throw new Error(
+      "Official Assembly minutes catalogs do not include appendix files; set MIRROR_INCLUDE_APPENDICES=false."
+    );
+  }
+  const windows = buildAssemblySearchWindows(
+    cutoffDate,
+    config,
+    existingState,
+    {
+      backfillCursorDate: config.backfillCursorOverride,
+      includeRecent: !config.skipRecent,
+      maxBackfillWindows: config.backfillWindowsPerRun
+    }
+  );
+  const ranges = mergeAssemblySearchWindows(windows);
+  const candidatesById = new Map<string, MirrorCandidate>();
+  let pagesVisited = 0;
+  for (const window of ranges) {
+    for (const service of assemblyMinutesCatalogServices) {
+      const result = await fetchAssemblyMinutesCatalogWindow({
+        api,
+        config,
+        service,
+        window
+      });
+      pagesVisited += result.pagesVisited;
+      for (const item of result.items) {
+        mergeAssemblyMinutesCatalogCandidate(
+          candidatesById,
+          buildAssemblyMinutesCatalogCandidate({
+            item,
+            config,
+            service,
+            discoveredFromUrl: result.discoveredFromUrl
+          })
+        );
+      }
+    }
+  }
+  const candidates = [...candidatesById.values()];
+  const sourceSnapshot = {
+    count: candidates.length,
+    sha256: sha256(
+      JSON.stringify(
+        candidates
+          .map((candidate) => ({
+            documentId: candidate.documentId,
+            publishedDate: candidate.publishedDate,
+            sourceUrl: candidate.sourceUrl,
+            title: candidate.title
+          }))
+          .sort((left, right) =>
+            (left.documentId ?? "").localeCompare(right.documentId ?? "")
+          )
+      )
+    )
+  };
+
+  return {
+    candidates,
+    pagesVisited,
+    discoveredCandidates: candidates.length,
+    recentWindowStartDate: windows.find((window) => window.label === "recent")
+      ?.startDate,
+    recentWindowEndDate: windows
+      .filter((window) => window.label === "recent")
+      .at(-1)?.endDate,
+    nextBackfillCursorDate: resolveNextBackfillCursorDate({
+      cutoffDate,
+      config,
+      existingState,
+      windows
+    }),
+    sourceSnapshotSha256: sourceSnapshot.sha256,
+    sourceSnapshotCount: sourceSnapshot.count,
+    sourceSnapshotUnchanged: false
+  };
 }
 
 async function postAssemblyFileServiceSearch(
@@ -1057,12 +1492,7 @@ async function downloadDocument(
   api: APIRequestContext,
   sourceUrl: string,
   timeoutMs: number
-): Promise<{
-  body: Buffer;
-  responseUrl: string;
-  contentType: string;
-  contentDisposition?: string;
-}> {
+): Promise<DownloadedDocument> {
   const response = await api.get(sourceUrl, {
     failOnStatusCode: true,
     timeout: timeoutMs
@@ -1117,7 +1547,11 @@ async function mirrorCandidate(
     existingMetadata &&
     existingMetadata.currentContentSha256 === contentSha
   ) {
-    return { type: "unchanged", metadata: existingMetadata };
+    return {
+      type: "unchanged",
+      metadata: existingMetadata,
+      downloaded
+    };
   }
 
   const latestPath = join(config.dataRepoDir, paths.latestRelativePath);
@@ -1168,25 +1602,22 @@ async function mirrorCandidate(
   return {
     type: "downloaded",
     metadata,
-    updated: Boolean(existingMetadata)
+    updated: Boolean(existingMetadata),
+    downloaded
   };
 }
 
 async function mirrorAssemblyMinutesTranscript(args: {
-  api: APIRequestContext;
   candidate: MirrorCandidate;
   config: MirrorConfig;
   metadata: MirroredDocumentMetadata;
   retrievedAt: string;
+  downloaded: DownloadedDocument;
 }): Promise<{
   metadata: MirroredDocumentMetadata;
   written: boolean;
 }> {
-  const downloaded = await downloadDocument(
-    args.api,
-    args.candidate.sourceUrl,
-    args.config.timeoutMs
-  );
+  const downloaded = args.downloaded;
   if (!downloaded.contentType.toLowerCase().includes("html")) {
     throw new Error(
       `Expected Assembly minutes viewer HTML, received ${downloaded.contentType}.`
@@ -1328,6 +1759,27 @@ function buildTranscriptRefreshCandidates(
     }));
 }
 
+async function processWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>
+): Promise<void> {
+  let nextIndex = 0;
+  const workers = Array.from(
+    { length: Math.min(Math.max(1, concurrency), items.length) },
+    async () => {
+      while (nextIndex < items.length) {
+        const item = items[nextIndex];
+        nextIndex += 1;
+        if (item !== undefined) {
+          await worker(item);
+        }
+      }
+    }
+  );
+  await Promise.all(workers);
+}
+
 async function main(): Promise<void> {
   const config = loadConfig();
   const now = new Date();
@@ -1411,16 +1863,24 @@ async function main(): Promise<void> {
           existingState,
           cutoffDate
         )
-      : config.mode === "assembly_file_service"
-        ? await collectAssemblyFileServiceCandidates(
+      : config.mode === "assembly_minutes_catalog"
+        ? await collectAssemblyMinutesCatalogCandidates(
             api,
             config,
             existingState,
             cutoffDate
           )
-        : await collectGenericCandidates(page!, config);
+        : config.mode === "assembly_file_service"
+          ? await collectAssemblyFileServiceCandidates(
+              api,
+              config,
+              existingState,
+              cutoffDate
+            )
+          : await collectGenericCandidates(page!, config);
   const transcriptRefreshCandidates =
-    config.mode === "assembly_minutes_search"
+    config.mode === "assembly_minutes_search" ||
+    config.mode === "assembly_minutes_catalog"
       ? buildTranscriptRefreshCandidates(existingMetadata.byDocumentId)
       : [];
   const staleTranscriptDocumentIds = new Set(
@@ -1450,9 +1910,7 @@ async function main(): Promise<void> {
   let downloadFailures = 0;
   let transcriptsWritten = 0;
   let transcriptFailures = 0;
-  let remainingDownloads = config.maxDownloads;
-  let reachedDownloadLimit = false;
-
+  const eligibleWorkItems: typeof workItems = [];
   for (const workItem of workItems) {
     const { candidate } = workItem;
     const seenKey = candidate.documentId ?? candidate.sourceUrl;
@@ -1472,91 +1930,95 @@ async function main(): Promise<void> {
       continue;
     }
 
-    if (remainingDownloads <= 0) {
-      if (workItem.kind === "discovered") {
-        reachedDownloadLimit = true;
-      }
-      break;
-    }
+    eligibleWorkItems.push(workItem);
+  }
 
-    try {
-      const existingCandidateMetadata = selectExistingMirroredMetadata(
-        {
-          byDocumentId: updatedMetadataByDocumentId,
-          bySourceUrl: updatedMetadataBySourceUrl,
-          byDownloadUrl: updatedMetadataByDownloadUrl
-        },
-        candidate
-      );
-      const outcome = await mirrorCandidate(
-        candidate,
-        config,
-        api,
-        existingCandidateMetadata,
-        retrievedAt
-      );
-      let mirroredMetadata = outcome.metadata;
+  const selectedWorkItems = eligibleWorkItems.slice(0, config.maxDownloads);
+  const reachedDownloadLimit = eligibleWorkItems
+    .slice(config.maxDownloads)
+    .some((workItem) => workItem.kind === "discovered");
+  await processWithConcurrency(
+    selectedWorkItems,
+    config.downloadConcurrency,
+    async ({ candidate }) => {
+      try {
+        const existingCandidateMetadata = selectExistingMirroredMetadata(
+          {
+            byDocumentId: updatedMetadataByDocumentId,
+            bySourceUrl: updatedMetadataBySourceUrl,
+            byDownloadUrl: updatedMetadataByDownloadUrl
+          },
+          candidate
+        );
+        const outcome = await mirrorCandidate(
+          candidate,
+          config,
+          api,
+          existingCandidateMetadata,
+          retrievedAt
+        );
+        let mirroredMetadata = outcome.metadata;
 
-      if (
-        config.mode === "assembly_minutes_search" &&
-        isAssemblyMinutesViewerUrl(candidate.sourceUrl)
-      ) {
-        try {
-          const transcriptOutcome = await mirrorAssemblyMinutesTranscript({
-            api,
-            candidate,
-            config,
-            metadata: outcome.metadata,
-            retrievedAt
-          });
-          mirroredMetadata = transcriptOutcome.metadata;
-          if (transcriptOutcome.written) {
-            transcriptsWritten += 1;
+        if (
+          (config.mode === "assembly_minutes_search" ||
+            config.mode === "assembly_minutes_catalog") &&
+          isAssemblyMinutesViewerUrl(candidate.sourceUrl)
+        ) {
+          try {
+            const transcriptOutcome = await mirrorAssemblyMinutesTranscript({
+              candidate,
+              config,
+              metadata: outcome.metadata,
+              retrievedAt,
+              downloaded: outcome.downloaded
+            });
+            mirroredMetadata = transcriptOutcome.metadata;
+            if (transcriptOutcome.written) {
+              transcriptsWritten += 1;
+            }
+          } catch (error) {
+            transcriptFailures += 1;
+            process.stderr.write(
+              `Could not mirror transcript for ${outcome.metadata.documentId}: ${
+                error instanceof Error ? error.message : String(error)
+              }\n`
+            );
           }
-        } catch (error) {
-          transcriptFailures += 1;
-          process.stderr.write(
-            `Could not mirror transcript for ${outcome.metadata.documentId}: ${
-              error instanceof Error ? error.message : String(error)
-            }\n`
-          );
         }
-      }
 
-      updatedMetadataByDocumentId.set(
-        mirroredMetadata.documentId,
-        mirroredMetadata
-      );
-      updatedMetadataBySourceUrl.set(
-        mirroredMetadata.sourceUrl,
-        mirroredMetadata
-      );
-      if (mirroredMetadata.downloadUrl) {
-        updatedMetadataByDownloadUrl.set(
-          mirroredMetadata.downloadUrl,
+        updatedMetadataByDocumentId.set(
+          mirroredMetadata.documentId,
           mirroredMetadata
         );
-      }
-
-      if (outcome.type === "downloaded") {
-        downloadedCount += 1;
-        if (outcome.updated) {
-          updatedCount += 1;
+        updatedMetadataBySourceUrl.set(
+          mirroredMetadata.sourceUrl,
+          mirroredMetadata
+        );
+        if (mirroredMetadata.downloadUrl) {
+          updatedMetadataByDownloadUrl.set(
+            mirroredMetadata.downloadUrl,
+            mirroredMetadata
+          );
         }
-      } else {
-        unchangedCount += 1;
-      }
-    } catch (error) {
-      downloadFailures += 1;
-      process.stderr.write(
-        `Could not mirror ${candidate.documentId ?? candidate.sourceUrl}: ${
-          error instanceof Error ? error.message : String(error)
-        }\n`
-      );
-    }
 
-    remainingDownloads -= 1;
-  }
+        if (outcome.type === "downloaded") {
+          downloadedCount += 1;
+          if (outcome.updated) {
+            updatedCount += 1;
+          }
+        } else {
+          unchangedCount += 1;
+        }
+      } catch (error) {
+        downloadFailures += 1;
+        process.stderr.write(
+          `Could not mirror ${candidate.documentId ?? candidate.sourceUrl}: ${
+            error instanceof Error ? error.message : String(error)
+          }\n`
+        );
+      }
+    }
+  );
 
   await api.dispose();
   await context?.close();

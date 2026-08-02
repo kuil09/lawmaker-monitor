@@ -13,11 +13,22 @@ describe("incremental minutes workflows", () => {
       ".github/workflows/mirror-documents.yml"
     );
 
-    expect(workflow).toContain('default: "20"');
+    expect(workflow).toContain('default: "500"');
     expect(workflow).toContain(
       "MIRROR_CATCHUP_WINDOWS_PER_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill_windows || vars.MIRROR_CATCHUP_WINDOWS_PER_RUN || '2' }}"
     );
-    expect(workflow).toContain("timeout-minutes: 30");
+    expect(workflow).toContain("timeout-minutes: 60");
+    expect(workflow).toContain("MIRROR_MODE: assembly_minutes_catalog");
+    expect(workflow).toContain(
+      "MIRROR_DOWNLOAD_CONCURRENCY: ${{ vars.MIRROR_DOWNLOAD_CONCURRENCY || '4' }}"
+    );
+    expect(workflow).toContain(
+      "MIRROR_MAX_DOWNLOADS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_downloads || vars.MIRROR_MAX_DOWNLOADS || '500' }}"
+    );
+    expect(workflow).toContain('MIRROR_INCLUDE_APPENDICES: "false"');
+    expect(workflow).not.toContain(
+      '-f include_appendices="${MIRROR_INCLUDE_APPENDICES}"'
+    );
     expect(workflow).toContain("Start minutes summaries");
     expect(workflow).toContain("gh workflow run summarize-minutes.yml");
     expect(workflow).toContain("Continue pending minutes backfill");

@@ -21,16 +21,26 @@ import {
   splitAssemblySearchWindowsByDay
 } from "../../packages/ingest/src/assembly-mirror-policy.js";
 import {
+  assertAssemblySearchResponsesComplete,
   buildAssemblyFileServiceSourceSnapshot,
+  buildAssemblyMinutesCatalogCandidate,
+  buildAssemblyMinutesCatalogParams,
   buildAssemblyMinutesParams,
   isAssemblyMinutesViewerUrl,
   normalizeCompactAssemblyDate,
+  resolveMirrorRecentDays,
   resolveMirrorDataRepoDir,
   responsePageCount,
   shouldSkipAssemblyFileServiceRefresh
 } from "../../packages/ingest/src/scripts/mirror-documents.js";
 
 describe("document mirror helpers", () => {
+  it("keeps the recent safety floor for both official minutes collectors", () => {
+    expect(resolveMirrorRecentDays("assembly_minutes_search", 3, 30)).toBe(30);
+    expect(resolveMirrorRecentDays("assembly_minutes_catalog", 3, 30)).toBe(30);
+    expect(resolveMirrorRecentDays("assembly_file_service", 3, 30)).toBe(3);
+  });
+
   it("enforces a safe recent-window floor for minutes discovery", () => {
     expect(resolveEffectiveRecentDays(3, 30)).toBe(30);
     expect(resolveEffectiveRecentDays(45, 30)).toBe(45);
@@ -573,6 +583,122 @@ describe("document mirror helpers", () => {
         100
       )
     ).toBe(7);
+  });
+
+  it("fails closed when an official minutes range response omits rows", () => {
+    const completeResponses = [
+      {
+        record1: {
+          totalCount: 2,
+          resultList: [{ MNTS_ID: "1" }]
+        }
+      },
+      {
+        record1: {
+          totalCount: 2,
+          resultList: [{ MNTS_ID: "2" }]
+        }
+      }
+    ];
+
+    expect(() =>
+      assertAssemblySearchResponsesComplete(completeResponses, false)
+    ).not.toThrow();
+    expect(() =>
+      assertAssemblySearchResponsesComplete(
+        [
+          completeResponses[0],
+          {
+            record1: {
+              totalCount: 2,
+              resultList: []
+            }
+          }
+        ],
+        false
+      )
+    ).toThrow(/expected 2, received 1/);
+    expect(() =>
+      assertAssemblySearchResponsesComplete(
+        [
+          completeResponses[0],
+          {
+            record1: {
+              totalCount: 3,
+              resultList: [{ MNTS_ID: "2" }]
+            }
+          }
+        ],
+        false
+      )
+    ).toThrow(/incomplete/);
+  });
+
+  it("maps the registered official minutes catalog to canonical viewer records", () => {
+    const service = {
+      infId: "OO1X9P001017YF13038",
+      kind: "plenary" as const
+    };
+    const params = buildAssemblyMinutesCatalogParams({
+      service,
+      window: {
+        label: "backfill",
+        startDate: "2026-07-20",
+        endDate: "2026-07-26"
+      },
+      assemblyNo: 22,
+      rows: 50_000
+    });
+    expect(params.getAll("CONF_DATE")).toEqual(["2026-07-20", "2026-07-26"]);
+    expect(params.get("DAE_NUM")).toBe("22");
+
+    const item = {
+      CONFER_NUM: "57000",
+      CONF_LINK_URL:
+        "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=57000&type=view",
+      CONF_DATE: "2026-07-23",
+      DAE_NUM: "22",
+      CLASS_NAME: "국회본회의",
+      TITLE: "제427회국회(임시회)",
+      SUB_NAME: "의사일정 제1항"
+    };
+    const candidate = buildAssemblyMinutesCatalogCandidate({
+      item,
+      config: {
+        assemblyNo: 22,
+        sourceId: "assembly-minutes"
+      },
+      service,
+      discoveredFromUrl:
+        "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/OO1X9P001017YF13038"
+    });
+
+    expect(candidate).toMatchObject({
+      documentId: "assembly-minutes-minutes-57000",
+      title: "제22대 제427회 국회본회의 회의록",
+      publishedDate: "2026-07-23",
+      sourceMetadata: {
+        assemblyNo: "22",
+        sessionNo: "427",
+        committeeName: null,
+        catalogInfId: "OO1X9P001017YF13038"
+      }
+    });
+    expect(() =>
+      buildAssemblyMinutesCatalogCandidate({
+        item: {
+          ...item,
+          CONF_LINK_URL:
+            "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=57001&type=view"
+        },
+        config: {
+          assemblyNo: 22,
+          sourceId: "assembly-minutes"
+        },
+        service,
+        discoveredFromUrl: candidate.discoveredFromUrl
+      })
+    ).toThrow(/mismatched viewer link/);
   });
 
   it("advances the backfill cursor when only transcript parsing fails", () => {
