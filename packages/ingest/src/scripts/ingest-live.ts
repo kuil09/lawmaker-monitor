@@ -127,6 +127,83 @@ function countXmlRows(xml: string): number {
   return (xml.match(/<row>/g) ?? []).length;
 }
 
+export function validateRecordedVoteSummaryPage(args: {
+  page: number;
+  rawRowCount: number;
+  parsedRowCount: number;
+  publishedTotal: number | null;
+  expectedTotal: number | null;
+}): number {
+  if (args.publishedTotal === null) {
+    throw new Error(
+      `Official recorded-vote summary page ${args.page} has no published total.`
+    );
+  }
+  if (
+    args.expectedTotal !== null &&
+    args.publishedTotal !== args.expectedTotal
+  ) {
+    throw new Error(
+      `Official recorded-vote summary total changed on page ${args.page}: expected ${args.expectedTotal}, received ${args.publishedTotal}.`
+    );
+  }
+  if (args.parsedRowCount !== args.rawRowCount) {
+    throw new Error(
+      `Official recorded-vote summary page ${args.page} dropped rows during validation: raw ${args.rawRowCount}, parsed ${args.parsedRowCount}.`
+    );
+  }
+  return args.publishedTotal;
+}
+
+export function selectRecordedVoteBillRefs(args: {
+  summaries: Array<{ billNo: string; billId: string }>;
+  agendas: Array<{ billNo: string; billId?: string }>;
+}): Array<{ billNo: string; billId: string }> {
+  const refsByBillNo = new Map<string, { billNo: string; billId: string }>();
+  const billNoByBillId = new Map<string, string>();
+
+  for (const summary of args.summaries) {
+    if (!summary.billNo || !summary.billId) {
+      throw new Error(
+        "Official recorded-vote summary is missing BILL_NO or BILL_ID."
+      );
+    }
+    const existing = refsByBillNo.get(summary.billNo);
+    if (existing) {
+      throw new Error(
+        `Official recorded-vote summaries contain duplicate bill ${summary.billNo}: ${existing.billId} and ${summary.billId}.`
+      );
+    }
+    const existingBillNo = billNoByBillId.get(summary.billId);
+    if (existingBillNo) {
+      throw new Error(
+        `Official recorded-vote summaries contain duplicate id ${summary.billId}: bills ${existingBillNo} and ${summary.billNo}.`
+      );
+    }
+    refsByBillNo.set(summary.billNo, {
+      billNo: summary.billNo,
+      billId: summary.billId
+    });
+    billNoByBillId.set(summary.billId, summary.billNo);
+  }
+
+  for (const agenda of args.agendas) {
+    const recordedVote = refsByBillNo.get(agenda.billNo);
+    if (!recordedVote || !agenda.billId) {
+      continue;
+    }
+    if (recordedVote.billId !== agenda.billId) {
+      throw new Error(
+        `Official plenary agenda conflicts with recorded-vote summary for bill ${agenda.billNo}: ${agenda.billId} and ${recordedVote.billId}.`
+      );
+    }
+  }
+
+  return [...refsByBillNo.values()].sort((left, right) =>
+    left.billNo.localeCompare(right.billNo)
+  );
+}
+
 function sanitizeAssemblyRequestParams(
   config: AssemblyApiConfig,
   params: Record<string, string>
@@ -1115,25 +1192,33 @@ async function main(): Promise<void> {
       }
     });
     manifestEntries.push(result.entry);
-    billVoteSummaryRecords.push(...parseBillVoteSummaryXml(result.body));
-
+    const pageRecords = parseBillVoteSummaryXml(result.body);
     const rows = countXmlRows(result.body);
+    expectedBillVoteSummaryRows = validateRecordedVoteSummaryPage({
+      page,
+      rawRowCount: rows,
+      parsedRowCount: pageRecords.length,
+      publishedTotal: parseListTotalCount(result.body),
+      expectedTotal: expectedBillVoteSummaryRows
+    });
+    billVoteSummaryRecords.push(...pageRecords);
     fetchedBillVoteSummaryRows += rows;
-    expectedBillVoteSummaryRows ??= parseListTotalCount(result.body);
 
     if (rows === 0) {
       break;
     }
-    if (
-      expectedBillVoteSummaryRows !== null &&
-      fetchedBillVoteSummaryRows >= expectedBillVoteSummaryRows
-    ) {
+    if (fetchedBillVoteSummaryRows > expectedBillVoteSummaryRows) {
+      throw new Error(
+        `Bill vote summary paging exceeded the published total. Expected ${expectedBillVoteSummaryRows}, fetched ${fetchedBillVoteSummaryRows}.`
+      );
+    }
+    if (fetchedBillVoteSummaryRows === expectedBillVoteSummaryRows) {
       break;
     }
   }
   if (
     expectedBillVoteSummaryRows === null ||
-    fetchedBillVoteSummaryRows < expectedBillVoteSummaryRows
+    fetchedBillVoteSummaryRows !== expectedBillVoteSummaryRows
   ) {
     throw new Error(
       `Bill vote summary paging incomplete. Expected ${expectedBillVoteSummaryRows ?? "a published total"}, fetched ${fetchedBillVoteSummaryRows}.`
@@ -1177,15 +1262,10 @@ async function main(): Promise<void> {
     }
   ];
 
-  const billRefs = new Map<string, { billNo: string; billId?: string }>(
-    billVoteSummaryRecords.map((record) => [
-      record.billNo,
-      {
-        billNo: record.billNo,
-        billId: record.billId
-      }
-    ])
-  );
+  const plenaryAgendaBillRefs: Array<{
+    billNo: string;
+    billId?: string;
+  }> = [];
   const billResults = await mapWithConcurrency(
     billTargets,
     config.billFeedConcurrency,
@@ -1254,30 +1334,17 @@ async function main(): Promise<void> {
         continue;
       }
 
-      billRefs.set(billNo, {
+      plenaryAgendaBillRefs.push({
         billNo,
-        billId: agenda.billId ?? billRefs.get(billNo)?.billId
+        ...(agenda.billId ? { billId: agenda.billId } : {})
       });
     }
   }
 
-  const sortedBillRefs = [...billRefs.values()].sort((left, right) =>
-    left.billNo.localeCompare(right.billNo)
-  );
-  const missingBillIds = sortedBillRefs
-    .filter((item) => !item.billId)
-    .map((item) => item.billNo);
-
-  if (missingBillIds.length > 0) {
-    throw new Error(
-      `Official vote detail requires BILL_ID for every agenda. Missing BILL_ID for: ${missingBillIds.slice(0, 10).join(", ")}${missingBillIds.length > 10 ? "..." : ""}`
-    );
-  }
-
-  const verifiedBillRefs = sortedBillRefs as Array<{
-    billNo: string;
-    billId: string;
-  }>;
+  const verifiedBillRefs = selectRecordedVoteBillRefs({
+    summaries: billVoteSummaryRecords,
+    agendas: plenaryAgendaBillRefs
+  });
   const voteResults = await mapWithConcurrency(
     verifiedBillRefs,
     config.voteDetailConcurrency,
