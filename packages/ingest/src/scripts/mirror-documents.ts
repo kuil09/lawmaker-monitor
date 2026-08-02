@@ -40,6 +40,7 @@ import {
   readJsonFile,
   readPositiveInteger,
   readString,
+  retryFetch,
   resolvePathFromRoot,
   sha256,
   sha256Buffer,
@@ -1118,25 +1119,34 @@ async function fetchAssemblyMinutesCatalogWindow(args: {
   let pageNumber = 1;
 
   while (expectedTotal === null || items.length < expectedTotal) {
-    const response = await args.api.post(
-      `${officialAssemblyOpenDataOrigin}/portal/data/sheet/searchSheetData.do?page=${pageNumber}`,
+    const payload = await retryFetch(
+      async () => {
+        const response = await args.api.post(
+          `${officialAssemblyOpenDataOrigin}/portal/data/sheet/searchSheetData.do?page=${pageNumber}`,
+          {
+            headers: {
+              "content-type":
+                "application/x-www-form-urlencoded; charset=UTF-8",
+              "x-requested-with": "XMLHttpRequest",
+              referer: discoveredFromUrl
+            },
+            data: buildAssemblyMinutesCatalogParams({
+              service: args.service,
+              window: args.window,
+              assemblyNo: args.config.assemblyNo,
+              rows
+            }).toString(),
+            timeout: args.config.timeoutMs,
+            failOnStatusCode: true
+          }
+        );
+        return (await response.json()) as AssemblyMinutesCatalogResponse;
+      },
       {
-        headers: {
-          "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-          "x-requested-with": "XMLHttpRequest",
-          referer: discoveredFromUrl
-        },
-        data: buildAssemblyMinutesCatalogParams({
-          service: args.service,
-          window: args.window,
-          assemblyNo: args.config.assemblyNo,
-          rows
-        }).toString(),
-        timeout: args.config.timeoutMs,
-        failOnStatusCode: true
+        retries: 2,
+        backoffMs: Math.max(500, args.config.pageDelayMs)
       }
     );
-    const payload = (await response.json()) as AssemblyMinutesCatalogResponse;
     const total = parseAssemblyCatalogTotal(payload, args.service);
     if (expectedTotal !== null && total !== expectedTotal) {
       throw new Error(
@@ -1493,10 +1503,8 @@ async function downloadDocument(
   sourceUrl: string,
   timeoutMs: number
 ): Promise<DownloadedDocument> {
-  const maxAttempts = 3;
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
+  return retryFetch(
+    async () => {
       const response = await api.get(sourceUrl, {
         failOnStatusCode: true,
         timeout: timeoutMs
@@ -1509,16 +1517,12 @@ async function downloadDocument(
           response.headers()["content-type"] ?? "application/octet-stream",
         contentDisposition: response.headers()["content-disposition"]
       };
-    } catch (error) {
-      lastError = error;
-      if (attempt < maxAttempts) {
-        await new Promise((resolveDelay) =>
-          setTimeout(resolveDelay, 500 * 2 ** (attempt - 1))
-        );
-      }
+    },
+    {
+      retries: 2,
+      backoffMs: 500
     }
-  }
-  throw lastError;
+  );
 }
 
 async function mirrorCandidate(
