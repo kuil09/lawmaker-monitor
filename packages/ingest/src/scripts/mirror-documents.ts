@@ -94,6 +94,7 @@ type MirrorConfig = {
   backfillCursorOverride?: string;
   backfillWindowsPerRun: number;
   skipRecent: boolean;
+  retryExistingOnly: boolean;
   includeAppendices: boolean;
   serviceInfId?: string;
   serviceInfSeq: number;
@@ -216,6 +217,7 @@ const assemblyMinuteRecordKeys = [
   "record6",
   "record7"
 ] as const;
+const assemblyMinuteClassCodes = ["1", "2", "3", "4", "5", "6", "7"] as const;
 
 const assemblyAppendixRecordKeys = ["record_app", "record_app_bo"] as const;
 
@@ -257,6 +259,13 @@ export function resolveMirrorRecentDays(
     : configuredDays;
 }
 
+export function resolveMirrorDownloadConcurrency(
+  mode: MirrorMode,
+  configuredConcurrency: number
+): number {
+  return mode === "assembly_minutes_catalog" ? 1 : configuredConcurrency;
+}
+
 export function resolveMirrorDataRepoDir(
   repositoryRoot: string,
   configuredPath: string | undefined
@@ -284,7 +293,7 @@ function loadConfig(): MirrorConfig {
       : "generic");
   const configuredRecentDays = readPositiveInteger("MIRROR_RECENT_DAYS", 3);
 
-  return {
+  const config: MirrorConfig = {
     mode,
     sourceId:
       process.env.MIRROR_SOURCE_ID?.trim() || "assembly-public-documents",
@@ -305,7 +314,10 @@ function loadConfig(): MirrorConfig {
       ".page_nav a.next:not([disabled])",
     maxPages: readPositiveInteger("MIRROR_MAX_PAGES", 25),
     maxDownloads: readPositiveInteger("MIRROR_MAX_DOWNLOADS", 500),
-    downloadConcurrency: readPositiveInteger("MIRROR_DOWNLOAD_CONCURRENCY", 4),
+    downloadConcurrency: resolveMirrorDownloadConcurrency(
+      mode,
+      readPositiveInteger("MIRROR_DOWNLOAD_CONCURRENCY", 4)
+    ),
     pageSize: readPositiveInteger("MIRROR_PAGE_SIZE", 100),
     pageDelayMs: readPositiveInteger("MIRROR_PAGE_DELAY_MS", 1000),
     timeoutMs: readPositiveInteger("MIRROR_TIMEOUT_MS", 20_000),
@@ -338,10 +350,24 @@ function loadConfig(): MirrorConfig {
       1
     ),
     skipRecent: readBooleanEnv("MIRROR_SKIP_RECENT", false),
+    retryExistingOnly: readBooleanEnv("MIRROR_RETRY_EXISTING_ONLY", false),
     includeAppendices: readBooleanEnv("MIRROR_INCLUDE_APPENDICES", true),
     serviceInfId,
     serviceInfSeq: readPositiveInteger("MIRROR_SERVICE_INF_SEQ", 1)
   };
+
+  if (config.retryExistingOnly && config.mode !== "assembly_minutes_catalog") {
+    throw new Error(
+      "MIRROR_RETRY_EXISTING_ONLY is supported only in assembly_minutes_catalog mode."
+    );
+  }
+  if (config.retryExistingOnly && config.backfillCursorOverride) {
+    throw new Error(
+      "MIRROR_BACKFILL_CURSOR_OVERRIDE cannot be used with MIRROR_RETRY_EXISTING_ONLY."
+    );
+  }
+
+  return config;
 }
 
 async function locatorText(locator: Locator): Promise<string | undefined> {
@@ -1109,21 +1135,24 @@ export function buildAssemblyMinutesCatalogParams(args: {
 
 export function buildAssemblyMinutesSearchFallbackParams(args: {
   meetingDate: string;
-  classCode: string;
+  classCode?: string;
   rows?: number;
 }): URLSearchParams {
-  if (!/^[1-7]$/.test(args.classCode)) {
+  if (args.classCode && !/^[1-7]$/.test(args.classCode)) {
     throw new Error(
       `Official Assembly minutes search fallback received invalid class code ${args.classCode}.`
     );
   }
 
+  const classCodes = args.classCode
+    ? [args.classCode]
+    : [...assemblyMinuteClassCodes];
   const compactMeetingDate = compactDate(args.meetingDate);
   return new URLSearchParams({
     startDate: compactMeetingDate,
     endDate: compactMeetingDate,
-    collection: `record${args.classCode}`,
-    CLASS_CD: args.classCode,
+    collection: classCodes.map((classCode) => `record${classCode}`).join(","),
+    CLASS_CD: classCodes.join(","),
     query: "",
     SPK_NM: "",
     SPKSAME: "N",
@@ -1132,6 +1161,43 @@ export function buildAssemblyMinutesSearchFallbackParams(args: {
     startCount: "1",
     listCount: String(args.rows ?? 50_000)
   });
+}
+
+export function selectCompleteAssemblyMinutesSearchFallbackMeeting(args: {
+  response: AssemblySearchResponse;
+  minutesId: string;
+  meetingDate: string;
+  expectedClassCode?: string;
+}): { classCode: string; rows: AssemblySearchItem[] } {
+  assertAssemblySearchResponsesComplete([args.response], false);
+  const matchingClassCodes = assemblyMinuteClassCodes.filter((classCode) =>
+    args.response[`record${classCode}`]?.resultList?.some(
+      (row) => readString(row.MNTS_ID) === args.minutesId
+    )
+  );
+  if (matchingClassCodes.length !== 1) {
+    throw new Error(
+      `Official Assembly minutes search fallback resolved ${matchingClassCodes.length} classes for ${args.minutesId}.`
+    );
+  }
+  const classCode = matchingClassCodes[0]!;
+  if (args.expectedClassCode && classCode !== args.expectedClassCode) {
+    throw new Error(
+      `Official Assembly minutes search fallback class mismatch for ${args.minutesId}: expected ${args.expectedClassCode}, received ${classCode}.`
+    );
+  }
+  const recordKey =
+    `record${classCode}` as `record${1 | 2 | 3 | 4 | 5 | 6 | 7}`;
+  return {
+    classCode,
+    rows: selectCompleteAssemblyMinutesSearchFallbackRows({
+      response: args.response,
+      recordKey,
+      minutesId: args.minutesId,
+      meetingDate: args.meetingDate,
+      classCode
+    })
+  };
 }
 
 export function selectCompleteAssemblyMinutesSearchFallbackRows(args: {
@@ -1689,6 +1755,81 @@ async function collectAssemblyMinutesCatalogCandidates(
   };
 }
 
+export function buildExistingAssemblyMinutesRetryCollection(args: {
+  existingIndex: MirroredDocumentIndex;
+  existingMetadataByDocumentId: Map<string, MirroredDocumentMetadata>;
+  existingState: DocumentMirrorState | null;
+  sourceId: string;
+}): CandidateCollectionResult {
+  if (args.existingIndex.sourceId !== args.sourceId) {
+    throw new Error(
+      `Existing document index source ${args.existingIndex.sourceId} does not match ${args.sourceId}.`
+    );
+  }
+  if (args.existingState && args.existingState.sourceId !== args.sourceId) {
+    throw new Error(
+      `Existing mirror state source ${args.existingState.sourceId} does not match ${args.sourceId}.`
+    );
+  }
+  for (const item of args.existingIndex.items) {
+    if (!args.existingMetadataByDocumentId.has(item.documentId)) {
+      throw new Error(
+        `Indexed document metadata is missing for ${item.documentId}.`
+      );
+    }
+  }
+
+  const officialItems = args.existingIndex.items.filter((item) =>
+    isOfficialAssemblyMinutesViewerUrl(item.sourceUrl)
+  );
+  if (officialItems.length === 0) {
+    throw new Error(
+      "Existing-only retry requires at least one indexed official Assembly minutes document."
+    );
+  }
+
+  const candidates = officialItems.map((item) => {
+    const metadata = args.existingMetadataByDocumentId.get(item.documentId);
+    if (!metadata) {
+      throw new Error(
+        `Indexed official Assembly minutes metadata is missing for ${item.documentId}.`
+      );
+    }
+    if (
+      metadata.sourceId !== args.sourceId ||
+      metadata.sourceUrl !== item.sourceUrl ||
+      metadata.publishedDate !== item.publishedDate ||
+      metadata.title !== item.title
+    ) {
+      throw new Error(
+        `Indexed official Assembly minutes metadata conflicts with ${item.documentId}.`
+      );
+    }
+
+    return {
+      documentId: metadata.documentId,
+      title: metadata.title,
+      sourceUrl: metadata.sourceUrl,
+      downloadUrl: metadata.downloadUrl,
+      publishedDate: metadata.publishedDate,
+      discoveredFromUrl: metadata.discoveredFromUrl,
+      sourceMetadata: metadata.sourceMetadata
+    };
+  });
+
+  return {
+    candidates,
+    pagesVisited: 0,
+    discoveredCandidates: candidates.length,
+    recentWindowStartDate: args.existingState?.recentWindowStartDate,
+    recentWindowEndDate: args.existingState?.recentWindowEndDate,
+    nextBackfillCursorDate: args.existingState?.nextBackfillCursorDate,
+    sourceSnapshotSha256: args.existingState?.sourceSnapshotSha256,
+    sourceSnapshotCount: args.existingState?.sourceSnapshotCount,
+    sourceSnapshotUnchanged: false
+  };
+}
+
 async function postAssemblyFileServiceSearch(
   api: APIRequestContext,
   config: MirrorConfig
@@ -1874,7 +2015,10 @@ function requiresOfficialMinutesAttendanceVerification(args: {
     return true;
   }
   return (
-    isOfficialAttendanceRelevantMinutesTitle(args.title) &&
+    isOfficialAttendanceRelevantMinutesTitle(
+      args.title,
+      readString(args.sourceMetadata?.meetingSubtitle)
+    ) &&
     !args.title.includes("국회본회의 회의록") &&
     readString(args.sourceMetadata?.meetingSubtitle) !== "개회식"
   );
@@ -1930,7 +2074,15 @@ export function assertAssemblyMinutesViewerPayloadMatchesCandidate(args: {
     );
   }
 
-  if (args.requireAttendance ?? true) {
+  const isEmptyTemporaryMinutes =
+    /<p[^>]*class=["'][^"']*\btmp\b[^"']*["'][^>]*>\s*\(임시회의록\)\s*<\/p>/i.test(
+      args.html
+    ) &&
+    /<div[^>]*class=["'][^"']*\bminutes_body\b[^"']*["'][^>]*>\s*<\/div>/i.test(
+      args.html
+    ) &&
+    !/◯출석\s*(?:의원|위원)\s*\(/.test(args.html);
+  if ((args.requireAttendance ?? true) && !isEmptyTemporaryMinutes) {
     assertOfficialMinutesAttendanceIsComplete(args.html);
   }
 }
@@ -2041,15 +2193,29 @@ async function downloadAssemblyMinutesSearchFallback(args: {
   const minutesId =
     readString(args.candidate.sourceMetadata?.minutesId) ??
     new URL(args.candidate.sourceUrl).searchParams.get("id");
-  const classCode = readString(args.candidate.sourceMetadata?.classCode);
+  const expectedClassCode = readString(
+    args.candidate.sourceMetadata?.classCode
+  );
   const meetingDate = args.candidate.publishedDate;
-  if (!minutesId || !classCode || !meetingDate) {
+  if (!minutesId || !meetingDate) {
     throw new Error(
-      "Official Assembly minutes search fallback requires a meeting id, class code, and date."
+      "Official Assembly minutes search fallback requires a meeting id and date."
     );
   }
 
   const searchUrl = `${officialAssemblyMinutesOrigin}/assembly/mnts/search/search.do`;
+  await retryFetch(
+    async () => {
+      await args.api.get(searchUrl, {
+        timeout: args.config.timeoutMs,
+        failOnStatusCode: true
+      });
+    },
+    {
+      retries: 2,
+      backoffMs: Math.max(500, args.config.pageDelayMs)
+    }
+  );
   const responsePayload = await retryFetch(
     async () => {
       const response = await args.api.post(searchUrl, {
@@ -2060,7 +2226,7 @@ async function downloadAssemblyMinutesSearchFallback(args: {
         },
         data: buildAssemblyMinutesSearchFallbackParams({
           meetingDate,
-          classCode
+          classCode: expectedClassCode
         }).toString(),
         timeout: args.config.timeoutMs,
         failOnStatusCode: true
@@ -2072,15 +2238,13 @@ async function downloadAssemblyMinutesSearchFallback(args: {
       backoffMs: Math.max(500, args.config.pageDelayMs)
     }
   );
-  const recordKey =
-    `record${classCode}` as `record${1 | 2 | 3 | 4 | 5 | 6 | 7}`;
-  const rows = selectCompleteAssemblyMinutesSearchFallbackRows({
-    response: responsePayload,
-    recordKey,
-    minutesId,
-    meetingDate,
-    classCode
-  });
+  const { classCode, rows } =
+    selectCompleteAssemblyMinutesSearchFallbackMeeting({
+      response: responsePayload,
+      minutesId,
+      meetingDate,
+      expectedClassCode
+    });
   const html = buildAssemblyMinutesSearchFallbackHtml({
     minutesId,
     meetingDate,
@@ -2099,7 +2263,8 @@ async function downloadAssemblyMinutesSearchFallback(args: {
     contentType: "text/html; charset=utf-8",
     sourceMetadata: {
       retrievalMethod: "official_minutes_search_api_fallback",
-      fallbackSourceUrl: searchUrl
+      fallbackSourceUrl: searchUrl,
+      classCode
     }
   };
 }
@@ -2165,9 +2330,17 @@ async function mirrorCandidate(
         }
       });
     } catch (fallbackError) {
+      const viewerMessage =
+        downloadError instanceof Error
+          ? downloadError.message
+          : String(downloadError);
+      const fallbackMessage =
+        fallbackError instanceof Error
+          ? fallbackError.message
+          : String(fallbackError);
       throw new AggregateError(
         [downloadError, fallbackError],
-        `Official Assembly minutes viewer and search fallback failed for ${candidate.documentId ?? candidate.sourceUrl}.`
+        `Official Assembly minutes viewer and search fallback failed for ${candidate.documentId ?? candidate.sourceUrl}. Viewer: ${viewerMessage} Fallback: ${fallbackMessage}`
       );
     }
   }
@@ -2445,6 +2618,7 @@ async function processWithConcurrency<T>(
 export function shouldReuseExistingBackfillDocument(args: {
   mode: MirrorMode;
   skipRecent: boolean;
+  retryExistingOnly?: boolean;
   workItemKind: "discovered" | "transcript-refresh";
   hasExistingMetadata: boolean;
   hasFreshTranscript: boolean;
@@ -2452,12 +2626,37 @@ export function shouldReuseExistingBackfillDocument(args: {
 }): boolean {
   return (
     args.mode === "assembly_minutes_catalog" &&
-    args.skipRecent &&
+    (args.skipRecent || args.retryExistingOnly === true) &&
     args.workItemKind === "discovered" &&
     args.hasExistingMetadata &&
     args.hasFreshTranscript &&
     args.rawMatchesMetadata
   );
+}
+
+export async function auditExistingAssemblyMinutesRetry(args: {
+  dataRepoDir: string;
+  candidates: MirrorCandidate[];
+  metadataByDocumentId: Map<string, MirroredDocumentMetadata>;
+}): Promise<{ checked: number; invalid: number }> {
+  let checked = 0;
+  let invalid = 0;
+
+  for (const candidate of args.candidates) {
+    const documentId = candidate.documentId;
+    const metadata = documentId
+      ? args.metadataByDocumentId.get(documentId)
+      : undefined;
+    checked += 1;
+    if (
+      !metadata ||
+      !(await mirroredDocumentMatchesMetadata(args.dataRepoDir, metadata))
+    ) {
+      invalid += 1;
+    }
+  }
+
+  return { checked, invalid };
 }
 
 export function shouldBlockBackfillCursorOnDownloadFailure(args: {
@@ -2581,8 +2780,14 @@ async function main(): Promise<void> {
     userAgent: config.userAgent
   });
 
-  const collectionResult =
-    config.mode === "assembly_minutes_search"
+  const collectionResult = config.retryExistingOnly
+    ? buildExistingAssemblyMinutesRetryCollection({
+        existingIndex,
+        existingMetadataByDocumentId: existingMetadata.byDocumentId,
+        existingState,
+        sourceId: config.sourceId
+      })
+    : config.mode === "assembly_minutes_search"
       ? await collectAssemblyCandidates(
           page!,
           api,
@@ -2606,8 +2811,9 @@ async function main(): Promise<void> {
             )
           : await collectGenericCandidates(page!, config);
   const transcriptRefreshCandidates =
-    config.mode === "assembly_minutes_search" ||
-    config.mode === "assembly_minutes_catalog"
+    !config.retryExistingOnly &&
+    (config.mode === "assembly_minutes_search" ||
+      config.mode === "assembly_minutes_catalog")
       ? buildTranscriptRefreshCandidates(existingMetadata.byDocumentId)
       : [];
   const staleTranscriptDocumentIds = new Set(
@@ -2655,7 +2861,10 @@ async function main(): Promise<void> {
       continue;
     }
 
-    if (!isPastDocumentDate(candidate.publishedDate, cutoffDate)) {
+    if (
+      !config.retryExistingOnly &&
+      !isPastDocumentDate(candidate.publishedDate, cutoffDate)
+    ) {
       skippedTodayOrFuture += 1;
       continue;
     }
@@ -2683,9 +2892,11 @@ async function main(): Promise<void> {
       shouldReuseExistingBackfillDocument({
         mode: config.mode,
         skipRecent: config.skipRecent,
+        retryExistingOnly: config.retryExistingOnly,
         workItemKind: workItem.kind,
         hasExistingMetadata: Boolean(existingCandidateMetadata),
         hasFreshTranscript:
+          config.retryExistingOnly ||
           !isAssemblyMinutesViewerUrl(candidate.sourceUrl) ||
           existingCandidateMetadata?.transcriptParserVersion ===
             ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION,
@@ -2808,17 +3019,20 @@ async function main(): Promise<void> {
     ),
     retrievedAt
   );
-  const previousBackfillCursorDate =
-    config.backfillCursorOverride ??
-    existingState?.nextBackfillCursorDate ??
-    config.backfillStartDate;
-  const nextBackfillCursorDate = resolvePublishedBackfillCursor({
-    proposedCursor: collectionResult.nextBackfillCursorDate,
-    fallbackCursor: previousBackfillCursorDate,
-    skippedWithoutDate,
-    downloadFailures,
-    reachedDownloadLimit
-  });
+  const previousBackfillCursorDate = config.retryExistingOnly
+    ? (existingState?.nextBackfillCursorDate ?? config.backfillStartDate)
+    : (config.backfillCursorOverride ??
+      existingState?.nextBackfillCursorDate ??
+      config.backfillStartDate);
+  const nextBackfillCursorDate = config.retryExistingOnly
+    ? existingState?.nextBackfillCursorDate
+    : resolvePublishedBackfillCursor({
+        proposedCursor: collectionResult.nextBackfillCursorDate,
+        fallbackCursor: previousBackfillCursorDate,
+        skippedWithoutDate,
+        downloadFailures,
+        reachedDownloadLimit
+      });
   const latestDiscoveredDocumentDate =
     collectionResult.candidates
       .map((candidate) => candidate.publishedDate)
@@ -2834,6 +3048,19 @@ async function main(): Promise<void> {
     existingState?.recentWindowStartDate;
   const recentWindowEndDate =
     collectionResult.recentWindowEndDate ?? existingState?.recentWindowEndDate;
+  const existingRetryAudit = config.retryExistingOnly
+    ? await auditExistingAssemblyMinutesRetry({
+        dataRepoDir: config.dataRepoDir,
+        candidates: collectionResult.candidates,
+        metadataByDocumentId: updatedMetadataByDocumentId
+      })
+    : null;
+  const pendingExistingRetry = Boolean(
+    existingRetryAudit &&
+    (existingRetryAudit.invalid > 0 ||
+      downloadFailures > 0 ||
+      reachedDownloadLimit)
+  );
 
   const state: DocumentMirrorState = {
     sourceId: config.sourceId,
@@ -2858,17 +3085,26 @@ async function main(): Promise<void> {
       nextBackfillCursorDate,
       recentWindowStartDate
     }),
-    backfillAdvanced: Boolean(
-      nextBackfillCursorDate &&
-      nextBackfillCursorDate > previousBackfillCursorDate
-    ),
+    backfillAdvanced:
+      !config.retryExistingOnly &&
+      Boolean(
+        nextBackfillCursorDate &&
+        nextBackfillCursorDate > previousBackfillCursorDate
+      ),
     latestDiscoveredDocumentDate,
     latestMirroredDocumentDate: index.items[0]?.publishedDate ?? null,
     staleTranscriptsQueued: staleTranscriptDocumentIds.size,
     staleTranscriptsRefreshed,
     sourceSnapshotSha256: collectionResult.sourceSnapshotSha256,
     sourceSnapshotCount: collectionResult.sourceSnapshotCount,
-    skippedBySourceSnapshot: collectionResult.sourceSnapshotUnchanged ?? false
+    skippedBySourceSnapshot: collectionResult.sourceSnapshotUnchanged ?? false,
+    retryExistingOnly: config.retryExistingOnly,
+    existingRetryCandidates: existingRetryAudit
+      ? collectionResult.candidates.length
+      : undefined,
+    existingRetryChecked: existingRetryAudit?.checked,
+    existingRetryInvalid: existingRetryAudit?.invalid,
+    pendingExistingRetry: existingRetryAudit ? pendingExistingRetry : undefined
   };
 
   await writeJsonFile(indexFile, index);

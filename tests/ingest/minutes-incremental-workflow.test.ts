@@ -27,6 +27,24 @@ describe("incremental minutes workflows", () => {
     );
     expect(workflow).toContain('MIRROR_TIMEOUT_MS: "60000"');
     expect(workflow).toContain('MIRROR_INCLUDE_APPENDICES: "false"');
+    expect(workflow).toContain("retry_existing_only:");
+    expect(workflow).toContain(
+      "MIRROR_RETRY_EXISTING_ONLY: ${{ inputs.retry_existing_only && 'true' || 'false' }}"
+    );
+    expect(workflow).toContain("Validate indexed minutes repair");
+    expect(workflow).toContain("Validate indexed repair configuration");
+    expect(workflow).toContain(
+      "Indexed minutes repair requires DATA_REPO and DATA_REPO_PAT."
+    );
+    expect(workflow).toContain(
+      '-f retry_existing_only="${MIRROR_RETRY_EXISTING_ONLY}"'
+    );
+    expect(workflow).toContain(
+      "RETRY_EXISTING_ONLY: ${{ inputs.retry_existing_only && 'true' || 'false' }}"
+    );
+    expect(workflow).toContain(
+      '-f "retry_existing_only=${RETRY_EXISTING_ONLY}"'
+    );
     expect(workflow).not.toContain(
       '-f include_appendices="${MIRROR_INCLUDE_APPENDICES}"'
     );

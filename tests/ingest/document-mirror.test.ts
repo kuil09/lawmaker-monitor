@@ -13,7 +13,8 @@ import {
   mergeDocumentIndex,
   normalizeDocumentDate,
   selectExistingMirroredMetadata,
-  slugifySegment
+  slugifySegment,
+  toIndexItem
 } from "../../packages/ingest/src/document-mirror.js";
 import {
   buildAssemblySearchWindows,
@@ -28,7 +29,9 @@ import {
   assertAssemblyMinutesSearchFallbackPayloadMatchesCandidate,
   assertAssemblyMinutesViewerPayloadMatchesCandidate,
   assertAssemblySearchResponsesComplete,
+  auditExistingAssemblyMinutesRetry,
   buildAssemblyFileServiceSourceSnapshot,
+  buildExistingAssemblyMinutesRetryCollection,
   buildAssemblyMinutesCatalogCandidate,
   buildAssemblyMinutesCatalogParams,
   buildAssemblyMinutesParams,
@@ -37,9 +40,11 @@ import {
   isAssemblyMinutesViewerUrl,
   mirroredDocumentMatchesMetadata,
   normalizeCompactAssemblyDate,
+  resolveMirrorDownloadConcurrency,
   resolveMirrorRecentDays,
   resolveMirrorDataRepoDir,
   responsePageCount,
+  selectCompleteAssemblyMinutesSearchFallbackMeeting,
   selectCompleteAssemblyMinutesSearchFallbackRows,
   shouldBlockBackfillCursorOnDownloadFailure,
   shouldReuseExistingBackfillDocument,
@@ -50,6 +55,8 @@ import { parseOfficialMinutesAttendanceHtml } from "../../packages/ingest/src/of
 import { parseAssemblyMinutesViewerHtml } from "../../packages/ingest/src/minutes-transcript.js";
 import { buildMinutesSummaryGroups } from "../../packages/ingest/src/minutes-summarization.js";
 import { sha256Buffer } from "../../packages/ingest/src/utils.js";
+
+import type { MirroredDocumentMetadata } from "../../packages/ingest/src/document-mirror.js";
 
 function buildViewerIntegrityFixture(args?: {
   minutesId?: string;
@@ -93,11 +100,59 @@ function buildViewerIntegrityFixture(args?: {
   `;
 }
 
+function buildRetryMetadata(args: {
+  documentId: string;
+  minutesId: string;
+  publishedDate: string;
+  latestRelativePath: string;
+  body: Buffer;
+  sourceUrl?: string;
+}): MirroredDocumentMetadata {
+  const sourceUrl =
+    args.sourceUrl ??
+    `https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=${args.minutesId}&type=view`;
+  return {
+    documentId: args.documentId,
+    sourceId: "assembly-minutes",
+    sourceUrl,
+    downloadUrl: sourceUrl,
+    title: "제22대 제437회 보건복지위원회 회의록",
+    publishedDate: args.publishedDate,
+    discoveredFromUrl:
+      "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/OR137O001023MZ19321",
+    firstMirroredAt: "2026-08-01T00:00:00.000Z",
+    lastMirroredAt: "2026-08-01T00:00:00.000Z",
+    latestRelativePath: args.latestRelativePath,
+    metadataRelativePath: `${args.latestRelativePath}.metadata.json`,
+    currentContentSha256: sha256Buffer(args.body),
+    currentContentType: "text/html",
+    currentBytes: args.body.byteLength,
+    sourceMetadata: {
+      minutesId: args.minutesId,
+      committeeName: "보건복지위원회"
+    },
+    versions: [
+      {
+        retrievedAt: "2026-08-01T00:00:00.000Z",
+        relativePath: args.latestRelativePath,
+        contentSha256: sha256Buffer(args.body),
+        bytes: args.body.byteLength
+      }
+    ]
+  };
+}
+
 describe("document mirror helpers", () => {
   it("keeps the recent safety floor for both official minutes collectors", () => {
     expect(resolveMirrorRecentDays("assembly_minutes_search", 3, 30)).toBe(30);
     expect(resolveMirrorRecentDays("assembly_minutes_catalog", 3, 30)).toBe(30);
     expect(resolveMirrorRecentDays("assembly_file_service", 3, 30)).toBe(3);
+    expect(
+      resolveMirrorDownloadConcurrency("assembly_minutes_catalog", 4)
+    ).toBe(1);
+    expect(resolveMirrorDownloadConcurrency("assembly_file_service", 4)).toBe(
+      4
+    );
   });
 
   it("reuses successful official backfill documents while retrying gaps", () => {
@@ -161,6 +216,143 @@ describe("document mirror helpers", () => {
         rawMatchesMetadata: false
       })
     ).toBe(false);
+    expect(
+      shouldReuseExistingBackfillDocument({
+        mode: "assembly_minutes_catalog",
+        skipRecent: false,
+        retryExistingOnly: true,
+        workItemKind: "discovered",
+        hasExistingMetadata: true,
+        hasFreshTranscript: true,
+        rawMatchesMetadata: true
+      })
+    ).toBe(true);
+  });
+
+  it("builds an existing-only retry from every indexed official minutes document", () => {
+    const body = Buffer.from(
+      buildViewerIntegrityFixture({
+        minutesId: "57073",
+        meetingDate: "2026.07.30"
+      })
+    );
+    const official = buildRetryMetadata({
+      documentId: "assembly-minutes-minutes-57073",
+      minutesId: "57073",
+      publishedDate: "2026-07-30",
+      latestRelativePath: "raw/official/latest.html",
+      body
+    });
+    const appendix = buildRetryMetadata({
+      documentId: "assembly-minutes-appendix-1",
+      minutesId: "1",
+      publishedDate: "2026-07-30",
+      latestRelativePath: "raw/appendix/latest.html",
+      body,
+      sourceUrl:
+        "https://record.assembly.go.kr/assembly/mnts/apdix/apdixDownload.do?fileId=1"
+    });
+    const existingIndex = mergeDocumentIndex(
+      "assembly-minutes",
+      [toIndexItem(official), toIndexItem(appendix)],
+      "2026-08-01T00:00:00.000Z"
+    );
+    const collection = buildExistingAssemblyMinutesRetryCollection({
+      existingIndex,
+      existingMetadataByDocumentId: new Map([
+        [official.documentId, official],
+        [appendix.documentId, appendix]
+      ]),
+      existingState: null,
+      sourceId: "assembly-minutes"
+    });
+
+    expect(collection.candidates).toHaveLength(1);
+    expect(collection.candidates[0]?.documentId).toBe(official.documentId);
+    expect(collection.pagesVisited).toBe(0);
+    expect(collection.nextBackfillCursorDate).toBeUndefined();
+
+    expect(() =>
+      buildExistingAssemblyMinutesRetryCollection({
+        existingIndex,
+        existingMetadataByDocumentId: new Map([
+          [appendix.documentId, appendix]
+        ]),
+        existingState: null,
+        sourceId: "assembly-minutes"
+      })
+    ).toThrow(/metadata is missing/);
+    expect(() =>
+      buildExistingAssemblyMinutesRetryCollection({
+        existingIndex,
+        existingMetadataByDocumentId: new Map([
+          [official.documentId, official]
+        ]),
+        existingState: null,
+        sourceId: "assembly-minutes"
+      })
+    ).toThrow(/assembly-minutes-appendix-1/);
+  });
+
+  it("keeps the indexed retry pending until every official raw artifact is valid", async () => {
+    const root = await mkdtemp(join(tmpdir(), "existing-minutes-retry-"));
+    try {
+      const validBody = Buffer.from(
+        buildViewerIntegrityFixture({
+          minutesId: "57073",
+          meetingDate: "2026.07.30"
+        })
+      );
+      const invalidBody = Buffer.from(
+        buildViewerIntegrityFixture({
+          minutesId: "57073",
+          meetingDate: "2026.07.31"
+        })
+      );
+      const valid = buildRetryMetadata({
+        documentId: "assembly-minutes-minutes-57073",
+        minutesId: "57073",
+        publishedDate: "2026-07-30",
+        latestRelativePath: "raw/valid/latest.html",
+        body: validBody
+      });
+      const invalid = buildRetryMetadata({
+        documentId: "assembly-minutes-minutes-57074",
+        minutesId: "57074",
+        publishedDate: "2026-07-31",
+        latestRelativePath: "raw/invalid/latest.html",
+        body: invalidBody
+      });
+      await mkdir(join(root, "raw/valid"), { recursive: true });
+      await mkdir(join(root, "raw/invalid"), { recursive: true });
+      await writeFile(join(root, valid.latestRelativePath), validBody);
+      await writeFile(join(root, invalid.latestRelativePath), invalidBody);
+      const existingIndex = mergeDocumentIndex(
+        "assembly-minutes",
+        [toIndexItem(valid), toIndexItem(invalid)],
+        "2026-08-01T00:00:00.000Z"
+      );
+      const metadataByDocumentId = new Map([
+        [valid.documentId, valid],
+        [invalid.documentId, invalid]
+      ]);
+      const collection = buildExistingAssemblyMinutesRetryCollection({
+        existingIndex,
+        existingMetadataByDocumentId: metadataByDocumentId,
+        existingState: null,
+        sourceId: "assembly-minutes"
+      });
+
+      await expect(
+        auditExistingAssemblyMinutesRetry({
+          dataRepoDir: root,
+          candidates: collection.candidates,
+          metadataByDocumentId
+        })
+      ).resolves.toEqual({ checked: 2, invalid: 1 });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it("reuses a mirrored document only when the raw file matches metadata", async () => {
@@ -211,6 +403,20 @@ describe("document mirror helpers", () => {
     ).not.toThrow();
     expect(() =>
       assertAssemblyMinutesViewerPayloadMatchesCandidate({
+        html: buildViewerIntegrityFixture({
+          publishedCount: 2,
+          names: ["이소희"]
+        }).replace(
+          "<script>",
+          '<p class="tmp">(임시회의록)</p><div class="minutes_body"></div><script>'
+        ),
+        sourceUrl,
+        expectedMinutesId: "57073",
+        expectedMeetingDate: "2026-07-30"
+      })
+    ).toThrow(/attendance list count mismatch/);
+    expect(() =>
+      assertAssemblyMinutesViewerPayloadMatchesCandidate({
         html: buildViewerIntegrityFixture({ minutesId: "57054" }),
         sourceUrl,
         expectedMinutesId: "57073",
@@ -259,6 +465,19 @@ describe("document mirror helpers", () => {
         expectedMeetingDate: "2026-07-30"
       })
     ).toThrow(/no verified attendance list/);
+    expect(() =>
+      assertAssemblyMinutesViewerPayloadMatchesCandidate({
+        html: buildViewerIntegrityFixture({
+          includeAttendance: false
+        }).replace(
+          "<script>",
+          '<p class="tmp">(임시회의록)</p><div class="minutes_body"></div><script>'
+        ),
+        sourceUrl,
+        expectedMinutesId: "57073",
+        expectedMeetingDate: "2026-07-30"
+      })
+    ).not.toThrow();
     expect(() =>
       assertAssemblyMinutesViewerPayloadMatchesCandidate({
         html: buildViewerIntegrityFixture({
@@ -1062,6 +1281,13 @@ describe("document mirror helpers", () => {
     expect(params.get("collection")).toBe("record2");
     expect(params.get("CLASS_CD")).toBe("2");
     expect(params.get("listCount")).toBe("50000");
+    const legacyParams = buildAssemblyMinutesSearchFallbackParams({
+      meetingDate: "2025-02-26"
+    });
+    expect(legacyParams.get("collection")).toBe(
+      "record1,record2,record3,record4,record5,record6,record7"
+    );
+    expect(legacyParams.get("CLASS_CD")).toBe("1,2,3,4,5,6,7");
 
     const rows = [
       {
@@ -1097,6 +1323,21 @@ describe("document mirror helpers", () => {
       minutesId: "52713",
       meetingDate: "2025-02-26",
       classCode: "2"
+    });
+    expect(
+      selectCompleteAssemblyMinutesSearchFallbackMeeting({
+        response: {
+          record2: {
+            totalCount: rows.length,
+            resultList: rows
+          }
+        },
+        minutesId: "52713",
+        meetingDate: "2025-02-26"
+      })
+    ).toEqual({
+      classCode: "2",
+      rows
     });
     const sourceUrl =
       "https://record.assembly.go.kr/assembly/mnts/search/search.do";
