@@ -13,6 +13,7 @@ import {
   resolveAssemblyApiConfig
 } from "../../packages/ingest/src/assembly-api.js";
 import {
+  isOfficialAttendanceRelevantMinutesTitle,
   parseCommitteeCareerSheetJson,
   loadOfficialMinutesAttendanceMeetings,
   parseOfficialMinutesAttendanceHtml,
@@ -150,6 +151,24 @@ describe("official committee and minutes attendance sources", () => {
   });
 
   it("parses official plenary and committee attendance statuses", () => {
+    expect(
+      isOfficialAttendanceRelevantMinutesTitle(
+        "제22대 제437회 법제사법위원회 안건조정위원회 회의록"
+      )
+    ).toBe(false);
+    expect(
+      isOfficialAttendanceRelevantMinutesTitle(
+        "제22대 제430회 법제사법위원회 회의록",
+        "법안심사제1소위원회"
+      )
+    ).toBe(false);
+    expect(
+      isOfficialAttendanceRelevantMinutesTitle(
+        "제22대 제430회 법제사법위원회 회의록",
+        "1. 법안심사제1소위원회 위원 선임의 건"
+      )
+    ).toBe(true);
+
     const attendance = parseOfficialMinutesAttendanceHtml(`
       <p><strong>◯출석 의원 (2인)</strong></p>
       <div class="con"><a href="/members/1"><span class="name">김 아라</span></a><a href="/members/2"><span class="name">이 보라</span></a></div>
@@ -163,6 +182,45 @@ describe("official committee and minutes attendance sources", () => {
       presentNames: ["김 아라", "이 보라"],
       leaveNames: ["박 초록"],
       tripNames: ["최 파랑"]
+    });
+
+    expect(
+      parseOfficialMinutesAttendanceHtml(`
+        <p><strong>◯출석 위원 (3인)</strong></p>
+        <div class="con"><span class="name">김 아라</span><span class="name">이 보라</span></div>
+        <p><strong>◯청가 위원 (1인)</strong></p>
+        <div class="con"><span class="name">박 초록</span></div>
+      `)
+    ).toEqual({
+      presentNames: ["김 아라", "이 보라"],
+      leaveNames: ["박 초록"],
+      tripNames: []
+    });
+
+    expect(
+      parseOfficialMinutesAttendanceHtml(`
+        <p><strong>◯출석 위원 (2인)</strong></p>
+        <div class="con"><span class="name">김 아라</span><span class="name">이 보라</span></div>
+        <p><strong>◯청가 위원 (2인)</strong></p>
+        <div class="con"><span class="name">이 보라</span><span class="name">박 초록</span></div>
+      `)
+    ).toEqual({
+      presentNames: ["김 아라", "이 보라"],
+      leaveNames: ["박 초록"],
+      tripNames: []
+    });
+
+    expect(
+      parseOfficialMinutesAttendanceHtml(`
+        <p><strong>◯출석 위원 (3인)</strong></p>
+        <div class="con"><span class="name">김 아라</span><span class="name">이 보라</span></div>
+        <p><strong>◯청가 위원 (2인)</strong></p>
+        <div class="con"><span class="name">이 보라</span><span class="name">박 초록</span></div>
+      `)
+    ).toEqual({
+      presentNames: ["김 아라", "이 보라"],
+      leaveNames: ["박 초록"],
+      tripNames: []
     });
   });
 
@@ -186,6 +244,18 @@ describe("official committee and minutes attendance sources", () => {
       '<p><strong>◯출석 위원 (1인)</strong></p><div class="con"><span class="name">박 초록</span></div><p><strong>◯출장 위원 (1인)</strong></p><div class="con"><span class="name">최 파랑</span></div>'
     );
     await writeFile(
+      join(minutesDir, "subcommittee.html"),
+      '<p><strong>◯출석 위원 (1인)</strong></p><div class="con"><span class="name">제외 대상</span></div>'
+    );
+    await writeFile(
+      join(minutesDir, "subcommittee-metadata.json"),
+      JSON.stringify({
+        sourceMetadata: {
+          meetingSubtitle: "법안심사제1소위원회"
+        }
+      })
+    );
+    await writeFile(
       join(minutesDir, "ceremony.html"),
       '<div class="minutes_header"><div class="tit_wrap"><p class="num">개회식</p></div></div><p><strong>◯출석 의원 (1인)</strong></p><div class="con"><span class="name">제외 대상</span></div>'
     );
@@ -203,6 +273,17 @@ describe("official committee and minutes attendance sources", () => {
             publishedDate: "2026-08-02",
             latestRelativePath: "raw/minutes/committee.html",
             currentContentSha256: "committee-hash"
+          },
+          {
+            documentId: "subcommittee-1",
+            sourceId: "assembly-minutes",
+            sourceUrl:
+              "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?key=subcommittee-1",
+            title: "제22대 제1회 법제사법위원회 회의록",
+            publishedDate: "2026-08-02",
+            latestRelativePath: "raw/minutes/subcommittee.html",
+            metadataRelativePath: "raw/minutes/subcommittee-metadata.json",
+            currentContentSha256: "subcommittee-hash"
           },
           {
             documentId: "plenary-1",

@@ -22,6 +22,11 @@ on:
         required: false
         default: false
         type: boolean
+      retry_existing_only:
+        description: Revalidate and repair only indexed official Assembly minutes
+        required: false
+        default: false
+        type: boolean
       include_appendices:
         description: Deprecated; official minutes catalogs do not publish appendix files
         required: false
@@ -79,10 +84,19 @@ jobs:
       MIRROR_BACKFILL_WINDOWS_PER_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill_windows || vars.MIRROR_BACKFILL_WINDOWS_PER_RUN || '1' }}
       MIRROR_CATCHUP_WINDOWS_PER_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill_windows || vars.MIRROR_CATCHUP_WINDOWS_PER_RUN || '2' }}
       MIRROR_SKIP_RECENT: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_recent || 'false' }}
+      MIRROR_RETRY_EXISTING_ONLY: ${{ inputs.retry_existing_only && 'true' || 'false' }}
       MIRROR_INCLUDE_APPENDICES: "false"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+
+      - name: Validate indexed repair configuration
+        if: env.MIRROR_RETRY_EXISTING_ONLY == 'true'
+        run: |
+          if [ -z "${DATA_REPO}" ] || [ -z "${DATA_REPO_PAT}" ]; then
+            echo "Indexed minutes repair requires DATA_REPO and DATA_REPO_PAT." >&2
+            exit 1
+          fi
 
       - name: Setup Node, install dependencies, and build shared workspaces
         uses: ./.github/actions/setup-node-workspaces
@@ -151,6 +165,18 @@ jobs:
           echo "pending_backfill=$(jq -r '.pendingBackfill // false' "${STATE_FILE}")" >> "${GITHUB_OUTPUT}"
           echo "backfill_advanced=$(jq -r '.backfillAdvanced // false' "${STATE_FILE}")" >> "${GITHUB_OUTPUT}"
 
+      - name: Validate indexed minutes repair
+        if: env.MIRROR_RETRY_EXISTING_ONLY == 'true'
+        run: |
+          jq -e '
+            .retryExistingOnly == true and
+            (.existingRetryCandidates // 0) > 0 and
+            .existingRetryChecked == .existingRetryCandidates and
+            (.existingRetryInvalid // -1) == 0 and
+            .pendingExistingRetry == false and
+            (.downloadFailures // 0) == 0
+          ' published-data/manifests/document_mirror_state.json
+
       - name: Start minutes summaries
         if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
         env:
@@ -162,6 +188,7 @@ jobs:
 
       - name: Continue pending minutes backfill
         if: >-
+          env.MIRROR_RETRY_EXISTING_ONLY != 'true' &&
           steps.mirror-progress.outputs.pending_backfill == 'true' &&
           steps.mirror-progress.outputs.backfill_advanced == 'true'
         env:
@@ -172,6 +199,7 @@ jobs:
             -f backfill_windows="${MIRROR_CATCHUP_WINDOWS_PER_RUN}" \
             -f max_downloads="${MIRROR_MAX_DOWNLOADS}" \
             -f skip_recent=true \
+            -f retry_existing_only="${MIRROR_RETRY_EXISTING_ONLY}" \
             -f retry_attempt="0"
 
   retry-failed-mirror:
@@ -193,6 +221,7 @@ jobs:
           BACKFILL_WINDOWS: ${{ inputs.backfill_windows || '1' }}
           MAX_DOWNLOADS: ${{ inputs.max_downloads || vars.MIRROR_MAX_DOWNLOADS || '500' }}
           SKIP_RECENT: ${{ inputs.skip_recent || 'false' }}
+          RETRY_EXISTING_ONLY: ${{ inputs.retry_existing_only && 'true' || 'false' }}
         run: |
           if ! [[ "${CURRENT_RETRY_ATTEMPT}" =~ ^[0-9]+$ ]]; then
             echo "Invalid retry attempt: ${CURRENT_RETRY_ATTEMPT}" >&2
@@ -211,6 +240,7 @@ jobs:
             -f "backfill_windows=${BACKFILL_WINDOWS}"
             -f "max_downloads=${MAX_DOWNLOADS}"
             -f "skip_recent=${SKIP_RECENT}"
+            -f "retry_existing_only=${RETRY_EXISTING_ONLY}"
             -f "retry_attempt=${NEXT_RETRY_ATTEMPT}"
           )
           if [ -n "${BACKFILL_START_DATE}" ]; then

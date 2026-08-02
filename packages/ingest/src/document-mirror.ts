@@ -99,6 +99,11 @@ export type DocumentMirrorState = {
   sourceSnapshotSha256?: string;
   sourceSnapshotCount?: number;
   skippedBySourceSnapshot?: boolean;
+  retryExistingOnly?: boolean;
+  existingRetryCandidates?: number;
+  existingRetryChecked?: number;
+  existingRetryInvalid?: number;
+  pendingExistingRetry?: boolean;
 };
 
 export type DocumentPathSet = {

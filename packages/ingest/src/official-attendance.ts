@@ -109,7 +109,10 @@ export function parseCommitteeCareerSheetJson(
   });
 }
 
-function readSectionNames(html: string, sectionPattern: RegExp): string[] {
+function readAttendanceSection(
+  html: string,
+  sectionPattern: RegExp
+): { names: string[]; parsedCount: number; publishedCount: number | null } {
   const $ = load(html);
   const heading = $("strong")
     .filter((_, element) =>
@@ -117,7 +120,7 @@ function readSectionNames(html: string, sectionPattern: RegExp): string[] {
     )
     .first();
   if (heading.length === 0) {
-    return [];
+    return { names: [], parsedCount: 0, publishedCount: null };
   }
 
   const names = heading
@@ -131,17 +134,30 @@ function readSectionNames(html: string, sectionPattern: RegExp): string[] {
     heading.text().match(/\((\d+)인\)/)?.[1] ?? "",
     10
   );
-  const uniqueNames = [...new Set(names)];
+  return {
+    names: [...new Set(names)],
+    parsedCount: names.length,
+    publishedCount: Number.isFinite(publishedCount) ? publishedCount : null
+  };
+}
+
+function assertAttendanceSectionCount(
+  section: {
+    names: string[];
+    parsedCount: number;
+    publishedCount: number | null;
+  },
+  acceptedCount = section.names.length
+): void {
   if (
-    Number.isFinite(publishedCount) &&
-    (publishedCount !== names.length || publishedCount !== uniqueNames.length)
+    section.parsedCount !== section.names.length ||
+    (section.publishedCount !== null &&
+      section.publishedCount !== acceptedCount)
   ) {
     throw new Error(
-      `Official minutes attendance list count mismatch: heading ${publishedCount}, parsed ${names.length}, unique ${uniqueNames.length}.`
+      `Official minutes attendance list count mismatch: heading ${section.publishedCount}, parsed ${section.parsedCount}, unique ${section.names.length}.`
     );
   }
-
-  return uniqueNames;
 }
 
 export function parseOfficialMinutesAttendanceHtml(html: string): {
@@ -149,10 +165,33 @@ export function parseOfficialMinutesAttendanceHtml(html: string): {
   leaveNames: string[];
   tripNames: string[];
 } {
+  const present = readAttendanceSection(html, /^◯출석 (?:의원|위원)\s*\(/);
+  const leave = readAttendanceSection(html, /^◯청가 (?:의원|위원)\s*\(/);
+  const trip = readAttendanceSection(html, /^◯출장 (?:의원|위원)\s*\(/);
+  assertAttendanceSectionCount(leave);
+  assertAttendanceSectionCount(trip);
+  const presentNames = new Set(present.names);
+  const normalizedLeaveNames = leave.names.filter(
+    (name) => !presentNames.has(name)
+  );
+  const leaveNames = new Set(normalizedLeaveNames);
+  const normalizedTripNames = trip.names.filter(
+    (name) => !presentNames.has(name) && !leaveNames.has(name)
+  );
+  const normalizedAttendanceCount =
+    present.names.length +
+    normalizedLeaveNames.length +
+    normalizedTripNames.length;
+  const publishedPresentCount =
+    present.publishedCount === normalizedAttendanceCount
+      ? normalizedAttendanceCount
+      : present.names.length;
+  assertAttendanceSectionCount(present, publishedPresentCount);
+
   return {
-    presentNames: readSectionNames(html, /^◯출석 (?:의원|위원)\s*\(/),
-    leaveNames: readSectionNames(html, /^◯청가 (?:의원|위원)\s*\(/),
-    tripNames: readSectionNames(html, /^◯출장 (?:의원|위원)\s*\(/)
+    presentNames: present.names,
+    leaveNames: normalizedLeaveNames,
+    tripNames: normalizedTripNames
   };
 }
 
@@ -161,14 +200,28 @@ function isMainStandingCommittee(title: string): boolean {
     /위원회 회의록$/.test(title) &&
     !title.includes("(") &&
     !title.includes("소위원회") &&
+    !title.includes("안건조정위원회") &&
     !title.includes("특별위원회")
   );
 }
 
-export function isOfficialAttendanceRelevantMinutesTitle(
-  title: string
+function isSubcommitteeMeetingSubtitle(
+  value: string | null | undefined
 ): boolean {
-  return title.includes("국회본회의 회의록") || isMainStandingCommittee(title);
+  return /(?:소위원회|안건조정위원회)(?:회의록)?$/.test(
+    normalizeComparableText(value)
+  );
+}
+
+export function isOfficialAttendanceRelevantMinutesTitle(
+  title: string,
+  meetingSubtitle?: string | null
+): boolean {
+  return (
+    title.includes("국회본회의 회의록") ||
+    (isMainStandingCommittee(title) &&
+      !isSubcommitteeMeetingSubtitle(meetingSubtitle))
+  );
 }
 
 function assertOfficialMinutesUrl(sourceUrl: string): void {
@@ -227,7 +280,8 @@ export async function loadOfficialMinutesAttendanceMeetings(args: {
       continue;
     }
 
-    if (isPlenary && item.metadataRelativePath) {
+    let meetingSubtitle: string | null | undefined;
+    if (item.metadataRelativePath) {
       try {
         const metadata = JSON.parse(
           await readFile(
@@ -235,15 +289,19 @@ export async function loadOfficialMinutesAttendanceMeetings(args: {
             "utf8"
           )
         ) as MirroredDocumentMetadata;
+        meetingSubtitle = metadata.sourceMetadata?.meetingSubtitle;
         if (
-          normalizeComparableText(metadata.sourceMetadata?.meetingSubtitle) ===
-          "개회식"
+          isPlenary &&
+          normalizeComparableText(meetingSubtitle) === "개회식"
         ) {
           continue;
         }
       } catch {
         // Older mirrors may not include metadata. The HTML remains authoritative.
       }
+    }
+    if (!isOfficialAttendanceRelevantMinutesTitle(title, meetingSubtitle)) {
+      continue;
     }
 
     assertOfficialMinutesUrl(item.sourceUrl);
