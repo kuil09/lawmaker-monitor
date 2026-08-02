@@ -165,6 +165,12 @@ function isMainStandingCommittee(title: string): boolean {
   );
 }
 
+export function isOfficialAttendanceRelevantMinutesTitle(
+  title: string
+): boolean {
+  return title.includes("국회본회의 회의록") || isMainStandingCommittee(title);
+}
+
 function assertOfficialMinutesUrl(sourceUrl: string): void {
   const url = new URL(sourceUrl);
   if (

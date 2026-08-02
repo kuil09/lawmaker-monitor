@@ -56,12 +56,31 @@ function buildViewerIntegrityFixture(args?: {
   meetingDate?: string;
   publishedCount?: number;
   names?: string[];
+  includeAttendance?: boolean;
 }): string {
   const minutesId = args?.minutesId ?? "57073";
   const meetingDate = args?.meetingDate ?? "2026.07.30";
   const names = args?.names ?? ["이소희", "김위원"];
   const publishedCount = args?.publishedCount ?? names.length;
   const [year, month, day] = meetingDate.split(".");
+  const attendanceHtml =
+    args?.includeAttendance === false
+      ? ""
+      : `
+        <div class="minutes_footer">
+          <div class="list">
+            <p><strong>◯출석 위원(${publishedCount}인)</strong></p>
+            <div class="con">
+              ${names
+                .map(
+                  (name, index) =>
+                    `<a href="/members/member-${index}"><span class="name">${name}</span></a>`
+                )
+                .join("")}
+            </div>
+          </div>
+        </div>
+      `;
   return `
     <div id="header">
       <h2><span class="date">(${meetingDate}.)</span></h2>
@@ -69,19 +88,7 @@ function buildViewerIntegrityFixture(args?: {
     <div class="minutes_header">
       <div class="place"><p class="con">${year}년 ${month}월 ${day}일</p></div>
     </div>
-    <div class="minutes_footer">
-      <div class="list">
-        <p><strong>◯출석 위원(${publishedCount}인)</strong></p>
-        <div class="con">
-          ${names
-            .map(
-              (name, index) =>
-                `<a href="/members/member-${index}"><span class="name">${name}</span></a>`
-            )
-            .join("")}
-        </div>
-      </div>
-    </div>
+    ${attendanceHtml}
     <script>const mnts_id = ${minutesId};</script>
   `;
 }
@@ -242,6 +249,27 @@ describe("document mirror helpers", () => {
         expectedMeetingDate: "2026-07-30"
       })
     ).toThrow(/unique 1/);
+    expect(() =>
+      assertAssemblyMinutesViewerPayloadMatchesCandidate({
+        html: buildViewerIntegrityFixture({
+          includeAttendance: false
+        }),
+        sourceUrl,
+        expectedMinutesId: "57073",
+        expectedMeetingDate: "2026-07-30"
+      })
+    ).toThrow(/no verified attendance list/);
+    expect(() =>
+      assertAssemblyMinutesViewerPayloadMatchesCandidate({
+        html: buildViewerIntegrityFixture({
+          includeAttendance: false
+        }),
+        sourceUrl,
+        expectedMinutesId: "57073",
+        expectedMeetingDate: "2026-07-30",
+        requireAttendance: false
+      })
+    ).not.toThrow();
   });
 
   it("does not reuse a hash-valid official viewer cached under the wrong meeting", async () => {
@@ -273,6 +301,40 @@ describe("document mirror helpers", () => {
           }
         })
       ).resolves.toBe(false);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not require attendance for minutes outside attendance aggregation", async () => {
+    const root = await mkdtemp(
+      join(tmpdir(), "document-mirror-non-attendance-reuse-")
+    );
+    try {
+      const relativePath = "raw/assembly-minutes/57073/latest.html";
+      const body = Buffer.from(
+        buildViewerIntegrityFixture({ includeAttendance: false })
+      );
+      await mkdir(join(root, "raw/assembly-minutes/57073"), {
+        recursive: true
+      });
+      await writeFile(join(root, relativePath), body);
+
+      await expect(
+        mirroredDocumentMatchesMetadata(root, {
+          latestRelativePath: relativePath,
+          currentBytes: body.byteLength,
+          currentContentSha256: sha256Buffer(body),
+          sourceUrl:
+            "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=57073&type=view",
+          publishedDate: "2026-07-30",
+          title: "제22대 제437회 특별위원회 회의록",
+          sourceMetadata: {
+            minutesId: "57073",
+            classCode: "2"
+          }
+        })
+      ).resolves.toBe(true);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -1089,6 +1151,27 @@ describe("document mirror helpers", () => {
         expectedClassCode: "2"
       })
     ).toThrow(/embedded row mismatch/);
+
+    const nonAttendanceHtml = buildAssemblyMinutesSearchFallbackHtml({
+      minutesId: "52713",
+      meetingDate: "2025-02-26",
+      meetingTitle: "제22대 제422회 특별위원회 회의록",
+      rows: selected.map((row) => ({
+        ...row,
+        ETC_CNTS: undefined
+      })),
+      sourceUrl,
+      requireAttendance: false
+    });
+    expect(() =>
+      assertAssemblyMinutesSearchFallbackPayloadMatchesCandidate({
+        html: nonAttendanceHtml,
+        expectedMinutesId: "52713",
+        expectedMeetingDate: "2025-02-26",
+        expectedClassCode: "2",
+        requireAttendance: false
+      })
+    ).not.toThrow();
   });
 
   it("separates official search speaker names from their roles", () => {
