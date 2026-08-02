@@ -127,6 +127,34 @@ function countXmlRows(xml: string): number {
   return (xml.match(/<row>/g) ?? []).length;
 }
 
+export function validateRecordedVoteSummaryPage(args: {
+  page: number;
+  rawRowCount: number;
+  parsedRowCount: number;
+  publishedTotal: number | null;
+  expectedTotal: number | null;
+}): number {
+  if (args.publishedTotal === null) {
+    throw new Error(
+      `Official recorded-vote summary page ${args.page} has no published total.`
+    );
+  }
+  if (
+    args.expectedTotal !== null &&
+    args.publishedTotal !== args.expectedTotal
+  ) {
+    throw new Error(
+      `Official recorded-vote summary total changed on page ${args.page}: expected ${args.expectedTotal}, received ${args.publishedTotal}.`
+    );
+  }
+  if (args.parsedRowCount !== args.rawRowCount) {
+    throw new Error(
+      `Official recorded-vote summary page ${args.page} dropped rows during validation: raw ${args.rawRowCount}, parsed ${args.parsedRowCount}.`
+    );
+  }
+  return args.publishedTotal;
+}
+
 export function selectRecordedVoteBillRefs(args: {
   summaries: Array<{ billNo: string; billId: string }>;
   agendas: Array<{ billNo: string; billId?: string }>;
@@ -141,15 +169,15 @@ export function selectRecordedVoteBillRefs(args: {
       );
     }
     const existing = refsByBillNo.get(summary.billNo);
-    if (existing && existing.billId !== summary.billId) {
+    if (existing) {
       throw new Error(
-        `Official recorded-vote summaries conflict for bill ${summary.billNo}: ${existing.billId} and ${summary.billId}.`
+        `Official recorded-vote summaries contain duplicate bill ${summary.billNo}: ${existing.billId} and ${summary.billId}.`
       );
     }
     const existingBillNo = billNoByBillId.get(summary.billId);
-    if (existingBillNo && existingBillNo !== summary.billNo) {
+    if (existingBillNo) {
       throw new Error(
-        `Official recorded-vote summaries conflict for id ${summary.billId}: bills ${existingBillNo} and ${summary.billNo}.`
+        `Official recorded-vote summaries contain duplicate id ${summary.billId}: bills ${existingBillNo} and ${summary.billNo}.`
       );
     }
     refsByBillNo.set(summary.billNo, {
@@ -1164,25 +1192,33 @@ async function main(): Promise<void> {
       }
     });
     manifestEntries.push(result.entry);
-    billVoteSummaryRecords.push(...parseBillVoteSummaryXml(result.body));
-
+    const pageRecords = parseBillVoteSummaryXml(result.body);
     const rows = countXmlRows(result.body);
+    expectedBillVoteSummaryRows = validateRecordedVoteSummaryPage({
+      page,
+      rawRowCount: rows,
+      parsedRowCount: pageRecords.length,
+      publishedTotal: parseListTotalCount(result.body),
+      expectedTotal: expectedBillVoteSummaryRows
+    });
+    billVoteSummaryRecords.push(...pageRecords);
     fetchedBillVoteSummaryRows += rows;
-    expectedBillVoteSummaryRows ??= parseListTotalCount(result.body);
 
     if (rows === 0) {
       break;
     }
-    if (
-      expectedBillVoteSummaryRows !== null &&
-      fetchedBillVoteSummaryRows >= expectedBillVoteSummaryRows
-    ) {
+    if (fetchedBillVoteSummaryRows > expectedBillVoteSummaryRows) {
+      throw new Error(
+        `Bill vote summary paging exceeded the published total. Expected ${expectedBillVoteSummaryRows}, fetched ${fetchedBillVoteSummaryRows}.`
+      );
+    }
+    if (fetchedBillVoteSummaryRows === expectedBillVoteSummaryRows) {
       break;
     }
   }
   if (
     expectedBillVoteSummaryRows === null ||
-    fetchedBillVoteSummaryRows < expectedBillVoteSummaryRows
+    fetchedBillVoteSummaryRows !== expectedBillVoteSummaryRows
   ) {
     throw new Error(
       `Bill vote summary paging incomplete. Expected ${expectedBillVoteSummaryRows ?? "a published total"}, fetched ${fetchedBillVoteSummaryRows}.`

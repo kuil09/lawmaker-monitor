@@ -7,7 +7,10 @@ import {
   buildVoteDetailRequest,
   resolveAssemblyApiConfig
 } from "../../packages/ingest/src/assembly-api.js";
-import { selectRecordedVoteBillRefs } from "../../packages/ingest/src/scripts/ingest-live.js";
+import {
+  selectRecordedVoteBillRefs,
+  validateRecordedVoteSummaryPage
+} from "../../packages/ingest/src/scripts/ingest-live.js";
 
 describe("assembly api request builder", () => {
   it("adds common params and includes the configured OpenAPI key in the query string", () => {
@@ -131,10 +134,6 @@ describe("assembly api request builder", () => {
           {
             billNo: "2212345",
             billId: "PRC_RECORDED"
-          },
-          {
-            billNo: "2212345",
-            billId: "PRC_RECORDED"
           }
         ],
         agendas: [
@@ -177,5 +176,62 @@ describe("assembly api request builder", () => {
         ]
       })
     ).toThrow(/conflicts with recorded-vote summary/);
+  });
+
+  it("rejects incomplete or inconsistent recorded-vote summary pages", () => {
+    expect(
+      validateRecordedVoteSummaryPage({
+        page: 1,
+        rawRowCount: 1000,
+        parsedRowCount: 1000,
+        publishedTotal: 1656,
+        expectedTotal: null
+      })
+    ).toBe(1656);
+    expect(() =>
+      validateRecordedVoteSummaryPage({
+        page: 2,
+        rawRowCount: 656,
+        parsedRowCount: 655,
+        publishedTotal: 1656,
+        expectedTotal: 1656
+      })
+    ).toThrow(/dropped rows during validation/);
+    expect(() =>
+      validateRecordedVoteSummaryPage({
+        page: 2,
+        rawRowCount: 656,
+        parsedRowCount: 656,
+        publishedTotal: 1657,
+        expectedTotal: 1656
+      })
+    ).toThrow(/total changed/);
+    expect(() =>
+      validateRecordedVoteSummaryPage({
+        page: 1,
+        rawRowCount: 0,
+        parsedRowCount: 0,
+        publishedTotal: null,
+        expectedTotal: null
+      })
+    ).toThrow(/no published total/);
+  });
+
+  it("rejects duplicate official recorded-vote summaries", () => {
+    expect(() =>
+      selectRecordedVoteBillRefs({
+        summaries: [
+          {
+            billNo: "2212345",
+            billId: "PRC_RECORDED"
+          },
+          {
+            billNo: "2212345",
+            billId: "PRC_RECORDED"
+          }
+        ],
+        agendas: []
+      })
+    ).toThrow(/duplicate bill/);
   });
 });
