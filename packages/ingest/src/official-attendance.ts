@@ -17,6 +17,11 @@ export type CommitteeCareerRecord = {
   endDate: string | null;
 };
 
+export type OfficialAttendanceMemberReference = {
+  name: string;
+  officialProfileUrl: string;
+};
+
 export type OfficialMinutesAttendanceMeeting = {
   documentId: string;
   meetingDate: string;
@@ -26,6 +31,9 @@ export type OfficialMinutesAttendanceMeeting = {
   absentNames?: string[];
   leaveNames: string[];
   tripNames: string[];
+  presentMemberReferences?: OfficialAttendanceMemberReference[];
+  leaveMemberReferences?: OfficialAttendanceMemberReference[];
+  tripMemberReferences?: OfficialAttendanceMemberReference[];
   requiresExplicitStatus?: boolean;
   sourceUrl: string;
   retrievedAt: string;
@@ -112,7 +120,12 @@ export function parseCommitteeCareerSheetJson(
 function readAttendanceSection(
   html: string,
   sectionPattern: RegExp
-): { names: string[]; parsedCount: number; publishedCount: number | null } {
+): {
+  names: string[];
+  memberReferences: OfficialAttendanceMemberReference[];
+  parsedCount: number;
+  publishedCount: number | null;
+} {
   const $ = load(html);
   const heading = $("strong")
     .filter((_, element) =>
@@ -120,22 +133,70 @@ function readAttendanceSection(
     )
     .first();
   if (heading.length === 0) {
-    return { names: [], parsedCount: 0, publishedCount: null };
+    return {
+      names: [],
+      memberReferences: [],
+      parsedCount: 0,
+      publishedCount: null
+    };
   }
 
-  const names = heading
+  const nameElements = heading
     .closest("p")
     .next(".con")
-    .find("a[href*='/members/'] .name, .name")
+    .find("a[href*='/members/'] .name, .name");
+  const names = nameElements
     .map((_, element) => normalizeComparableText($(element).text()))
     .get()
     .filter(Boolean);
+  const memberReferences = nameElements
+    .map((_, element) => {
+      const name = normalizeComparableText($(element).text());
+      const href = $(element).closest("a[href*='/members/']").attr("href");
+      if (!name || !href) {
+        return null;
+      }
+
+      try {
+        const url = new URL(href, "https://www.assembly.go.kr");
+        if (
+          url.hostname !== "www.assembly.go.kr" ||
+          !url.pathname.includes("/members/")
+        ) {
+          return null;
+        }
+        url.hash = "";
+        return {
+          name,
+          officialProfileUrl: url.toString()
+        };
+      } catch {
+        return null;
+      }
+    })
+    .get()
+    .filter(
+      (
+        reference
+      ): reference is {
+        name: string;
+        officialProfileUrl: string;
+      } => reference !== null
+    );
   const publishedCount = Number.parseInt(
     heading.text().match(/\((\d+)인\)/)?.[1] ?? "",
     10
   );
   return {
     names: [...new Set(names)],
+    memberReferences: [
+      ...new Map(
+        memberReferences.map((reference) => [
+          `${reference.name}:${reference.officialProfileUrl}`,
+          reference
+        ])
+      ).values()
+    ],
     parsedCount: names.length,
     publishedCount: Number.isFinite(publishedCount) ? publishedCount : null
   };
@@ -160,10 +221,82 @@ function assertAttendanceSectionCount(
   }
 }
 
+function normalizeMemberProfileUrlForComparison(value: string): string {
+  try {
+    const url = new URL(value, "https://www.assembly.go.kr");
+    url.hash = "";
+    url.search = "";
+    url.pathname = url.pathname.replace(/\/+$/, "");
+    return url.toString().toLowerCase();
+  } catch {
+    return value.trim().toLowerCase();
+  }
+}
+
+function normalizeLowerPriorityAttendanceSection(args: {
+  names: string[];
+  memberReferences: OfficialAttendanceMemberReference[];
+  higherPriorityNames: ReadonlySet<string>;
+  higherPriorityReferences: OfficialAttendanceMemberReference[];
+}): {
+  names: string[];
+  memberReferences: OfficialAttendanceMemberReference[];
+} {
+  const higherPriorityIdentities = new Set(
+    args.higherPriorityReferences.map((reference) =>
+      [
+        normalizeComparableText(reference.name),
+        normalizeMemberProfileUrlForComparison(reference.officialProfileUrl)
+      ].join(":")
+    )
+  );
+  const memberReferences = args.memberReferences.filter(
+    (reference) =>
+      !higherPriorityIdentities.has(
+        [
+          normalizeComparableText(reference.name),
+          normalizeMemberProfileUrlForComparison(reference.officialProfileUrl)
+        ].join(":")
+      )
+  );
+  const retainedReferenceNames = new Set(
+    memberReferences.map((reference) => reference.name)
+  );
+  const originalReferenceNames = new Set(
+    args.memberReferences.map((reference) => reference.name)
+  );
+  const higherPriorityReferenceNames = new Set(
+    args.higherPriorityReferences.map((reference) =>
+      normalizeComparableText(reference.name)
+    )
+  );
+  const names = args.names.filter((name) => {
+    if (retainedReferenceNames.has(name)) {
+      return true;
+    }
+    if (originalReferenceNames.has(name)) {
+      return false;
+    }
+    // A linked higher-priority row and an unlinked lower-priority row can
+    // represent two different members with the same name. Preserve the
+    // lower-priority row so the fact builder can assign it to the remaining
+    // eligible identity.
+    if (higherPriorityReferenceNames.has(normalizeComparableText(name))) {
+      return true;
+    }
+    return !args.higherPriorityNames.has(name);
+  });
+
+  return { names, memberReferences };
+}
+
 export function parseOfficialMinutesAttendanceHtml(html: string): {
   presentNames: string[];
   leaveNames: string[];
   tripNames: string[];
+  presentMemberReferences: OfficialAttendanceMemberReference[];
+  leaveMemberReferences: OfficialAttendanceMemberReference[];
+  tripMemberReferences: OfficialAttendanceMemberReference[];
 } {
   const present = readAttendanceSection(html, /^◯출석 (?:의원|위원)\s*\(/);
   const leave = readAttendanceSection(html, /^◯청가 (?:의원|위원)\s*\(/);
@@ -171,17 +304,26 @@ export function parseOfficialMinutesAttendanceHtml(html: string): {
   assertAttendanceSectionCount(leave);
   assertAttendanceSectionCount(trip);
   const presentNames = new Set(present.names);
-  const normalizedLeaveNames = leave.names.filter(
-    (name) => !presentNames.has(name)
-  );
-  const leaveNames = new Set(normalizedLeaveNames);
-  const normalizedTripNames = trip.names.filter(
-    (name) => !presentNames.has(name) && !leaveNames.has(name)
-  );
+  const normalizedLeave = normalizeLowerPriorityAttendanceSection({
+    names: leave.names,
+    memberReferences: leave.memberReferences,
+    higherPriorityNames: presentNames,
+    higherPriorityReferences: present.memberReferences
+  });
+  const leaveNames = new Set(normalizedLeave.names);
+  const normalizedTrip = normalizeLowerPriorityAttendanceSection({
+    names: trip.names,
+    memberReferences: trip.memberReferences,
+    higherPriorityNames: new Set([...presentNames, ...leaveNames]),
+    higherPriorityReferences: [
+      ...present.memberReferences,
+      ...normalizedLeave.memberReferences
+    ]
+  });
   const normalizedAttendanceCount =
     present.names.length +
-    normalizedLeaveNames.length +
-    normalizedTripNames.length;
+    normalizedLeave.names.length +
+    normalizedTrip.names.length;
   const publishedPresentCount =
     present.publishedCount === normalizedAttendanceCount
       ? normalizedAttendanceCount
@@ -190,8 +332,11 @@ export function parseOfficialMinutesAttendanceHtml(html: string): {
 
   return {
     presentNames: present.names,
-    leaveNames: normalizedLeaveNames,
-    tripNames: normalizedTripNames
+    leaveNames: normalizedLeave.names,
+    tripNames: normalizedTrip.names,
+    presentMemberReferences: present.memberReferences,
+    leaveMemberReferences: normalizedLeave.memberReferences,
+    tripMemberReferences: normalizedTrip.memberReferences
   };
 }
 
@@ -326,7 +471,10 @@ export async function loadOfficialMinutesAttendanceMeetings(args: {
       attendance = {
         presentNames: [],
         leaveNames: [],
-        tripNames: []
+        tripNames: [],
+        presentMemberReferences: [],
+        leaveMemberReferences: [],
+        tripMemberReferences: []
       };
     }
 
@@ -348,6 +496,9 @@ export async function loadOfficialMinutesAttendanceMeetings(args: {
       absentNames: [],
       leaveNames: attendance.leaveNames,
       tripNames: attendance.tripNames,
+      presentMemberReferences: attendance.presentMemberReferences,
+      leaveMemberReferences: attendance.leaveMemberReferences,
+      tripMemberReferences: attendance.tripMemberReferences,
       requiresExplicitStatus: false,
       sourceUrl: item.sourceUrl,
       retrievedAt:
@@ -414,22 +565,46 @@ export function supplementOfficialMinutesAttendance(args: {
   const fromAttendanceFile = (
     supplement: OfficialPlenaryAttendanceFileMeeting,
     minutesMeeting?: OfficialMinutesAttendanceMeeting
-  ): OfficialMinutesAttendanceMeeting => ({
-    ...(minutesMeeting ?? {
-      documentId: supplement.documentId,
-      meetingDate: supplement.meetingDate,
-      meetingType: "plenary" as const,
-      committeeName: null
-    }),
-    presentNames: supplement.presentNames,
-    absentNames: supplement.absentNames,
-    leaveNames: supplement.leaveNames,
-    tripNames: supplement.tripNames,
-    requiresExplicitStatus: true,
-    sourceUrl: supplement.sourceUrl,
-    retrievedAt: supplement.retrievedAt,
-    sourceHash: supplement.sourceHash
-  });
+  ): OfficialMinutesAttendanceMeeting => {
+    const filterReferences = (
+      references: OfficialAttendanceMemberReference[] | undefined,
+      names: string[]
+    ): OfficialAttendanceMemberReference[] => {
+      const allowedNames = new Set(names.map(normalizeComparableText));
+      return (references ?? []).filter((reference) =>
+        allowedNames.has(normalizeComparableText(reference.name))
+      );
+    };
+
+    return {
+      ...(minutesMeeting ?? {
+        documentId: supplement.documentId,
+        meetingDate: supplement.meetingDate,
+        meetingType: "plenary" as const,
+        committeeName: null
+      }),
+      presentNames: supplement.presentNames,
+      absentNames: supplement.absentNames,
+      leaveNames: supplement.leaveNames,
+      tripNames: supplement.tripNames,
+      presentMemberReferences: filterReferences(
+        minutesMeeting?.presentMemberReferences,
+        supplement.presentNames
+      ),
+      leaveMemberReferences: filterReferences(
+        minutesMeeting?.leaveMemberReferences,
+        supplement.leaveNames
+      ),
+      tripMemberReferences: filterReferences(
+        minutesMeeting?.tripMemberReferences,
+        supplement.tripNames
+      ),
+      requiresExplicitStatus: true,
+      sourceUrl: supplement.sourceUrl,
+      retrievedAt: supplement.retrievedAt,
+      sourceHash: supplement.sourceHash
+    };
+  };
 
   const supplementedMinutes = args.minutesMeetings.flatMap((meeting) => {
     if (meeting.meetingType === "plenary") {
