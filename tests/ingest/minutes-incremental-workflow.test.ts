@@ -24,6 +24,7 @@ describe("incremental minutes workflows", () => {
     expect(workflow).toContain("group: published-data-${{ vars.DATA_REPO");
     expect(workflow).toContain("queue: max");
     expect(workflow).toContain("Retry failed minutes mirror");
+    expect(workflow).toContain("GH_REPO: ${{ github.repository }}");
     expect(workflow).toContain('-f retry_attempt="0"');
   });
 
