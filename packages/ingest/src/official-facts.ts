@@ -47,6 +47,18 @@ function isDateWithinTenure(
   );
 }
 
+function isTenureStartDate(
+  date: string,
+  memberId: string,
+  tenureIndex: MemberTenureIndex
+): boolean {
+  return (tenureIndex.get(memberId) ?? []).some(
+    (period) =>
+      period.startDate === date &&
+      (!period.endDate || date.localeCompare(period.endDate) <= 0)
+  );
+}
+
 function normalizeOfficialProfileUrl(
   value: string | null | undefined
 ): string | null {
@@ -458,6 +470,25 @@ export function buildOfficialAttendanceFacts(args: {
   const currentMembers = args.members.filter(
     (member) => member.isCurrentMember
   );
+  const membersByProfileUrl = new Map<string, MemberRecord[]>();
+  for (const member of currentMembers) {
+    for (const value of [
+      member.officialProfileUrl,
+      member.officialExternalUrl
+    ]) {
+      const profileUrl = normalizeOfficialProfileUrl(value);
+      if (!profileUrl) {
+        continue;
+      }
+      const candidates = membersByProfileUrl.get(profileUrl) ?? [];
+      if (
+        !candidates.some((candidate) => candidate.memberId === member.memberId)
+      ) {
+        candidates.push(member);
+        membersByProfileUrl.set(profileUrl, candidates);
+      }
+    }
+  }
   const facts: AttendanceFactRecord[] = [];
 
   for (const meeting of args.meetings) {
@@ -478,67 +509,179 @@ export function buildOfficialAttendanceFacts(args: {
                 isDateWithinCommitteeCareer(meeting.meetingDate, career)
             )
           );
-    const presentNames = new Set(
-      meeting.presentNames.map(normalizeComparableText)
-    );
-    const absentNames = new Set(
-      (meeting.absentNames ?? []).map(normalizeComparableText)
-    );
-    const leaveNames = new Set(meeting.leaveNames.map(normalizeComparableText));
-    const tripNames = new Set(meeting.tripNames.map(normalizeComparableText));
+    const buildNameCounts = (names: string[]): Map<string, number> => {
+      const counts = new Map<string, number>();
+      for (const value of names) {
+        const name = normalizeComparableText(value);
+        if (name) {
+          counts.set(name, (counts.get(name) ?? 0) + 1);
+        }
+      }
+      return counts;
+    };
+    const nameCountsByStatus = {
+      present: buildNameCounts(meeting.presentNames),
+      absent: buildNameCounts(meeting.absentNames ?? []),
+      leave: buildNameCounts(meeting.leaveNames),
+      trip: buildNameCounts(meeting.tripNames)
+    };
+    const hasAvailableNameStatus = (
+      status: AttendanceFactRecord["status"],
+      name: string
+    ): boolean => (nameCountsByStatus[status].get(name) ?? 0) > 0;
+    const consumeNameStatus = (
+      status: AttendanceFactRecord["status"],
+      name: string
+    ): boolean => {
+      const counts = nameCountsByStatus[status];
+      const count = counts.get(name) ?? 0;
+      if (count <= 0) {
+        return false;
+      }
+      if (count === 1) {
+        counts.delete(name);
+      } else {
+        counts.set(name, count - 1);
+      }
+      return true;
+    };
+    const availableNameStatuses = (
+      name: string
+    ): AttendanceFactRecord["status"][] =>
+      (["present", "absent", "leave", "trip"] as const).filter((status) =>
+        hasAvailableNameStatus(status, name)
+      );
     const eligibleByName = new Map<string, MemberRecord[]>();
+    const eligibleMemberIds = new Set(
+      eligibleMembers.map((member) => member.memberId)
+    );
+    const referencedStatusByMemberId = new Map<
+      string,
+      AttendanceFactRecord["status"]
+    >();
+
+    const addReferencedStatuses = (
+      references:
+        | OfficialMinutesAttendanceMeeting["presentMemberReferences"]
+        | undefined,
+      status: AttendanceFactRecord["status"]
+    ): void => {
+      for (const reference of references ?? []) {
+        const profileUrl = normalizeOfficialProfileUrl(
+          reference.officialProfileUrl
+        );
+        if (!profileUrl) {
+          continue;
+        }
+        const candidates = (membersByProfileUrl.get(profileUrl) ?? []).filter(
+          (member) => eligibleMemberIds.has(member.memberId)
+        );
+        if (candidates.length > 1) {
+          throw new Error(
+            `Official attendance profile URL is ambiguous for ${meeting.documentId}: ${reference.officialProfileUrl}.`
+          );
+        }
+        const member = candidates[0];
+        if (!member) {
+          continue;
+        }
+        const existingStatus = referencedStatusByMemberId.get(member.memberId);
+        if (existingStatus && existingStatus !== status) {
+          throw new Error(
+            `Official attendance profile has conflicting statuses for ${meeting.documentId}: ${member.name}.`
+          );
+        }
+        const referenceName = normalizeComparableText(reference.name);
+        if (!consumeNameStatus(status, referenceName)) {
+          throw new Error(
+            `Official attendance profile has no matching ${status} row for ${meeting.documentId}: ${reference.name}.`
+          );
+        }
+        referencedStatusByMemberId.set(member.memberId, status);
+      }
+    };
+
+    addReferencedStatuses(meeting.presentMemberReferences, "present");
+    addReferencedStatuses(meeting.leaveMemberReferences, "leave");
+    addReferencedStatuses(meeting.tripMemberReferences, "trip");
 
     for (const member of eligibleMembers) {
       const name = normalizeComparableText(member.name);
       eligibleByName.set(name, [...(eligibleByName.get(name) ?? []), member]);
     }
     for (const [name, candidates] of eligibleByName) {
-      if (
-        candidates.length > 1 &&
-        (presentNames.has(name) ||
-          absentNames.has(name) ||
-          leaveNames.has(name) ||
-          tripNames.has(name))
-      ) {
-        throw new Error(
-          `Official attendance name is ambiguous for ${meeting.documentId}: ${name}.`
-        );
-      }
-      if (
-        Number(presentNames.has(name)) +
-          Number(absentNames.has(name)) +
-          Number(leaveNames.has(name)) +
-          Number(tripNames.has(name)) >
-        1
-      ) {
+      const nameStatuses = availableNameStatuses(name);
+      if (nameStatuses.length > 1) {
         throw new Error(
           `Official attendance lists contain conflicting statuses for ${meeting.documentId}: ${name}.`
+        );
+      }
+      if (candidates.length > 1) {
+        const unresolvedCandidates = candidates.filter(
+          (member) => !referencedStatusByMemberId.has(member.memberId)
+        );
+        const status = nameStatuses[0];
+        const availableCount = status
+          ? (nameCountsByStatus[status].get(name) ?? 0)
+          : 0;
+        if (
+          status &&
+          availableCount === unresolvedCandidates.length &&
+          unresolvedCandidates.length > 0
+        ) {
+          for (const member of unresolvedCandidates) {
+            referencedStatusByMemberId.set(member.memberId, status);
+            consumeNameStatus(status, name);
+          }
+        } else if (availableCount > 0) {
+          throw new Error(
+            `Official attendance name is ambiguous for ${meeting.documentId}: ${name}.`
+          );
+        }
+      } else if (
+        nameStatuses[0] &&
+        (nameCountsByStatus[nameStatuses[0]].get(name) ?? 0) > 1
+      ) {
+        throw new Error(
+          `Official attendance list contains duplicate rows for ${meeting.documentId}: ${name}.`
         );
       }
     }
 
     for (const member of eligibleMembers) {
       const name = normalizeComparableText(member.name);
-      if (
-        meeting.requiresExplicitStatus &&
-        !presentNames.has(name) &&
-        !absentNames.has(name) &&
-        !leaveNames.has(name) &&
-        !tripNames.has(name)
-      ) {
+      const sameNameCandidateCount = eligibleByName.get(name)?.length ?? 0;
+      const referencedStatus = referencedStatusByMemberId.get(member.memberId);
+      const useNameStatus = sameNameCandidateCount <= 1;
+      const nameStatus = useNameStatus
+        ? availableNameStatuses(name)[0]
+        : undefined;
+      const hasExplicitStatus =
+        referencedStatus !== undefined || nameStatus !== undefined;
+      if (meeting.requiresExplicitStatus && !hasExplicitStatus) {
+        // Official tenure history has date-only boundaries, while the plenary
+        // attendance workbook is the authoritative roster for each sitting.
+        // A blank on the exact start date can therefore mean that the member
+        // took office after that day's sitting. Keep all other blanks
+        // fail-closed so parser or source omissions cannot become absences.
+        if (
+          meeting.meetingType === "plenary" &&
+          isTenureStartDate(
+            meeting.meetingDate,
+            member.memberId,
+            args.tenureIndex
+          )
+        ) {
+          continue;
+        }
         throw new Error(
           `Official attendance file has no explicit status for ${member.name} on ${meeting.meetingDate}.`
         );
       }
-      const status = presentNames.has(name)
-        ? "present"
-        : absentNames.has(name)
-          ? "absent"
-          : leaveNames.has(name)
-            ? "leave"
-            : tripNames.has(name)
-              ? "trip"
-              : "absent";
+      const status = referencedStatus ?? nameStatus ?? "absent";
+      if (!referencedStatus && nameStatus) {
+        consumeNameStatus(nameStatus, name);
+      }
 
       facts.push({
         attendanceId: `${meeting.documentId}:${member.memberId}`,

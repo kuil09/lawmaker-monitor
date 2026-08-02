@@ -181,7 +181,24 @@ describe("official committee and minutes attendance sources", () => {
     expect(attendance).toEqual({
       presentNames: ["김 아라", "이 보라"],
       leaveNames: ["박 초록"],
-      tripNames: ["최 파랑"]
+      tripNames: ["최 파랑"],
+      presentMemberReferences: [
+        {
+          name: "김 아라",
+          officialProfileUrl: "https://www.assembly.go.kr/members/1"
+        },
+        {
+          name: "이 보라",
+          officialProfileUrl: "https://www.assembly.go.kr/members/2"
+        }
+      ],
+      leaveMemberReferences: [],
+      tripMemberReferences: [
+        {
+          name: "최 파랑",
+          officialProfileUrl: "https://www.assembly.go.kr/members/4"
+        }
+      ]
     });
 
     expect(
@@ -194,7 +211,10 @@ describe("official committee and minutes attendance sources", () => {
     ).toEqual({
       presentNames: ["김 아라", "이 보라"],
       leaveNames: ["박 초록"],
-      tripNames: []
+      tripNames: [],
+      presentMemberReferences: [],
+      leaveMemberReferences: [],
+      tripMemberReferences: []
     });
 
     expect(
@@ -207,7 +227,10 @@ describe("official committee and minutes attendance sources", () => {
     ).toEqual({
       presentNames: ["김 아라", "이 보라"],
       leaveNames: ["박 초록"],
-      tripNames: []
+      tripNames: [],
+      presentMemberReferences: [],
+      leaveMemberReferences: [],
+      tripMemberReferences: []
     });
 
     expect(
@@ -220,7 +243,36 @@ describe("official committee and minutes attendance sources", () => {
     ).toEqual({
       presentNames: ["김 아라", "이 보라"],
       leaveNames: ["박 초록"],
-      tripNames: []
+      tripNames: [],
+      presentMemberReferences: [],
+      leaveMemberReferences: [],
+      tripMemberReferences: []
+    });
+
+    expect(
+      parseOfficialMinutesAttendanceHtml(`
+        <p><strong>◯출석 의원 (1인)</strong></p>
+        <div class="con"><a href="/members/22nd/PARKA"><span class="name">박지원</span></a></div>
+        <p><strong>◯청가 의원 (1인)</strong></p>
+        <div class="con"><a href="/members/22nd/PARKB"><span class="name">박지원</span></a></div>
+      `)
+    ).toEqual({
+      presentNames: ["박지원"],
+      leaveNames: ["박지원"],
+      tripNames: [],
+      presentMemberReferences: [
+        {
+          name: "박지원",
+          officialProfileUrl: "https://www.assembly.go.kr/members/22nd/PARKA"
+        }
+      ],
+      leaveMemberReferences: [
+        {
+          name: "박지원",
+          officialProfileUrl: "https://www.assembly.go.kr/members/22nd/PARKB"
+        }
+      ],
+      tripMemberReferences: []
     });
   });
 
@@ -402,6 +454,9 @@ describe("official committee and minutes attendance sources", () => {
         ...minutesMeeting,
         presentNames: ["김 아라"],
         absentNames: ["이 보라"],
+        presentMemberReferences: [],
+        leaveMemberReferences: [],
+        tripMemberReferences: [],
         requiresExplicitStatus: true,
         sourceUrl: fileMeeting.sourceUrl,
         retrievedAt: fileMeeting.retrievedAt,
@@ -416,11 +471,68 @@ describe("official committee and minutes attendance sources", () => {
         absentNames: ["이 보라"],
         leaveNames: [],
         tripNames: [],
+        presentMemberReferences: [],
+        leaveMemberReferences: [],
+        tripMemberReferences: [],
         requiresExplicitStatus: true,
         sourceUrl: fileMeeting.sourceUrl,
         retrievedAt: fileMeeting.retrievedAt,
         sourceHash: fileMeeting.sourceHash
       }
+    ]);
+  });
+
+  it("drops stale minutes status references when the official XLSX disagrees", () => {
+    const memberReference = {
+      name: "김 아라",
+      officialProfileUrl: "https://www.assembly.go.kr/members/22nd/KIMARA"
+    };
+    const minutesMeeting = {
+      documentId: "minutes-status-conflict",
+      meetingDate: "2026-06-30",
+      meetingType: "plenary" as const,
+      committeeName: null,
+      presentNames: [memberReference.name],
+      absentNames: [],
+      leaveNames: [],
+      tripNames: [],
+      presentMemberReferences: [memberReference],
+      leaveMemberReferences: [],
+      tripMemberReferences: [],
+      sourceUrl:
+        "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=2&type=view",
+      retrievedAt: "2026-08-01T00:00:00.000Z",
+      sourceHash: "minutes-conflict-hash"
+    };
+    const fileMeeting = {
+      documentId: "file-status-conflict",
+      sessionNo: 436,
+      meetingDate: "2026-06-30",
+      meetingType: "plenary" as const,
+      committeeName: null,
+      presentNames: [],
+      absentNames: [memberReference.name],
+      leaveNames: [],
+      tripNames: [],
+      sourceUrl:
+        "https://open.assembly.go.kr/portal/data/file/downloadFileData.do?fileSeq=2",
+      retrievedAt: "2026-08-02T00:00:00.000Z",
+      sourceHash: "file-conflict-hash"
+    };
+
+    expect(
+      supplementOfficialMinutesAttendance({
+        minutesMeetings: [minutesMeeting],
+        plenaryFileMeetings: [fileMeeting]
+      })
+    ).toEqual([
+      expect.objectContaining({
+        presentNames: [],
+        absentNames: [memberReference.name],
+        presentMemberReferences: [],
+        sourceUrl: fileMeeting.sourceUrl,
+        sourceHash: fileMeeting.sourceHash
+      })
     ]);
   });
 });

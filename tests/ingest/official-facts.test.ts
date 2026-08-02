@@ -4,6 +4,7 @@ import {
   buildOfficialAttendanceFacts,
   mergeOfficialVoteFacts
 } from "../../packages/ingest/src/official-facts.js";
+import { parseOfficialMinutesAttendanceHtml } from "../../packages/ingest/src/official-attendance.js";
 import { buildMeetingId } from "../../packages/ingest/src/parsers/helpers.js";
 
 import type { BillVoteSummaryRecord } from "../../packages/ingest/src/parsers.js";
@@ -518,6 +519,265 @@ describe("official minutes attendance fact completion", () => {
         tenureIndex
       })
     ).toThrow(/no explicit status/);
+  });
+
+  it("uses the official XLSX roster on an exact tenure start date", () => {
+    const newcomer: MemberRecord = {
+      ...lee,
+      memberId: "M-NEWCOMER",
+      name: "이주희",
+      officialProfileUrl: "https://www.assembly.go.kr/members/22nd/LEEJUHEE"
+    };
+    const newcomerTenureIndex: MemberTenureIndex = new Map([
+      [
+        newcomer.memberId,
+        [
+          {
+            startDate: "2025-07-23",
+            endDate: null
+          }
+        ]
+      ]
+    ]);
+    const startDateMeeting = {
+      ...buildMeeting({
+        id: "plenary-tenure-start",
+        date: "2025-07-23",
+        type: "plenary",
+        status: "present"
+      }),
+      presentNames: [],
+      requiresExplicitStatus: true
+    };
+
+    expect(
+      buildOfficialAttendanceFacts({
+        members: [newcomer],
+        careers: [],
+        meetings: [startDateMeeting],
+        tenureIndex: newcomerTenureIndex
+      })
+    ).toEqual([]);
+    expect(
+      buildOfficialAttendanceFacts({
+        members: [newcomer],
+        careers: [],
+        meetings: [
+          {
+            ...startDateMeeting,
+            presentNames: [newcomer.name]
+          }
+        ],
+        tenureIndex: newcomerTenureIndex
+      })
+    ).toMatchObject([
+      {
+        memberId: newcomer.memberId,
+        meetingDate: "2025-07-23",
+        status: "present"
+      }
+    ]);
+    expect(() =>
+      buildOfficialAttendanceFacts({
+        members: [newcomer],
+        careers: [],
+        meetings: [
+          {
+            ...startDateMeeting,
+            documentId: "plenary-after-tenure-start",
+            meetingDate: "2025-07-24"
+          }
+        ],
+        tenureIndex: newcomerTenureIndex
+      })
+    ).toThrow(/no explicit status/);
+  });
+
+  it("uses official profile references to resolve duplicate attendance names", () => {
+    const meeting = {
+      ...buildMeeting({
+        id: "plenary-duplicate-name",
+        date: "2026-06-05",
+        type: "plenary",
+        status: "present"
+      }),
+      presentNames: [seniorPark.name, "朴芝源"],
+      presentMemberReferences: [
+        {
+          name: seniorPark.name,
+          officialProfileUrl: seniorPark.officialProfileUrl!
+        },
+        {
+          name: "朴芝源",
+          officialProfileUrl: newPark.officialProfileUrl!
+        }
+      ],
+      requiresExplicitStatus: true
+    };
+
+    const facts = buildOfficialAttendanceFacts({
+      members: [seniorPark, newPark],
+      careers: [],
+      meetings: [meeting],
+      tenureIndex
+    });
+
+    expect(facts).toHaveLength(2);
+    expect(facts.map((fact) => [fact.memberId, fact.status]).sort()).toEqual(
+      [
+        [seniorPark.memberId, "present"],
+        [newPark.memberId, "present"]
+      ].sort()
+    );
+
+    const splitFacts = buildOfficialAttendanceFacts({
+      members: [seniorPark, newPark],
+      careers: [],
+      meetings: [
+        {
+          ...meeting,
+          documentId: "plenary-duplicate-name-split-status",
+          presentNames: ["朴芝源"],
+          absentNames: [seniorPark.name],
+          presentMemberReferences: [
+            {
+              name: "朴芝源",
+              officialProfileUrl: newPark.officialProfileUrl!
+            }
+          ]
+        }
+      ],
+      tenureIndex
+    });
+
+    expect(
+      splitFacts.map((fact) => [fact.memberId, fact.status]).sort()
+    ).toEqual(
+      [
+        [seniorPark.memberId, "absent"],
+        [newPark.memberId, "present"]
+      ].sort()
+    );
+
+    expect(() =>
+      buildOfficialAttendanceFacts({
+        members: [seniorPark, newPark],
+        careers: [],
+        meetings: [
+          {
+            ...meeting,
+            documentId: "plenary-single-consumed-name-row",
+            presentNames: [seniorPark.name],
+            presentMemberReferences: [
+              {
+                name: seniorPark.name,
+                officialProfileUrl: newPark.officialProfileUrl!
+              }
+            ]
+          }
+        ],
+        tenureIndex
+      })
+    ).toThrow(/no explicit status/);
+
+    const inferredFacts = buildOfficialAttendanceFacts({
+      members: [seniorPark, newPark],
+      careers: [],
+      meetings: [
+        {
+          ...meeting,
+          documentId: "plenary-single-consumed-name-row-inferred",
+          presentNames: [seniorPark.name],
+          presentMemberReferences: [
+            {
+              name: seniorPark.name,
+              officialProfileUrl: newPark.officialProfileUrl!
+            }
+          ],
+          requiresExplicitStatus: false
+        }
+      ],
+      tenureIndex
+    });
+
+    expect(
+      inferredFacts.map((fact) => [fact.memberId, fact.status]).sort()
+    ).toEqual(
+      [
+        [seniorPark.memberId, "absent"],
+        [newPark.memberId, "present"]
+      ].sort()
+    );
+  });
+
+  it("preserves an unlinked lower-priority row for a same-name member", () => {
+    const attendance = parseOfficialMinutesAttendanceHtml(`
+      <p><strong>◯출석 의원 (1인)</strong></p>
+      <div class="con"><a href="/members/22nd/PARKJIEWON"><span class="name">박지원</span></a></div>
+      <p><strong>◯청가 의원 (1인)</strong></p>
+      <div class="con"><span class="name">박지원</span></div>
+    `);
+    const meeting: OfficialMinutesAttendanceMeeting = {
+      documentId: "plenary-partial-same-name-references",
+      meetingDate: "2026-06-05",
+      meetingType: "plenary",
+      committeeName: null,
+      ...attendance,
+      requiresExplicitStatus: true,
+      sourceUrl: "https://www.assembly.go.kr/portal/cnts/cntsCont/dataA.do",
+      retrievedAt: "2026-08-02T00:00:00.000Z",
+      sourceHash: "official-minutes-partial-reference"
+    };
+
+    const facts = buildOfficialAttendanceFacts({
+      members: [seniorPark, newPark],
+      careers: [],
+      meetings: [meeting],
+      tenureIndex
+    });
+
+    expect(facts.map((fact) => [fact.memberId, fact.status]).sort()).toEqual(
+      [
+        [seniorPark.memberId, "present"],
+        [newPark.memberId, "leave"]
+      ].sort()
+    );
+  });
+
+  it("deduplicates equivalent official profile URLs for one member", () => {
+    const member = {
+      ...lee,
+      officialExternalUrl: `${lee.officialProfileUrl}/?source=official`
+    };
+    const meeting = {
+      ...buildMeeting({
+        id: "plenary-equivalent-profile-urls",
+        date: "2026-04-17",
+        type: "plenary",
+        status: "present"
+      }),
+      presentMemberReferences: [
+        {
+          name: member.name,
+          officialProfileUrl: member.officialProfileUrl!
+        }
+      ],
+      requiresExplicitStatus: true
+    };
+
+    expect(
+      buildOfficialAttendanceFacts({
+        members: [member],
+        careers: [],
+        meetings: [meeting],
+        tenureIndex
+      })
+    ).toMatchObject([
+      {
+        memberId: member.memberId,
+        status: "present"
+      }
+    ]);
   });
 
   it("reproduces the current official Lee So-hee attendance snapshot", () => {

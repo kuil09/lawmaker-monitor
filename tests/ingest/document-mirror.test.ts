@@ -1354,7 +1354,33 @@ describe("document mirror helpers", () => {
     expect(parseOfficialMinutesAttendanceHtml(html)).toEqual({
       presentNames: ["김가람", "이나래"],
       leaveNames: ["박다온"],
-      tripNames: ["최라온"]
+      tripNames: ["최라온"],
+      presentMemberReferences: [
+        {
+          name: "김가람",
+          officialProfileUrl:
+            "https://www.assembly.go.kr/members/official-search-0"
+        },
+        {
+          name: "이나래",
+          officialProfileUrl:
+            "https://www.assembly.go.kr/members/official-search-1"
+        }
+      ],
+      leaveMemberReferences: [
+        {
+          name: "박다온",
+          officialProfileUrl:
+            "https://www.assembly.go.kr/members/official-search-0"
+        }
+      ],
+      tripMemberReferences: [
+        {
+          name: "최라온",
+          officialProfileUrl:
+            "https://www.assembly.go.kr/members/official-search-0"
+        }
+      ]
     });
     const transcript = parseAssemblyMinutesViewerHtml({
       documentId: "assembly-minutes-minutes-52713",
