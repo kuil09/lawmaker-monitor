@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -1493,19 +1493,32 @@ async function downloadDocument(
   sourceUrl: string,
   timeoutMs: number
 ): Promise<DownloadedDocument> {
-  const response = await api.get(sourceUrl, {
-    failOnStatusCode: true,
-    timeout: timeoutMs
-  });
-
-  const body = await response.body();
-  return {
-    body,
-    responseUrl: response.url(),
-    contentType:
-      response.headers()["content-type"] ?? "application/octet-stream",
-    contentDisposition: response.headers()["content-disposition"]
-  };
+  const maxAttempts = 3;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const response = await api.get(sourceUrl, {
+        failOnStatusCode: true,
+        timeout: timeoutMs
+      });
+      const body = await response.body();
+      return {
+        body,
+        responseUrl: response.url(),
+        contentType:
+          response.headers()["content-type"] ?? "application/octet-stream",
+        contentDisposition: response.headers()["content-disposition"]
+      };
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxAttempts) {
+        await new Promise((resolveDelay) =>
+          setTimeout(resolveDelay, 500 * 2 ** (attempt - 1))
+        );
+      }
+    }
+  }
+  throw lastError;
 }
 
 async function mirrorCandidate(
@@ -1542,10 +1555,17 @@ async function mirrorCandidate(
     fileExtension
   });
   const contentSha = sha256Buffer(downloaded.body);
+  const existingRawMatches =
+    existingMetadata &&
+    (await mirroredDocumentMatchesMetadata(
+      config.dataRepoDir,
+      existingMetadata
+    ));
 
   if (
     existingMetadata &&
-    existingMetadata.currentContentSha256 === contentSha
+    existingMetadata.currentContentSha256 === contentSha &&
+    existingRawMatches
   ) {
     return {
       type: "unchanged",
@@ -1780,6 +1800,49 @@ async function processWithConcurrency<T>(
   await Promise.all(workers);
 }
 
+export function shouldReuseExistingBackfillDocument(args: {
+  mode: MirrorMode;
+  skipRecent: boolean;
+  workItemKind: "discovered" | "transcript-refresh";
+  hasExistingMetadata: boolean;
+  hasFreshTranscript: boolean;
+  rawMatchesMetadata: boolean;
+}): boolean {
+  return (
+    args.mode === "assembly_minutes_catalog" &&
+    args.skipRecent &&
+    args.workItemKind === "discovered" &&
+    args.hasExistingMetadata &&
+    args.hasFreshTranscript &&
+    args.rawMatchesMetadata
+  );
+}
+
+export function shouldBlockBackfillCursorOnDownloadFailure(args: {
+  workItemKind: "discovered" | "transcript-refresh";
+  rawMatchesMetadata: boolean;
+}): boolean {
+  return args.workItemKind === "discovered" && !args.rawMatchesMetadata;
+}
+
+export async function mirroredDocumentMatchesMetadata(
+  dataRepoDir: string,
+  metadata: Pick<
+    MirroredDocumentMetadata,
+    "latestRelativePath" | "currentBytes" | "currentContentSha256"
+  >
+): Promise<boolean> {
+  try {
+    const body = await readFile(join(dataRepoDir, metadata.latestRelativePath));
+    return (
+      body.byteLength === metadata.currentBytes &&
+      sha256Buffer(body) === metadata.currentContentSha256
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function main(): Promise<void> {
   const config = loadConfig();
   const now = new Date();
@@ -1910,7 +1973,10 @@ async function main(): Promise<void> {
   let downloadFailures = 0;
   let transcriptsWritten = 0;
   let transcriptFailures = 0;
-  const eligibleWorkItems: typeof workItems = [];
+  type PendingWorkItem = (typeof workItems)[number] & {
+    blocksBackfillCursorOnDownloadFailure: boolean;
+  };
+  const pendingWorkItems: PendingWorkItem[] = [];
   for (const workItem of workItems) {
     const { candidate } = workItem;
     const seenKey = candidate.documentId ?? candidate.sourceUrl;
@@ -1930,17 +1996,60 @@ async function main(): Promise<void> {
       continue;
     }
 
-    eligibleWorkItems.push(workItem);
+    const existingCandidateMetadata = selectExistingMirroredMetadata(
+      {
+        byDocumentId: updatedMetadataByDocumentId,
+        bySourceUrl: updatedMetadataBySourceUrl,
+        byDownloadUrl: updatedMetadataByDownloadUrl
+      },
+      candidate
+    );
+    const shouldCheckExistingRaw =
+      config.mode === "assembly_minutes_catalog" &&
+      workItem.kind === "discovered" &&
+      Boolean(existingCandidateMetadata);
+    const rawMatchesMetadata =
+      shouldCheckExistingRaw && existingCandidateMetadata
+        ? await mirroredDocumentMatchesMetadata(
+            config.dataRepoDir,
+            existingCandidateMetadata
+          )
+        : false;
+    if (
+      shouldReuseExistingBackfillDocument({
+        mode: config.mode,
+        skipRecent: config.skipRecent,
+        workItemKind: workItem.kind,
+        hasExistingMetadata: Boolean(existingCandidateMetadata),
+        hasFreshTranscript:
+          !isAssemblyMinutesViewerUrl(candidate.sourceUrl) ||
+          existingCandidateMetadata?.transcriptParserVersion ===
+            ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION,
+        rawMatchesMetadata
+      })
+    ) {
+      unchangedCount += 1;
+      continue;
+    }
+
+    pendingWorkItems.push({
+      ...workItem,
+      blocksBackfillCursorOnDownloadFailure:
+        shouldBlockBackfillCursorOnDownloadFailure({
+          workItemKind: workItem.kind,
+          rawMatchesMetadata
+        })
+    });
   }
 
-  const selectedWorkItems = eligibleWorkItems.slice(0, config.maxDownloads);
-  const reachedDownloadLimit = eligibleWorkItems
+  const selectedWorkItems = pendingWorkItems.slice(0, config.maxDownloads);
+  const reachedDownloadLimit = pendingWorkItems
     .slice(config.maxDownloads)
-    .some((workItem) => workItem.kind === "discovered");
+    .some((workItem) => workItem.blocksBackfillCursorOnDownloadFailure);
   await processWithConcurrency(
     selectedWorkItems,
     config.downloadConcurrency,
-    async ({ candidate }) => {
+    async ({ candidate, blocksBackfillCursorOnDownloadFailure }) => {
       try {
         const existingCandidateMetadata = selectExistingMirroredMetadata(
           {
@@ -2010,7 +2119,11 @@ async function main(): Promise<void> {
           unchangedCount += 1;
         }
       } catch (error) {
-        downloadFailures += 1;
+        if (blocksBackfillCursorOnDownloadFailure) {
+          downloadFailures += 1;
+        } else {
+          transcriptFailures += 1;
+        }
         process.stderr.write(
           `Could not mirror ${candidate.documentId ?? candidate.sourceUrl}: ${
             error instanceof Error ? error.message : String(error)

@@ -1,3 +1,7 @@
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -27,18 +31,138 @@ import {
   buildAssemblyMinutesCatalogParams,
   buildAssemblyMinutesParams,
   isAssemblyMinutesViewerUrl,
+  mirroredDocumentMatchesMetadata,
   normalizeCompactAssemblyDate,
   resolveMirrorRecentDays,
   resolveMirrorDataRepoDir,
   responsePageCount,
+  shouldBlockBackfillCursorOnDownloadFailure,
+  shouldReuseExistingBackfillDocument,
   shouldSkipAssemblyFileServiceRefresh
 } from "../../packages/ingest/src/scripts/mirror-documents.js";
+import { sha256Buffer } from "../../packages/ingest/src/utils.js";
 
 describe("document mirror helpers", () => {
   it("keeps the recent safety floor for both official minutes collectors", () => {
     expect(resolveMirrorRecentDays("assembly_minutes_search", 3, 30)).toBe(30);
     expect(resolveMirrorRecentDays("assembly_minutes_catalog", 3, 30)).toBe(30);
     expect(resolveMirrorRecentDays("assembly_file_service", 3, 30)).toBe(3);
+  });
+
+  it("reuses successful official backfill documents while retrying gaps", () => {
+    expect(
+      shouldReuseExistingBackfillDocument({
+        mode: "assembly_minutes_catalog",
+        skipRecent: true,
+        workItemKind: "discovered",
+        hasExistingMetadata: true,
+        hasFreshTranscript: true,
+        rawMatchesMetadata: true
+      })
+    ).toBe(true);
+    expect(
+      shouldReuseExistingBackfillDocument({
+        mode: "assembly_minutes_catalog",
+        skipRecent: true,
+        workItemKind: "discovered",
+        hasExistingMetadata: false,
+        hasFreshTranscript: true,
+        rawMatchesMetadata: true
+      })
+    ).toBe(false);
+    expect(
+      shouldReuseExistingBackfillDocument({
+        mode: "assembly_minutes_catalog",
+        skipRecent: false,
+        workItemKind: "discovered",
+        hasExistingMetadata: true,
+        hasFreshTranscript: true,
+        rawMatchesMetadata: true
+      })
+    ).toBe(false);
+    expect(
+      shouldReuseExistingBackfillDocument({
+        mode: "assembly_minutes_catalog",
+        skipRecent: true,
+        workItemKind: "transcript-refresh",
+        hasExistingMetadata: true,
+        hasFreshTranscript: true,
+        rawMatchesMetadata: true
+      })
+    ).toBe(false);
+    expect(
+      shouldReuseExistingBackfillDocument({
+        mode: "assembly_minutes_catalog",
+        skipRecent: true,
+        workItemKind: "discovered",
+        hasExistingMetadata: true,
+        hasFreshTranscript: false,
+        rawMatchesMetadata: true
+      })
+    ).toBe(false);
+    expect(
+      shouldReuseExistingBackfillDocument({
+        mode: "assembly_minutes_catalog",
+        skipRecent: true,
+        workItemKind: "discovered",
+        hasExistingMetadata: true,
+        hasFreshTranscript: true,
+        rawMatchesMetadata: false
+      })
+    ).toBe(false);
+  });
+
+  it("reuses a mirrored document only when the raw file matches metadata", async () => {
+    const root = await mkdtemp(join(tmpdir(), "document-mirror-reuse-"));
+    try {
+      const relativePath = "raw/assembly-minutes/example/latest.html";
+      const path = join(root, relativePath);
+      const body = Buffer.from("<html>official minutes</html>");
+      await mkdir(join(root, "raw/assembly-minutes/example"), {
+        recursive: true
+      });
+      await writeFile(path, body);
+      const metadata = {
+        latestRelativePath: relativePath,
+        currentBytes: body.byteLength,
+        currentContentSha256: sha256Buffer(body)
+      };
+
+      await expect(
+        mirroredDocumentMatchesMetadata(root, metadata)
+      ).resolves.toBe(true);
+      await writeFile(path, Buffer.from("<html>corrupted</html>"));
+      await expect(
+        mirroredDocumentMatchesMetadata(root, metadata)
+      ).resolves.toBe(false);
+      await rm(path);
+      await expect(
+        mirroredDocumentMatchesMetadata(root, metadata)
+      ).resolves.toBe(false);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks the backfill cursor only when a discovered raw document is missing", () => {
+    expect(
+      shouldBlockBackfillCursorOnDownloadFailure({
+        workItemKind: "discovered",
+        rawMatchesMetadata: false
+      })
+    ).toBe(true);
+    expect(
+      shouldBlockBackfillCursorOnDownloadFailure({
+        workItemKind: "discovered",
+        rawMatchesMetadata: true
+      })
+    ).toBe(false);
+    expect(
+      shouldBlockBackfillCursorOnDownloadFailure({
+        workItemKind: "transcript-refresh",
+        rawMatchesMetadata: false
+      })
+    ).toBe(false);
   });
 
   it("enforces a safe recent-window floor for minutes discovery", () => {
