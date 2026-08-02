@@ -7,6 +7,7 @@ import {
   buildVoteDetailRequest,
   resolveAssemblyApiConfig
 } from "../../packages/ingest/src/assembly-api.js";
+import { selectRecordedVoteBillRefs } from "../../packages/ingest/src/scripts/ingest-live.js";
 
 describe("assembly api request builder", () => {
   it("adds common params and includes the configured OpenAPI key in the query string", () => {
@@ -117,5 +118,64 @@ describe("assembly api request builder", () => {
     expect(directUrl.searchParams.get("pIndex")).toBe("1");
     expect(directUrl.searchParams.get("pSize")).toBe("20");
     expect(directUrl.searchParams.get("MONA_CD")).toBe("QUR40502");
+  });
+
+  it("requests named vote details only for official recorded-vote summaries", () => {
+    expect(
+      selectRecordedVoteBillRefs({
+        summaries: [
+          {
+            billNo: "2210001",
+            billId: "PRC_FIRST"
+          },
+          {
+            billNo: "2212345",
+            billId: "PRC_RECORDED"
+          },
+          {
+            billNo: "2212345",
+            billId: "PRC_RECORDED"
+          }
+        ],
+        agendas: [
+          {
+            billNo: "2212345",
+            billId: "PRC_RECORDED"
+          },
+          {
+            billNo: "2200013",
+            billId: "PRC_D2Q4S0G5I3K0X1S2I4L2M2D0B2H8Q2"
+          }
+        ]
+      })
+    ).toEqual([
+      {
+        billNo: "2210001",
+        billId: "PRC_FIRST"
+      },
+      {
+        billNo: "2212345",
+        billId: "PRC_RECORDED"
+      }
+    ]);
+  });
+
+  it("fails closed when official vote sources disagree on a bill id", () => {
+    expect(() =>
+      selectRecordedVoteBillRefs({
+        summaries: [
+          {
+            billNo: "2212345",
+            billId: "PRC_RECORDED"
+          }
+        ],
+        agendas: [
+          {
+            billNo: "2212345",
+            billId: "PRC_CONFLICT"
+          }
+        ]
+      })
+    ).toThrow(/conflicts with recorded-vote summary/);
   });
 });
