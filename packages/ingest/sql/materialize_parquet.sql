@@ -1,6 +1,3 @@
-INSTALL httpfs;
-LOAD httpfs;
-
 COPY (
   SELECT * FROM read_ndjson_auto('normalized/members.ndjson')
 ) TO 'curated/members.parquet' (FORMAT PARQUET, COMPRESSION ZSTD);
@@ -10,7 +7,19 @@ COPY (
 ) TO 'curated/roll_calls.parquet' (FORMAT PARQUET, COMPRESSION ZSTD);
 
 COPY (
-  SELECT * FROM read_ndjson_auto('normalized/vote_facts.ndjson')
+  SELECT * FROM read_ndjson(
+    'normalized/vote_facts.ndjson',
+    columns = {
+      rollCallId: 'VARCHAR',
+      memberId: 'VARCHAR',
+      memberName: 'VARCHAR',
+      party: 'VARCHAR',
+      voteCode: 'VARCHAR',
+      publishedAt: 'VARCHAR',
+      retrievedAt: 'VARCHAR',
+      sourceHash: 'VARCHAR'
+    }
+  )
 ) TO 'curated/vote_facts.parquet' (FORMAT PARQUET, COMPRESSION ZSTD);
 
 COPY (
