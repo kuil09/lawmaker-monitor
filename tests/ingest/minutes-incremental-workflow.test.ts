@@ -15,7 +15,7 @@ describe("incremental minutes workflows", () => {
 
     expect(workflow).toContain('default: "20"');
     expect(workflow).toContain(
-      "MIRROR_CATCHUP_WINDOWS_PER_RUN: ${{ vars.MIRROR_CATCHUP_WINDOWS_PER_RUN || '2' }}"
+      "MIRROR_CATCHUP_WINDOWS_PER_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill_windows || vars.MIRROR_CATCHUP_WINDOWS_PER_RUN || '2' }}"
     );
     expect(workflow).toContain("timeout-minutes: 30");
     expect(workflow).toContain("Start minutes summaries");
