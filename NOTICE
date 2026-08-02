@@ -38,6 +38,8 @@ Runtime and distributed application dependencies:
   https://github.com/cheeriojs/cheerio
 - fast-xml-parser — MIT
   https://github.com/NaturalIntelligence/fast-xml-parser
+- fflate — MIT
+  https://github.com/101arrowz/fflate
 - iconv-lite — MIT
   https://github.com/ashtuchkin/iconv-lite
 - PDF.js distribution (pdfjs-dist) — Apache-2.0, with separately licensed

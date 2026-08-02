@@ -34,10 +34,13 @@ export type BuildDataRawInputs = {
   memberHistoryEntries: RawSnapshotEntry[];
   committeeOverviewEntries: RawSnapshotEntry[];
   committeeRosterEntries: RawSnapshotEntry[];
+  committeeCareerEntries: RawSnapshotEntry[];
+  plenaryAttendanceFileEntries: RawSnapshotEntry[];
   billVoteSummaryEntries: RawSnapshotEntry[];
   billProposalEntries: RawSnapshotEntry[];
   agendaEntries: RawSnapshotEntry[];
   voteEntries: RawSnapshotEntry[];
+  voteMemberListEntries: RawSnapshotEntry[];
   liveEntry: RawSnapshotEntry | null;
   minutesEntry: RawSnapshotEntry | null;
   memberInfoXmls: string[];
@@ -45,6 +48,8 @@ export type BuildDataRawInputs = {
   memberHistoryXmls: string[];
   committeeOverviewXmls: string[];
   committeeRosterXmls: string[];
+  committeeCareerJsons: string[];
+  plenaryAttendanceFileBuffers: Buffer[];
   billVoteSummaryXmls: string[];
   billProposalXmls: string[];
   scheduleXml: string;
@@ -52,6 +57,7 @@ export type BuildDataRawInputs = {
   minutesXml: string | null;
   agendaXmls: string[];
   voteXmls: string[];
+  voteMemberListHtmls: string[];
 };
 
 function findEntry(
@@ -74,6 +80,14 @@ async function readEntryPayload(
 ): Promise<string> {
   const { readFile } = await import("node:fs/promises");
   return readFile(join(rawDir, relativePath), "utf8");
+}
+
+async function readEntryBuffer(
+  rawDir: string,
+  relativePath: string
+): Promise<Buffer> {
+  const { readFile } = await import("node:fs/promises");
+  return readFile(join(rawDir, relativePath));
 }
 
 export function resolveBuildDataRuntimeConfig(args?: {
@@ -138,6 +152,13 @@ export async function loadBuildDataRawInputs(
   const committeeRosterEntries = findEntries(resolvedRaw.manifest.entries, [
     "committee_roster"
   ]);
+  const committeeCareerEntries = findEntries(resolvedRaw.manifest.entries, [
+    "member_committee_career"
+  ]);
+  const plenaryAttendanceFileEntries = findEntries(
+    resolvedRaw.manifest.entries,
+    ["plenary_attendance_file"]
+  );
   const billVoteSummaryEntries = findEntries(resolvedRaw.manifest.entries, [
     "bill_vote_summary"
   ]);
@@ -169,6 +190,9 @@ export async function loadBuildDataRawInputs(
   const voteEntries = findEntries(resolvedRaw.manifest.entries, [
     "vote_detail"
   ]);
+  const voteMemberListEntries = findEntries(resolvedRaw.manifest.entries, [
+    "vote_member_list"
+  ]);
   const liveEntry = findEntry(resolvedRaw.manifest.entries, "live");
   const minutesEntry = findEntry(
     resolvedRaw.manifest.entries,
@@ -181,13 +205,16 @@ export async function loadBuildDataRawInputs(
     memberHistoryXmls,
     committeeOverviewXmls,
     committeeRosterXmls,
+    committeeCareerJsons,
+    plenaryAttendanceFileBuffers,
     billVoteSummaryXmls,
     billProposalXmls,
     scheduleXml,
     liveXml,
     minutesXml,
     agendaXmls,
-    voteXmls
+    voteXmls,
+    voteMemberListHtmls
   ] = await Promise.all([
     Promise.all(
       memberInfoEntries.map((entry) =>
@@ -212,6 +239,16 @@ export async function loadBuildDataRawInputs(
     Promise.all(
       committeeRosterEntries.map((entry) =>
         readEntryPayload(resolvedRaw.rawDir, entry.relativePath)
+      )
+    ),
+    Promise.all(
+      committeeCareerEntries.map((entry) =>
+        readEntryPayload(resolvedRaw.rawDir, entry.relativePath)
+      )
+    ),
+    Promise.all(
+      plenaryAttendanceFileEntries.map((entry) =>
+        readEntryBuffer(resolvedRaw.rawDir, entry.relativePath)
       )
     ),
     Promise.all(
@@ -240,6 +277,11 @@ export async function loadBuildDataRawInputs(
       voteEntries.map((entry) =>
         readEntryPayload(resolvedRaw.rawDir, entry.relativePath)
       )
+    ),
+    Promise.all(
+      voteMemberListEntries.map((entry) =>
+        readEntryPayload(resolvedRaw.rawDir, entry.relativePath)
+      )
     )
   ]);
 
@@ -258,10 +300,13 @@ export async function loadBuildDataRawInputs(
     memberHistoryEntries,
     committeeOverviewEntries,
     committeeRosterEntries,
+    committeeCareerEntries,
+    plenaryAttendanceFileEntries,
     billVoteSummaryEntries,
     billProposalEntries,
     agendaEntries,
     voteEntries,
+    voteMemberListEntries,
     liveEntry,
     minutesEntry,
     memberInfoXmls,
@@ -269,12 +314,15 @@ export async function loadBuildDataRawInputs(
     memberHistoryXmls,
     committeeOverviewXmls,
     committeeRosterXmls,
+    committeeCareerJsons,
+    plenaryAttendanceFileBuffers,
     billVoteSummaryXmls,
     billProposalXmls,
     scheduleXml,
     liveXml,
     minutesXml,
     agendaXmls,
-    voteXmls
+    voteXmls,
+    voteMemberListHtmls
   };
 }

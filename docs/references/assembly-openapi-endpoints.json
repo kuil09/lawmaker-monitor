@@ -11,7 +11,7 @@
     ]
   },
   "policy": {
-    "goal": "Use only official OpenAPI endpoints in runtime without losing any published fields.",
+    "goal": "Use only official National Assembly public data services in runtime without losing any published fields.",
     "forbiddenRuntimeSources": [
       {
         "key": "voteSheetSearch",
@@ -266,6 +266,50 @@
       "notes": [
         "Current runtime uses this official endpoint.",
         "Direct PDF page citation still needs to be re-verified in this repository update."
+      ]
+    },
+    {
+      "key": "memberCommitteeCareerSheet",
+      "source": "official_sheet_service",
+      "serviceCode": "ORNDP7000993P115502",
+      "koreanName": "국회의원 위원회 경력",
+      "officialUrl": "https://open.assembly.go.kr/portal/data/sheet/searchSheetData.do",
+      "role": "dated standing-committee membership periods",
+      "required": true,
+      "runtimeStatus": "active",
+      "notes": [
+        "The official sheet service contains current committee careers that are not present in the historical-career feed.",
+        "Runtime uses the documented official dataset identifier ORNDP7000993P115502."
+      ]
+    },
+    {
+      "key": "billVoteMemberList",
+      "source": "official_likms",
+      "serviceCode": "voteInfo.do",
+      "koreanName": "의안별 국회의원 투표결과",
+      "officialUrl": "https://likms.assembly.go.kr/bill/bi/bill/detail/voteInfo.do",
+      "role": "complete named yes, no, and abstain member lists",
+      "required": true,
+      "runtimeStatus": "supplemental",
+      "notes": [
+        "The official bill information system returns current named vote lists when the OpenAPI omits a newly seated member.",
+        "Runtime requests this endpoint only when the OpenAPI named participant count does not match the official bill tally."
+      ]
+    },
+    {
+      "key": "plenaryAttendanceFile",
+      "source": "official_file_service",
+      "serviceCode": "O4Q5B50011905O18367",
+      "koreanName": "본회의 출결현황",
+      "officialUrl": "https://open.assembly.go.kr/portal/data/file/downloadFileData.do",
+      "role": "official per-meeting plenary attendance supplement",
+      "required": true,
+      "runtimeStatus": "supplemental",
+      "notes": [
+        "The National Assembly Secretariat publishes one XLSX workbook per parliamentary session through the official file service.",
+        "Runtime uses the workbook to fill an attendance appendix missing from an official plenary minutes record.",
+        "A workbook date omitted from the official minutes catalog is retained as an official plenary attendance event so that published sessions are not silently dropped.",
+        "A workbook date that already has a plenary minutes record is deduplicated by date."
       ]
     }
   ]

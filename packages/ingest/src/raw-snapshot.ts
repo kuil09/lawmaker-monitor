@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 
-import { sha256, writeJsonFile } from "./utils.js";
+import { sha256, sha256Buffer, writeJsonFile } from "./utils.js";
 
 export type RawSnapshotEntryKind =
   | "member_info"
@@ -15,7 +15,10 @@ export type RawSnapshotEntryKind =
   | "plenary_bills_settlement"
   | "plenary_bills_other"
   | "vote_detail"
+  | "vote_member_list"
   | "bill_vote_summary"
+  | "member_committee_career"
+  | "plenary_attendance_file"
   | "bill_proposals"
   | "live"
   | "plenary_minutes";
@@ -68,7 +71,7 @@ export async function writeSnapshotPayload(args: {
   sourceUrl: string;
   requestParams: Record<string, string>;
   retrievedAt: string;
-  body: string;
+  body: string | Buffer;
   metadata?: Record<string, string>;
 }): Promise<RawSnapshotEntry> {
   const absolutePath = join(
@@ -86,7 +89,10 @@ export async function writeSnapshotPayload(args: {
     sourceUrl: args.sourceUrl,
     requestParams: args.requestParams,
     retrievedAt: args.retrievedAt,
-    checksumSha256: sha256(args.body),
+    checksumSha256:
+      typeof args.body === "string"
+        ? sha256(args.body)
+        : sha256Buffer(args.body),
     metadata: args.metadata
   };
 }

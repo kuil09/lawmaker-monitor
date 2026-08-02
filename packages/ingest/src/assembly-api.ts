@@ -40,7 +40,26 @@ export type AssemblyRequest = {
   params: Record<string, string>;
 };
 
+export type OfficialPostRequest = AssemblyRequest & {
+  method: "POST";
+  body: string;
+};
+
 const DEFAULT_BASE_URL = "https://open.assembly.go.kr";
+export const OFFICIAL_COMMITTEE_CAREER_SHEET_URL =
+  "https://open.assembly.go.kr/portal/data/sheet/searchSheetData.do";
+export const OFFICIAL_COMMITTEE_CAREER_SERVICE_URL =
+  "https://open.assembly.go.kr/portal/data/service/selectServicePage.do?infId=ORNDP7000993P115502";
+export const OFFICIAL_COMMITTEE_CAREER_INF_ID = "ORNDP7000993P115502";
+export const OFFICIAL_LIKMS_VOTE_INFO_URL =
+  "https://likms.assembly.go.kr/bill/bi/bill/detail/voteInfo.do";
+export const OFFICIAL_PLENARY_ATTENDANCE_INF_ID = "O4Q5B50011905O18367";
+export const OFFICIAL_PLENARY_ATTENDANCE_FILE_LIST_URL =
+  "https://open.assembly.go.kr/portal/data/file/searchFileData.do";
+export const OFFICIAL_PLENARY_ATTENDANCE_FILE_DOWNLOAD_URL =
+  "https://open.assembly.go.kr/portal/data/file/downloadFileData.do";
+export const OFFICIAL_PLENARY_ATTENDANCE_SERVICE_URL =
+  "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O4Q5B50011905O18367";
 const DEFAULT_API_KEY_PARAM_NAME = "KEY";
 const DEFAULT_RESPONSE_TYPE = "xml";
 const DEFAULT_PAGE_INDEX = 1;
@@ -150,12 +169,133 @@ export function buildVoteDetailRequest(
   params: {
     assemblyNo: string;
     billId: string;
+    page?: number;
+    rows?: number;
   }
 ): AssemblyRequest {
   return buildAssemblyRequest(config, config.endpoints.votesPath, {
     AGE: params.assemblyNo,
-    BILL_ID: params.billId
+    BILL_ID: params.billId,
+    pIndex: params.page ?? config.pageIndex,
+    pSize: params.rows ?? config.pageSize
   });
+}
+
+export function buildCommitteeCareerSheetRequest(
+  params: {
+    page?: number;
+    rows?: number;
+  } = {}
+): OfficialPostRequest {
+  const page = params.page ?? 1;
+  const rows = params.rows ?? 1000;
+  const requestParams = {
+    page: String(page),
+    rows: String(rows),
+    infId: OFFICIAL_COMMITTEE_CAREER_INF_ID,
+    infSeq: "1",
+    HG_NM: "",
+    PROFILE_SJ: ""
+  };
+  const url = new URL(OFFICIAL_COMMITTEE_CAREER_SHEET_URL);
+  url.searchParams.set("page", String(page));
+
+  return {
+    url: url.toString(),
+    headers: {
+      "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "x-requested-with": "XMLHttpRequest",
+      referer: OFFICIAL_COMMITTEE_CAREER_SERVICE_URL
+    },
+    method: "POST",
+    body: new URLSearchParams(
+      Object.fromEntries(
+        Object.entries(requestParams).filter(([key]) => key !== "page")
+      )
+    ).toString(),
+    params: requestParams
+  };
+}
+
+export function buildLikmsVoteMemberListRequest(
+  billId: string
+): OfficialPostRequest {
+  const billPageUrl = new URL(
+    "/bill/bi/billDetailPage.do",
+    OFFICIAL_LIKMS_VOTE_INFO_URL
+  );
+  billPageUrl.searchParams.set("billId", billId);
+  billPageUrl.searchParams.set("currMenuNo", "2600044");
+
+  return {
+    url: OFFICIAL_LIKMS_VOTE_INFO_URL,
+    headers: {
+      "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "x-requested-with": "XMLHttpRequest",
+      referer: billPageUrl.toString(),
+      "user-agent":
+        "Mozilla/5.0 (compatible; LawmakerMonitor/1.0; +https://github.com/kuil09/lawmaker-monitor)"
+    },
+    method: "POST",
+    body: new URLSearchParams({ billId }).toString(),
+    params: { billId }
+  };
+}
+
+export function buildPlenaryAttendanceFileListRequest(
+  params: {
+    page?: number;
+    rows?: number;
+  } = {}
+): OfficialPostRequest {
+  const requestParams = {
+    infId: OFFICIAL_PLENARY_ATTENDANCE_INF_ID,
+    infSeq: "1",
+    page: String(params.page ?? 1),
+    rows: String(params.rows ?? 500)
+  };
+
+  return {
+    url: OFFICIAL_PLENARY_ATTENDANCE_FILE_LIST_URL,
+    headers: {
+      "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "x-requested-with": "XMLHttpRequest",
+      referer: OFFICIAL_PLENARY_ATTENDANCE_SERVICE_URL,
+      "user-agent":
+        "Mozilla/5.0 (compatible; LawmakerMonitor/1.0; +https://github.com/kuil09/lawmaker-monitor)"
+    },
+    method: "POST",
+    body: new URLSearchParams(requestParams).toString(),
+    params: requestParams
+  };
+}
+
+export function buildPlenaryAttendanceFileRequest(
+  fileSeq: number
+): AssemblyRequest {
+  if (!Number.isSafeInteger(fileSeq) || fileSeq <= 0) {
+    throw new Error(`Invalid official plenary attendance fileSeq: ${fileSeq}.`);
+  }
+
+  const requestParams = {
+    infId: OFFICIAL_PLENARY_ATTENDANCE_INF_ID,
+    infSeq: "1",
+    fileSeq: String(fileSeq)
+  };
+  const url = new URL(OFFICIAL_PLENARY_ATTENDANCE_FILE_DOWNLOAD_URL);
+  for (const [key, value] of Object.entries(requestParams)) {
+    url.searchParams.set(key, value);
+  }
+
+  return {
+    url: url.toString(),
+    headers: {
+      referer: OFFICIAL_PLENARY_ATTENDANCE_SERVICE_URL,
+      "user-agent":
+        "Mozilla/5.0 (compatible; LawmakerMonitor/1.0; +https://github.com/kuil09/lawmaker-monitor)"
+    },
+    params: requestParams
+  };
 }
 
 export function buildMemberHistoryRequest(

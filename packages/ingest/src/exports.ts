@@ -115,6 +115,35 @@ type CommitteeSummary = {
   isCurrentCommittee: boolean;
   recentVoteRecords: MemberVoteRecord[];
 };
+type OfficialAttendanceAggregate = {
+  eligibleCount: number;
+  presentCount: number;
+  absentCount: number;
+  leaveCount: number;
+  tripCount: number;
+  attendanceRate: number;
+  dateRange: {
+    startDate: string;
+    endDate: string;
+  };
+};
+type OfficialAttendanceAggregateAccumulator = Omit<
+  OfficialAttendanceAggregate,
+  "attendanceRate" | "dateRange"
+> & {
+  startDate: string;
+  endDate: string;
+};
+type OfficialAttendanceSummary = {
+  plenary?: OfficialAttendanceAggregate;
+  standingCommittees?: Array<
+    OfficialAttendanceAggregate & { committeeName: string }
+  >;
+};
+type OfficialAttendanceMemberAccumulators = {
+  plenary?: OfficialAttendanceAggregateAccumulator;
+  standingCommittees: Map<string, OfficialAttendanceAggregateAccumulator>;
+};
 type HomeCommitteeAlert = {
   committeeName: string;
   participationRate: number;
@@ -291,6 +320,142 @@ function createLatestVoteCounts(): LatestVoteCounts {
     invalid: 0,
     unknown: 0
   };
+}
+
+function createOfficialAttendanceAggregate(
+  meetingDate: string
+): OfficialAttendanceAggregateAccumulator {
+  return {
+    eligibleCount: 0,
+    presentCount: 0,
+    absentCount: 0,
+    leaveCount: 0,
+    tripCount: 0,
+    startDate: meetingDate,
+    endDate: meetingDate
+  };
+}
+
+function addOfficialAttendanceFact(
+  aggregate: OfficialAttendanceAggregateAccumulator,
+  attendanceFact: NormalizedBundle["attendanceFacts"][number]
+): void {
+  aggregate.eligibleCount += 1;
+  aggregate.startDate =
+    attendanceFact.meetingDate.localeCompare(aggregate.startDate) < 0
+      ? attendanceFact.meetingDate
+      : aggregate.startDate;
+  aggregate.endDate =
+    attendanceFact.meetingDate.localeCompare(aggregate.endDate) > 0
+      ? attendanceFact.meetingDate
+      : aggregate.endDate;
+
+  switch (attendanceFact.status) {
+    case "present":
+      aggregate.presentCount += 1;
+      break;
+    case "absent":
+      aggregate.absentCount += 1;
+      break;
+    case "leave":
+      aggregate.leaveCount += 1;
+      break;
+    case "trip":
+      aggregate.tripCount += 1;
+      break;
+  }
+}
+
+function finalizeOfficialAttendanceAggregate(
+  aggregate: OfficialAttendanceAggregateAccumulator
+): OfficialAttendanceAggregate {
+  return {
+    eligibleCount: aggregate.eligibleCount,
+    presentCount: aggregate.presentCount,
+    absentCount: aggregate.absentCount,
+    leaveCount: aggregate.leaveCount,
+    tripCount: aggregate.tripCount,
+    attendanceRate:
+      aggregate.eligibleCount > 0
+        ? aggregate.presentCount / aggregate.eligibleCount
+        : 0,
+    dateRange: {
+      startDate: aggregate.startDate,
+      endDate: aggregate.endDate
+    }
+  };
+}
+
+function buildOfficialAttendanceSummariesByMember(args: {
+  attendanceFacts: NormalizedBundle["attendanceFacts"];
+  currentMemberIds: Set<string>;
+}): Map<string, OfficialAttendanceSummary> {
+  const accumulatorsByMemberId = new Map<
+    string,
+    OfficialAttendanceMemberAccumulators
+  >();
+
+  for (const attendanceFact of args.attendanceFacts) {
+    if (!args.currentMemberIds.has(attendanceFact.memberId)) {
+      continue;
+    }
+
+    const memberAccumulators: OfficialAttendanceMemberAccumulators =
+      accumulatorsByMemberId.get(attendanceFact.memberId) ?? {
+        standingCommittees: new Map<
+          string,
+          OfficialAttendanceAggregateAccumulator
+        >()
+      };
+    if (attendanceFact.meetingType === "plenary") {
+      const plenary =
+        memberAccumulators.plenary ??
+        createOfficialAttendanceAggregate(attendanceFact.meetingDate);
+      addOfficialAttendanceFact(plenary, attendanceFact);
+      memberAccumulators.plenary = plenary;
+    } else if (attendanceFact.committeeName) {
+      const committeeName = attendanceFact.committeeName.trim();
+      if (committeeName) {
+        const committee =
+          memberAccumulators.standingCommittees.get(committeeName) ??
+          createOfficialAttendanceAggregate(attendanceFact.meetingDate);
+        addOfficialAttendanceFact(committee, attendanceFact);
+        memberAccumulators.standingCommittees.set(committeeName, committee);
+      }
+    }
+    accumulatorsByMemberId.set(attendanceFact.memberId, memberAccumulators);
+  }
+
+  return new Map(
+    [...accumulatorsByMemberId.entries()].flatMap(
+      ([memberId, accumulators]) => {
+        const standingCommittees = [
+          ...accumulators.standingCommittees.entries()
+        ]
+          .map(([committeeName, aggregate]) => ({
+            committeeName,
+            ...finalizeOfficialAttendanceAggregate(aggregate)
+          }))
+          .sort((left, right) =>
+            left.committeeName.localeCompare(right.committeeName, "ko-KR")
+          );
+        const summary: OfficialAttendanceSummary = {
+          ...(accumulators.plenary
+            ? {
+                plenary: finalizeOfficialAttendanceAggregate(
+                  accumulators.plenary
+                )
+              }
+            : {}),
+          ...(standingCommittees.length > 0 ? { standingCommittees } : {})
+        };
+
+        return summary.plenary || summary.standingCommittees
+          ? [[memberId, summary] as const]
+          : [];
+      }
+    )
+  );
 }
 
 function toCalendarBucketKey(voteCode: VoteCode): keyof DayBucket {
@@ -1241,6 +1406,12 @@ export function buildAccountabilitySummaryExport(
   const currentMemberIds = new Set(
     currentMembers.map((member) => member.memberId)
   );
+  const officialAttendanceByMemberId = buildOfficialAttendanceSummariesByMember(
+    {
+      attendanceFacts: bundle.attendanceFacts,
+      currentMemberIds
+    }
+  );
   const eligibleRollCalls = bundle.rollCalls.filter(
     (rollCall) =>
       rollCall.assemblyNo === assemblyNo &&
@@ -1373,7 +1544,8 @@ export function buildAccountabilitySummaryExport(
           partyLineParticipationCount > 0
             ? partyLineDefectionCount / partyLineParticipationCount
             : 0,
-        lastVoteAt: latestVoteAtByMember.get(member.memberId) ?? null
+        lastVoteAt: latestVoteAtByMember.get(member.memberId) ?? null,
+        officialAttendance: officialAttendanceByMemberId.get(member.memberId)
       };
     })
     .filter(
@@ -1381,7 +1553,8 @@ export function buildAccountabilitySummaryExport(
         item.totalRecordedVotes > 0 ||
         item.noCount > 0 ||
         item.abstainCount > 0 ||
-        item.absentCount > 0
+        item.absentCount > 0 ||
+        item.officialAttendance !== undefined
     )
     .sort((left, right) => {
       const rightNegativeCount =
@@ -2113,6 +2286,7 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
     members: toNdjson(bundle.members),
     rollCalls: toNdjson(bundle.rollCalls),
     voteFacts: toNdjson(bundle.voteFacts),
+    attendanceFacts: toAttendanceFactsNdjson(bundle.attendanceFacts),
     meetings: toNdjson(bundle.meetings),
     sources: toNdjson(bundle.sources)
   };
@@ -2154,6 +2328,11 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
         "curated/vote_facts.parquet",
         normalizedPayloads.voteFacts,
         bundle.voteFacts.length
+      ),
+      attendanceFacts: createDatasetFile(
+        "curated/attendance_facts.parquet",
+        normalizedPayloads.attendanceFacts,
+        bundle.attendanceFacts.length
       ),
       meetings: createDatasetFile(
         "curated/meetings.parquet",
@@ -2274,4 +2453,28 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
 
 export function toNdjson(items: unknown[]): string {
   return items.map((item) => JSON.stringify(item)).join("\n");
+}
+
+export function toAttendanceFactsNdjson(
+  items: NormalizedBundle["attendanceFacts"]
+): string {
+  return toNdjson([
+    {
+      __seed: true,
+      attendanceId: "__seed__",
+      memberId: "__seed__",
+      memberName: "__seed__",
+      meetingDate: "1970-01-01",
+      meetingType: "plenary",
+      committeeName: null,
+      status: "absent",
+      sourceUrl: "https://example.test/attendance",
+      retrievedAt: "1970-01-01T00:00:00.000Z",
+      sourceHash: "__seed__"
+    },
+    ...items.map((item) => ({
+      __seed: false,
+      ...item
+    }))
+  ]);
 }

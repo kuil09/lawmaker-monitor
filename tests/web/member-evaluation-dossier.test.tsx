@@ -149,6 +149,74 @@ describe("member evaluation dossier", () => {
     expect(within(evidenceGrid!).queryByText("0 / 537 (0.0%)")).toBeNull();
   });
 
+  it("shows official meeting attendance separately from recorded-vote participation", () => {
+    const itemWithAttendance = {
+      ...accountabilityItem,
+      officialAttendance: {
+        plenary: {
+          eligibleCount: 29,
+          presentCount: 26,
+          absentCount: 2,
+          leaveCount: 1,
+          tripCount: 0,
+          attendanceRate: 26 / 29,
+          dateRange: {
+            startDate: "2026-01-15",
+            endDate: "2026-07-23"
+          }
+        },
+        standingCommittees: [
+          {
+            committeeName: "문화체육관광위원회",
+            eligibleCount: 9,
+            presentCount: 5,
+            absentCount: 4,
+            leaveCount: 0,
+            tripCount: 0,
+            attendanceRate: 5 / 9,
+            dateRange: {
+              startDate: "2026-02-23",
+              endDate: "2026-07-21"
+            }
+          }
+        ]
+      }
+    };
+    const { container } = render(
+      <MemberEvaluationDossier
+        assembly={activity.assembly}
+        member={member}
+        accountabilityItem={itemWithAttendance}
+        voteRecords={[]}
+        voteRecordCount={0}
+        voteRecordsLoading={false}
+        voteRecordsError={null}
+        resolvedDistrict="세종특별자치시을"
+        onShare={vi.fn()}
+      />
+    );
+    const evidenceGrid = container.querySelector(
+      ".member-evaluation__evidence-grid"
+    );
+
+    expect(evidenceGrid).not.toBeNull();
+    expect(
+      within(evidenceGrid!).getByText("본회의 공식 출석")
+    ).toBeInTheDocument();
+    expect(
+      within(evidenceGrid!).getByText("26 / 29 (89.7%)")
+    ).toBeInTheDocument();
+    expect(
+      within(evidenceGrid!).getByText("문화체육관광위원회 공식 출석")
+    ).toBeInTheDocument();
+    expect(
+      within(evidenceGrid!).getByText("5 / 9 (55.6%)")
+    ).toBeInTheDocument();
+    expect(
+      within(evidenceGrid!).getAllByText(/기록표결 참여와 별도/)
+    ).toHaveLength(2);
+  });
+
   it("does not infer proportional representation when region data is missing", () => {
     const { getByText, queryByText } = render(
       <MemberEvaluationDossier

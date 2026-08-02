@@ -600,6 +600,9 @@ describe("data pipeline contracts", () => {
     expect(manifest.datasets.voteFacts.url).toContain(
       "curated/vote_facts.parquet"
     );
+    expect(manifest.datasets.attendanceFacts?.url).toContain(
+      "curated/attendance_facts.parquet"
+    );
     expect(manifest.exports.latestVotes.path).toBe("exports/latest_votes.json");
     expect(manifest.exports.latestVotes.checksumSha256).toBe(
       sha256(serializePublishedJson(latestVotes))
