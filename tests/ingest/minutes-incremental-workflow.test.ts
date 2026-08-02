@@ -25,6 +25,7 @@ describe("incremental minutes workflows", () => {
     expect(workflow).toContain(
       "MIRROR_MAX_DOWNLOADS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_downloads || vars.MIRROR_MAX_DOWNLOADS || '500' }}"
     );
+    expect(workflow).toContain('MIRROR_TIMEOUT_MS: "60000"');
     expect(workflow).toContain('MIRROR_INCLUDE_APPENDICES: "false"');
     expect(workflow).not.toContain(
       '-f include_appendices="${MIRROR_INCLUDE_APPENDICES}"'
