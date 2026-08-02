@@ -244,6 +244,31 @@ export const voteMinutesOpinionsExportSchema = z
   })
   .strict();
 
+export const officialAttendanceAggregateSchema = z.object({
+  eligibleCount: z.number().int().nonnegative(),
+  presentCount: z.number().int().nonnegative(),
+  absentCount: z.number().int().nonnegative(),
+  leaveCount: z.number().int().nonnegative(),
+  tripCount: z.number().int().nonnegative(),
+  attendanceRate: z.number().min(0).max(1),
+  dateRange: z.object({
+    startDate: nonEmptyString,
+    endDate: nonEmptyString
+  })
+});
+
+export const officialStandingCommitteeAttendanceAggregateSchema =
+  officialAttendanceAggregateSchema.extend({
+    committeeName: nonEmptyString
+  });
+
+export const officialAttendanceSummarySchema = z.object({
+  plenary: officialAttendanceAggregateSchema.optional(),
+  standingCommittees: z
+    .array(officialStandingCommitteeAttendanceAggregateSchema)
+    .optional()
+});
+
 export const accountabilitySummaryItemSchema = z.object({
   memberId: nonEmptyString,
   name: nonEmptyString,
@@ -266,7 +291,8 @@ export const accountabilitySummaryItemSchema = z.object({
   partyLineParticipationCount: z.number().int().nonnegative().default(0),
   partyLineDefectionCount: z.number().int().nonnegative().default(0),
   partyLineDefectionRate: z.number().min(0).max(1).default(0),
-  lastVoteAt: nonEmptyString.nullable().optional()
+  lastVoteAt: nonEmptyString.nullable().optional(),
+  officialAttendance: officialAttendanceSummarySchema.optional()
 });
 
 export const accountabilitySummaryExportSchema = z.object({
@@ -895,6 +921,7 @@ export const manifestSchema = z.object({
     members: datasetFileSchema,
     rollCalls: datasetFileSchema,
     voteFacts: datasetFileSchema,
+    attendanceFacts: datasetFileSchema.optional(),
     meetings: datasetFileSchema,
     sources: datasetFileSchema,
     assetDisclosures: datasetFileSchema.optional(),
@@ -956,6 +983,15 @@ export type VoteMinutesOpinionItem = z.infer<
 >;
 export type VoteMinutesOpinionsExport = z.infer<
   typeof voteMinutesOpinionsExportSchema
+>;
+export type OfficialAttendanceAggregate = z.infer<
+  typeof officialAttendanceAggregateSchema
+>;
+export type OfficialStandingCommitteeAttendanceAggregate = z.infer<
+  typeof officialStandingCommitteeAttendanceAggregateSchema
+>;
+export type OfficialAttendanceSummary = z.infer<
+  typeof officialAttendanceSummarySchema
 >;
 export type AccountabilitySummaryItem = z.infer<
   typeof accountabilitySummaryItemSchema

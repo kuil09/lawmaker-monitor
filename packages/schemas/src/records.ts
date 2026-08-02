@@ -109,6 +109,26 @@ export const meetingSchema = z.object({
   isLive: z.boolean()
 });
 
+export const attendanceStatusSchema = z.enum([
+  "present",
+  "absent",
+  "leave",
+  "trip"
+]);
+
+export const attendanceFactSchema = z.object({
+  attendanceId: nonEmptyString,
+  memberId: nonEmptyString,
+  memberName: nonEmptyString,
+  meetingDate: nonEmptyString,
+  meetingType: z.enum(["plenary", "committee"]),
+  committeeName: nonEmptyString.nullable(),
+  status: attendanceStatusSchema,
+  sourceUrl: nonEmptyString.url(),
+  retrievedAt: nonEmptyString,
+  sourceHash: nonEmptyString
+});
+
 export const sourceRecordSchema = z.object({
   sourceUrl: nonEmptyString.url(),
   sourceSystem: nonEmptyString,
@@ -120,6 +140,7 @@ export const normalizedBundleSchema = z.object({
   members: z.array(memberSchema),
   rollCalls: z.array(rollCallSchema),
   voteFacts: z.array(voteFactSchema),
+  attendanceFacts: z.array(attendanceFactSchema).default([]),
   meetings: z.array(meetingSchema),
   sources: z.array(sourceRecordSchema)
 });
@@ -134,5 +155,7 @@ export type MemberRecord = z.infer<typeof memberSchema>;
 export type RollCallRecord = z.infer<typeof rollCallSchema>;
 export type VoteFactRecord = z.infer<typeof voteFactSchema>;
 export type MeetingRecord = z.infer<typeof meetingSchema>;
+export type AttendanceStatus = z.infer<typeof attendanceStatusSchema>;
+export type AttendanceFactRecord = z.infer<typeof attendanceFactSchema>;
 export type SourceRecord = z.infer<typeof sourceRecordSchema>;
 export type NormalizedBundle = z.infer<typeof normalizedBundleSchema>;

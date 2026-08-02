@@ -4,12 +4,18 @@ import { fileURLToPath } from "node:url";
 import {
   buildAssemblyRequest,
   buildBillVoteSummaryRequest,
+  buildCommitteeCareerSheetRequest,
+  buildLikmsVoteMemberListRequest,
   buildMemberHistoryRequest,
+  buildPlenaryAttendanceFileListRequest,
+  buildPlenaryAttendanceFileRequest,
   buildVoteDetailRequest,
+  OFFICIAL_PLENARY_ATTENDANCE_INF_ID,
   type AssemblyApiConfig,
   resolveAssemblyApiConfig
 } from "../assembly-api.js";
 import { assertRawSnapshotManifestSourcePolicy } from "../assembly-source-registry.js";
+import { parseLikmsVoteInfoHtml } from "../likms-votes.js";
 import {
   buildMemberHistorySupplementalTargets,
   findMissingCurrentMemberTenures
@@ -17,6 +23,7 @@ import {
 import { enrichMembersWithMemberProfileAll } from "../member-profile-enrichment.js";
 import {
   parseAgendaXml,
+  parseBillVoteSummaryXml,
   parseMemberInfoXml,
   parseMemberProfileAllXml,
   parseVoteDetailEntryPayload,
@@ -31,6 +38,7 @@ import {
   writeSnapshotPayload
 } from "../raw-snapshot.js";
 import {
+  fetchBufferWithTimeout,
   fetchTextWithTimeout,
   mapWithConcurrency,
   resolvePathFromRoot,
@@ -70,6 +78,15 @@ type TextRequest = {
   body?: string;
 };
 
+type OfficialPlenaryAttendanceFile = {
+  infId: string;
+  infSeq: number;
+  fileSeq: number;
+  viewFileNm: string;
+  fileExt: string;
+  ftCrDttm: string;
+};
+
 const FETCH_RETRY_BACKOFF_MS = 750;
 const MAX_MEMBER_HISTORY_PAGES = 500;
 const MAX_GENERIC_PAGES = 500;
@@ -81,6 +98,15 @@ function endpointCodeFromPath(path: string): string {
 function toVoteRelativePath(billId: string): string {
   const normalized = billId.replace(/[^A-Za-z0-9._-]/g, "_");
   return `official/votes/${normalized}.xml`;
+}
+
+function toVoteMemberListRelativePath(billId: string): string {
+  const normalized = billId.replace(/[^A-Za-z0-9._-]/g, "_");
+  return `official/vote_member_lists/${normalized}.html`;
+}
+
+function toPlenaryAttendanceFileRelativePath(fileSeq: number): string {
+  return `official/plenary_attendance/${fileSeq}.xlsx`;
 }
 
 function formatErrorMessage(error: unknown): string {
@@ -131,6 +157,26 @@ async function fetchText(
           headers: request.headers,
           method: request.method,
           body: request.body
+        },
+        fetchPolicy.timeoutMs
+      ),
+    {
+      retries: fetchPolicy.retries,
+      backoffMs: fetchPolicy.backoffMs
+    }
+  );
+}
+
+async function fetchBuffer(
+  request: Pick<TextRequest, "url" | "headers">,
+  fetchPolicy: FetchPolicy
+): Promise<Buffer> {
+  return retryFetch(
+    () =>
+      fetchBufferWithTimeout(
+        request.url,
+        {
+          headers: request.headers
         },
         fetchPolicy.timeoutMs
       ),
@@ -313,7 +359,9 @@ async function fetchAndStoreVoteTarget(args: {
 }): Promise<{ body: string; entry: RawSnapshotEntry }> {
   const request = buildVoteDetailRequest(args.config, {
     assemblyNo: args.target.assemblyNo,
-    billId: args.target.billId
+    billId: args.target.billId,
+    page: 1,
+    rows: 1000
   });
   const retrievedAt = new Date().toISOString();
   const body = await fetchText(
@@ -338,6 +386,192 @@ async function fetchAndStoreVoteTarget(args: {
   });
 
   return { body, entry };
+}
+
+async function fetchAndStoreCommitteeCareerSheet(args: {
+  config: AssemblyApiConfig;
+  outputDir: string;
+  snapshotId: string;
+  fetchPolicy: FetchPolicy;
+  page: number;
+  rows: number;
+}): Promise<{ body: string; entry: RawSnapshotEntry }> {
+  const request = buildCommitteeCareerSheetRequest({
+    page: args.page,
+    rows: args.rows
+  });
+  const retrievedAt = new Date().toISOString();
+  const body = await fetchText(request, args.fetchPolicy);
+  const entry = await writeSnapshotPayload({
+    outputDir: args.outputDir,
+    snapshotId: args.snapshotId,
+    kind: "member_committee_career",
+    endpointCode: "ORNDP7000993P115502",
+    relativePath: `official/member_committee_career/page-${args.page}.json`,
+    sourceUrl: request.url,
+    requestParams: request.params,
+    retrievedAt,
+    body,
+    metadata: {
+      page: String(args.page)
+    }
+  });
+
+  return { body, entry };
+}
+
+async function fetchAndStoreLikmsVoteMemberList(args: {
+  outputDir: string;
+  snapshotId: string;
+  fetchPolicy: FetchPolicy;
+  billId: string;
+  billNo: string;
+}): Promise<{ body: string; entry: RawSnapshotEntry }> {
+  const request = buildLikmsVoteMemberListRequest(args.billId);
+  const retrievedAt = new Date().toISOString();
+  const body = await fetchText(request, args.fetchPolicy);
+  const entry = await writeSnapshotPayload({
+    outputDir: args.outputDir,
+    snapshotId: args.snapshotId,
+    kind: "vote_member_list",
+    endpointCode: "voteInfo.do",
+    relativePath: toVoteMemberListRelativePath(args.billId),
+    sourceUrl: request.url,
+    requestParams: request.params,
+    retrievedAt,
+    body,
+    metadata: {
+      billId: args.billId,
+      billNo: args.billNo
+    }
+  });
+
+  return { body, entry };
+}
+
+function parsePlenaryAttendanceFileList(
+  payload: string
+): OfficialPlenaryAttendanceFile[] {
+  const parsed = JSON.parse(payload) as {
+    data?: Array<Record<string, unknown>>;
+  };
+  if (!Array.isArray(parsed.data)) {
+    throw new Error(
+      "Official plenary attendance file service returned no data array."
+    );
+  }
+
+  return parsed.data.flatMap((row) => {
+    const infId = String(row.infId ?? "");
+    const infSeq = Number(row.infSeq);
+    const fileSeq = Number(row.fileSeq);
+    const viewFileNm = String(row.viewFileNm ?? "").trim();
+    const fileExt = String(row.fileExt ?? "")
+      .trim()
+      .toLowerCase();
+    const ftCrDttm = String(row.ftCrDttm ?? "").trim();
+    if (
+      infId !== OFFICIAL_PLENARY_ATTENDANCE_INF_ID ||
+      infSeq !== 1 ||
+      !Number.isSafeInteger(fileSeq) ||
+      fileSeq <= 0 ||
+      !viewFileNm ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(ftCrDttm)
+    ) {
+      throw new Error(
+        `Official plenary attendance file list contains an invalid row: ${JSON.stringify(row)}`
+      );
+    }
+
+    return [
+      {
+        infId,
+        infSeq,
+        fileSeq,
+        viewFileNm,
+        fileExt,
+        ftCrDttm
+      }
+    ];
+  });
+}
+
+function selectCurrentAssemblyAttendanceFiles(args: {
+  files: OfficialPlenaryAttendanceFile[];
+  assemblyStartDate: string;
+}): Array<OfficialPlenaryAttendanceFile & { sessionNo: number }> {
+  const latestBySession = new Map<
+    number,
+    OfficialPlenaryAttendanceFile & { sessionNo: number }
+  >();
+
+  for (const file of args.files) {
+    const sessionNo = Number.parseInt(
+      file.viewFileNm.match(/제?(\d+)회/)?.[1] ?? "",
+      10
+    );
+    if (
+      file.fileExt !== "xlsx" ||
+      !file.viewFileNm.includes("본회의 출결현황") ||
+      file.ftCrDttm.localeCompare(args.assemblyStartDate) < 0 ||
+      !Number.isSafeInteger(sessionNo) ||
+      sessionNo <= 0
+    ) {
+      continue;
+    }
+
+    const existing = latestBySession.get(sessionNo);
+    if (
+      !existing ||
+      file.ftCrDttm.localeCompare(existing.ftCrDttm) > 0 ||
+      (file.ftCrDttm === existing.ftCrDttm && file.fileSeq > existing.fileSeq)
+    ) {
+      latestBySession.set(sessionNo, { ...file, sessionNo });
+    }
+  }
+
+  return [...latestBySession.values()].sort(
+    (left, right) => left.sessionNo - right.sessionNo
+  );
+}
+
+async function fetchAndStorePlenaryAttendanceFile(args: {
+  outputDir: string;
+  snapshotId: string;
+  fetchPolicy: FetchPolicy;
+  file: OfficialPlenaryAttendanceFile & { sessionNo: number };
+}): Promise<RawSnapshotEntry> {
+  const request = buildPlenaryAttendanceFileRequest(args.file.fileSeq);
+  const retrievedAt = new Date().toISOString();
+  const body = await fetchBuffer(request, args.fetchPolicy);
+  if (
+    body.length < 4 ||
+    body[0] !== 0x50 ||
+    body[1] !== 0x4b ||
+    ![0x03, 0x05, 0x07].includes(body[2] ?? -1)
+  ) {
+    throw new Error(
+      `Official plenary attendance file ${args.file.fileSeq} is not an XLSX ZIP payload.`
+    );
+  }
+
+  return writeSnapshotPayload({
+    outputDir: args.outputDir,
+    snapshotId: args.snapshotId,
+    kind: "plenary_attendance_file",
+    endpointCode: OFFICIAL_PLENARY_ATTENDANCE_INF_ID,
+    relativePath: toPlenaryAttendanceFileRelativePath(args.file.fileSeq),
+    sourceUrl: request.url,
+    requestParams: request.params,
+    retrievedAt,
+    body,
+    metadata: {
+      fileSeq: String(args.file.fileSeq),
+      fileName: args.file.viewFileNm,
+      filePublishedAt: args.file.ftCrDttm,
+      sessionNo: String(args.file.sessionNo)
+    }
+  });
 }
 
 async function main(): Promise<void> {
@@ -744,6 +978,96 @@ async function main(): Promise<void> {
     }
   }
 
+  let expectedCommitteeCareerRows: number | null = null;
+  let fetchedCommitteeCareerRows = 0;
+  for (let page = 1; page <= MAX_GENERIC_PAGES; page += 1) {
+    const result = await fetchAndStoreCommitteeCareerSheet({
+      config,
+      outputDir,
+      snapshotId,
+      fetchPolicy,
+      page,
+      rows: config.pageSize
+    });
+    manifestEntries.push(result.entry);
+
+    const parsed = JSON.parse(result.body) as {
+      total?: number | string;
+      data?: unknown[];
+    };
+    const rows = parsed.data?.length ?? 0;
+    fetchedCommitteeCareerRows += rows;
+    const publishedTotal = Number.parseInt(String(parsed.total ?? ""), 10);
+    expectedCommitteeCareerRows ??= Number.isFinite(publishedTotal)
+      ? publishedTotal
+      : null;
+
+    if (rows === 0) {
+      break;
+    }
+    if (
+      expectedCommitteeCareerRows !== null &&
+      fetchedCommitteeCareerRows >= expectedCommitteeCareerRows
+    ) {
+      break;
+    }
+  }
+  if (
+    expectedCommitteeCareerRows === null ||
+    fetchedCommitteeCareerRows < expectedCommitteeCareerRows
+  ) {
+    throw new Error(
+      `Committee career paging incomplete. Expected ${expectedCommitteeCareerRows ?? "a published total"}, fetched ${fetchedCommitteeCareerRows}.`
+    );
+  }
+
+  const assemblyStartDate = parsedMemberHistory
+    .filter((record) => record.assemblyNo === currentAssembly.assemblyNo)
+    .map((record) => record.startDate)
+    .sort()[0];
+  if (!assemblyStartDate) {
+    throw new Error(
+      `Failed to resolve the start date of assembly ${currentAssembly.assemblyNo}.`
+    );
+  }
+
+  const attendanceFileListRequest = buildPlenaryAttendanceFileListRequest({
+    rows: 500
+  });
+  const attendanceFileListPayload = await fetchText(
+    attendanceFileListRequest,
+    fetchPolicy
+  );
+  const publishedAttendanceFiles = parsePlenaryAttendanceFileList(
+    attendanceFileListPayload
+  );
+  if (publishedAttendanceFiles.length >= 500) {
+    throw new Error(
+      "Official plenary attendance file list reached the requested row limit."
+    );
+  }
+  const attendanceFiles = selectCurrentAssemblyAttendanceFiles({
+    files: publishedAttendanceFiles,
+    assemblyStartDate
+  });
+  if (attendanceFiles.length === 0) {
+    throw new Error(
+      `Official plenary attendance file service returned no XLSX files for assembly ${currentAssembly.assemblyNo}.`
+    );
+  }
+  const attendanceFileEntries = await mapWithConcurrency(
+    attendanceFiles,
+    Math.min(2, config.billFeedConcurrency),
+    (file) =>
+      fetchAndStorePlenaryAttendanceFile({
+        outputDir,
+        snapshotId,
+        fetchPolicy,
+        file
+      })
+  );
+  manifestEntries.push(...attendanceFileEntries);
+
   const scheduleTarget: FetchTarget = {
     kind: "plenary_schedule",
     endpointCode: endpointCodeFromPath(config.endpoints.plenarySchedulePath),
@@ -770,12 +1094,58 @@ async function main(): Promise<void> {
   );
   manifestEntries.push(scheduleEntry);
 
+  let expectedBillVoteSummaryRows: number | null = null;
+  let fetchedBillVoteSummaryRows = 0;
+  const billVoteSummaryRecords: ReturnType<typeof parseBillVoteSummaryXml> = [];
+
+  for (let page = 1; page <= MAX_GENERIC_PAGES; page += 1) {
+    const result = await fetchAndStoreBillVoteSummary({
+      config,
+      outputDir,
+      snapshotId,
+      fetchPolicy,
+      assemblyNo: String(currentAssembly.assemblyNo),
+      page,
+      rows: config.pageSize,
+      relativePath: `official/bill_vote_summary/page-${page}.xml`,
+      metadata: {
+        assemblyNo: String(currentAssembly.assemblyNo),
+        assemblyLabel: currentAssembly.label,
+        page: String(page)
+      }
+    });
+    manifestEntries.push(result.entry);
+    billVoteSummaryRecords.push(...parseBillVoteSummaryXml(result.body));
+
+    const rows = countXmlRows(result.body);
+    fetchedBillVoteSummaryRows += rows;
+    expectedBillVoteSummaryRows ??= parseListTotalCount(result.body);
+
+    if (rows === 0) {
+      break;
+    }
+    if (
+      expectedBillVoteSummaryRows !== null &&
+      fetchedBillVoteSummaryRows >= expectedBillVoteSummaryRows
+    ) {
+      break;
+    }
+  }
+  if (
+    expectedBillVoteSummaryRows === null ||
+    fetchedBillVoteSummaryRows < expectedBillVoteSummaryRows
+  ) {
+    throw new Error(
+      `Bill vote summary paging incomplete. Expected ${expectedBillVoteSummaryRows ?? "a published total"}, fetched ${fetchedBillVoteSummaryRows}.`
+    );
+  }
+
   const billTargets: FetchTarget[] = [
     {
       kind: "plenary_bills_law",
       endpointCode: endpointCodeFromPath(config.endpoints.plenaryLawBillsPath),
       path: config.endpoints.plenaryLawBillsPath,
-      relativePath: "official/plenary_bills_law.xml",
+      relativePath: "official/plenary_bills_law",
       params: { AGE: String(currentAssembly.assemblyNo) }
     },
     {
@@ -784,7 +1154,7 @@ async function main(): Promise<void> {
         config.endpoints.plenaryBudgetBillsPath
       ),
       path: config.endpoints.plenaryBudgetBillsPath,
-      relativePath: "official/plenary_bills_budget.xml",
+      relativePath: "official/plenary_bills_budget",
       params: { AGE: String(currentAssembly.assemblyNo) }
     },
     {
@@ -793,7 +1163,7 @@ async function main(): Promise<void> {
         config.endpoints.plenarySettlementBillsPath
       ),
       path: config.endpoints.plenarySettlementBillsPath,
-      relativePath: "official/plenary_bills_settlement.xml",
+      relativePath: "official/plenary_bills_settlement",
       params: { AGE: String(currentAssembly.assemblyNo) }
     },
     {
@@ -802,38 +1172,74 @@ async function main(): Promise<void> {
         config.endpoints.plenaryOtherBillsPath
       ),
       path: config.endpoints.plenaryOtherBillsPath,
-      relativePath: "official/plenary_bills_other.xml",
+      relativePath: "official/plenary_bills_other",
       params: { AGE: String(currentAssembly.assemblyNo) }
     }
   ];
 
-  const billRefs = new Map<string, { billNo: string; billId?: string }>();
+  const billRefs = new Map<string, { billNo: string; billId?: string }>(
+    billVoteSummaryRecords.map((record) => [
+      record.billNo,
+      {
+        billNo: record.billNo,
+        billId: record.billId
+      }
+    ])
+  );
   const billResults = await mapWithConcurrency(
     billTargets,
     config.billFeedConcurrency,
     async (target) => {
-      try {
-        return await fetchAndStoreTarget({
+      const results: Array<{
+        body: string;
+        entry: RawSnapshotEntry;
+      }> = [];
+      let expectedRows: number | null = null;
+      let fetchedRows = 0;
+
+      for (let page = 1; page <= MAX_GENERIC_PAGES; page += 1) {
+        const result = await fetchAndStoreTarget({
           config,
           outputDir,
           snapshotId,
           fetchPolicy,
-          target
+          target: {
+            ...target,
+            relativePath: `${target.relativePath}/page-${page}.xml`,
+            params: {
+              ...target.params,
+              pIndex: page,
+              pSize: config.pageSize
+            },
+            metadata: {
+              ...target.metadata,
+              page: String(page)
+            }
+          }
         });
-      } catch (error) {
-        console.warn(
-          `plenary_bill_feed ${target.kind} failed after retries: ${formatErrorMessage(error)}`
-        );
-        return null;
+        results.push(result);
+
+        const rows = countXmlRows(result.body);
+        fetchedRows += rows;
+        expectedRows ??= parseListTotalCount(result.body);
+        if (rows === 0) {
+          break;
+        }
+        if (expectedRows !== null && fetchedRows >= expectedRows) {
+          break;
+        }
       }
+
+      if (expectedRows === null || fetchedRows < expectedRows) {
+        throw new Error(
+          `${target.kind} paging incomplete. Expected ${expectedRows ?? "a published total"}, fetched ${fetchedRows}.`
+        );
+      }
+      return results;
     }
   );
 
-  for (const result of billResults) {
-    if (!result) {
-      continue;
-    }
-
+  for (const result of billResults.flat()) {
     manifestEntries.push(result.entry);
 
     const parsed = parseAgendaXml(result.body, {
@@ -850,7 +1256,7 @@ async function main(): Promise<void> {
 
       billRefs.set(billNo, {
         billNo,
-        billId: agenda.billId
+        billId: agenda.billId ?? billRefs.get(billNo)?.billId
       });
     }
   }
@@ -891,92 +1297,98 @@ async function main(): Promise<void> {
         }
       };
 
-      try {
-        const { body, entry } = await fetchAndStoreVoteTarget({
-          config,
-          outputDir,
-          snapshotId,
-          fetchPolicy,
-          target
-        });
-        const parsedVote = parseVoteDetailEntryPayload(
-          entry,
-          body,
-          {
-            sourceUrl: entry.sourceUrl,
-            retrievedAt: entry.retrievedAt,
-            snapshotId
-          },
-          {
-            currentMembers: parsedMemberInfoMembers
-          }
+      const { body, entry } = await fetchAndStoreVoteTarget({
+        config,
+        outputDir,
+        snapshotId,
+        fetchPolicy,
+        target
+      });
+      const expectedRows = parseListTotalCount(body);
+      const fetchedRows = countXmlRows(body);
+      if (expectedRows === null || fetchedRows < expectedRows) {
+        throw new Error(
+          `vote_detail ${billId} incomplete. Expected ${expectedRows ?? "a published total"}, fetched ${fetchedRows}.`
         );
-        const rollCalls = [
-          ...new Map(
-            parsedVote.rollCalls.map((rollCall) => [
-              rollCall.rollCallId,
-              rollCall
-            ])
-          ).values()
-        ];
-
-        return {
-          billNo,
-          billId,
-          entry,
-          rollCalls
-        };
-      } catch (error) {
-        console.warn(
-          `vote_detail ${billId} failed after retries: ${formatErrorMessage(error)}`
-        );
-        return null;
       }
+      const parsedVote = parseVoteDetailEntryPayload(
+        entry,
+        body,
+        {
+          sourceUrl: entry.sourceUrl,
+          retrievedAt: entry.retrievedAt,
+          snapshotId
+        },
+        {
+          currentMembers: parsedMemberInfoMembers
+        }
+      );
+      const namedParticipantCount = parsedVote.voteFacts.filter((fact) =>
+        ["yes", "no", "abstain", "invalid"].includes(fact.voteCode)
+      ).length;
+
+      return {
+        billNo,
+        billId,
+        entry,
+        namedParticipantCount
+      };
     }
   );
+  manifestEntries.push(...voteResults.map((result) => result.entry));
 
-  const successfulVoteResults = voteResults.filter(
-    (result): result is NonNullable<(typeof voteResults)[number]> =>
-      result !== null
+  const officialTallyByBillId = new Map(
+    billVoteSummaryRecords.map((record) => [
+      record.billId,
+      record.officialTally
+    ])
   );
-  manifestEntries.push(...successfulVoteResults.map((result) => result.entry));
-
-  let expectedBillVoteSummaryRows: number | null = null;
-  let fetchedBillVoteSummaryRows = 0;
-
-  for (let page = 1; page <= MAX_GENERIC_PAGES; page += 1) {
-    const result = await fetchAndStoreBillVoteSummary({
-      config,
-      outputDir,
-      snapshotId,
-      fetchPolicy,
-      assemblyNo: String(currentAssembly.assemblyNo),
-      page,
-      rows: config.pageSize,
-      relativePath: `official/bill_vote_summary/page-${page}.xml`,
-      metadata: {
-        assemblyNo: String(currentAssembly.assemblyNo),
-        assemblyLabel: currentAssembly.label,
-        page: String(page)
+  const supplementalVoteTargets = voteResults.filter((result) => {
+    const tally = officialTallyByBillId.get(result.billId);
+    return !tally || result.namedParticipantCount !== tally.presentCount;
+  });
+  const supplementalVoteResults = await mapWithConcurrency(
+    supplementalVoteTargets,
+    Math.min(2, config.voteDetailConcurrency),
+    async ({ billId, billNo }) => {
+      const result = await fetchAndStoreLikmsVoteMemberList({
+        outputDir,
+        snapshotId,
+        fetchPolicy,
+        billId,
+        billNo
+      });
+      const info = parseLikmsVoteInfoHtml(result.body);
+      if (info.billId !== billId) {
+        throw new Error(
+          `Official LIKMS member list returned ${info.billId} for requested bill ${billId}.`
+        );
       }
-    });
-    manifestEntries.push(result.entry);
+      const tally = officialTallyByBillId.get(billId);
+      if (
+        tally &&
+        (info.registeredCount !== tally.registeredCount ||
+          info.yesCount !== tally.yesCount ||
+          info.noCount !== tally.noCount ||
+          info.abstainCount !== tally.abstainCount ||
+          info.presentCount !== tally.presentCount)
+      ) {
+        throw new Error(
+          `Official LIKMS member list ${billId} does not match the official tally.`
+        );
+      }
+      if (!tally && info.presentCount === 0) {
+        throw new Error(
+          `Official LIKMS member list ${billId} returned no named votes.`
+        );
+      }
 
-    const rows = countXmlRows(result.body);
-    fetchedBillVoteSummaryRows += rows;
-    expectedBillVoteSummaryRows ??= parseListTotalCount(result.body);
-
-    if (rows === 0) {
-      break;
+      return result;
     }
-
-    if (
-      expectedBillVoteSummaryRows !== null &&
-      fetchedBillVoteSummaryRows >= expectedBillVoteSummaryRows
-    ) {
-      break;
-    }
-  }
+  );
+  manifestEntries.push(
+    ...supplementalVoteResults.map((result) => result.entry)
+  );
 
   const liveTarget: FetchTarget = {
     kind: "live",

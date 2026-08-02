@@ -193,6 +193,27 @@ export async function fetchTextWithTimeout(
   init: HeadersInit | RequestInit,
   timeoutMs: number
 ): Promise<string> {
+  return fetchBodyWithTimeout(url, init, timeoutMs, (response) =>
+    response.text()
+  );
+}
+
+export async function fetchBufferWithTimeout(
+  url: string,
+  init: HeadersInit | RequestInit,
+  timeoutMs: number
+): Promise<Buffer> {
+  return fetchBodyWithTimeout(url, init, timeoutMs, async (response) =>
+    Buffer.from(await response.arrayBuffer())
+  );
+}
+
+async function fetchBodyWithTimeout<T>(
+  url: string,
+  init: HeadersInit | RequestInit,
+  timeoutMs: number,
+  readBody: (response: Response) => Promise<T>
+): Promise<T> {
   const controller = new AbortController();
   const timeoutHandle = setTimeout(
     () => controller.abort(),
@@ -219,7 +240,7 @@ export async function fetchTextWithTimeout(
       );
     }
 
-    return response.text();
+    return readBody(response);
   } catch (error) {
     if (
       error instanceof Error &&

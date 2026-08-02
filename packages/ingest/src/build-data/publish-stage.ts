@@ -16,6 +16,7 @@ import {
   buildMemberActivityCalendarMemberDetailPath,
   MEMBER_ACTIVITY_MEMBER_DETAILS_DIR,
   serializePublishedJson,
+  toAttendanceFactsNdjson,
   toNdjson
 } from "../exports.js";
 import {
@@ -75,6 +76,10 @@ async function writeBundle(
     writeFile(
       join(normalizedDir, "vote_facts.ndjson"),
       toNdjson(bundle.voteFacts)
+    ),
+    writeFile(
+      join(normalizedDir, "attendance_facts.ndjson"),
+      toAttendanceFactsNdjson(bundle.attendanceFacts)
     ),
     writeFile(
       join(normalizedDir, "meetings.ndjson"),

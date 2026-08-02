@@ -585,6 +585,11 @@ function buildAssemblyMinutesCandidate(
       assemblyNo: readString(item.TH) ?? null,
       sessionNo: sessionNo ?? null,
       committeeName: committeeName ?? null,
+      meetingSubtitle:
+        readString(item.SUB_NAME) ??
+        readString(item.SUB_NM) ??
+        readString(item.SUB_TITLE) ??
+        null,
       meetingFileId: readString(item.FILE_ID) ?? null
     }
   };

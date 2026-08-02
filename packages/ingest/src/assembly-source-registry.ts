@@ -21,7 +21,10 @@ export type PendingAssemblyEndpointKey =
   | "plenaryBillsSettlement"
   | "plenaryBillsOther"
   | "plenaryMinutes"
-  | "liveWebcast";
+  | "liveWebcast"
+  | "memberCommitteeCareerSheet"
+  | "billVoteMemberList"
+  | "plenaryAttendanceFile";
 
 export type ConfiguredAssemblyEndpointKey =
   | CanonicalAssemblyEndpointKey
@@ -112,7 +115,10 @@ const RAW_KIND_TO_ENDPOINT_KEY: Partial<
   plenary_bills_settlement: "plenaryBillsSettlement",
   plenary_bills_other: "plenaryBillsOther",
   vote_detail: "votes",
+  vote_member_list: "billVoteMemberList",
   bill_vote_summary: "billVoteSummary",
+  member_committee_career: "memberCommitteeCareerSheet",
+  plenary_attendance_file: "plenaryAttendanceFile",
   bill_proposals: "billProposals",
   live: "liveWebcast",
   plenary_minutes: "plenaryMinutes"
@@ -193,8 +199,17 @@ export function assertRawSnapshotManifestSourcePolicy(
 ): RawSnapshotManifest {
   for (const entry of manifest.entries) {
     const actualPath = getUrlPath(entry.sourceUrl);
+    const endpointKey = RAW_KIND_TO_ENDPOINT_KEY[entry.kind];
+    const registeredEndpoint = endpointKey
+      ? endpointByKey.get(endpointKey)
+      : undefined;
+    const isRegisteredUseOfPath =
+      registeredEndpoint !== undefined &&
+      getUrlOrigin(entry.sourceUrl) ===
+        getUrlOrigin(registeredEndpoint.officialUrl) &&
+      actualPath === getUrlPath(registeredEndpoint.officialUrl);
 
-    if (forbiddenRuntimePaths.includes(actualPath)) {
+    if (forbiddenRuntimePaths.includes(actualPath) && !isRegisteredUseOfPath) {
       const source = assemblySourceRegistry.policy.forbiddenRuntimeSources.find(
         (candidate) => getUrlPath(candidate.url) === actualPath
       );
@@ -203,7 +218,6 @@ export function assertRawSnapshotManifestSourcePolicy(
       );
     }
 
-    const endpointKey = RAW_KIND_TO_ENDPOINT_KEY[entry.kind];
     if (endpointKey) {
       assertOfficialEndpointEntry(entry, endpointKey);
       continue;

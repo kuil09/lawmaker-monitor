@@ -427,6 +427,48 @@ export function MemberEvaluationDossier({
       });
     }
 
+    const officialAttendance = accountabilityItem?.officialAttendance;
+    if (officialAttendance?.plenary) {
+      const attendance = officialAttendance.plenary;
+      items.push({
+        id: "plenary-official-attendance",
+        label: "본회의 공식 출석",
+        value: formatRatio(
+          attendance.presentCount,
+          attendance.eligibleCount,
+          "산정 가능한 회의록 없음"
+        ),
+        detail: `출석 ${formatNumber(attendance.presentCount)}회 · 결석 ${formatNumber(
+          attendance.absentCount
+        )}회 · 청가 ${formatNumber(attendance.leaveCount)}회 · 출장 ${formatNumber(
+          attendance.tripCount
+        )}회`,
+        status: `국회 공식 회의록·출결 자료 ${formatDate(
+          attendance.dateRange.startDate
+        )} – ${formatDate(attendance.dateRange.endDate)} · 기록표결 참여와 별도`
+      });
+    }
+
+    for (const attendance of officialAttendance?.standingCommittees ?? []) {
+      items.push({
+        id: `committee-official-attendance-${attendance.committeeName}`,
+        label: `${attendance.committeeName} 공식 출석`,
+        value: formatRatio(
+          attendance.presentCount,
+          attendance.eligibleCount,
+          "산정 가능한 회의록 없음"
+        ),
+        detail: `출석 ${formatNumber(attendance.presentCount)}회 · 결석 ${formatNumber(
+          attendance.absentCount
+        )}회 · 청가 ${formatNumber(attendance.leaveCount)}회 · 출장 ${formatNumber(
+          attendance.tripCount
+        )}회`,
+        status: `국회 공식 회의록·출결 자료 ${formatDate(
+          attendance.dateRange.startDate
+        )} – ${formatDate(attendance.dateRange.endDate)} · 기록표결 참여와 별도`
+      });
+    }
+
     if (billItem) {
       items.push({
         id: "lead-proposals",

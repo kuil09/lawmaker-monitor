@@ -14,6 +14,12 @@ COPY (
 ) TO 'curated/vote_facts.parquet' (FORMAT PARQUET, COMPRESSION ZSTD);
 
 COPY (
+  SELECT * EXCLUDE (__seed)
+  FROM read_ndjson_auto('normalized/attendance_facts.ndjson')
+  WHERE COALESCE(__seed, false) = false
+) TO 'curated/attendance_facts.parquet' (FORMAT PARQUET, COMPRESSION ZSTD);
+
+COPY (
   SELECT * FROM read_ndjson_auto('normalized/meetings.ndjson')
 ) TO 'curated/meetings.parquet' (FORMAT PARQUET, COMPRESSION ZSTD);
 

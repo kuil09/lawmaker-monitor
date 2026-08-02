@@ -1,6 +1,16 @@
 import { enrichMembersWithMemberProfileAll } from "../member-profile-enrichment.js";
 import { createNormalizedBundle } from "../normalize.js";
 import {
+  loadOfficialMinutesAttendanceMeetings,
+  parseCommitteeCareerSheetJson,
+  resolveCommitteeCareerMembers,
+  supplementOfficialMinutesAttendance
+} from "../official-attendance.js";
+import {
+  buildOfficialAttendanceFacts,
+  mergeOfficialVoteFacts
+} from "../official-facts.js";
+import {
   createSourceRecord,
   parseAgendaXml,
   parseBillProposalXml,
@@ -15,6 +25,7 @@ import {
   parseVoteDetailEntryPayload,
   type BillProposalRecord
 } from "../parsers.js";
+import { parseOfficialPlenaryAttendanceXlsx } from "../plenary-attendance-files.js";
 import {
   DEFAULT_PROPERTY_MEMBER_CONTEXT_MANIFEST_PATH,
   loadPropertyMemberContext
@@ -231,14 +242,25 @@ export async function buildNormalizedStage(
     members: currentRosterMembers,
     profiles: memberProfileAllRecords
   }).members;
+  const initialTenureIndex = buildMemberTenureIndex({
+    members: memberInfoMembers,
+    tenures: parsedMemberHistory,
+    assemblyNo: currentAssembly.assemblyNo
+  });
+  assertCurrentMembersHaveTenure({
+    members: memberInfoMembers,
+    assemblyNo: currentAssembly.assemblyNo,
+    tenureIndex: initialTenureIndex
+  });
 
+  const billVoteSummaryRecords = rawInputs.billVoteSummaryXmls.flatMap((xml) =>
+    parseBillVoteSummaryXml(xml)
+  );
   const officialTalliesByBillId = new Map<
     string,
     NonNullable<NormalizedBundle["rollCalls"][number]["officialTally"]>
   >();
-  for (const row of rawInputs.billVoteSummaryXmls.flatMap((xml) =>
-    parseBillVoteSummaryXml(xml)
-  )) {
+  for (const row of billVoteSummaryRecords) {
     officialTalliesByBillId.set(row.billId, row.officialTally);
   }
 
@@ -263,6 +285,63 @@ export async function buildNormalizedStage(
       )
     ];
   });
+  const officialVotes = mergeOfficialVoteFacts({
+    members: memberInfoMembers,
+    rollCalls: parsedVotes.flatMap((result) => result.rollCalls),
+    voteFacts: parsedVotes.flatMap((result) => result.voteFacts),
+    summaries: billVoteSummaryRecords,
+    voteMemberListPayloads: rawInputs.voteMemberListEntries.flatMap(
+      (entry, index) => {
+        const html = rawInputs.voteMemberListHtmls[index];
+        return html ? [{ entry, html }] : [];
+      }
+    ),
+    assemblyNo: currentAssembly.assemblyNo,
+    snapshotId: rawInputs.snapshotId,
+    snapshotRetrievedAt: rawInputs.resolvedRaw.manifest.retrievedAt,
+    tenureIndex: initialTenureIndex
+  });
+  const committeeCareers = resolveCommitteeCareerMembers({
+    careers: rawInputs.committeeCareerJsons
+      .flatMap((payload) => parseCommitteeCareerSheetJson(payload))
+      .filter((career) => career.assemblyNo === currentAssembly.assemblyNo),
+    members: memberInfoMembers
+  });
+  const officialMinutesAttendanceMeetings =
+    await loadOfficialMinutesAttendanceMeetings({
+      dataRepoDir: rawInputs.dataRepoDir,
+      assemblyNo: currentAssembly.assemblyNo
+    });
+  const plenaryFileMeetings = rawInputs.plenaryAttendanceFileEntries.flatMap(
+    (entry, index) => {
+      const content = rawInputs.plenaryAttendanceFileBuffers[index];
+      if (!content) {
+        return [];
+      }
+      return parseOfficialPlenaryAttendanceXlsx({
+        content,
+        sourceUrl: entry.sourceUrl,
+        retrievedAt: entry.retrievedAt,
+        sourceHash: entry.checksumSha256
+      });
+    }
+  );
+  const officialAttendanceMeetings = supplementOfficialMinutesAttendance({
+    minutesMeetings: officialMinutesAttendanceMeetings,
+    plenaryFileMeetings
+  });
+  const attendanceFacts = buildOfficialAttendanceFacts({
+    members: memberInfoMembers,
+    careers: committeeCareers,
+    meetings: officialAttendanceMeetings,
+    tenureIndex: initialTenureIndex
+  });
+  const attendanceSources = officialAttendanceMeetings.map((meeting) => ({
+    sourceUrl: meeting.sourceUrl,
+    sourceSystem: new URL(meeting.sourceUrl).hostname,
+    retrievedAt: meeting.retrievedAt,
+    contentSha256: meeting.sourceHash
+  }));
 
   const minutesSources =
     rawInputs.minutesEntry && rawInputs.minutesXml
@@ -283,11 +362,14 @@ export async function buildNormalizedStage(
       ...parsedVotes.flatMap((result) => result.members),
       ...memberInfoMembers
     ],
-    rollCalls: parsedVotes.flatMap((result) => result.rollCalls),
-    voteFacts: parsedVotes.flatMap((result) => result.voteFacts),
+    rollCalls: officialVotes.rollCalls,
+    voteFacts: officialVotes.voteFacts,
+    attendanceFacts,
     meetings: meetings.meetings,
     sources: [
       ...parsedVotes.flatMap((result) => result.sources),
+      ...officialVotes.sources,
+      ...attendanceSources,
       ...agendaSources,
       ...meetings.sources,
       ...buildSourceRecords({
@@ -313,6 +395,11 @@ export async function buildNormalizedStage(
       ...buildSourceRecords({
         entries: rawInputs.committeeRosterEntries,
         payloads: rawInputs.committeeRosterXmls,
+        snapshotId: rawInputs.snapshotId
+      }),
+      ...buildSourceRecords({
+        entries: rawInputs.committeeCareerEntries,
+        payloads: rawInputs.committeeCareerJsons,
         snapshotId: rawInputs.snapshotId
       }),
       ...buildSourceRecords({

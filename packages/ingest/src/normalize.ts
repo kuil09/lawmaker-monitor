@@ -12,6 +12,7 @@ type NormalizeInput = {
   members: NormalizedBundle["members"];
   rollCalls: NormalizedBundle["rollCalls"];
   voteFacts: NormalizedBundle["voteFacts"];
+  attendanceFacts?: NormalizedBundle["attendanceFacts"];
   meetings: NormalizedBundle["meetings"];
   sources: NormalizedBundle["sources"];
   agendas: AgendaRecord[];
@@ -259,6 +260,10 @@ export function createNormalizedBundle(
           voteFact.memberId ??
           `name=${voteFact.memberName ?? ""};party=${voteFact.party ?? ""}`
         }:${voteFact.voteCode}:${voteFact.retrievedAt}`
+    ),
+    attendanceFacts: uniqueBy(
+      input.attendanceFacts ?? [],
+      (attendanceFact) => attendanceFact.attendanceId
     ),
     meetings: mergeMeetings(input.meetings, input.liveSignal),
     sources: mergeSources(input.sources)
