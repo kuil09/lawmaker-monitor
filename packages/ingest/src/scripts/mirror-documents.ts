@@ -2,7 +2,6 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { load } from "cheerio";
 import {
   chromium,
   request,
@@ -37,7 +36,10 @@ import {
   isOfficialAssemblyMinutesViewerUrl,
   parseAssemblyMinutesViewerHtml
 } from "../minutes-transcript.js";
-import { parseOfficialMinutesAttendanceHtml } from "../official-attendance.js";
+import {
+  isOfficialAttendanceRelevantMinutesTitle,
+  parseOfficialMinutesAttendanceHtml
+} from "../official-attendance.js";
 import {
   readJsonFile,
   readPositiveInteger,
@@ -1292,13 +1294,17 @@ export function buildAssemblyMinutesSearchFallbackHtml(args: {
   meetingTitle: string;
   rows: AssemblySearchItem[];
   sourceUrl: string;
+  requireAttendance?: boolean;
 }): string {
   const attendanceText = args.rows
     .map((row) => readString(row.ETC_CNTS))
     .filter((value): value is string => Boolean(value))
     .join(" ");
-  const presentNames = parseFallbackAttendanceNames(attendanceText, "출석");
-  if (presentNames.length === 0) {
+  const requireAttendance = args.requireAttendance ?? true;
+  const presentNames = requireAttendance
+    ? parseFallbackAttendanceNames(attendanceText, "출석")
+    : [];
+  if (requireAttendance && presentNames.length === 0) {
     throw new Error(
       `Official Assembly minutes search fallback returned no verified attendance section for ${args.minutesId}.`
     );
@@ -1307,11 +1313,15 @@ export function buildAssemblyMinutesSearchFallbackHtml(args: {
     renderFallbackAttendanceSection("출석", presentNames),
     renderFallbackAttendanceSection(
       "청가",
-      parseFallbackAttendanceNames(attendanceText, "청가")
+      requireAttendance
+        ? parseFallbackAttendanceNames(attendanceText, "청가")
+        : []
     ),
     renderFallbackAttendanceSection(
       "출장",
-      parseFallbackAttendanceNames(attendanceText, "출장")
+      requireAttendance
+        ? parseFallbackAttendanceNames(attendanceText, "출장")
+        : []
     )
   ].join("");
 
@@ -1829,13 +1839,44 @@ function readExpectedMinutesId(args: {
   return minutesId;
 }
 
+function selectOfficialMinutesAttendanceFragment(html: string): string {
+  const footerStart = html.lastIndexOf('<div class="minutes_footer"');
+  if (footerStart >= 0) {
+    return html.slice(footerStart);
+  }
+
+  const headerStart = html.indexOf('<div class="minutes_header"');
+  if (headerStart < 0) {
+    return html;
+  }
+  const bodyStart = html.indexOf('<div class="minutes_body"', headerStart);
+  return bodyStart > headerStart
+    ? html.slice(headerStart, bodyStart)
+    : html.slice(headerStart);
+}
+
 function assertOfficialMinutesAttendanceIsComplete(html: string): void {
-  const attendance = parseOfficialMinutesAttendanceHtml(html);
+  const attendance = parseOfficialMinutesAttendanceHtml(
+    selectOfficialMinutesAttendanceFragment(html)
+  );
   if (attendance.presentNames.length === 0) {
     throw new Error(
       "Official Assembly minutes artifact contains no verified attendance list."
     );
   }
+}
+
+function requiresOfficialMinutesAttendanceVerification(args: {
+  title?: string;
+  sourceMetadata?: Record<string, string | number | null>;
+}): boolean {
+  if (!args.title) {
+    return true;
+  }
+  return (
+    isOfficialAttendanceRelevantMinutesTitle(args.title) &&
+    readString(args.sourceMetadata?.meetingSubtitle) !== "개회식"
+  );
 }
 
 export function assertAssemblyMinutesViewerPayloadMatchesCandidate(args: {
@@ -1844,6 +1885,7 @@ export function assertAssemblyMinutesViewerPayloadMatchesCandidate(args: {
   responseUrl?: string;
   expectedMinutesId: string;
   expectedMeetingDate: string;
+  requireAttendance?: boolean;
 }): void {
   if (!isOfficialAssemblyMinutesViewerUrl(args.sourceUrl)) {
     throw new Error(
@@ -1876,24 +1918,20 @@ export function assertAssemblyMinutesViewerPayloadMatchesCandidate(args: {
     );
   }
 
-  const $ = load(args.html);
-  const meetingDates = [
-    $("#header h2 .date").first().text(),
-    $(".minutes_header .place .con").first().text()
-  ]
-    .map((value) => normalizeDocumentDate(value))
-    .filter((value): value is string => Boolean(value));
-  const uniqueMeetingDates = [...new Set(meetingDates)];
-  if (
-    uniqueMeetingDates.length !== 1 ||
-    uniqueMeetingDates[0] !== args.expectedMeetingDate
-  ) {
+  const meetingDate = normalizeDocumentDate(
+    args.html.match(
+      /<span[^>]*class=["'][^"']*\bdate\b[^"']*["'][^>]*>([^<]*)<\/span>/i
+    )?.[1] ?? ""
+  );
+  if (meetingDate !== args.expectedMeetingDate) {
     throw new Error(
-      `Official Assembly minutes viewer payload date mismatch for ${args.expectedMinutesId}: expected ${args.expectedMeetingDate}, received ${uniqueMeetingDates.join(", ") || "(missing)"}.`
+      `Official Assembly minutes viewer payload date mismatch for ${args.expectedMinutesId}: expected ${args.expectedMeetingDate}, received ${meetingDate ?? "(missing)"}.`
     );
   }
 
-  assertOfficialMinutesAttendanceIsComplete(args.html);
+  if (args.requireAttendance ?? true) {
+    assertOfficialMinutesAttendanceIsComplete(args.html);
+  }
 }
 
 export function assertAssemblyMinutesSearchFallbackPayloadMatchesCandidate(args: {
@@ -1901,11 +1939,11 @@ export function assertAssemblyMinutesSearchFallbackPayloadMatchesCandidate(args:
   expectedMinutesId: string;
   expectedMeetingDate: string;
   expectedClassCode?: string;
+  requireAttendance?: boolean;
 }): void {
-  const $ = load(args.html);
-  const sourceUrl = $('meta[name="official-search-source"]')
-    .first()
-    .attr("content");
+  const sourceUrl = args.html.match(
+    /<meta\s+name=["']official-search-source["']\s+content=["']([^"']+)["'][^>]*>/i
+  )?.[1];
   let parsedSourceUrl: URL;
   try {
     parsedSourceUrl = new URL(sourceUrl ?? "");
@@ -1923,10 +1961,12 @@ export function assertAssemblyMinutesSearchFallbackPayloadMatchesCandidate(args:
     );
   }
 
-  const embeddedRows = $("#official-search-rows").first().text();
+  const embeddedRows = args.html.match(
+    /<script[^>]*id=["']official-search-rows["'][^>]*>([\s\S]*?)<\/script>/i
+  )?.[1];
   let rows: AssemblySearchItem[];
   try {
-    const parsedRows = JSON.parse(embeddedRows) as unknown;
+    const parsedRows = JSON.parse(embeddedRows ?? "") as unknown;
     if (!Array.isArray(parsedRows) || parsedRows.length === 0) {
       throw new Error("missing rows");
     }
@@ -1954,7 +1994,9 @@ export function assertAssemblyMinutesSearchFallbackPayloadMatchesCandidate(args:
     }
   }
 
-  assertOfficialMinutesAttendanceIsComplete(args.html);
+  if (args.requireAttendance ?? true) {
+    assertOfficialMinutesAttendanceIsComplete(args.html);
+  }
 }
 
 function assertMirroredAssemblyMinutesArtifact(args: {
@@ -1962,17 +2004,20 @@ function assertMirroredAssemblyMinutesArtifact(args: {
   sourceUrl: string;
   responseUrl?: string;
   publishedDate: string;
+  title?: string;
   sourceMetadata?: Record<string, string | number | null>;
 }): void {
   const html = args.body.toString("utf8");
   const expectedMinutesId = readExpectedMinutesId(args);
   const retrievalMethod = readString(args.sourceMetadata?.retrievalMethod);
+  const requireAttendance = requiresOfficialMinutesAttendanceVerification(args);
   if (retrievalMethod === "official_minutes_search_api_fallback") {
     assertAssemblyMinutesSearchFallbackPayloadMatchesCandidate({
       html,
       expectedMinutesId,
       expectedMeetingDate: args.publishedDate,
-      expectedClassCode: readString(args.sourceMetadata?.classCode)
+      expectedClassCode: readString(args.sourceMetadata?.classCode),
+      requireAttendance
     });
     return;
   }
@@ -1982,7 +2027,8 @@ function assertMirroredAssemblyMinutesArtifact(args: {
     sourceUrl: args.sourceUrl,
     responseUrl: args.responseUrl,
     expectedMinutesId,
-    expectedMeetingDate: args.publishedDate
+    expectedMeetingDate: args.publishedDate,
+    requireAttendance
   });
 }
 
@@ -2039,7 +2085,11 @@ async function downloadAssemblyMinutesSearchFallback(args: {
     meetingDate,
     meetingTitle: args.candidate.title,
     rows,
-    sourceUrl: searchUrl
+    sourceUrl: searchUrl,
+    requireAttendance: requiresOfficialMinutesAttendanceVerification({
+      title: args.candidate.title,
+      sourceMetadata: args.candidate.sourceMetadata
+    })
   });
 
   return {
@@ -2078,6 +2128,7 @@ async function mirrorCandidate(
         sourceUrl: candidate.sourceUrl,
         responseUrl: downloaded.responseUrl,
         publishedDate: candidate.publishedDate,
+        title: candidate.title,
         sourceMetadata: candidate.sourceMetadata
       });
     }
@@ -2106,6 +2157,7 @@ async function mirrorCandidate(
         body: downloaded.body,
         sourceUrl: candidate.sourceUrl,
         publishedDate: candidate.publishedDate,
+        title: candidate.title,
         sourceMetadata: {
           ...candidate.sourceMetadata,
           ...downloaded.sourceMetadata
@@ -2423,7 +2475,7 @@ export async function mirroredDocumentMatchesMetadata(
     Partial<
       Pick<
         MirroredDocumentMetadata,
-        "sourceUrl" | "publishedDate" | "sourceMetadata"
+        "sourceUrl" | "publishedDate" | "sourceMetadata" | "title"
       >
     >
 ): Promise<boolean> {
@@ -2444,6 +2496,7 @@ export async function mirroredDocumentMatchesMetadata(
         body,
         sourceUrl: metadata.sourceUrl,
         publishedDate: metadata.publishedDate,
+        title: metadata.title,
         sourceMetadata: metadata.sourceMetadata
       });
     }
