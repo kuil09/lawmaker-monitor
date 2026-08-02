@@ -22,7 +22,6 @@ import {
 } from "../member-history-backfill.js";
 import { enrichMembersWithMemberProfileAll } from "../member-profile-enrichment.js";
 import {
-  parseAgendaXml,
   parseBillVoteSummaryXml,
   parseMemberInfoXml,
   parseMemberProfileAllXml,
@@ -157,7 +156,6 @@ export function validateRecordedVoteSummaryPage(args: {
 
 export function selectRecordedVoteBillRefs(args: {
   summaries: Array<{ billNo: string; billId: string }>;
-  agendas: Array<{ billNo: string; billId?: string }>;
 }): Array<{ billNo: string; billId: string }> {
   const refsByBillNo = new Map<string, { billNo: string; billId: string }>();
   const billNoByBillId = new Map<string, string>();
@@ -185,18 +183,6 @@ export function selectRecordedVoteBillRefs(args: {
       billId: summary.billId
     });
     billNoByBillId.set(summary.billId, summary.billNo);
-  }
-
-  for (const agenda of args.agendas) {
-    const recordedVote = refsByBillNo.get(agenda.billNo);
-    if (!recordedVote || !agenda.billId) {
-      continue;
-    }
-    if (recordedVote.billId !== agenda.billId) {
-      throw new Error(
-        `Official plenary agenda conflicts with recorded-vote summary for bill ${agenda.billNo}: ${agenda.billId} and ${recordedVote.billId}.`
-      );
-    }
   }
 
   return [...refsByBillNo.values()].sort((left, right) =>
@@ -1262,10 +1248,6 @@ async function main(): Promise<void> {
     }
   ];
 
-  const plenaryAgendaBillRefs: Array<{
-    billNo: string;
-    billId?: string;
-  }> = [];
   const billResults = await mapWithConcurrency(
     billTargets,
     config.billFeedConcurrency,
@@ -1321,29 +1303,13 @@ async function main(): Promise<void> {
 
   for (const result of billResults.flat()) {
     manifestEntries.push(result.entry);
-
-    const parsed = parseAgendaXml(result.body, {
-      sourceUrl: result.entry.sourceUrl,
-      retrievedAt: result.entry.retrievedAt,
-      snapshotId
-    });
-
-    for (const agenda of parsed.agendas) {
-      const billNo = agenda.agendaId;
-      if (!billNo) {
-        continue;
-      }
-
-      plenaryAgendaBillRefs.push({
-        billNo,
-        ...(agenda.billId ? { billId: agenda.billId } : {})
-      });
-    }
   }
 
+  // The recorded-vote feed can publish a different BILL_ID from the plenary
+  // agenda feed for the same BILL_NO. Its BILL_ID is the canonical identifier
+  // for the member-level vote API and the official LIKMS vote page.
   const verifiedBillRefs = selectRecordedVoteBillRefs({
-    summaries: billVoteSummaryRecords,
-    agendas: plenaryAgendaBillRefs
+    summaries: billVoteSummaryRecords
   });
   const voteResults = await mapWithConcurrency(
     verifiedBillRefs,

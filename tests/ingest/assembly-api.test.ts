@@ -124,30 +124,20 @@ describe("assembly api request builder", () => {
   });
 
   it("requests named vote details only for official recorded-vote summaries", () => {
-    expect(
-      selectRecordedVoteBillRefs({
-        summaries: [
-          {
-            billNo: "2210001",
-            billId: "PRC_FIRST"
-          },
-          {
-            billNo: "2212345",
-            billId: "PRC_RECORDED"
-          }
-        ],
-        agendas: [
-          {
-            billNo: "2212345",
-            billId: "PRC_RECORDED"
-          },
-          {
-            billNo: "2200013",
-            billId: "PRC_D2Q4S0G5I3K0X1S2I4L2M2D0B2H8Q2"
-          }
-        ]
-      })
-    ).toEqual([
+    const refs = selectRecordedVoteBillRefs({
+      summaries: [
+        {
+          billNo: "2210001",
+          billId: "PRC_FIRST"
+        },
+        {
+          billNo: "2212345",
+          billId: "PRC_RECORDED"
+        }
+      ]
+    });
+
+    expect(refs).toEqual([
       {
         billNo: "2210001",
         billId: "PRC_FIRST"
@@ -157,25 +147,26 @@ describe("assembly api request builder", () => {
         billId: "PRC_RECORDED"
       }
     ]);
+    expect(refs.map((ref) => ref.billId)).not.toContain(
+      "PRC_D2Q4S0G5I3K0X1S2I4L2M2D0B2H8Q2"
+    );
   });
 
-  it("fails closed when official vote sources disagree on a bill id", () => {
+  it("fails closed when a recorded-vote id is reused for another bill", () => {
     expect(() =>
       selectRecordedVoteBillRefs({
         summaries: [
           {
             billNo: "2212345",
             billId: "PRC_RECORDED"
-          }
-        ],
-        agendas: [
+          },
           {
-            billNo: "2212345",
-            billId: "PRC_CONFLICT"
+            billNo: "2212346",
+            billId: "PRC_RECORDED"
           }
         ]
       })
-    ).toThrow(/conflicts with recorded-vote summary/);
+    ).toThrow(/duplicate id/);
   });
 
   it("rejects incomplete or inconsistent recorded-vote summary pages", () => {
@@ -229,8 +220,7 @@ describe("assembly api request builder", () => {
             billNo: "2212345",
             billId: "PRC_RECORDED"
           }
-        ],
-        agendas: []
+        ]
       })
     ).toThrow(/duplicate bill/);
   });
