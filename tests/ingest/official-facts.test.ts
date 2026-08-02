@@ -4,6 +4,7 @@ import {
   buildOfficialAttendanceFacts,
   mergeOfficialVoteFacts
 } from "../../packages/ingest/src/official-facts.js";
+import { buildMeetingId } from "../../packages/ingest/src/parsers/helpers.js";
 
 import type { BillVoteSummaryRecord } from "../../packages/ingest/src/parsers.js";
 import type { RawSnapshotEntry } from "../../packages/ingest/src/raw-snapshot.js";
@@ -38,6 +39,30 @@ const kim: MemberRecord = {
   assemblyNo: 22
 };
 
+const seniorPark: MemberRecord = {
+  memberId: "8BF5855P",
+  name: "박지원",
+  party: "더불어민주당",
+  district: "전남광주통합특별시 해남군완도군진도군",
+  committeeMemberships: [],
+  officialProfileUrl: "https://www.assembly.go.kr/members/22nd/PARKJIEWON",
+  isCurrentMember: true,
+  proportionalFlag: false,
+  assemblyNo: 22
+};
+
+const newPark: MemberRecord = {
+  memberId: "H7X3372O",
+  name: "박지원",
+  party: "더불어민주당",
+  district: "전북 군산시김제시부안군을",
+  committeeMemberships: [],
+  officialProfileUrl: "https://www.assembly.go.kr/members/22nd/PARKJIWON",
+  isCurrentMember: true,
+  proportionalFlag: false,
+  assemblyNo: 22
+};
+
 const tenureIndex: MemberTenureIndex = new Map([
   [
     lee.memberId,
@@ -53,6 +78,24 @@ const tenureIndex: MemberTenureIndex = new Map([
     [
       {
         startDate: "2024-05-30",
+        endDate: null
+      }
+    ]
+  ],
+  [
+    seniorPark.memberId,
+    [
+      {
+        startDate: "2024-05-30",
+        endDate: null
+      }
+    ]
+  ],
+  [
+    newPark.memberId,
+    [
+      {
+        startDate: "2026-06-04",
         endDate: null
       }
     ]
@@ -223,6 +266,221 @@ describe("official vote fact completion", () => {
         (rollCall) => rollCall.officialTally?.presentCount === 1
       )
     ).toBe(true);
+  });
+
+  it("uses an official identified nonparticipant to resolve a same-name LIKMS voter", () => {
+    const date = "2026-07-23";
+    const source = buildVoteSource({
+      billId: "PRC_DUPLICATE_NAME",
+      billNo: "2219999",
+      date,
+      voteCode: "yes",
+      member: newPark
+    });
+    const rollCallId = `${buildMeetingId({
+      assemblyNo: 22,
+      sessionNo: 0,
+      meetingNo: 0,
+      meetingDate: date
+    })}:${source.summary.billId}`;
+    const merged = mergeOfficialVoteFacts({
+      members: [seniorPark, newPark],
+      rollCalls: [],
+      voteFacts: [
+        {
+          rollCallId,
+          memberId: seniorPark.memberId,
+          memberName: seniorPark.name,
+          party: seniorPark.party,
+          voteCode: "absent",
+          publishedAt: date,
+          retrievedAt: "2026-08-02T00:00:00.000Z",
+          sourceHash: "official-openapi-absence"
+        }
+      ],
+      summaries: [source.summary],
+      voteMemberListPayloads: [
+        {
+          entry: source.entry,
+          html: source.html.replace(
+            newPark.officialProfileUrl ?? "",
+            "javascript:void(0);"
+          )
+        }
+      ],
+      assemblyNo: 22,
+      snapshotId: "official-duplicate-name-fixture",
+      snapshotRetrievedAt: "2026-08-02T00:00:00.000Z",
+      tenureIndex
+    });
+
+    expect(
+      merged.voteFacts
+        .filter((fact) => fact.rollCallId === rollCallId)
+        .map((fact) => [fact.memberId, fact.voteCode])
+        .sort()
+    ).toEqual([
+      [seniorPark.memberId, "absent"],
+      [newPark.memberId, "yes"]
+    ]);
+  });
+
+  it("resolves unlinked same-name voters after profile-linked voters", () => {
+    const date = "2026-06-18";
+    const source = buildVoteSource({
+      billId: "PRC_TWO_DUPLICATE_NAMES",
+      billNo: "2219997",
+      date,
+      voteCode: "yes",
+      member: seniorPark
+    });
+    const rollCallId = `${buildMeetingId({
+      assemblyNo: 22,
+      sessionNo: 0,
+      meetingNo: 0,
+      meetingDate: date
+    })}:${source.summary.billId}`;
+    const html = `
+      <input name="billId" value="${source.summary.billId}" />
+      <input id="voteBillNo" value="${source.summary.billNo}" />
+      <input id="voteBillName" value="${source.summary.billName}" />
+      <p id="procDt">의결일 ${date}</p>
+      <p id="memberTcnt">재적 300인 재석 2인</p>
+      <p id="voteTcnt">찬성 2인 반대 0인 기권 0인</p>
+      <ul id="voteAgreeList">
+        <li><a href="javascript:void(0);"><p>${newPark.name}</p></a></li>
+        <li><a href="${seniorPark.officialProfileUrl}"><p>${seniorPark.name}</p></a></li>
+      </ul>
+      <ul id="voteDisAgreeList"></ul>
+      <ul id="voteAbsList"></ul>
+    `;
+    const merged = mergeOfficialVoteFacts({
+      members: [seniorPark, newPark],
+      rollCalls: [],
+      voteFacts: [
+        {
+          rollCallId,
+          memberId: seniorPark.memberId,
+          memberName: seniorPark.name,
+          party: seniorPark.party,
+          voteCode: "yes",
+          publishedAt: date,
+          retrievedAt: "2026-08-02T00:00:00.000Z",
+          sourceHash: "official-openapi-vote"
+        }
+      ],
+      summaries: [
+        {
+          ...source.summary,
+          officialTally: {
+            ...source.summary.officialTally,
+            presentCount: 2,
+            yesCount: 2
+          }
+        }
+      ],
+      voteMemberListPayloads: [
+        {
+          entry: source.entry,
+          html
+        }
+      ],
+      assemblyNo: 22,
+      snapshotId: "official-two-duplicate-names-fixture",
+      snapshotRetrievedAt: "2026-08-02T00:00:00.000Z",
+      tenureIndex
+    });
+
+    expect(
+      merged.voteFacts
+        .filter((fact) => fact.rollCallId === rollCallId)
+        .map((fact) => [fact.memberId, fact.voteCode])
+        .sort()
+    ).toEqual([
+      [seniorPark.memberId, "yes"],
+      [newPark.memberId, "yes"]
+    ]);
+  });
+
+  it("still fails closed when same-name LIKMS voters lack official disambiguation", () => {
+    const source = buildVoteSource({
+      billId: "PRC_UNRESOLVED_DUPLICATE_NAME",
+      billNo: "2219998",
+      date: "2026-07-23",
+      voteCode: "yes",
+      member: newPark
+    });
+
+    expect(() =>
+      mergeOfficialVoteFacts({
+        members: [seniorPark, newPark],
+        rollCalls: [],
+        voteFacts: [],
+        summaries: [source.summary],
+        voteMemberListPayloads: [
+          {
+            entry: source.entry,
+            html: source.html.replace(
+              newPark.officialProfileUrl ?? "",
+              "javascript:void(0);"
+            )
+          }
+        ],
+        assemblyNo: 22,
+        snapshotId: "official-unresolved-duplicate-name-fixture",
+        snapshotRetrievedAt: "2026-08-02T00:00:00.000Z",
+        tenureIndex
+      })
+    ).toThrow(/member name is ambiguous/);
+  });
+
+  it("fails closed when official exclusions consume every same-name candidate", () => {
+    const date = "2026-07-23";
+    const source = buildVoteSource({
+      billId: "PRC_CONFLICTING_DUPLICATE_NAME",
+      billNo: "2219996",
+      date,
+      voteCode: "yes",
+      member: newPark
+    });
+    const rollCallId = `${buildMeetingId({
+      assemblyNo: 22,
+      sessionNo: 0,
+      meetingNo: 0,
+      meetingDate: date
+    })}:${source.summary.billId}`;
+    const absentFacts = [seniorPark, newPark].map((member) => ({
+      rollCallId,
+      memberId: member.memberId,
+      memberName: member.name,
+      party: member.party,
+      voteCode: "absent" as const,
+      publishedAt: date,
+      retrievedAt: "2026-08-02T00:00:00.000Z",
+      sourceHash: `official-openapi-absence-${member.memberId}`
+    }));
+
+    expect(() =>
+      mergeOfficialVoteFacts({
+        members: [seniorPark, newPark],
+        rollCalls: [],
+        voteFacts: absentFacts,
+        summaries: [source.summary],
+        voteMemberListPayloads: [
+          {
+            entry: source.entry,
+            html: source.html.replace(
+              newPark.officialProfileUrl ?? "",
+              "javascript:void(0);"
+            )
+          }
+        ],
+        assemblyNo: 22,
+        snapshotId: "official-conflicting-duplicate-name-fixture",
+        snapshotRetrievedAt: "2026-08-02T00:00:00.000Z",
+        tenureIndex
+      })
+    ).toThrow(/conflicts with already identified rows/);
   });
 });
 
