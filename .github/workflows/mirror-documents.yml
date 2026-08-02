@@ -76,7 +76,7 @@ jobs:
       MIRROR_BACKFILL_DAYS: ${{ vars.MIRROR_BACKFILL_DAYS }}
       MIRROR_BACKFILL_CURSOR_OVERRIDE: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill_start_date || '' }}
       MIRROR_BACKFILL_WINDOWS_PER_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill_windows || vars.MIRROR_BACKFILL_WINDOWS_PER_RUN || '1' }}
-      MIRROR_CATCHUP_WINDOWS_PER_RUN: ${{ vars.MIRROR_CATCHUP_WINDOWS_PER_RUN || '2' }}
+      MIRROR_CATCHUP_WINDOWS_PER_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill_windows || vars.MIRROR_CATCHUP_WINDOWS_PER_RUN || '2' }}
       MIRROR_SKIP_RECENT: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_recent || 'false' }}
       MIRROR_INCLUDE_APPENDICES: ${{ github.event_name == 'workflow_dispatch' && inputs.include_appendices || vars.MIRROR_INCLUDE_APPENDICES || 'false' }}
     steps:
