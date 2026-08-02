@@ -30,16 +30,23 @@ import {
   buildAssemblyMinutesCatalogCandidate,
   buildAssemblyMinutesCatalogParams,
   buildAssemblyMinutesParams,
+  buildAssemblyMinutesSearchFallbackHtml,
+  buildAssemblyMinutesSearchFallbackParams,
   isAssemblyMinutesViewerUrl,
   mirroredDocumentMatchesMetadata,
   normalizeCompactAssemblyDate,
   resolveMirrorRecentDays,
   resolveMirrorDataRepoDir,
   responsePageCount,
+  selectCompleteAssemblyMinutesSearchFallbackRows,
   shouldBlockBackfillCursorOnDownloadFailure,
   shouldReuseExistingBackfillDocument,
-  shouldSkipAssemblyFileServiceRefresh
+  shouldSkipAssemblyFileServiceRefresh,
+  splitAssemblySearchSpeakerLabel
 } from "../../packages/ingest/src/scripts/mirror-documents.js";
+import { parseOfficialMinutesAttendanceHtml } from "../../packages/ingest/src/official-attendance.js";
+import { parseAssemblyMinutesViewerHtml } from "../../packages/ingest/src/minutes-transcript.js";
+import { buildMinutesSummaryGroups } from "../../packages/ingest/src/minutes-summarization.js";
 import { sha256Buffer } from "../../packages/ingest/src/utils.js";
 
 describe("document mirror helpers", () => {
@@ -783,6 +790,7 @@ describe("document mirror helpers", () => {
       CONF_DATE: "2026-07-23",
       DAE_NUM: "22",
       CLASS_NAME: "국회본회의",
+      CLASS_CODE: 1,
       TITLE: "제427회국회(임시회)",
       SUB_NAME: "의사일정 제1항"
     };
@@ -805,7 +813,8 @@ describe("document mirror helpers", () => {
         assemblyNo: "22",
         sessionNo: "427",
         committeeName: null,
-        catalogInfId: "OO1X9P001017YF13038"
+        catalogInfId: "OO1X9P001017YF13038",
+        classCode: "1"
       }
     });
     expect(() =>
@@ -823,6 +832,228 @@ describe("document mirror helpers", () => {
         discoveredFromUrl: candidate.discoveredFromUrl
       })
     ).toThrow(/mismatched viewer link/);
+    expect(() =>
+      buildAssemblyMinutesCatalogCandidate({
+        item: {
+          ...item,
+          CLASS_CODE: undefined
+        },
+        config: {
+          assemblyNo: 22,
+          sourceId: "assembly-minutes"
+        },
+        service,
+        discoveredFromUrl: candidate.discoveredFromUrl
+      })
+    ).toThrow(/valid meeting id, link, date, or assembly number/);
+  });
+
+  it("builds a complete official search fallback for broken viewer links", () => {
+    const params = buildAssemblyMinutesSearchFallbackParams({
+      meetingDate: "2025-02-26",
+      classCode: "2"
+    });
+    expect(params.get("startDate")).toBe("20250226");
+    expect(params.get("endDate")).toBe("20250226");
+    expect(params.get("collection")).toBe("record2");
+    expect(params.get("CLASS_CD")).toBe("2");
+    expect(params.get("listCount")).toBe("50000");
+
+    const rows = [
+      {
+        MNTS_ID: "52713",
+        DATE: "20250226",
+        CLASS_CD: "2",
+        DOCID: "CN054816_ITETC",
+        ETC_CNTS:
+          "◯출석 위원(2인) 김가람 이나래 ◯청가 위원(1인) 박다온 ◯출장 위원(1인) 최라온"
+      },
+      {
+        MNTS_ID: "52713",
+        DATE: "20250226",
+        CLASS_CD: "2",
+        DOCID: "CN054816_IT0_SP1",
+        ITEM_ID: "0",
+        ITEM_NM: "개의",
+        SPK_ID: "1",
+        SPK_SORT: "1",
+        SPK_CD: "100",
+        SPK_NM: "위원장 김가람",
+        SPK_CNTS: "성원이 되었으므로 회의를 개회하겠습니다."
+      }
+    ];
+    const selected = selectCompleteAssemblyMinutesSearchFallbackRows({
+      response: {
+        record2: {
+          totalCount: rows.length,
+          resultList: rows
+        }
+      },
+      recordKey: "record2",
+      minutesId: "52713",
+      meetingDate: "2025-02-26",
+      classCode: "2"
+    });
+    const sourceUrl =
+      "https://record.assembly.go.kr/assembly/mnts/search/search.do";
+    const viewerUrl =
+      "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=52713&type=view";
+    const html = buildAssemblyMinutesSearchFallbackHtml({
+      minutesId: "52713",
+      meetingDate: "2025-02-26",
+      meetingTitle: "제22대 제422회 교육위원회 회의록",
+      rows: selected,
+      sourceUrl
+    });
+
+    expect(parseOfficialMinutesAttendanceHtml(html)).toEqual({
+      presentNames: ["김가람", "이나래"],
+      leaveNames: ["박다온"],
+      tripNames: ["최라온"]
+    });
+    const transcript = parseAssemblyMinutesViewerHtml({
+      documentId: "assembly-minutes-minutes-52713",
+      sourceUrl: viewerUrl,
+      fallbackMeetingDate: "2025-02-26",
+      fallbackTitle: "제22대 제422회 교육위원회 회의록",
+      html
+    });
+    expect(transcript.statements).toEqual([
+      expect.objectContaining({
+        speakerName: "김가람",
+        speakerRole: "위원장",
+        sourceMemberId: "100"
+      })
+    ]);
+    expect(
+      buildMinutesSummaryGroups({
+        transcript,
+        members: [
+          {
+            memberId: "member-100",
+            name: "김가람",
+            party: "테스트당"
+          }
+        ]
+      })
+    ).toEqual([
+      expect.objectContaining({
+        member: expect.objectContaining({
+          memberId: "member-100",
+          name: "김가람"
+        })
+      })
+    ]);
+    expect(html).toContain("official-search-rows");
+    expect(html).toContain(sourceUrl);
+  });
+
+  it("separates official search speaker names from their roles", () => {
+    expect(splitAssemblySearchSpeakerLabel("위원장 최민희")).toEqual({
+      name: "최민희",
+      role: "위원장"
+    });
+    expect(splitAssemblySearchSpeakerLabel("김문수 위원")).toEqual({
+      name: "김문수",
+      role: "위원"
+    });
+    expect(splitAssemblySearchSpeakerLabel("교육부차관 오석환")).toEqual({
+      name: "오석환",
+      role: "교육부차관"
+    });
+    expect(splitAssemblySearchSpeakerLabel("김문수위원")).toEqual({
+      name: "김문수",
+      role: "위원"
+    });
+  });
+
+  it("rejects an incomplete official search fallback response", () => {
+    expect(() =>
+      selectCompleteAssemblyMinutesSearchFallbackRows({
+        response: {
+          record2: {
+            totalCount: 2,
+            resultList: [{ MNTS_ID: "52713" }]
+          }
+        },
+        recordKey: "record2",
+        minutesId: "52713",
+        meetingDate: "2025-02-26",
+        classCode: "2"
+      })
+    ).toThrow(/incomplete/);
+    expect(() =>
+      buildAssemblyMinutesSearchFallbackParams({
+        meetingDate: "2025-02-26",
+        classCode: "9"
+      })
+    ).toThrow(/invalid class code/);
+  });
+
+  it("rejects mismatched official fallback meeting metadata", () => {
+    expect(() =>
+      selectCompleteAssemblyMinutesSearchFallbackRows({
+        response: {
+          record2: {
+            totalCount: 1,
+            resultList: [
+              {
+                MNTS_ID: "52713",
+                DATE: "20250225",
+                CLASS_CD: "2"
+              }
+            ]
+          }
+        },
+        recordKey: "record2",
+        minutesId: "52713",
+        meetingDate: "2025-02-26",
+        classCode: "2"
+      })
+    ).toThrow(/mismatched meeting metadata/);
+    expect(() =>
+      selectCompleteAssemblyMinutesSearchFallbackRows({
+        response: {
+          record2: {
+            totalCount: 1,
+            resultList: [
+              {
+                MNTS_ID: "52713",
+                DATE: "20250226",
+                CLASS_CD: "3"
+              }
+            ]
+          }
+        },
+        recordKey: "record2",
+        minutesId: "52713",
+        meetingDate: "2025-02-26",
+        classCode: "2"
+      })
+    ).toThrow(/mismatched meeting metadata/);
+  });
+
+  it("rejects fallback minutes without a verified attendance section", () => {
+    expect(() =>
+      buildAssemblyMinutesSearchFallbackHtml({
+        minutesId: "52713",
+        meetingDate: "2025-02-26",
+        meetingTitle: "제22대 제422회 교육위원회 회의록",
+        rows: [
+          {
+            MNTS_ID: "52713",
+            DATE: "20250226",
+            CLASS_CD: "2",
+            ITEM_ID: "0",
+            SPK_ID: "1",
+            SPK_NM: "김문수 위원",
+            SPK_CNTS: "정책 현안에 관하여 질의하겠습니다."
+          }
+        ],
+        sourceUrl:
+          "https://record.assembly.go.kr/assembly/mnts/search/search.do"
+      })
+    ).toThrow(/no verified attendance section/);
   });
 
   it("advances the backfill cursor when only transcript parsing fails", () => {
