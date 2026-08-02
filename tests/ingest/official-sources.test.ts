@@ -178,6 +178,10 @@ describe("official committee and minutes attendance sources", () => {
       '<p><strong>◯출석 의원 (1인)</strong></p><div class="con"><span class="name">김 아라</span></div><p><strong>◯청가 의원 (1인)</strong></p><div class="con"><span class="name">이 보라</span></div>'
     );
     await writeFile(
+      join(minutesDir, "plenary-incomplete.html"),
+      '<p><strong>◯출석 의원 (2인)</strong></p><div class="con"><span class="name">김 아라</span></div>'
+    );
+    await writeFile(
       join(minutesDir, "committee.html"),
       '<p><strong>◯출석 위원 (1인)</strong></p><div class="con"><span class="name">박 초록</span></div><p><strong>◯출장 위원 (1인)</strong></p><div class="con"><span class="name">최 파랑</span></div>'
     );
@@ -212,6 +216,17 @@ describe("official committee and minutes attendance sources", () => {
             currentContentSha256: "plenary-hash"
           },
           {
+            documentId: "plenary-incomplete",
+            sourceId: "assembly-minutes",
+            sourceUrl:
+              "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?key=plenary-incomplete",
+            title: "제22대 제1회 국회본회의 회의록",
+            publishedDate: "2026-07-31",
+            latestRelativePath: "raw/minutes/plenary-incomplete.html",
+            lastMirroredAt: "2026-08-02T01:00:00.000Z",
+            currentContentSha256: "plenary-incomplete-hash"
+          },
+          {
             documentId: "plenary-ceremony",
             sourceId: "assembly-minutes",
             sourceUrl:
@@ -228,6 +243,15 @@ describe("official committee and minutes attendance sources", () => {
     await expect(
       loadOfficialMinutesAttendanceMeetings({ dataRepoDir, assemblyNo: 22 })
     ).resolves.toEqual([
+      expect.objectContaining({
+        documentId: "plenary-incomplete",
+        meetingType: "plenary",
+        committeeName: null,
+        presentNames: [],
+        leaveNames: [],
+        tripNames: [],
+        sourceHash: "plenary-incomplete-hash"
+      }),
       expect.objectContaining({
         documentId: "plenary-1",
         meetingType: "plenary",
@@ -249,13 +273,13 @@ describe("official committee and minutes attendance sources", () => {
     ]);
   });
 
-  it("uses official XLSX rows for missing minutes attendance and omitted plenary dates", () => {
+  it("prefers official XLSX rows over minutes and adds omitted plenary dates", () => {
     const minutesMeeting = {
       documentId: "minutes-1",
       meetingDate: "2026-04-17",
       meetingType: "plenary" as const,
       committeeName: null,
-      presentNames: [],
+      presentNames: ["회의록 값"],
       absentNames: [],
       leaveNames: [],
       tripNames: [],
