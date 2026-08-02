@@ -22,6 +22,8 @@ export type PendingAssemblyEndpointKey =
   | "plenaryBillsOther"
   | "plenaryMinutes"
   | "liveWebcast"
+  | "plenaryMinutesCatalog"
+  | "committeeMinutesCatalog"
   | "memberCommitteeCareerSheet"
   | "billVoteMemberList"
   | "plenaryAttendanceFile";
