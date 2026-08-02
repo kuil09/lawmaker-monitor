@@ -1875,6 +1875,7 @@ function requiresOfficialMinutesAttendanceVerification(args: {
   }
   return (
     isOfficialAttendanceRelevantMinutesTitle(args.title) &&
+    !args.title.includes("국회본회의 회의록") &&
     readString(args.sourceMetadata?.meetingSubtitle) !== "개회식"
   );
 }

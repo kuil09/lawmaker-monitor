@@ -254,7 +254,23 @@ export async function loadOfficialMinutesAttendanceMeetings(args: {
     if (isPlenary && isPlenaryOpeningCeremonyHtml(html)) {
       continue;
     }
-    const attendance = parseOfficialMinutesAttendanceHtml(html);
+    let attendance: ReturnType<typeof parseOfficialMinutesAttendanceHtml>;
+    try {
+      attendance = parseOfficialMinutesAttendanceHtml(html);
+    } catch (error) {
+      if (
+        !isPlenary ||
+        !(error instanceof Error) ||
+        !error.message.includes("attendance list count mismatch")
+      ) {
+        throw error;
+      }
+      attendance = {
+        presentNames: [],
+        leaveNames: [],
+        tripNames: []
+      };
+    }
 
     const committeeName = isPlenary
       ? null
@@ -358,20 +374,13 @@ export function supplementOfficialMinutesAttendance(args: {
   });
 
   const supplementedMinutes = args.minutesMeetings.flatMap((meeting) => {
-    if (hasPublishedAttendance(meeting)) {
-      return [meeting];
+    if (meeting.meetingType === "plenary") {
+      const supplements = fileMeetingsByDate.get(meeting.meetingDate) ?? [];
+      if (supplements.length > 0) {
+        return [fromAttendanceFile(supplements[0]!, meeting)];
+      }
     }
-    if (meeting.meetingType !== "plenary") {
-      return [];
-    }
-
-    const supplements = fileMeetingsByDate.get(meeting.meetingDate) ?? [];
-    if (supplements.length === 0) {
-      return [];
-    }
-    const supplement = supplements[0]!;
-
-    return [fromAttendanceFile(supplement, meeting)];
+    return hasPublishedAttendance(meeting) ? [meeting] : [];
   });
 
   const fileOnlyMeetings = args.plenaryFileMeetings

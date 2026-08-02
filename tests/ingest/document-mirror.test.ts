@@ -335,6 +335,21 @@ describe("document mirror helpers", () => {
           }
         })
       ).resolves.toBe(true);
+      await expect(
+        mirroredDocumentMatchesMetadata(root, {
+          latestRelativePath: relativePath,
+          currentBytes: body.byteLength,
+          currentContentSha256: sha256Buffer(body),
+          sourceUrl:
+            "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=57073&type=view",
+          publishedDate: "2026-07-30",
+          title: "제22대 제437회 국회본회의 회의록",
+          sourceMetadata: {
+            minutesId: "57073",
+            classCode: "1"
+          }
+        })
+      ).resolves.toBe(true);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
