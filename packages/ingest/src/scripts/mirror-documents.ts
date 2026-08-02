@@ -123,6 +123,7 @@ type DownloadedDocument = {
   responseUrl: string;
   contentType: string;
   contentDisposition?: string;
+  sourceMetadata?: Record<string, string | number | null>;
 };
 
 type MetadataLookups = MirroredDocumentMetadataLookups;
@@ -141,7 +142,7 @@ type CandidateCollectionResult = {
 
 export type FormValueMap = Map<string, string[]>;
 
-type AssemblySearchItem = Record<string, unknown>;
+export type AssemblySearchItem = Record<string, unknown>;
 
 type AssemblySearchRecord = {
   indexColl?: string;
@@ -1102,6 +1103,288 @@ export function buildAssemblyMinutesCatalogParams(args: {
   return params;
 }
 
+export function buildAssemblyMinutesSearchFallbackParams(args: {
+  meetingDate: string;
+  classCode: string;
+  rows?: number;
+}): URLSearchParams {
+  if (!/^[1-7]$/.test(args.classCode)) {
+    throw new Error(
+      `Official Assembly minutes search fallback received invalid class code ${args.classCode}.`
+    );
+  }
+
+  const compactMeetingDate = compactDate(args.meetingDate);
+  return new URLSearchParams({
+    startDate: compactMeetingDate,
+    endDate: compactMeetingDate,
+    collection: `record${args.classCode}`,
+    CLASS_CD: args.classCode,
+    query: "",
+    SPK_NM: "",
+    SPKSAME: "N",
+    sort: "RDATE",
+    searchField: "SPK_CNTS,ITEM_NM,ETC_CNTS",
+    startCount: "1",
+    listCount: String(args.rows ?? 50_000)
+  });
+}
+
+export function selectCompleteAssemblyMinutesSearchFallbackRows(args: {
+  response: AssemblySearchResponse;
+  recordKey: `record${1 | 2 | 3 | 4 | 5 | 6 | 7}`;
+  minutesId: string;
+  meetingDate: string;
+  classCode: string;
+}): AssemblySearchItem[] {
+  if (
+    !/^[1-7]$/.test(args.classCode) ||
+    args.recordKey !== `record${args.classCode}`
+  ) {
+    throw new Error(
+      `Official Assembly minutes search fallback received mismatched record key ${args.recordKey} and class code ${args.classCode}.`
+    );
+  }
+
+  const record = args.response[args.recordKey];
+  const expected = record?.totalCount;
+  const rows = record?.resultList;
+  if (
+    !Number.isInteger(expected) ||
+    expected === undefined ||
+    expected < 0 ||
+    !Array.isArray(rows) ||
+    rows.length !== expected
+  ) {
+    throw new Error(
+      `Official Assembly minutes search fallback was incomplete for ${args.recordKey}: expected ${expected ?? "(missing)"}, received ${rows?.length ?? 0}.`
+    );
+  }
+
+  const meetingRows = rows.filter(
+    (row) => readString(row.MNTS_ID) === args.minutesId
+  );
+  if (meetingRows.length === 0) {
+    throw new Error(
+      `Official Assembly minutes search fallback returned no rows for ${args.minutesId}.`
+    );
+  }
+  for (const row of meetingRows) {
+    const rowDate = normalizeCompactAssemblyDate(
+      readString(row.DATE) ?? readString(row.RDATE)
+    );
+    const rowClassCode = readString(row.CLASS_CD);
+    if (rowDate !== args.meetingDate || rowClassCode !== args.classCode) {
+      throw new Error(
+        `Official Assembly minutes search fallback returned mismatched meeting metadata for ${args.minutesId}: expected ${args.meetingDate}/class ${args.classCode}, received ${rowDate ?? "(missing)"}/class ${rowClassCode ?? "(missing)"}.`
+      );
+    }
+  }
+  return meetingRows;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function parseFallbackAttendanceNames(
+  attendanceText: string,
+  status: "출석" | "청가" | "출장"
+): string[] {
+  const match = attendanceText.match(
+    new RegExp(
+      `[◯○]\\s*${status}\\s*(?:의원|위원)\\s*\\(\\s*(\\d+)\\s*인\\s*\\)\\s*([\\s\\S]*?)(?=\\s*[◯○]\\s*|$)`
+    )
+  );
+  if (!match) {
+    return [];
+  }
+
+  const expected = Number.parseInt(match[1] ?? "", 10);
+  const names = (match[2] ?? "")
+    .split(/\s+/)
+    .map((value) => value.replace(/[^\p{Script=Hangul}]/gu, ""))
+    .filter((value) => /^[\p{Script=Hangul}]{2,5}$/u.test(value));
+  const uniqueNames = [...new Set(names)];
+  if (
+    !Number.isInteger(expected) ||
+    names.length !== expected ||
+    uniqueNames.length !== expected
+  ) {
+    throw new Error(
+      `Official Assembly minutes search fallback ${status} count mismatch: expected ${expected}, received ${uniqueNames.length}.`
+    );
+  }
+  return uniqueNames;
+}
+
+function renderFallbackAttendanceSection(
+  status: "출석" | "청가" | "출장",
+  names: string[]
+): string {
+  if (names.length === 0) {
+    return "";
+  }
+  return [
+    `<p><strong>◯${status} 위원 (${names.length}인)</strong></p>`,
+    `<div class="con">${names
+      .map(
+        (name, index) =>
+          `<a href="/members/official-search-${index}"><span class="name">${escapeHtml(name)}</span></a>`
+      )
+      .join("")}</div>`
+  ].join("");
+}
+
+export function splitAssemblySearchSpeakerLabel(value: string): {
+  name: string;
+  role: string | null;
+} {
+  const normalized = value
+    .replaceAll("\u00a0", " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const rolePattern = "위원장대리|소위원장|위원장|부의장|의장|간사|위원|의원";
+  const trailingRole = normalized.match(
+    new RegExp(`^([\\p{Script=Hangul}]{2,5})\\s*(${rolePattern})$`, "u")
+  );
+  if (trailingRole?.[1] && trailingRole[2]) {
+    return {
+      name: trailingRole[1],
+      role: trailingRole[2]
+    };
+  }
+
+  const leadingRole = normalized.match(/^(.+?)\s+([\p{Script=Hangul}]{2,5})$/u);
+  if (leadingRole?.[1] && leadingRole[2]) {
+    return {
+      name: leadingRole[2],
+      role: leadingRole[1]
+    };
+  }
+
+  const compactLeadingRole = normalized.match(
+    new RegExp(`^(${rolePattern})([\\p{Script=Hangul}]{2,5})$`, "u")
+  );
+  if (compactLeadingRole?.[1] && compactLeadingRole[2]) {
+    return {
+      name: compactLeadingRole[2],
+      role: compactLeadingRole[1]
+    };
+  }
+
+  return {
+    name: normalized,
+    role: null
+  };
+}
+
+export function buildAssemblyMinutesSearchFallbackHtml(args: {
+  minutesId: string;
+  meetingDate: string;
+  meetingTitle: string;
+  rows: AssemblySearchItem[];
+  sourceUrl: string;
+}): string {
+  const attendanceText = args.rows
+    .map((row) => readString(row.ETC_CNTS))
+    .filter((value): value is string => Boolean(value))
+    .join(" ");
+  const presentNames = parseFallbackAttendanceNames(attendanceText, "출석");
+  if (presentNames.length === 0) {
+    throw new Error(
+      `Official Assembly minutes search fallback returned no verified attendance section for ${args.minutesId}.`
+    );
+  }
+  const attendanceSections = [
+    renderFallbackAttendanceSection("출석", presentNames),
+    renderFallbackAttendanceSection(
+      "청가",
+      parseFallbackAttendanceNames(attendanceText, "청가")
+    ),
+    renderFallbackAttendanceSection(
+      "출장",
+      parseFallbackAttendanceNames(attendanceText, "출장")
+    )
+  ].join("");
+
+  const agendaItems = new Map<string, string>();
+  for (const row of args.rows) {
+    const itemId = readString(row.ITEM_ID) ?? "0";
+    const itemTitle = readString(row.ITEM_NM);
+    if (itemTitle && !agendaItems.has(itemId)) {
+      agendaItems.set(itemId, itemTitle);
+    }
+  }
+  const agendaHtml = [...agendaItems]
+    .map(
+      ([itemId, title]) =>
+        `<a class="tit" id="item${escapeHtml(itemId)}">${escapeHtml(title)}</a>`
+    )
+    .join("");
+
+  const statementRows = args.rows
+    .filter((row) => readString(row.SPK_NM) && readString(row.SPK_CNTS))
+    .sort((left, right) => {
+      const leftSort = Number.parseInt(readString(left.SPK_SORT) ?? "", 10);
+      const rightSort = Number.parseInt(readString(right.SPK_SORT) ?? "", 10);
+      const normalizedLeft = Number.isFinite(leftSort)
+        ? leftSort
+        : Number.MAX_SAFE_INTEGER;
+      const normalizedRight = Number.isFinite(rightSort)
+        ? rightSort
+        : Number.MAX_SAFE_INTEGER;
+      return (
+        normalizedLeft - normalizedRight ||
+        (readString(left.SPK_ID) ?? "").localeCompare(
+          readString(right.SPK_ID) ?? ""
+        )
+      );
+    });
+  const statementsHtml = statementRows
+    .map((row, index) => {
+      const itemId = readString(row.ITEM_ID) ?? "0";
+      const statementId = readString(row.SPK_ID) ?? `fallback-${index + 1}`;
+      const speaker = splitAssemblySearchSpeakerLabel(readString(row.SPK_NM)!);
+      const rawSourceMemberId = readString(row.SPK_CD);
+      const sourceMemberId =
+        rawSourceMemberId && rawSourceMemberId !== "-" ? rawSourceMemberId : "";
+      const content = readString(row.SPK_CNTS)!;
+      return [
+        `<div class="speaker item${escapeHtml(itemId)}" id="spk-${escapeHtml(statementId)}" data-name="${escapeHtml(speaker.name)}" data-pos="${escapeHtml(speaker.role ?? "")}" data-mem_id="${escapeHtml(sourceMemberId)}">`,
+        `<div class="talk"><p class="spk_sub">${escapeHtml(content)}</p></div>`,
+        "</div>"
+      ].join("");
+    })
+    .join("");
+  if (statementsHtml.length === 0) {
+    throw new Error(
+      `Official Assembly minutes search fallback returned no statements for ${args.minutesId}.`
+    );
+  }
+
+  const embeddedRows = JSON.stringify(args.rows)
+    .replaceAll("<", "\\u003c")
+    .replaceAll(">", "\\u003e")
+    .replaceAll("&", "\\u0026");
+  return [
+    "<!doctype html><html><head>",
+    '<meta charset="utf-8">',
+    `<meta name="official-search-source" content="${escapeHtml(args.sourceUrl)}">`,
+    "</head><body>",
+    `<div id="header"><div class="tit"><h2><strong>${escapeHtml(args.meetingTitle)}</strong><span class="date">${escapeHtml(args.meetingDate)}</span></h2></div></div>`,
+    `<div class="minutes_header">${attendanceSections}</div>`,
+    `<div class="minutes_body">${agendaHtml}${statementsHtml}</div>`,
+    `<script id="official-search-rows" type="application/json">${embeddedRows}</script>`,
+    "</body></html>"
+  ].join("");
+}
+
 async function fetchAssemblyMinutesCatalogWindow(args: {
   api: APIRequestContext;
   config: MirrorConfig;
@@ -1197,13 +1480,16 @@ export function buildAssemblyMinutesCatalogCandidate(args: {
   );
   const assemblyNo = readString(args.item.DAE_NUM);
   const className = readString(args.item.CLASS_NAME);
+  const classCode = readString(args.item.CLASS_CODE);
   const committeeName = readString(args.item.COMM_NAME);
   const sessionNo = parseAssemblySessionNo(readString(args.item.TITLE));
   if (
     !minutesId ||
     !rawLink ||
     !publishedDate ||
-    assemblyNo !== String(args.config.assemblyNo)
+    assemblyNo !== String(args.config.assemblyNo) ||
+    !classCode ||
+    !/^[1-7]$/.test(classCode)
   ) {
     throw new Error(
       `Official Assembly minutes catalog ${args.service.infId} returned a row without a valid meeting id, link, date, or assembly number.`
@@ -1260,7 +1546,8 @@ export function buildAssemblyMinutesCatalogCandidate(args: {
       committeeName: args.service.kind === "committee" ? committeeName! : null,
       meetingSubtitle: readString(args.item.SUB_NAME) ?? null,
       catalogInfId: args.service.infId,
-      className
+      className,
+      classCode
     }
   };
 }
@@ -1525,6 +1812,73 @@ async function downloadDocument(
   );
 }
 
+async function downloadAssemblyMinutesSearchFallback(args: {
+  api: APIRequestContext;
+  candidate: MirrorCandidate;
+  config: MirrorConfig;
+}): Promise<DownloadedDocument> {
+  const minutesId =
+    readString(args.candidate.sourceMetadata?.minutesId) ??
+    new URL(args.candidate.sourceUrl).searchParams.get("id");
+  const classCode = readString(args.candidate.sourceMetadata?.classCode);
+  const meetingDate = args.candidate.publishedDate;
+  if (!minutesId || !classCode || !meetingDate) {
+    throw new Error(
+      "Official Assembly minutes search fallback requires a meeting id, class code, and date."
+    );
+  }
+
+  const searchUrl = `${officialAssemblyMinutesOrigin}/assembly/mnts/search/search.do`;
+  const responsePayload = await retryFetch(
+    async () => {
+      const response = await args.api.post(searchUrl, {
+        headers: {
+          "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+          "x-requested-with": "XMLHttpRequest",
+          referer: searchUrl
+        },
+        data: buildAssemblyMinutesSearchFallbackParams({
+          meetingDate,
+          classCode
+        }).toString(),
+        timeout: args.config.timeoutMs,
+        failOnStatusCode: true
+      });
+      return (await response.json()) as AssemblySearchResponse;
+    },
+    {
+      retries: 2,
+      backoffMs: Math.max(500, args.config.pageDelayMs)
+    }
+  );
+  const recordKey =
+    `record${classCode}` as `record${1 | 2 | 3 | 4 | 5 | 6 | 7}`;
+  const rows = selectCompleteAssemblyMinutesSearchFallbackRows({
+    response: responsePayload,
+    recordKey,
+    minutesId,
+    meetingDate,
+    classCode
+  });
+  const html = buildAssemblyMinutesSearchFallbackHtml({
+    minutesId,
+    meetingDate,
+    meetingTitle: args.candidate.title,
+    rows,
+    sourceUrl: searchUrl
+  });
+
+  return {
+    body: Buffer.from(html),
+    responseUrl: searchUrl,
+    contentType: "text/html; charset=utf-8",
+    sourceMetadata: {
+      retrievalMethod: "official_minutes_search_api_fallback",
+      fallbackSourceUrl: searchUrl
+    }
+  };
+}
+
 async function mirrorCandidate(
   candidate: MirrorCandidate,
   config: MirrorConfig,
@@ -1533,11 +1887,32 @@ async function mirrorCandidate(
   retrievedAt: string
 ): Promise<MirrorOutcome> {
   const downloadTarget = candidate.downloadUrl ?? candidate.sourceUrl;
-  const downloaded = await downloadDocument(
-    api,
-    downloadTarget,
-    config.timeoutMs
-  );
+  let downloaded: DownloadedDocument;
+  try {
+    downloaded = await downloadDocument(api, downloadTarget, config.timeoutMs);
+  } catch (downloadError) {
+    if (
+      config.mode !== "assembly_minutes_catalog" ||
+      !isOfficialAssemblyMinutesViewerUrl(candidate.sourceUrl)
+    ) {
+      throw downloadError;
+    }
+    process.stderr.write(
+      `Official minutes viewer failed for ${candidate.documentId ?? candidate.sourceUrl}; trying the official minutes search API.\n`
+    );
+    try {
+      downloaded = await downloadAssemblyMinutesSearchFallback({
+        api,
+        candidate,
+        config
+      });
+    } catch (fallbackError) {
+      throw new AggregateError(
+        [downloadError, fallbackError],
+        `Official Assembly minutes viewer and search fallback failed for ${candidate.documentId ?? candidate.sourceUrl}.`
+      );
+    }
+  }
   const fileExtension = detectFileExtension(
     downloaded.responseUrl,
     downloaded.contentType,
@@ -1600,6 +1975,13 @@ async function mirrorCandidate(
       ) === index
   );
 
+  const mergedSourceMetadata =
+    candidate.sourceMetadata || downloaded.sourceMetadata
+      ? {
+          ...candidate.sourceMetadata,
+          ...downloaded.sourceMetadata
+        }
+      : undefined;
   const metadata: MirroredDocumentMetadata = {
     documentId,
     sourceId: config.sourceId,
@@ -1615,9 +1997,7 @@ async function mirrorCandidate(
     currentContentSha256: contentSha,
     currentContentType: downloaded.contentType,
     currentBytes: downloaded.body.byteLength,
-    ...(candidate.sourceMetadata
-      ? { sourceMetadata: candidate.sourceMetadata }
-      : {}),
+    ...(mergedSourceMetadata ? { sourceMetadata: mergedSourceMetadata } : {}),
     versions: dedupedVersions
   };
 
