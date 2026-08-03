@@ -38,6 +38,7 @@ const MEMBER_CARD_PALETTE = Object.freeze({
 });
 const STATEMENT_FETCH_CONCURRENCY = 16;
 const SAFE_MEMBER_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+const GA_MEASUREMENT_ID_PATTERN = /^G-[A-Z0-9]+$/;
 const PORTRAIT_FETCH_ATTEMPTS = 3;
 const PORTRAIT_RETRY_BASE_DELAY_MS = 250;
 const PORTRAIT_RETRY_MAX_DELAY_MS = 2_000;
@@ -76,6 +77,38 @@ function escapeXml(value) {
 
 function serializeScriptValue(value) {
   return JSON.stringify(value).replaceAll("<", "\\u003c");
+}
+
+function renderGoogleAnalyticsTag(measurementId, canonicalUrl) {
+  const normalizedMeasurementId = measurementId?.trim().toUpperCase() ?? "";
+  if (!GA_MEASUREMENT_ID_PATTERN.test(normalizedMeasurementId)) {
+    return "";
+  }
+
+  const hostname = new URL(canonicalUrl).hostname.toLowerCase();
+  const encodedMeasurementId = encodeURIComponent(normalizedMeasurementId);
+
+  return `    <script async src="https://www.googletagmanager.com/gtag/js?id=${encodedMeasurementId}" data-lawmaker-monitor-analytics="${normalizedMeasurementId}"></script>
+    <script>
+      if (window.location.hostname.toLowerCase() === ${serializeScriptValue(hostname)}) {
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = window.gtag || function () {
+          window.dataLayer.push(arguments);
+        };
+        window.gtag("consent", "default", {
+          ad_personalization: "denied",
+          ad_storage: "denied",
+          ad_user_data: "denied",
+          analytics_storage: "denied"
+        });
+        window.gtag("js", new Date());
+        window.gtag("config", ${serializeScriptValue(normalizedMeasurementId)}, {
+          allow_ad_personalization_signals: false,
+          allow_google_signals: false,
+          send_page_view: false
+        });
+      }
+    </script>`;
 }
 
 function formatInteger(value) {
@@ -883,7 +916,7 @@ export async function renderMemberCardPng({ svg, fetchImpl, timeoutMs }) {
   return renderer.render().asPng();
 }
 
-export function renderMemberShareHtml(model) {
+export function renderMemberShareHtml(model, googleAnalyticsMeasurementId) {
   return `<!doctype html>
 <html lang="ko">
   <head>
@@ -913,6 +946,7 @@ export function renderMemberShareHtml(model) {
       model.description
     )}" />
     <meta name="twitter:image" content="${escapeHtml(model.imageUrl)}" />
+${renderGoogleAnalyticsTag(googleAnalyticsMeasurementId, model.canonicalUrl)}
     <script>
       window.location.replace(${serializeScriptValue(model.activityUrl)});
     </script>
@@ -931,6 +965,7 @@ export async function generateMemberSharePages({
   distDir = DEFAULT_DIST_DIR,
   appBaseUrl = DEFAULT_APP_BASE_URL,
   dataRepoBaseUrl = DEFAULT_DATA_REPO_BASE_URL,
+  googleAnalyticsMeasurementId = process.env.VITE_GA_MEASUREMENT_ID,
   fetchImpl = globalThis.fetch,
   timeoutMs = DEFAULT_FETCH_TIMEOUT_MS
 } = {}) {
@@ -1147,7 +1182,11 @@ export async function generateMemberSharePages({
       mkdir(dirname(cardPath), { recursive: true })
     ]);
     await Promise.all([
-      writeFile(memberPagePath, renderMemberShareHtml(model), "utf8"),
+      writeFile(
+        memberPagePath,
+        renderMemberShareHtml(model, googleAnalyticsMeasurementId),
+        "utf8"
+      ),
       writeFile(cardPath, cardPng)
     ]);
     manifestEntries.push({

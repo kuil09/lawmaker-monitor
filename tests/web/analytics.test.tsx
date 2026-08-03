@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   buildAnalyticsPage,
   initializeGoogleAnalytics,
+  isAnalyticsHostAllowed,
   normalizeGaMeasurementId
 } from "../../apps/web/src/lib/analytics.js";
 
@@ -39,6 +40,20 @@ describe("Google Analytics integration", () => {
     expect(normalizeGaMeasurementId(" g-ab12cd34 ")).toBe("G-AB12CD34");
     expect(normalizeGaMeasurementId("UA-123456-1")).toBeNull();
     expect(normalizeGaMeasurementId("")).toBeNull();
+  });
+
+  it("enables analytics only for configured production hosts", () => {
+    expect(isAnalyticsHostAllowed("kuil09.github.io", "kuil09.github.io")).toBe(
+      true
+    );
+    expect(
+      isAnalyticsHostAllowed(
+        "KUIL09.GITHUB.IO",
+        "preview.example.test, kuil09.github.io"
+      )
+    ).toBe(true);
+    expect(isAnalyticsHostAllowed("127.0.0.1", "kuil09.github.io")).toBe(false);
+    expect(isAnalyticsHostAllowed("ga-probe.example", undefined)).toBe(false);
   });
 
   it("groups traffic by public route and preserves public member identifiers", () => {

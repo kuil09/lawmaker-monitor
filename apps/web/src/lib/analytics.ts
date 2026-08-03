@@ -39,6 +39,20 @@ export function normalizeGaMeasurementId(
   return GA_MEASUREMENT_ID_PATTERN.test(normalized) ? normalized : null;
 }
 
+export function isAnalyticsHostAllowed(
+  hostname: string | null | undefined,
+  allowedHosts: string | null | undefined
+): boolean {
+  const normalizedHostname = hostname?.trim().toLowerCase() ?? "";
+  if (!normalizedHostname) {
+    return false;
+  }
+
+  return (allowedHosts?.split(",") ?? []).some(
+    (allowedHost) => allowedHost.trim().toLowerCase() === normalizedHostname
+  );
+}
+
 function getRouteName(url: URL): string {
   return url.hash.slice(1).split("?")[0]?.trim().toLowerCase() || "home";
 }

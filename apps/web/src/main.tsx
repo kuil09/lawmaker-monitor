@@ -1,6 +1,9 @@
 import ReactDOM from "react-dom/client";
 
-import { initializeGoogleAnalytics } from "./lib/analytics.js";
+import {
+  initializeGoogleAnalytics,
+  isAnalyticsHostAllowed
+} from "./lib/analytics.js";
 import { removeLegacyUiParameter } from "./lib/entry-url.js";
 import { V2App } from "./v2/V2App.js";
 import "./styles/layers.css";
@@ -21,7 +24,12 @@ import "./styles/member-evaluation.css";
 
 removeLegacyUiParameter();
 initializeGoogleAnalytics({
-  measurementId: import.meta.env.VITE_GA_MEASUREMENT_ID
+  measurementId: isAnalyticsHostAllowed(
+    window.location.hostname,
+    import.meta.env.VITE_GA_ALLOWED_HOSTS
+  )
+    ? import.meta.env.VITE_GA_MEASUREMENT_ID
+    : undefined
 });
 
 ReactDOM.createRoot(document.getElementById("root")!).render(<V2App />);
