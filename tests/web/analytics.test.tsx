@@ -7,17 +7,19 @@ import {
 } from "../../apps/web/src/lib/analytics.js";
 
 type AnalyticsWindow = Window & {
-  dataLayer?: [string, ...unknown[]][];
+  dataLayer?: ArrayLike<unknown>[];
   gtag?: (...args: [string, ...unknown[]]) => void;
   __lawmakerMonitorAnalyticsCleanup?: () => void;
 };
 
-function getPageViewEvents() {
+function getDataLayerCommands() {
   const analyticsWindow = window as AnalyticsWindow;
-  return (
-    analyticsWindow.dataLayer?.filter(
-      ([command, eventName]) => command === "event" && eventName === "page_view"
-    ) ?? []
+  return analyticsWindow.dataLayer?.map((command) => Array.from(command)) ?? [];
+}
+
+function getPageViewEvents() {
+  return getDataLayerCommands().filter(
+    ([command, eventName]) => command === "event" && eventName === "page_view"
   );
 }
 
@@ -86,7 +88,10 @@ describe("Google Analytics integration", () => {
     expect(script?.src).toBe(
       "https://www.googletagmanager.com/gtag/js?id=G-AB12CD34"
     );
-    expect(analyticsWindow.dataLayer?.[0]).toEqual([
+    expect(Object.prototype.toString.call(analyticsWindow.dataLayer?.[0])).toBe(
+      "[object Arguments]"
+    );
+    expect(getDataLayerCommands()[0]).toEqual([
       "consent",
       "default",
       {

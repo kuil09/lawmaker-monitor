@@ -10,9 +10,10 @@ const ROUTE_IDENTIFIER_PARAMETERS: Record<string, readonly string[]> = {
 
 type GtagArguments = [command: string, ...parameters: unknown[]];
 type Gtag = (...args: GtagArguments) => void;
+type DataLayerCommand = GtagArguments | IArguments;
 
 type AnalyticsWindow = Window & {
-  dataLayer?: GtagArguments[];
+  dataLayer?: DataLayerCommand[];
   gtag?: Gtag;
   [ANALYTICS_CLEANUP_KEY]?: () => void;
 };
@@ -100,8 +101,10 @@ export function buildAnalyticsPage(
 
 function createGtag(windowRef: AnalyticsWindow): Gtag {
   windowRef.dataLayer ??= [];
-  windowRef.gtag ??= (...args: GtagArguments) => {
-    windowRef.dataLayer?.push(args);
+  windowRef.gtag ??= function (..._args: GtagArguments): void {
+    // gtag.js requires the native Arguments object used by Google's snippet.
+    // eslint-disable-next-line prefer-rest-params
+    windowRef.dataLayer?.push(arguments);
   };
   return windowRef.gtag;
 }
