@@ -77,7 +77,7 @@ type EvidenceItem = {
   value: string;
   detail: string;
   status: string;
-  href?: string;
+  targetId?: string;
 };
 
 type LedgerRow = {
@@ -185,6 +185,30 @@ function getShareLabel(state: MemberEvaluationShareState): string {
   return "공유";
 }
 
+function MemberSectionButton({
+  targetId,
+  children
+}: {
+  targetId: string;
+  children: ReactNode;
+}) {
+  function handleClick() {
+    const target = document.getElementById(targetId);
+    if (!target) {
+      return;
+    }
+
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    target.focus({ preventScroll: true });
+  }
+
+  return (
+    <button type="button" aria-controls={targetId} onClick={handleClick}>
+      {children}
+    </button>
+  );
+}
+
 function EvidenceColumn({
   tone,
   icon,
@@ -221,11 +245,11 @@ function EvidenceColumn({
             <p>{item.detail}</p>
             <footer>
               <small>{item.status}</small>
-              {item.href ? (
-                <a href={item.href}>
+              {item.targetId ? (
+                <MemberSectionButton targetId={item.targetId}>
                   자세히
                   <ArrowRightIcon size={15} weight="bold" aria-hidden="true" />
-                </a>
+                </MemberSectionButton>
               ) : null}
             </footer>
           </div>
@@ -398,7 +422,7 @@ export function MemberEvaluationDossier({
         )}건 · 확인 불가 ${formatNumber(
           participationSnapshot.unresolvedCount
         )}건`,
-        href: "#member-votes"
+        targetId: "member-votes"
       });
     } else if (
       accountabilityItem &&
@@ -415,7 +439,7 @@ export function MemberEvaluationDossier({
         status: `확인 불가 ${formatNumber(
           participationSnapshot.unresolvedCount
         )}건 · 불참으로 추론하지 않음`,
-        href: "#member-votes"
+        targetId: "member-votes"
       });
     } else {
       items.push({
@@ -510,7 +534,7 @@ export function MemberEvaluationDossier({
         value: `${formatNumber(committeeNames.length)}곳`,
         detail: committeeNames.join(", "),
         status: `기준: ${assembly.label} 공개 소속 정보`,
-        href: "#member-committees"
+        targetId: "member-committees"
       });
     }
 
@@ -561,7 +585,7 @@ export function MemberEvaluationDossier({
         detail:
           "불참 사유는 표결 기록만으로 알 수 없어 원문·공식 설명 확인이 필요합니다.",
         status: reviewStatus,
-        href: "#member-votes"
+        targetId: "member-votes"
       },
       {
         id: "no-votes",
@@ -569,7 +593,7 @@ export function MemberEvaluationDossier({
         value: reviewValue(accountabilityItem.noCount),
         detail: "반대 여부는 의안별 판단 기록이며 평가 점수가 아닙니다.",
         status: reviewStatus,
-        href: "#member-votes"
+        targetId: "member-votes"
       },
       {
         id: "abstain-votes",
@@ -577,7 +601,7 @@ export function MemberEvaluationDossier({
         value: reviewValue(accountabilityItem.abstainCount),
         detail: "기권 여부도 의안별 판단 기록이며 평가 점수가 아닙니다.",
         status: reviewStatus,
-        href: "#member-votes"
+        targetId: "member-votes"
       }
     ];
 
@@ -662,7 +686,7 @@ export function MemberEvaluationDossier({
           latestAssetPoint.currentAmount
         )} (${formatDate(latestAssetPoint.reportedAt)})`,
         status: "동일 의원의 연속 공개 신고 · 원인 단정 불가",
-        href: "#member-assets"
+        targetId: "member-assets"
       });
     } else if (latestAssetSummary) {
       items.push({
@@ -675,7 +699,7 @@ export function MemberEvaluationDossier({
           : assetHistoryError
             ? "이전 신고 이력을 불러오지 못해 변화 비교 보류"
             : "이전 신고 기준일이 없어 변화 비교 보류",
-        href: "#member-assets"
+        targetId: "member-assets"
       });
     } else {
       items.push({
@@ -1133,10 +1157,10 @@ export function MemberEvaluationDossier({
           </div>
           <div>
             <strong>총 {formatNumber(voteRecordCount)}건</strong>
-            <a href="#member-votes">
+            <MemberSectionButton targetId="member-votes">
               전체 기록 보기
               <ArrowRightIcon size={16} weight="bold" aria-hidden="true" />
-            </a>
+            </MemberSectionButton>
           </div>
         </header>
 
