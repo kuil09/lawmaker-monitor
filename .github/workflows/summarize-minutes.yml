@@ -3,15 +3,19 @@ name: summarize-minutes
 on:
   workflow_dispatch:
     inputs:
+      target_date:
+        description: Korean calendar date to summarize in YYYY-MM-DD format
+        required: false
+        type: string
       max_documents:
         description: Maximum transcript documents to summarize
         required: false
-        default: "1"
+        default: "20"
         type: string
       max_groups:
         description: Maximum member-agenda groups to summarize
         required: false
-        default: "8"
+        default: "160"
         type: string
       retry_attempt:
         description: Automatic recovery attempt
@@ -27,7 +31,9 @@ concurrency:
 jobs:
   summarize-minutes:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
+    outputs:
+      target_date: ${{ steps.summary-date.outputs.value }}
     permissions:
       actions: write
       contents: read
@@ -38,9 +44,10 @@ jobs:
       LLAMA_CPP_RELEASE: ${{ vars.LLAMA_CPP_RELEASE || 'b10107' }}
       MINUTES_SUMMARY_MODEL: ${{ vars.MINUTES_SUMMARY_MODEL || 'LGAI-EXAONE/EXAONE-4.0-1.2B-GGUF:Q8_0' }}
       MINUTES_SUMMARY_CHAT_TEMPLATE_URL: ${{ vars.MINUTES_SUMMARY_CHAT_TEMPLATE_URL || 'https://huggingface.co/LGAI-EXAONE/EXAONE-4.0-1.2B-GGUF/resolve/162446400ea4596377a3ce1d3ddffa32971af0a6/chat_template.jinja' }}
-      MINUTES_SUMMARY_MAX_DOCUMENTS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_documents || vars.MINUTES_SUMMARY_MAX_DOCUMENTS || '1' }}
-      MINUTES_SUMMARY_MAX_GROUPS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_groups || vars.MINUTES_SUMMARY_MAX_GROUPS || '8' }}
-      MINUTES_SUMMARY_CONCURRENCY: ${{ vars.MINUTES_SUMMARY_CONCURRENCY || '2' }}
+      MINUTES_SUMMARY_TARGET_DATE: ${{ inputs.target_date }}
+      MINUTES_SUMMARY_MAX_DOCUMENTS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_documents || vars.MINUTES_SUMMARY_MAX_DOCUMENTS || '20' }}
+      MINUTES_SUMMARY_MAX_GROUPS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_groups || vars.MINUTES_SUMMARY_MAX_GROUPS || '160' }}
+      MINUTES_SUMMARY_CONCURRENCY: ${{ vars.MINUTES_SUMMARY_CONCURRENCY || '4' }}
       MINUTES_SUMMARY_REQUEST_TIMEOUT_MS: ${{ vars.MINUTES_SUMMARY_REQUEST_TIMEOUT_MS || '60000' }}
     steps:
       - name: Checkout repository
@@ -58,11 +65,29 @@ jobs:
           TARGET_BRANCH="${DATA_REPO_BRANCH:-main}"
           git clone --depth 1 --branch "${TARGET_BRANCH}" "${REPO_URL}" published-data
 
+      - name: Resolve Korean summary date
+        id: summary-date
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        run: |
+          TARGET_DATE="${MINUTES_SUMMARY_TARGET_DATE}"
+          if [ -z "${TARGET_DATE}" ]; then
+            TARGET_DATE="$(TZ=Asia/Seoul date +%F)"
+          fi
+          if ! [[ "${TARGET_DATE}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+            echo "Invalid summary target date: ${TARGET_DATE}" >&2
+            exit 1
+          fi
+          echo "MINUTES_SUMMARY_TARGET_DATE=${TARGET_DATE}" >> "${GITHUB_ENV}"
+          echo "value=${TARGET_DATE}" >> "${GITHUB_OUTPUT}"
+
       - name: Detect mirrored transcript inputs
         id: transcript-inputs
         if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
         run: |
-          if jq -e 'any(.items[]; (.transcriptRelativePath // "") != "")' published-data/raw/index/document_index.json >/dev/null; then
+          if jq -e \
+            --arg target_date "${MINUTES_SUMMARY_TARGET_DATE}" \
+            'any(.items[]; .publishedDate == $target_date and (.transcriptRelativePath // "") != "")' \
+            published-data/raw/index/document_index.json >/dev/null; then
             echo "available=true" >> "${GITHUB_OUTPUT}"
           else
             echo "available=false" >> "${GITHUB_OUTPUT}"
@@ -184,8 +209,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CURRENT_RETRY_ATTEMPT: ${{ inputs.retry_attempt || '0' }}
           MAX_RETRY_ATTEMPTS: "3"
-          MAX_DOCUMENTS: ${{ inputs.max_documents || vars.MINUTES_SUMMARY_MAX_DOCUMENTS || '1' }}
-          MAX_GROUPS: ${{ inputs.max_groups || vars.MINUTES_SUMMARY_MAX_GROUPS || '8' }}
+          TARGET_DATE: ${{ needs.summarize-minutes.outputs.target_date || inputs.target_date }}
+          MAX_DOCUMENTS: ${{ inputs.max_documents || vars.MINUTES_SUMMARY_MAX_DOCUMENTS || '20' }}
+          MAX_GROUPS: ${{ inputs.max_groups || vars.MINUTES_SUMMARY_MAX_GROUPS || '160' }}
         run: |
           if ! [[ "${CURRENT_RETRY_ATTEMPT}" =~ ^[0-9]+$ ]]; then
             echo "Invalid retry attempt: ${CURRENT_RETRY_ATTEMPT}" >&2
@@ -200,6 +226,7 @@ jobs:
 
           gh workflow run summarize-minutes.yml \
             --ref "${{ github.event.repository.default_branch }}" \
+            -f target_date="${TARGET_DATE}" \
             -f max_documents="${MAX_DOCUMENTS}" \
             -f max_groups="${MAX_GROUPS}" \
             -f retry_attempt="${NEXT_RETRY_ATTEMPT}"

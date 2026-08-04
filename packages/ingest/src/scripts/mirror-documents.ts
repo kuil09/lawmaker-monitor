@@ -95,6 +95,7 @@ type MirrorConfig = {
   backfillWindowsPerRun: number;
   skipRecent: boolean;
   retryExistingOnly: boolean;
+  latestDateOnly: boolean;
   includeAppendices: boolean;
   serviceInfId?: string;
   serviceInfSeq: number;
@@ -351,6 +352,7 @@ function loadConfig(): MirrorConfig {
     ),
     skipRecent: readBooleanEnv("MIRROR_SKIP_RECENT", false),
     retryExistingOnly: readBooleanEnv("MIRROR_RETRY_EXISTING_ONLY", false),
+    latestDateOnly: readBooleanEnv("MIRROR_LATEST_DATE_ONLY", false),
     includeAppendices: readBooleanEnv("MIRROR_INCLUDE_APPENDICES", true),
     serviceInfId,
     serviceInfSeq: readPositiveInteger("MIRROR_SERVICE_INF_SEQ", 1)
@@ -939,6 +941,7 @@ async function collectAssemblyCandidates(
     {
       backfillCursorDate: config.backfillCursorOverride,
       includeRecent: !config.skipRecent,
+      latestDateOnly: config.latestDateOnly,
       maxBackfillWindows: config.backfillWindowsPerRun
     }
   );
@@ -1687,6 +1690,7 @@ async function collectAssemblyMinutesCatalogCandidates(
     {
       backfillCursorDate: config.backfillCursorOverride,
       includeRecent: !config.skipRecent,
+      latestDateOnly: config.latestDateOnly,
       maxBackfillWindows: config.backfillWindowsPerRun
     }
   );
@@ -2812,6 +2816,7 @@ async function main(): Promise<void> {
           : await collectGenericCandidates(page!, config);
   const transcriptRefreshCandidates =
     !config.retryExistingOnly &&
+    !config.latestDateOnly &&
     (config.mode === "assembly_minutes_search" ||
       config.mode === "assembly_minutes_catalog")
       ? buildTranscriptRefreshCandidates(existingMetadata.byDocumentId)
@@ -2863,7 +2868,9 @@ async function main(): Promise<void> {
 
     if (
       !config.retryExistingOnly &&
-      !isPastDocumentDate(candidate.publishedDate, cutoffDate)
+      (config.latestDateOnly
+        ? candidate.publishedDate !== cutoffDate
+        : !isPastDocumentDate(candidate.publishedDate, cutoffDate))
     ) {
       skippedTodayOrFuture += 1;
       continue;
@@ -3024,15 +3031,17 @@ async function main(): Promise<void> {
     : (config.backfillCursorOverride ??
       existingState?.nextBackfillCursorDate ??
       config.backfillStartDate);
-  const nextBackfillCursorDate = config.retryExistingOnly
-    ? existingState?.nextBackfillCursorDate
-    : resolvePublishedBackfillCursor({
-        proposedCursor: collectionResult.nextBackfillCursorDate,
-        fallbackCursor: previousBackfillCursorDate,
-        skippedWithoutDate,
-        downloadFailures,
-        reachedDownloadLimit
-      });
+  const nextBackfillCursorDate = config.latestDateOnly
+    ? null
+    : config.retryExistingOnly
+      ? existingState?.nextBackfillCursorDate
+      : resolvePublishedBackfillCursor({
+          proposedCursor: collectionResult.nextBackfillCursorDate,
+          fallbackCursor: previousBackfillCursorDate,
+          skippedWithoutDate,
+          downloadFailures,
+          reachedDownloadLimit
+        });
   const latestDiscoveredDocumentDate =
     collectionResult.candidates
       .map((candidate) => candidate.publishedDate)
@@ -3081,12 +3090,15 @@ async function main(): Promise<void> {
     recentWindowEndDate,
     effectiveRecentDays: config.recentDays,
     nextBackfillCursorDate,
-    pendingBackfill: hasPendingBackfill({
-      nextBackfillCursorDate,
-      recentWindowStartDate
-    }),
+    pendingBackfill:
+      !config.latestDateOnly &&
+      hasPendingBackfill({
+        nextBackfillCursorDate,
+        recentWindowStartDate
+      }),
     backfillAdvanced:
       !config.retryExistingOnly &&
+      !config.latestDateOnly &&
       Boolean(
         nextBackfillCursorDate &&
         nextBackfillCursorDate > previousBackfillCursorDate

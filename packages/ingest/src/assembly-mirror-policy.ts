@@ -16,6 +16,7 @@ type SearchWindowOptions = {
   includeAllBackfillWindows?: boolean;
   backfillCursorDate?: string;
   includeRecent?: boolean;
+  latestDateOnly?: boolean;
   maxBackfillWindows?: number;
 };
 
@@ -59,6 +60,16 @@ export function buildAssemblySearchWindows(
   existingState: Pick<DocumentMirrorState, "nextBackfillCursorDate"> | null,
   options?: SearchWindowOptions
 ): AssemblySearchWindow[] {
+  if (options?.latestDateOnly) {
+    return [
+      {
+        label: "recent",
+        startDate: cutoffDate,
+        endDate: cutoffDate
+      }
+    ];
+  }
+
   const yesterday = shiftIsoDate(cutoffDate, -1);
   const windows: AssemblySearchWindow[] = [];
 

@@ -3,25 +3,11 @@ name: mirror-documents
 on:
   workflow_dispatch:
     inputs:
-      backfill_start_date:
-        description: Optional cursor override in YYYY-MM-DD format
-        required: false
-        type: string
-      backfill_windows:
-        description: Number of seven-day backfill windows to process
-        required: false
-        default: "1"
-        type: string
       max_downloads:
-        description: Maximum unique documents to process
+        description: Maximum same-day documents to process
         required: false
-        default: "500"
+        default: "20"
         type: string
-      skip_recent:
-        description: Skip the rolling recent-date window
-        required: false
-        default: false
-        type: boolean
       retry_existing_only:
         description: Revalidate and repair only indexed official Assembly minutes
         required: false
@@ -69,22 +55,15 @@ jobs:
       MIRROR_DATE_SELECTOR: ${{ vars.MIRROR_DATE_SELECTOR }}
       MIRROR_NEXT_SELECTOR: ${{ vars.MIRROR_NEXT_SELECTOR }}
       MIRROR_MAX_PAGES: ${{ vars.MIRROR_MAX_PAGES }}
-      MIRROR_MAX_DOWNLOADS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_downloads || vars.MIRROR_MAX_DOWNLOADS || '500' }}
+      MIRROR_MAX_DOWNLOADS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_downloads || vars.MIRROR_MAX_DOWNLOADS || '20' }}
       MIRROR_DOWNLOAD_CONCURRENCY: ${{ vars.MIRROR_DOWNLOAD_CONCURRENCY || '4' }}
       MIRROR_ASSEMBLY_NO: ${{ vars.MIRROR_ASSEMBLY_NO || '22' }}
       MIRROR_PAGE_SIZE: ${{ vars.MIRROR_PAGE_SIZE || '100' }}
       MIRROR_PAGE_DELAY_MS: ${{ vars.MIRROR_PAGE_DELAY_MS }}
       MIRROR_TIMEOUT_MS: "60000"
       MIRROR_TIME_ZONE: ${{ vars.MIRROR_TIME_ZONE }}
-      MIRROR_RECENT_DAYS: ${{ vars.MIRROR_RECENT_DAYS }}
-      MIRROR_MIN_RECENT_DAYS: ${{ vars.MIRROR_MIN_RECENT_DAYS || '30' }}
-      MIRROR_BACKFILL_START_DATE: ${{ vars.MIRROR_BACKFILL_START_DATE }}
-      MIRROR_BACKFILL_DAYS: ${{ vars.MIRROR_BACKFILL_DAYS }}
-      MIRROR_BACKFILL_CURSOR_OVERRIDE: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill_start_date || '' }}
-      MIRROR_BACKFILL_WINDOWS_PER_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill_windows || vars.MIRROR_BACKFILL_WINDOWS_PER_RUN || '1' }}
-      MIRROR_CATCHUP_WINDOWS_PER_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill_windows || vars.MIRROR_CATCHUP_WINDOWS_PER_RUN || '2' }}
-      MIRROR_SKIP_RECENT: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_recent || 'false' }}
       MIRROR_RETRY_EXISTING_ONLY: ${{ inputs.retry_existing_only && 'true' || 'false' }}
+      MIRROR_LATEST_DATE_ONLY: "true"
       MIRROR_INCLUDE_APPENDICES: "false"
     steps:
       - name: Checkout repository
@@ -162,8 +141,7 @@ jobs:
         if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
         run: |
           STATE_FILE="published-data/manifests/document_mirror_state.json"
-          echo "pending_backfill=$(jq -r '.pendingBackfill // false' "${STATE_FILE}")" >> "${GITHUB_OUTPUT}"
-          echo "backfill_advanced=$(jq -r '.backfillAdvanced // false' "${STATE_FILE}")" >> "${GITHUB_OUTPUT}"
+          echo "cutoff_date=$(jq -r '.cutoffDate' "${STATE_FILE}")" >> "${GITHUB_OUTPUT}"
 
       - name: Validate indexed minutes repair
         if: env.MIRROR_RETRY_EXISTING_ONLY == 'true'
@@ -184,22 +162,9 @@ jobs:
         run: |
           gh workflow run summarize-minutes.yml \
             --ref "${{ github.event.repository.default_branch }}" \
-            -f retry_attempt="0"
-
-      - name: Continue pending minutes backfill
-        if: >-
-          env.MIRROR_RETRY_EXISTING_ONLY != 'true' &&
-          steps.mirror-progress.outputs.pending_backfill == 'true' &&
-          steps.mirror-progress.outputs.backfill_advanced == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh workflow run mirror-documents.yml \
-            --ref "${{ github.event.repository.default_branch }}" \
-            -f backfill_windows="${MIRROR_CATCHUP_WINDOWS_PER_RUN}" \
-            -f max_downloads="${MIRROR_MAX_DOWNLOADS}" \
-            -f skip_recent=true \
-            -f retry_existing_only="${MIRROR_RETRY_EXISTING_ONLY}" \
+            -f target_date="${{ steps.mirror-progress.outputs.cutoff_date }}" \
+            -f max_documents="20" \
+            -f max_groups="160" \
             -f retry_attempt="0"
 
   retry-failed-mirror:
@@ -217,10 +182,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           CURRENT_RETRY_ATTEMPT: ${{ inputs.retry_attempt || '0' }}
           MAX_RETRY_ATTEMPTS: "3"
-          BACKFILL_START_DATE: ${{ inputs.backfill_start_date || '' }}
-          BACKFILL_WINDOWS: ${{ inputs.backfill_windows || '1' }}
-          MAX_DOWNLOADS: ${{ inputs.max_downloads || vars.MIRROR_MAX_DOWNLOADS || '500' }}
-          SKIP_RECENT: ${{ inputs.skip_recent || 'false' }}
+          MAX_DOWNLOADS: ${{ inputs.max_downloads || vars.MIRROR_MAX_DOWNLOADS || '20' }}
           RETRY_EXISTING_ONLY: ${{ inputs.retry_existing_only && 'true' || 'false' }}
         run: |
           if ! [[ "${CURRENT_RETRY_ATTEMPT}" =~ ^[0-9]+$ ]]; then
@@ -237,14 +199,9 @@ jobs:
           ARGS=(
             workflow run mirror-documents.yml
             --ref "${{ github.event.repository.default_branch }}"
-            -f "backfill_windows=${BACKFILL_WINDOWS}"
             -f "max_downloads=${MAX_DOWNLOADS}"
-            -f "skip_recent=${SKIP_RECENT}"
             -f "retry_existing_only=${RETRY_EXISTING_ONLY}"
             -f "retry_attempt=${NEXT_RETRY_ATTEMPT}"
           )
-          if [ -n "${BACKFILL_START_DATE}" ]; then
-            ARGS+=(-f "backfill_start_date=${BACKFILL_START_DATE}")
-          fi
 
           gh "${ARGS[@]}"

@@ -8,22 +8,19 @@ function readRepositoryFile(path: string): string {
 }
 
 describe("incremental minutes workflows", () => {
-  it("keeps document mirroring in bounded, resumable runs", () => {
+  it("mirrors only the Korean calendar date without historical backfill", () => {
     const workflow = readRepositoryFile(
       ".github/workflows/mirror-documents.yml"
     );
 
-    expect(workflow).toContain('default: "500"');
-    expect(workflow).toContain(
-      "MIRROR_CATCHUP_WINDOWS_PER_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.backfill_windows || vars.MIRROR_CATCHUP_WINDOWS_PER_RUN || '2' }}"
-    );
+    expect(workflow).toContain('default: "20"');
     expect(workflow).toContain("timeout-minutes: 60");
     expect(workflow).toContain("MIRROR_MODE: assembly_minutes_catalog");
     expect(workflow).toContain(
       "MIRROR_DOWNLOAD_CONCURRENCY: ${{ vars.MIRROR_DOWNLOAD_CONCURRENCY || '4' }}"
     );
     expect(workflow).toContain(
-      "MIRROR_MAX_DOWNLOADS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_downloads || vars.MIRROR_MAX_DOWNLOADS || '500' }}"
+      "MIRROR_MAX_DOWNLOADS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_downloads || vars.MIRROR_MAX_DOWNLOADS || '20' }}"
     );
     expect(workflow).toContain('MIRROR_TIMEOUT_MS: "60000"');
     expect(workflow).toContain('MIRROR_INCLUDE_APPENDICES: "false"');
@@ -31,13 +28,11 @@ describe("incremental minutes workflows", () => {
     expect(workflow).toContain(
       "MIRROR_RETRY_EXISTING_ONLY: ${{ inputs.retry_existing_only && 'true' || 'false' }}"
     );
+    expect(workflow).toContain('MIRROR_LATEST_DATE_ONLY: "true"');
     expect(workflow).toContain("Validate indexed minutes repair");
     expect(workflow).toContain("Validate indexed repair configuration");
     expect(workflow).toContain(
       "Indexed minutes repair requires DATA_REPO and DATA_REPO_PAT."
-    );
-    expect(workflow).toContain(
-      '-f retry_existing_only="${MIRROR_RETRY_EXISTING_ONLY}"'
     );
     expect(workflow).toContain(
       "RETRY_EXISTING_ONLY: ${{ inputs.retry_existing_only && 'true' || 'false' }}"
@@ -50,7 +45,12 @@ describe("incremental minutes workflows", () => {
     );
     expect(workflow).toContain("Start minutes summaries");
     expect(workflow).toContain("gh workflow run summarize-minutes.yml");
-    expect(workflow).toContain("Continue pending minutes backfill");
+    expect(workflow).toContain(
+      '-f target_date="${{ steps.mirror-progress.outputs.cutoff_date }}"'
+    );
+    expect(workflow).not.toContain("Continue pending minutes backfill");
+    expect(workflow).not.toContain("backfill_start_date:");
+    expect(workflow).not.toContain("backfill_windows:");
     expect(workflow).toContain("group: published-data-${{ vars.DATA_REPO");
     expect(workflow).toContain("queue: max");
     expect(workflow).toContain("Retry failed minutes mirror");
@@ -58,21 +58,30 @@ describe("incremental minutes workflows", () => {
     expect(workflow).toContain('-f retry_attempt="0"');
   });
 
-  it("keeps AI summarization in small checkpointed batches without recursive continuations", () => {
+  it("summarizes one same-day batch with a single data commit", () => {
     const workflow = readRepositoryFile(
       ".github/workflows/summarize-minutes.yml"
     );
 
-    expect(workflow).toContain('default: "1"');
-    expect(workflow).toContain('default: "8"');
+    expect(workflow).toContain('default: "20"');
+    expect(workflow).toContain('default: "160"');
     expect(workflow).toContain(
-      "MINUTES_SUMMARY_CONCURRENCY: ${{ vars.MINUTES_SUMMARY_CONCURRENCY || '2' }}"
+      "MINUTES_SUMMARY_CONCURRENCY: ${{ vars.MINUTES_SUMMARY_CONCURRENCY || '4' }}"
     );
     expect(workflow).toContain(
       "MINUTES_SUMMARY_REQUEST_TIMEOUT_MS: ${{ vars.MINUTES_SUMMARY_REQUEST_TIMEOUT_MS || '60000' }}"
     );
-    expect(workflow).toContain("timeout-minutes: 30");
+    expect(workflow).toContain("timeout-minutes: 60");
+    expect(workflow).toContain("Resolve Korean summary date");
+    expect(workflow).toContain(
+      '.publishedDate == $target_date and (.transcriptRelativePath // "") != ""'
+    );
     expect(workflow).toContain("Commit and push summary changes");
+    expect(
+      workflow.match(
+        /"\$\{GITHUB_WORKSPACE\}\/scripts\/publish-data-repo\.sh"/g
+      )
+    ).toHaveLength(1);
     expect(workflow).not.toContain("Continue pending minutes summaries");
     expect(workflow).toContain("group: published-data-${{ vars.DATA_REPO");
     expect(workflow).toContain("queue: max");
@@ -106,10 +115,10 @@ describe("incremental minutes workflows", () => {
     );
 
     expect(script).toContain(
-      'readPositiveInteger("MINUTES_SUMMARY_MAX_DOCUMENTS", 1)'
+      'readPositiveInteger("MINUTES_SUMMARY_MAX_DOCUMENTS", 20)'
     );
     expect(script).toContain(
-      'readPositiveInteger("MINUTES_SUMMARY_MAX_GROUPS", 8)'
+      'readPositiveInteger("MINUTES_SUMMARY_MAX_GROUPS", 160)'
     );
     expect(script).toContain(
       '"MINUTES_SUMMARY_REQUEST_TIMEOUT_MS",\n      60_000'

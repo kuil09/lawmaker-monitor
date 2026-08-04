@@ -23,6 +23,10 @@ import {
   type MinutesSummaryMember
 } from "../minutes-summarization.js";
 import {
+  resolveMinutesSummaryTargetDate,
+  selectPendingMinutesDocuments
+} from "../minutes-summary-policy.js";
+import {
   isOfficialAssemblyMinutesViewerUrl,
   type AssemblyMinutesTranscript
 } from "../minutes-transcript.js";
@@ -49,6 +53,7 @@ type SummaryConfig = {
   maxGroups: number;
   concurrency: number;
   requestTimeoutMs: number;
+  targetDate: string;
 };
 
 type SummaryState = {
@@ -56,6 +61,7 @@ type SummaryState = {
   modelId: string;
   promptVersion: string;
   sourceKind: "official_minutes_transcript";
+  targetDate: string;
   documentsVisited: number;
   documentsCompleted: number;
   groupsSummarized: number;
@@ -107,15 +113,18 @@ function loadConfig(): SummaryConfig {
     endpoint:
       process.env.MINUTES_SUMMARY_ENDPOINT?.trim() ||
       "http://127.0.0.1:8080/v1/chat/completions",
-    maxDocuments: readPositiveInteger("MINUTES_SUMMARY_MAX_DOCUMENTS", 1),
-    maxGroups: readPositiveInteger("MINUTES_SUMMARY_MAX_GROUPS", 8),
+    maxDocuments: readPositiveInteger("MINUTES_SUMMARY_MAX_DOCUMENTS", 20),
+    maxGroups: readPositiveInteger("MINUTES_SUMMARY_MAX_GROUPS", 160),
     concurrency: Math.min(
-      readPositiveInteger("MINUTES_SUMMARY_CONCURRENCY", 2),
+      readPositiveInteger("MINUTES_SUMMARY_CONCURRENCY", 4),
       8
     ),
     requestTimeoutMs: readPositiveInteger(
       "MINUTES_SUMMARY_REQUEST_TIMEOUT_MS",
       60_000
+    ),
+    targetDate: resolveMinutesSummaryTargetDate(
+      process.env.MINUTES_SUMMARY_TARGET_DATE
     )
   };
 }
@@ -359,28 +368,30 @@ async function main(): Promise<void> {
       officialProfileUrl: member.officialProfileUrl ?? null
     })
   );
-  const candidateDocuments = documentIndex.items.filter(isTranscriptDocument);
+  const allTranscriptDocuments =
+    documentIndex.items.filter(isTranscriptDocument);
+  const candidateDocuments = allTranscriptDocuments.filter(
+    (item) => item.publishedDate === config.targetDate
+  );
   const artifactByDocumentId = new Map(
     (await loadAllArtifacts(config)).map((artifact) => [
       artifact.documentId,
       artifact
     ])
   );
-  const pendingDocuments = candidateDocuments
-    .filter(
-      (item) =>
-        !isCurrentSummaryArtifact(
-          item,
-          artifactByDocumentId.get(item.documentId),
-          config
-        )
-    )
-    .sort((left, right) =>
-      right.publishedDate.localeCompare(left.publishedDate)
-    )
-    .slice(0, config.maxDocuments);
+  const pendingDocuments = selectPendingMinutesDocuments({
+    documents: candidateDocuments,
+    targetDate: config.targetDate,
+    maxDocuments: config.maxDocuments,
+    isCurrent: (item) =>
+      isCurrentSummaryArtifact(
+        item,
+        artifactByDocumentId.get(item.documentId),
+        config
+      )
+  });
   const currentArtifacts = () =>
-    candidateDocuments.flatMap((item) => {
+    allTranscriptDocuments.flatMap((item) => {
       const artifact = artifactByDocumentId.get(item.documentId);
       return artifact?.sourceContentSha256 === item.transcriptContentSha256
         ? [artifact]
@@ -405,6 +416,7 @@ async function main(): Promise<void> {
         modelId: config.modelId,
         promptVersion: MINUTES_SUMMARY_PROMPT_VERSION,
         sourceKind: "official_minutes_transcript",
+        targetDate: config.targetDate,
         documentsVisited: 0,
         documentsCompleted: 0,
         groupsSummarized: 0,
@@ -587,7 +599,7 @@ async function main(): Promise<void> {
     modelId: config.modelId,
     promptVersion: MINUTES_SUMMARY_PROMPT_VERSION,
     members,
-    artifacts: candidateDocuments.flatMap((item) => {
+    artifacts: allTranscriptDocuments.flatMap((item) => {
       const artifact = artifactByDocumentId.get(item.documentId);
       return artifact?.sourceContentSha256 === item.transcriptContentSha256
         ? [artifact]
@@ -653,6 +665,7 @@ async function main(): Promise<void> {
     modelId: config.modelId,
     promptVersion: MINUTES_SUMMARY_PROMPT_VERSION,
     sourceKind: "official_minutes_transcript",
+    targetDate: config.targetDate,
     documentsVisited: pendingDocuments.length,
     documentsCompleted,
     groupsSummarized,
