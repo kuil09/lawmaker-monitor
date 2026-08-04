@@ -170,23 +170,6 @@ jobs:
             exports/vote_minutes_opinions.json \
             manifests/minutes_summary_state.json
 
-      - name: Continue pending minutes summaries
-        if: >-
-          steps.transcript-inputs.outputs.available == 'true' &&
-          steps.summary-progress.outputs.remaining_documents != '0' &&
-          (
-            steps.summary-progress.outputs.documents_completed != '0' ||
-            steps.summary-progress.outputs.groups_summarized != '0'
-          )
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh workflow run summarize-minutes.yml \
-            --ref "${{ github.event.repository.default_branch }}" \
-            -f max_documents="${MINUTES_SUMMARY_MAX_DOCUMENTS}" \
-            -f max_groups="${MINUTES_SUMMARY_MAX_GROUPS}" \
-            -f retry_attempt="0"
-
   retry-failed-summary:
     needs: summarize-minutes
     if: ${{ always() && needs.summarize-minutes.result == 'failure' }}
