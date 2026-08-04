@@ -389,6 +389,104 @@ describe("generateMemberSharePages", () => {
       })
     ).rejects.toThrow("no valid member data was available");
   });
+
+  it("opens the Assembly circuit and reuses published cards for remaining members", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const distDir = await createTemporaryDirectory();
+      const members = [
+        { memberId: "M001", name: "가의원" },
+        { memberId: "M002", name: "나의원" },
+        { memberId: "M003", name: "다의원" },
+        { memberId: "M004", name: "라의원" }
+      ].map((member) => ({
+        ...member,
+        party: "테스트당",
+        photoUrl: `https://www.assembly.go.kr/static/portal/img/openassm/new/${member.memberId}.jpg`
+      }));
+      const payloads: Record<string, unknown> = {
+        "https://data.example.test/manifests/latest.json": {
+          snapshotId: "snapshot-circuit",
+          updatedAt: "2026-08-04T00:00:00.000Z",
+          currentAssembly: { assemblyNo: 22, label: "제22대 국회" },
+          exports: {}
+        },
+        "https://data.example.test/exports/member_activity_calendar.json": {
+          generatedAt: "2026-08-04T00:00:00.000Z",
+          assemblyLabel: "제22대 국회",
+          assembly: { members }
+        },
+        "https://data.example.test/exports/accountability_summary.json": {
+          items: []
+        },
+        "https://data.example.test/exports/member_assets_index.json": {
+          members: []
+        },
+        "https://data.example.test/exports/bill_proposal_activity.json": {
+          items: []
+        },
+        "https://data.example.test/exports/member_statement_summaries/index.json":
+          {
+            members: []
+          }
+      };
+      const assemblyRequests: string[] = [];
+      const publishedCardRequests: string[] = [];
+      const fetchImpl = vi.fn(async (url: string) => {
+        if (url.startsWith("https://www.assembly.go.kr/")) {
+          assemblyRequests.push(url);
+          throw new Error("The operation was aborted due to timeout");
+        }
+        if (
+          url.startsWith(
+            "https://app.example.test/lawmaker-monitor/member-cards/"
+          )
+        ) {
+          publishedCardRequests.push(url);
+          return new Response(onePixelPng, {
+            status: 200,
+            headers: { "Content-Type": "image/png" }
+          });
+        }
+
+        const payload = payloads[url];
+        return payload
+          ? new Response(JSON.stringify(payload), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            })
+          : new Response(null, { status: 404 });
+      });
+
+      const generation = generateMemberSharePages({
+        distDir,
+        appBaseUrl: "https://app.example.test/lawmaker-monitor/",
+        dataRepoBaseUrl: "https://data.example.test/",
+        fetchImpl,
+        timeoutMs: 10
+      });
+
+      await vi.runAllTimersAsync();
+      const result = await generation;
+
+      expect(result).toMatchObject({ status: "generated", count: 4 });
+      expect(
+        assemblyRequests.some(
+          (url) => url.includes("M003") || url.includes("M004")
+        )
+      ).toBe(false);
+      expect(assemblyRequests.length).toBeLessThan(24);
+      expect(publishedCardRequests).toHaveLength(4);
+      expect(
+        result.warnings.filter((warning) =>
+          warning.includes("Assembly portrait circuit opened")
+        )
+      ).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("member share portraits", () => {

@@ -40,6 +40,7 @@ const STATEMENT_FETCH_CONCURRENCY = 16;
 const SAFE_MEMBER_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 const GA_MEASUREMENT_ID_PATTERN = /^G-[A-Z0-9]+$/;
 const PORTRAIT_FETCH_ATTEMPTS = 3;
+const ASSEMBLY_PORTRAIT_CIRCUIT_FAILURE_THRESHOLD = 2;
 const PORTRAIT_RETRY_BASE_DELAY_MS = 250;
 const PORTRAIT_RETRY_MAX_DELAY_MS = 2_000;
 const ASSEMBLY_ORIGIN = "https://www.assembly.go.kr";
@@ -239,6 +240,43 @@ function isRetryableResponse(status) {
   return status === 408 || status === 425 || status === 429 || status >= 500;
 }
 
+class AssemblyPortraitCircuitOpenError extends Error {
+  constructor() {
+    super("[member-share] Assembly portrait circuit is open");
+    this.name = "AssemblyPortraitCircuitOpenError";
+  }
+}
+
+export function createAssemblyPortraitCircuit({
+  failureThreshold = ASSEMBLY_PORTRAIT_CIRCUIT_FAILURE_THRESHOLD,
+  onOpen
+} = {}) {
+  let consecutiveFailures = 0;
+  let open = false;
+
+  return {
+    assertAvailable() {
+      if (open) {
+        throw new AssemblyPortraitCircuitOpenError();
+      }
+    },
+    recordFailure() {
+      if (open) {
+        return;
+      }
+
+      consecutiveFailures += 1;
+      if (consecutiveFailures >= failureThreshold) {
+        open = true;
+        onOpen?.();
+      }
+    },
+    recordSuccess() {
+      consecutiveFailures = 0;
+    }
+  };
+}
+
 function readRetryAfterMs(response) {
   const retryAfter = response.headers.get("retry-after");
   if (!retryAfter) {
@@ -265,8 +303,19 @@ async function waitForRetry(delayMs) {
   await new Promise((resolvePromise) => setTimeout(resolvePromise, delayMs));
 }
 
-async function fetchPortraitResource(fetchImpl, url, headers, timeoutMs) {
+async function fetchPortraitResource(
+  fetchImpl,
+  url,
+  headers,
+  timeoutMs,
+  assemblyPortraitCircuit
+) {
   let lastError = null;
+  const usesAssemblyCircuit = assemblyPortraitCircuit && isAssemblyUrl(url);
+
+  if (usesAssemblyCircuit) {
+    assemblyPortraitCircuit.assertAvailable();
+  }
 
   for (let attempt = 0; attempt < PORTRAIT_FETCH_ATTEMPTS; attempt += 1) {
     try {
@@ -278,6 +327,13 @@ async function fetchPortraitResource(fetchImpl, url, headers, timeoutMs) {
         !isRetryableResponse(response.status) ||
         attempt === PORTRAIT_FETCH_ATTEMPTS - 1
       ) {
+        if (usesAssemblyCircuit) {
+          if (isRetryableResponse(response.status)) {
+            assemblyPortraitCircuit.recordFailure();
+          } else {
+            assemblyPortraitCircuit.recordSuccess();
+          }
+        }
         return response;
       }
 
@@ -292,10 +348,19 @@ async function fetchPortraitResource(fetchImpl, url, headers, timeoutMs) {
     }
   }
 
+  if (usesAssemblyCircuit) {
+    assemblyPortraitCircuit.recordFailure();
+  }
   throw lastError ?? new Error("portrait request failed");
 }
 
-async function fetchImageDataUrl(fetchImpl, url, warnings, timeoutMs) {
+async function fetchImageDataUrl(
+  fetchImpl,
+  url,
+  warnings,
+  timeoutMs,
+  assemblyPortraitCircuit
+) {
   const optimizedUrl = getOptimizedPortraitUrl(url);
 
   try {
@@ -303,7 +368,8 @@ async function fetchImageDataUrl(fetchImpl, url, warnings, timeoutMs) {
       fetchImpl,
       optimizedUrl,
       isAssemblyUrl(optimizedUrl) ? ASSEMBLY_REQUEST_HEADERS : undefined,
-      timeoutMs
+      timeoutMs,
+      assemblyPortraitCircuit
     );
     if (!response.ok) {
       warnings.push(`${optimizedUrl} image returned ${response.status}`);
@@ -332,6 +398,9 @@ async function fetchImageDataUrl(fetchImpl, url, warnings, timeoutMs) {
 
     return `data:${contentType};base64,${image.toString("base64")}`;
   } catch (error) {
+    if (error instanceof AssemblyPortraitCircuitOpenError) {
+      return null;
+    }
     warnings.push(
       `${optimizedUrl} image could not be loaded: ${
         error instanceof Error ? error.message : String(error)
@@ -413,14 +482,16 @@ export async function resolveMemberPortraitDataUrl({
   assemblyNo,
   fetchImpl,
   warnings,
-  timeoutMs
+  timeoutMs,
+  assemblyPortraitCircuit
 }) {
   if (member.photoUrl) {
     const publishedPhoto = await fetchImageDataUrl(
       fetchImpl,
       member.photoUrl,
       warnings,
-      timeoutMs
+      timeoutMs,
+      assemblyPortraitCircuit
     );
     if (publishedPhoto) {
       return publishedPhoto;
@@ -435,7 +506,8 @@ export async function resolveMemberPortraitDataUrl({
       fetchImpl,
       memberPageUrl,
       ASSEMBLY_REQUEST_HEADERS,
-      timeoutMs
+      timeoutMs,
+      assemblyPortraitCircuit
     );
     if (!response.ok) {
       warnings.push(`${memberPageUrl} returned ${response.status}`);
@@ -449,6 +521,9 @@ export async function resolveMemberPortraitDataUrl({
       }
     }
   } catch (error) {
+    if (error instanceof AssemblyPortraitCircuitOpenError) {
+      throw error;
+    }
     warnings.push(
       `${memberPageUrl} could not be loaded: ${
         error instanceof Error ? error.message : String(error)
@@ -461,7 +536,8 @@ export async function resolveMemberPortraitDataUrl({
       fetchImpl,
       officialPhotoUrl,
       warnings,
-      timeoutMs
+      timeoutMs,
+      assemblyPortraitCircuit
     );
     if (officialPhoto) {
       return officialPhoto;
@@ -1118,6 +1194,13 @@ export async function generateMemberSharePages({
     assemblyNo
   };
   const manifestEntries = [];
+  const assemblyPortraitCircuit = createAssemblyPortraitCircuit({
+    onOpen: () => {
+      warnings.push(
+        `[member-share] Assembly portrait circuit opened after ${ASSEMBLY_PORTRAIT_CIRCUIT_FAILURE_THRESHOLD} consecutive unavailable resources; reusing published cards for remaining members`
+      );
+    }
+  });
 
   await runInBatches(members, CARD_GENERATION_CONCURRENCY, async (member) => {
     let portraitDataUrl = null;
@@ -1128,11 +1211,14 @@ export async function generateMemberSharePages({
         assemblyNo: context.assemblyNo,
         fetchImpl,
         warnings,
-        timeoutMs
+        timeoutMs,
+        assemblyPortraitCircuit
       });
     } catch (error) {
       portraitError = error;
-      warnings.push(error instanceof Error ? error.message : String(error));
+      if (!(error instanceof AssemblyPortraitCircuitOpenError)) {
+        warnings.push(error instanceof Error ? error.message : String(error));
+      }
     }
     const model = buildMemberCardModel(
       {
