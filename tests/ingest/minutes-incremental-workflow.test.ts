@@ -58,7 +58,7 @@ describe("incremental minutes workflows", () => {
     expect(workflow).toContain('-f retry_attempt="0"');
   });
 
-  it("keeps AI summarization in small checkpointed batches", () => {
+  it("keeps AI summarization in small checkpointed batches without recursive continuations", () => {
     const workflow = readRepositoryFile(
       ".github/workflows/summarize-minutes.yml"
     );
@@ -73,11 +73,12 @@ describe("incremental minutes workflows", () => {
     );
     expect(workflow).toContain("timeout-minutes: 30");
     expect(workflow).toContain("Commit and push summary changes");
-    expect(workflow).toContain("Continue pending minutes summaries");
+    expect(workflow).not.toContain("Continue pending minutes summaries");
     expect(workflow).toContain("group: published-data-${{ vars.DATA_REPO");
     expect(workflow).toContain("queue: max");
     expect(workflow).toContain("Retry failed summary batch");
-    expect(workflow).toContain('-f retry_attempt="0"');
+    expect(workflow).toContain('MAX_RETRY_ATTEMPTS: "3"');
+    expect(workflow).toContain('-f retry_attempt="${NEXT_RETRY_ATTEMPT}"');
     expect(workflow).not.toContain("workflow_run:");
   });
 
