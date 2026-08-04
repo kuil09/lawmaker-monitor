@@ -998,6 +998,31 @@ describe("document mirror helpers", () => {
     ]);
   });
 
+  it("builds a single same-day window when historical backfill is disabled", () => {
+    expect(
+      buildAssemblySearchWindows(
+        "2026-08-04",
+        {
+          recentDays: 30,
+          backfillStartDate: "2024-05-30",
+          backfillDays: 7
+        },
+        {
+          nextBackfillCursorDate: "2024-05-30"
+        },
+        {
+          latestDateOnly: true
+        }
+      )
+    ).toEqual([
+      {
+        label: "recent",
+        startDate: "2026-08-04",
+        endDate: "2026-08-04"
+      }
+    ]);
+  });
+
   it("advances the property backfill cursor to the end of the last expanded window", () => {
     const windows = buildAssemblySearchWindows(
       "2024-08-31",
