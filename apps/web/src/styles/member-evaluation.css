@@ -270,8 +270,8 @@
 
 .member-evaluation__identity-actions :is(a, button):focus-visible,
 .member-evaluation__question-tabs button:focus-visible,
-.member-evaluation__evidence-item a:focus-visible,
-.member-evaluation__source-records a:focus-visible,
+.member-evaluation__evidence-item button:focus-visible,
+.member-evaluation__source-records :is(a, button):focus-visible,
 .member-evaluation__table-scroll:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--accent) 58%, white);
   outline-offset: 2px;
@@ -482,14 +482,17 @@
   line-height: 1.4;
 }
 
-.member-evaluation__evidence-item a {
+.member-evaluation__evidence-item button {
   display: inline-flex;
   min-height: 2.75rem;
   flex: 0 0 auto;
   align-items: center;
   gap: 0.22rem;
   padding-inline: 0.2rem;
+  border: 0;
+  background: transparent;
   color: var(--accent-strong);
+  cursor: pointer;
   font-size: 0.7rem;
   font-weight: 850;
   text-decoration: underline;
@@ -696,13 +699,17 @@
   gap: 0.75rem;
 }
 
-.member-evaluation__source-records > header a,
+.member-evaluation__source-records > header button,
 .member-evaluation__records-table a {
   display: inline-flex;
   min-height: 2.75rem;
   align-items: center;
   gap: 0.3rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--accent-strong);
+  cursor: pointer;
   font-size: 0.72rem;
   font-weight: 850;
   text-decoration: underline;

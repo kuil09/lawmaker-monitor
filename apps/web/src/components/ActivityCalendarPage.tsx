@@ -3137,7 +3137,7 @@ export function ActivityCalendarPage({
                     />
                   </section>
                   <ActivityRatioChart member={selectedMember} />
-                  <div id="member-assets">
+                  <div id="member-assets" tabIndex={-1}>
                     <MemberAssetSection
                       indexEntry={selectedMemberAssetIndex}
                       indexError={memberAssetsIndexError}
@@ -3152,10 +3152,10 @@ export function ActivityCalendarPage({
                       memberId={selectedMember.memberId}
                     />
                   </div>
-                  <div id="member-committees">
+                  <div id="member-committees" tabIndex={-1}>
                     <ActivityCommitteeSections member={selectedMember} />
                   </div>
-                  <div id="member-votes">
+                  <div id="member-votes" tabIndex={-1}>
                     <ActivityVoteRecordSections
                       records={
                         selectedMemberDetail?.voteRecords ??

@@ -234,4 +234,46 @@ describe("member evaluation dossier", () => {
     expect(getByText("지역 정보 미확인")).toBeInTheDocument();
     expect(queryByText("비례대표")).not.toBeInTheDocument();
   });
+
+  it("scrolls to evidence without replacing the hash route", () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView
+    });
+    window.history.replaceState(null, "", "#calendar?member=M001");
+
+    const { container } = render(
+      <>
+        <MemberEvaluationDossier
+          assembly={activity.assembly}
+          member={member}
+          accountabilityItem={accountabilityItem}
+          voteRecords={[]}
+          voteRecordCount={0}
+          voteRecordsLoading={false}
+          voteRecordsError={null}
+          resolvedDistrict="서울 중구"
+          onShare={vi.fn()}
+        />
+        <div id="member-votes" tabIndex={-1} />
+      </>
+    );
+    const evidenceGrid = container.querySelector(
+      ".member-evaluation__evidence-grid"
+    );
+    const firstDetailButton = within(evidenceGrid!).getAllByRole("button", {
+      name: "자세히"
+    })[0]!;
+
+    fireEvent.click(firstDetailButton);
+
+    const target = container.querySelector("#member-votes");
+    expect(window.location.hash).toBe("#calendar?member=M001");
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "start"
+    });
+    expect(document.activeElement).toBe(target);
+  });
 });
