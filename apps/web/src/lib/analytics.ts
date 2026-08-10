@@ -1,6 +1,9 @@
 const GA_MEASUREMENT_ID_PATTERN = /^G-[A-Z0-9]+$/;
 const ANALYTICS_SCRIPT_ATTRIBUTE = "data-lawmaker-monitor-analytics";
 const ANALYTICS_CLEANUP_KEY = "__lawmakerMonitorAnalyticsCleanup";
+const ANALYTICS_CONSENT_EVENT_TIMEOUT_KEY =
+  "__lawmakerMonitorAnalyticsConsentEventTimeout";
+const ANALYTICS_CONSENT_EVENT_DELAY_MS = 250;
 const CAMPAIGN_PARAMETER_PREFIX = "utm_";
 const ROUTE_IDENTIFIER_PARAMETERS: Record<string, readonly string[]> = {
   calendar: ["member", "compare"],
@@ -16,7 +19,13 @@ type AnalyticsWindow = Window & {
   dataLayer?: DataLayerCommand[];
   gtag?: Gtag;
   [ANALYTICS_CLEANUP_KEY]?: () => void;
+  [ANALYTICS_CONSENT_EVENT_TIMEOUT_KEY]?: number;
 };
+
+export const ANALYTICS_CONSENT_STORAGE_KEY =
+  "lawmaker-monitor.analytics-consent.v1";
+
+export type AnalyticsConsent = "denied" | "granted";
 
 export type AnalyticsPage = {
   location: string;
@@ -51,6 +60,38 @@ export function isAnalyticsHostAllowed(
   return (allowedHosts?.split(",") ?? []).some(
     (allowedHost) => allowedHost.trim().toLowerCase() === normalizedHostname
   );
+}
+
+export function readStoredAnalyticsConsent(
+  storage: Pick<Storage, "getItem"> | null | undefined
+): AnalyticsConsent | null {
+  try {
+    const value = storage?.getItem(ANALYTICS_CONSENT_STORAGE_KEY);
+    return value === "granted" || value === "denied" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function storeAnalyticsConsent(
+  consent: AnalyticsConsent,
+  storage: Pick<Storage, "setItem"> | null | undefined
+): boolean {
+  try {
+    storage?.setItem(ANALYTICS_CONSENT_STORAGE_KEY, consent);
+    return Boolean(storage);
+  } catch {
+    return false;
+  }
+}
+
+function buildGoogleConsentState(analyticsStorage: AnalyticsConsent) {
+  return {
+    ad_personalization: "denied",
+    ad_storage: "denied",
+    ad_user_data: "denied",
+    analytics_storage: analyticsStorage
+  } as const;
 }
 
 function getRouteName(url: URL): string {
@@ -144,12 +185,49 @@ function appendAnalyticsScript(
   documentRef.head.append(script);
 }
 
+export function updateGoogleAnalyticsConsent({
+  consent,
+  windowRef = window
+}: {
+  consent: AnalyticsConsent;
+  windowRef?: Window;
+}): void {
+  const analyticsWindow = windowRef as AnalyticsWindow;
+  const gtag = analyticsWindow.gtag;
+  if (!gtag) {
+    return;
+  }
+
+  const pendingEventTimeout =
+    analyticsWindow[ANALYTICS_CONSENT_EVENT_TIMEOUT_KEY];
+  if (pendingEventTimeout !== undefined) {
+    analyticsWindow.clearTimeout(pendingEventTimeout);
+    delete analyticsWindow[ANALYTICS_CONSENT_EVENT_TIMEOUT_KEY];
+  }
+
+  gtag("consent", "update", buildGoogleConsentState(consent));
+
+  if (consent !== "granted") {
+    return;
+  }
+
+  analyticsWindow[ANALYTICS_CONSENT_EVENT_TIMEOUT_KEY] =
+    analyticsWindow.setTimeout(() => {
+      delete analyticsWindow[ANALYTICS_CONSENT_EVENT_TIMEOUT_KEY];
+      analyticsWindow.gtag?.("event", "analytics_consent_granted", {
+        event_category: "privacy"
+      });
+    }, ANALYTICS_CONSENT_EVENT_DELAY_MS);
+}
+
 export function initializeGoogleAnalytics({
   measurementId,
+  analyticsStorage = "denied",
   windowRef = window,
   documentRef = document
 }: {
   measurementId: string | null | undefined;
+  analyticsStorage?: AnalyticsConsent | null;
   windowRef?: Window;
   documentRef?: Document;
 }): () => void {
@@ -162,12 +240,13 @@ export function initializeGoogleAnalytics({
   analyticsWindow[ANALYTICS_CLEANUP_KEY]?.();
 
   const gtag = createGtag(analyticsWindow);
-  gtag("consent", "default", {
-    ad_personalization: "denied",
-    ad_storage: "denied",
-    ad_user_data: "denied",
-    analytics_storage: "denied"
-  });
+  gtag(
+    "consent",
+    "default",
+    buildGoogleConsentState(
+      analyticsStorage === "granted" ? "granted" : "denied"
+    )
+  );
   gtag("js", new Date());
   gtag("config", normalizedMeasurementId, {
     allow_ad_personalization_signals: false,
@@ -202,6 +281,12 @@ export function initializeGoogleAnalytics({
   const cleanup = () => {
     analyticsWindow.removeEventListener("hashchange", trackPageView);
     analyticsWindow.removeEventListener("popstate", trackPageView);
+    const pendingEventTimeout =
+      analyticsWindow[ANALYTICS_CONSENT_EVENT_TIMEOUT_KEY];
+    if (pendingEventTimeout !== undefined) {
+      analyticsWindow.clearTimeout(pendingEventTimeout);
+      delete analyticsWindow[ANALYTICS_CONSENT_EVENT_TIMEOUT_KEY];
+    }
     if (analyticsWindow[ANALYTICS_CLEANUP_KEY] === cleanup) {
       delete analyticsWindow[ANALYTICS_CLEANUP_KEY];
     }

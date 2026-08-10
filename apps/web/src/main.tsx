@@ -2,7 +2,9 @@ import ReactDOM from "react-dom/client";
 
 import {
   initializeGoogleAnalytics,
-  isAnalyticsHostAllowed
+  isAnalyticsHostAllowed,
+  normalizeGaMeasurementId,
+  readStoredAnalyticsConsent
 } from "./lib/analytics.js";
 import { removeLegacyUiParameter } from "./lib/entry-url.js";
 import { V2App } from "./v2/V2App.js";
@@ -23,13 +25,21 @@ import "./styles/watch-queue.css";
 import "./styles/member-evaluation.css";
 
 removeLegacyUiParameter();
+const analyticsMeasurementId = isAnalyticsHostAllowed(
+  window.location.hostname,
+  import.meta.env.VITE_GA_ALLOWED_HOSTS
+)
+  ? normalizeGaMeasurementId(import.meta.env.VITE_GA_MEASUREMENT_ID)
+  : null;
+const initialAnalyticsConsent = readStoredAnalyticsConsent(window.localStorage);
 initializeGoogleAnalytics({
-  measurementId: isAnalyticsHostAllowed(
-    window.location.hostname,
-    import.meta.env.VITE_GA_ALLOWED_HOSTS
-  )
-    ? import.meta.env.VITE_GA_MEASUREMENT_ID
-    : undefined
+  analyticsStorage: initialAnalyticsConsent,
+  measurementId: analyticsMeasurementId
 });
 
-ReactDOM.createRoot(document.getElementById("root")!).render(<V2App />);
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <V2App
+    analyticsEnabled={Boolean(analyticsMeasurementId)}
+    initialAnalyticsConsent={initialAnalyticsConsent}
+  />
+);

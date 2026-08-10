@@ -276,6 +276,8 @@ describe("generateMemberSharePages", () => {
     expect(html).toContain(
       'window.location.hostname.toLowerCase() === "app.example.test"'
     );
+    expect(html).toContain("lawmaker-monitor.analytics-consent.v1");
+    expect(html).toContain("analytics_storage: analyticsStorage");
     expect(html).toContain("send_page_view: false");
     expect(html).toContain(
       "최근 회의록 안건 2026년 7월 28일 · 지역 공공의료 확충의 건"

@@ -39,6 +39,7 @@ const MEMBER_CARD_PALETTE = Object.freeze({
 const STATEMENT_FETCH_CONCURRENCY = 16;
 const SAFE_MEMBER_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 const GA_MEASUREMENT_ID_PATTERN = /^G-[A-Z0-9]+$/;
+const ANALYTICS_CONSENT_STORAGE_KEY = "lawmaker-monitor.analytics-consent.v1";
 const PORTRAIT_FETCH_ATTEMPTS = 3;
 const ASSEMBLY_PORTRAIT_CIRCUIT_FAILURE_THRESHOLD = 2;
 const PORTRAIT_RETRY_BASE_DELAY_MS = 250;
@@ -96,11 +97,19 @@ function renderGoogleAnalyticsTag(measurementId, canonicalUrl) {
         window.gtag = window.gtag || function () {
           window.dataLayer.push(arguments);
         };
+        var analyticsStorage = "denied";
+        try {
+          if (window.localStorage.getItem(${serializeScriptValue(ANALYTICS_CONSENT_STORAGE_KEY)}) === "granted") {
+            analyticsStorage = "granted";
+          }
+        } catch (error) {
+          analyticsStorage = "denied";
+        }
         window.gtag("consent", "default", {
           ad_personalization: "denied",
           ad_storage: "denied",
           ad_user_data: "denied",
-          analytics_storage: "denied"
+          analytics_storage: analyticsStorage
         });
         window.gtag("js", new Date());
         window.gtag("config", ${serializeScriptValue(normalizedMeasurementId)}, {

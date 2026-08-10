@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { V2GlobalNav } from "./V2GlobalNav.js";
 import { V2ObservatoryPage } from "./V2ObservatoryPage.js";
 import { V2RouteContent } from "./V2RouteContent.js";
+import { AnalyticsConsentControl } from "../components/AnalyticsConsentControl.js";
 import { WatchQueueVisualFilters } from "../components/WatchQueueVisualFilters.js";
 import { useActivityCalendarData } from "../hooks/useActivityCalendarData.js";
 import { useAppBootstrapData } from "../hooks/useAppBootstrapData.js";
@@ -16,6 +17,7 @@ import { applyMemberAssetsIndexFallbacks } from "../lib/member-assets.js";
 import "../styles/v3-shell.css";
 
 import type { MemberSearchOption } from "../components/MemberSearchField.js";
+import type { AnalyticsConsent } from "../lib/analytics.js";
 import type { MapMetric } from "../lib/map-route.js";
 import type { RouteState } from "../lib/route-state.js";
 import type {
@@ -236,7 +238,13 @@ function V2EvidenceRouteExperience() {
   );
 }
 
-export function V2App() {
+export function V2App({
+  analyticsEnabled = false,
+  initialAnalyticsConsent = null
+}: {
+  analyticsEnabled?: boolean;
+  initialAnalyticsConsent?: AnalyticsConsent | null;
+}) {
   const routing = useHashRoute();
   const [accountabilitySummary, setAccountabilitySummary] =
     useState<AccountabilitySummaryExport | null>(null);
@@ -320,6 +328,9 @@ export function V2App() {
       ) : (
         <V2EvidenceRouteExperience />
       )}
+      {analyticsEnabled ? (
+        <AnalyticsConsentControl initialConsent={initialAnalyticsConsent} />
+      ) : null}
     </div>
   );
 }

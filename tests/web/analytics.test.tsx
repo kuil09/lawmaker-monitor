@@ -1,10 +1,14 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  ANALYTICS_CONSENT_STORAGE_KEY,
   buildAnalyticsPage,
   initializeGoogleAnalytics,
   isAnalyticsHostAllowed,
-  normalizeGaMeasurementId
+  normalizeGaMeasurementId,
+  readStoredAnalyticsConsent,
+  storeAnalyticsConsent,
+  updateGoogleAnalyticsConsent
 } from "../../apps/web/src/lib/analytics.js";
 
 type AnalyticsWindow = Window & {
@@ -25,6 +29,7 @@ function getPageViewEvents() {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   const analyticsWindow = window as AnalyticsWindow;
   analyticsWindow.__lawmakerMonitorAnalyticsCleanup?.();
   delete analyticsWindow.dataLayer;
@@ -54,6 +59,22 @@ describe("Google Analytics integration", () => {
     ).toBe(true);
     expect(isAnalyticsHostAllowed("127.0.0.1", "kuil09.github.io")).toBe(false);
     expect(isAnalyticsHostAllowed("ga-probe.example", undefined)).toBe(false);
+  });
+
+  it("persists only explicit analytics consent values", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value)
+    };
+    expect(readStoredAnalyticsConsent(storage)).toBeNull();
+
+    expect(storeAnalyticsConsent("granted", storage)).toBe(true);
+    expect(storage.getItem(ANALYTICS_CONSENT_STORAGE_KEY)).toBe("granted");
+    expect(readStoredAnalyticsConsent(storage)).toBe("granted");
+
+    storage.setItem(ANALYTICS_CONSENT_STORAGE_KEY, "unexpected");
+    expect(readStoredAnalyticsConsent(storage)).toBeNull();
   });
 
   it("groups traffic by public route and preserves public member identifiers", () => {
@@ -135,6 +156,56 @@ describe("Google Analytics integration", () => {
     });
 
     cleanup();
+  });
+
+  it("uses stored analytics consent before the first measurement command", () => {
+    initializeGoogleAnalytics({
+      analyticsStorage: "granted",
+      measurementId: "G-AB12CD34"
+    });
+
+    expect(getDataLayerCommands()[0]).toEqual([
+      "consent",
+      "default",
+      {
+        ad_personalization: "denied",
+        ad_storage: "denied",
+        ad_user_data: "denied",
+        analytics_storage: "granted"
+      }
+    ]);
+  });
+
+  it("updates analytics consent and records a granted choice after processing", () => {
+    vi.useFakeTimers();
+    initializeGoogleAnalytics({ measurementId: "G-AB12CD34" });
+
+    updateGoogleAnalyticsConsent({ consent: "granted" });
+
+    expect(getDataLayerCommands()).toContainEqual([
+      "consent",
+      "update",
+      {
+        ad_personalization: "denied",
+        ad_storage: "denied",
+        ad_user_data: "denied",
+        analytics_storage: "granted"
+      }
+    ]);
+    expect(
+      getDataLayerCommands().some(
+        ([command, eventName]) =>
+          command === "event" && eventName === "analytics_consent_granted"
+      )
+    ).toBe(false);
+
+    vi.advanceTimersByTime(250);
+
+    expect(getDataLayerCommands()).toContainEqual([
+      "event",
+      "analytics_consent_granted",
+      { event_category: "privacy" }
+    ]);
   });
 
   it("does not load analytics when the measurement ID is absent", () => {
