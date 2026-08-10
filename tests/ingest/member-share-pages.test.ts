@@ -248,7 +248,6 @@ describe("generateMemberSharePages", () => {
       distDir,
       appBaseUrl: "https://app.example.test/lawmaker-monitor/",
       dataRepoBaseUrl: "https://data.example.test/",
-      googleAnalyticsMeasurementId: "G-TEST1234",
       fetchImpl
     });
     const html = await readFile(
@@ -270,15 +269,9 @@ describe("generateMemberSharePages", () => {
     expect(html).toContain(
       "https://app.example.test/lawmaker-monitor/#calendar?member=M001"
     );
-    expect(html).toContain(
-      "https://www.googletagmanager.com/gtag/js?id=G-TEST1234"
-    );
-    expect(html).toContain(
-      'window.location.hostname.toLowerCase() === "app.example.test"'
-    );
-    expect(html).toContain("lawmaker-monitor.analytics-consent.v1");
-    expect(html).toContain("analytics_storage: analyticsStorage");
-    expect(html).toContain("send_page_view: false");
+    expect(html).not.toContain("googletagmanager.com");
+    expect(html).not.toContain("lawmaker-monitor.analytics-consent");
+    expect(html).not.toContain("analytics_storage");
     expect(html).toContain(
       "최근 회의록 안건 2026년 7월 28일 · 지역 공공의료 확충의 건"
     );

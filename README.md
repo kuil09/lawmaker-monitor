@@ -133,15 +133,16 @@ Data publication settings:
 
 Web analytics settings:
 
-- `GA_MEASUREMENT_ID`: GA4 web stream measurement ID configured as a GitHub
-  Actions repository variable. The deploy workflow exposes it to Vite as
-  `VITE_GA_MEASUREMENT_ID`.
+- `CLOUDFLARE_WEB_ANALYTICS_TOKEN`: Cloudflare Web Analytics site token
+  configured as a GitHub Actions repository variable. The deploy workflow
+  exposes it to Vite as `VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN`.
 
-The web app does not load Google Analytics when the measurement ID is absent or
-invalid. When enabled, it records one page view for the initial screen and each
-distinct hash route, retains public member and region identifiers while dropping
-other hash parameters from analytics URLs, disables advertising signals, and
-defaults all Consent Mode v2 storage settings to `denied`.
+The web app loads Cloudflare Web Analytics only on `kuil09.github.io` and only
+when a valid site token is present. This integration does not create cookies,
+write to local or session storage, fingerprint visitors, or show a consent
+dialog. It records aggregate document visits only. Because the application uses
+hash routing, navigation between in-app hash routes is not reported as a
+separate page view.
 
 Public document mirror settings:
 

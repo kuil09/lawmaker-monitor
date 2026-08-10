@@ -1,51 +1,15 @@
-const GA_MEASUREMENT_ID_PATTERN = /^G-[A-Z0-9]+$/;
+const CLOUDFLARE_WEB_ANALYTICS_TOKEN_PATTERN = /^[A-Za-z0-9_-]{20,80}$/;
+const CLOUDFLARE_BEACON_URL =
+  "https://static.cloudflareinsights.com/beacon.min.js";
 const ANALYTICS_SCRIPT_ATTRIBUTE = "data-lawmaker-monitor-analytics";
-const ANALYTICS_CLEANUP_KEY = "__lawmakerMonitorAnalyticsCleanup";
-const ANALYTICS_CONSENT_EVENT_TIMEOUT_KEY =
-  "__lawmakerMonitorAnalyticsConsentEventTimeout";
-const ANALYTICS_CONSENT_EVENT_DELAY_MS = 250;
-const CAMPAIGN_PARAMETER_PREFIX = "utm_";
-const ROUTE_IDENTIFIER_PARAMETERS: Record<string, readonly string[]> = {
-  calendar: ["member", "compare"],
-  distribution: ["member"],
-  map: ["district", "province"]
-};
 
-type GtagArguments = [command: string, ...parameters: unknown[]];
-type Gtag = (...args: GtagArguments) => void;
-type DataLayerCommand = GtagArguments | IArguments;
-
-type AnalyticsWindow = Window & {
-  dataLayer?: DataLayerCommand[];
-  gtag?: Gtag;
-  [ANALYTICS_CLEANUP_KEY]?: () => void;
-  [ANALYTICS_CONSENT_EVENT_TIMEOUT_KEY]?: number;
-};
-
-export const ANALYTICS_CONSENT_STORAGE_KEY =
-  "lawmaker-monitor.analytics-consent.v1";
-
-export type AnalyticsConsent = "denied" | "granted";
-
-export type AnalyticsPage = {
-  location: string;
-  path: string;
-  title: string;
-};
-
-const ROUTE_TITLES: Record<string, string> = {
-  calendar: "의원 활동",
-  distribution: "의원 대장",
-  map: "지역 감시",
-  trends: "변화 전후",
-  votes: "쟁점·표결"
-};
-
-export function normalizeGaMeasurementId(
-  measurementId: string | null | undefined
+export function normalizeCloudflareWebAnalyticsToken(
+  token: string | null | undefined
 ): string | null {
-  const normalized = measurementId?.trim().toUpperCase() ?? "";
-  return GA_MEASUREMENT_ID_PATTERN.test(normalized) ? normalized : null;
+  const normalized = token?.trim() ?? "";
+  return CLOUDFLARE_WEB_ANALYTICS_TOKEN_PATTERN.test(normalized)
+    ? normalized
+    : null;
 }
 
 export function isAnalyticsHostAllowed(
@@ -62,236 +26,42 @@ export function isAnalyticsHostAllowed(
   );
 }
 
-export function readStoredAnalyticsConsent(
-  storage: Pick<Storage, "getItem"> | null | undefined
-): AnalyticsConsent | null {
-  try {
-    const value = storage?.getItem(ANALYTICS_CONSENT_STORAGE_KEY);
-    return value === "granted" || value === "denied" ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-export function storeAnalyticsConsent(
-  consent: AnalyticsConsent,
-  storage: Pick<Storage, "setItem"> | null | undefined
-): boolean {
-  try {
-    storage?.setItem(ANALYTICS_CONSENT_STORAGE_KEY, consent);
-    return Boolean(storage);
-  } catch {
-    return false;
-  }
-}
-
-function buildGoogleConsentState(analyticsStorage: AnalyticsConsent) {
-  return {
-    ad_personalization: "denied",
-    ad_storage: "denied",
-    ad_user_data: "denied",
-    analytics_storage: analyticsStorage
-  } as const;
-}
-
-function getRouteName(url: URL): string {
-  return url.hash.slice(1).split("?")[0]?.trim().toLowerCase() || "home";
-}
-
-function buildRouteIdentifierSearch(url: URL, routeName: string): string {
-  const searchStart = url.hash.indexOf("?");
-  if (searchStart < 0) {
-    return "";
-  }
-
-  const sourceParameters = new URLSearchParams(url.hash.slice(searchStart + 1));
-  const identifierParameters = new URLSearchParams();
-
-  for (const key of ROUTE_IDENTIFIER_PARAMETERS[routeName] ?? []) {
-    const value = sourceParameters.get(key)?.trim();
-    if (value) {
-      identifierParameters.set(key, value);
-    }
-  }
-
-  const search = identifierParameters.toString();
-  return search ? `?${search}` : "";
-}
-
-function buildCampaignSearch(searchParams: URLSearchParams): string {
-  const campaignParameters = new URLSearchParams();
-
-  for (const [key, value] of searchParams.entries()) {
-    if (key.toLowerCase().startsWith(CAMPAIGN_PARAMETER_PREFIX)) {
-      campaignParameters.append(key, value);
-    }
-  }
-
-  const search = campaignParameters.toString();
-  return search ? `?${search}` : "";
-}
-
-export function buildAnalyticsPage(
-  href: string,
-  documentTitle = "국회 출석부"
-): AnalyticsPage {
-  const url = new URL(href);
-  const normalizedDocumentTitle = documentTitle.trim() || "국회 출석부";
-  const routeName = getRouteName(url);
-  const routeIdentifierSearch = buildRouteIdentifierSearch(url, routeName);
-  const routeHash =
-    routeName === "home" ? "" : `#${routeName}${routeIdentifierSearch}`;
-  const campaignSearch = buildCampaignSearch(url.searchParams);
-  const path = `${url.pathname}${campaignSearch}${routeHash}`;
-  const routeTitle = ROUTE_TITLES[routeName];
-
-  return {
-    location: `${url.origin}${path}`,
-    path,
-    title: routeTitle
-      ? `${routeTitle} · ${normalizedDocumentTitle}`
-      : normalizedDocumentTitle
-  };
-}
-
-function createGtag(windowRef: AnalyticsWindow): Gtag {
-  windowRef.dataLayer ??= [];
-  windowRef.gtag ??= function (..._args: GtagArguments): void {
-    // gtag.js requires the native Arguments object used by Google's snippet.
-    // eslint-disable-next-line prefer-rest-params
-    windowRef.dataLayer?.push(arguments);
-  };
-  return windowRef.gtag;
-}
-
-function appendAnalyticsScript(
-  documentRef: Document,
-  measurementId: string
-): void {
-  if (
-    documentRef.querySelector(
-      `script[${ANALYTICS_SCRIPT_ATTRIBUTE}="${measurementId}"]`
-    )
-  ) {
-    return;
-  }
-
-  const script = documentRef.createElement("script");
-  script.async = true;
-  script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(
-    measurementId
-  )}`;
-  script.setAttribute(ANALYTICS_SCRIPT_ATTRIBUTE, measurementId);
-  documentRef.head.append(script);
-}
-
-export function updateGoogleAnalyticsConsent({
-  consent,
-  windowRef = window
-}: {
-  consent: AnalyticsConsent;
-  windowRef?: Window;
-}): void {
-  const analyticsWindow = windowRef as AnalyticsWindow;
-  const gtag = analyticsWindow.gtag;
-  if (!gtag) {
-    return;
-  }
-
-  const pendingEventTimeout =
-    analyticsWindow[ANALYTICS_CONSENT_EVENT_TIMEOUT_KEY];
-  if (pendingEventTimeout !== undefined) {
-    analyticsWindow.clearTimeout(pendingEventTimeout);
-    delete analyticsWindow[ANALYTICS_CONSENT_EVENT_TIMEOUT_KEY];
-  }
-
-  gtag("consent", "update", buildGoogleConsentState(consent));
-
-  if (consent !== "granted") {
-    return;
-  }
-
-  analyticsWindow[ANALYTICS_CONSENT_EVENT_TIMEOUT_KEY] =
-    analyticsWindow.setTimeout(() => {
-      delete analyticsWindow[ANALYTICS_CONSENT_EVENT_TIMEOUT_KEY];
-      analyticsWindow.gtag?.("event", "analytics_consent_granted", {
-        event_category: "privacy"
-      });
-    }, ANALYTICS_CONSENT_EVENT_DELAY_MS);
-}
-
-export function initializeGoogleAnalytics({
-  measurementId,
-  analyticsStorage = "denied",
+export function initializeCloudflareWebAnalytics({
+  token,
+  allowedHosts,
   windowRef = window,
   documentRef = document
 }: {
-  measurementId: string | null | undefined;
-  analyticsStorage?: AnalyticsConsent | null;
+  token: string | null | undefined;
+  allowedHosts: string | null | undefined;
   windowRef?: Window;
   documentRef?: Document;
-}): () => void {
-  const normalizedMeasurementId = normalizeGaMeasurementId(measurementId);
-  if (!normalizedMeasurementId) {
-    return () => undefined;
+}): boolean {
+  const normalizedToken = normalizeCloudflareWebAnalyticsToken(token);
+  if (
+    !normalizedToken ||
+    !isAnalyticsHostAllowed(windowRef.location.hostname, allowedHosts)
+  ) {
+    return false;
   }
 
-  const analyticsWindow = windowRef as AnalyticsWindow;
-  analyticsWindow[ANALYTICS_CLEANUP_KEY]?.();
-
-  const gtag = createGtag(analyticsWindow);
-  gtag(
-    "consent",
-    "default",
-    buildGoogleConsentState(
-      analyticsStorage === "granted" ? "granted" : "denied"
+  if (
+    documentRef.querySelector(
+      `script[${ANALYTICS_SCRIPT_ATTRIBUTE}="cloudflare"]`
     )
+  ) {
+    return true;
+  }
+
+  const script = documentRef.createElement("script");
+  script.defer = true;
+  script.src = CLOUDFLARE_BEACON_URL;
+  script.setAttribute(ANALYTICS_SCRIPT_ATTRIBUTE, "cloudflare");
+  script.setAttribute(
+    "data-cf-beacon",
+    JSON.stringify({ token: normalizedToken })
   );
-  gtag("js", new Date());
-  gtag("config", normalizedMeasurementId, {
-    allow_ad_personalization_signals: false,
-    allow_google_signals: false,
-    send_page_view: false
-  });
-  appendAnalyticsScript(documentRef, normalizedMeasurementId);
+  documentRef.head.append(script);
 
-  let previousPage: AnalyticsPage | null = null;
-  const trackPageView = () => {
-    const page = buildAnalyticsPage(
-      analyticsWindow.location.href,
-      documentRef.title
-    );
-    if (page.path === previousPage?.path) {
-      return;
-    }
-
-    gtag("event", "page_view", {
-      page_location: page.location,
-      page_path: page.path,
-      page_referrer: previousPage?.location ?? documentRef.referrer,
-      page_title: page.title
-    });
-    previousPage = page;
-  };
-
-  trackPageView();
-  analyticsWindow.addEventListener("hashchange", trackPageView);
-  analyticsWindow.addEventListener("popstate", trackPageView);
-
-  const cleanup = () => {
-    analyticsWindow.removeEventListener("hashchange", trackPageView);
-    analyticsWindow.removeEventListener("popstate", trackPageView);
-    const pendingEventTimeout =
-      analyticsWindow[ANALYTICS_CONSENT_EVENT_TIMEOUT_KEY];
-    if (pendingEventTimeout !== undefined) {
-      analyticsWindow.clearTimeout(pendingEventTimeout);
-      delete analyticsWindow[ANALYTICS_CONSENT_EVENT_TIMEOUT_KEY];
-    }
-    if (analyticsWindow[ANALYTICS_CLEANUP_KEY] === cleanup) {
-      delete analyticsWindow[ANALYTICS_CLEANUP_KEY];
-    }
-  };
-  analyticsWindow[ANALYTICS_CLEANUP_KEY] = cleanup;
-
-  return cleanup;
+  return true;
 }

@@ -1,50 +1,30 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  ANALYTICS_CONSENT_STORAGE_KEY,
-  buildAnalyticsPage,
-  initializeGoogleAnalytics,
+  initializeCloudflareWebAnalytics,
   isAnalyticsHostAllowed,
-  normalizeGaMeasurementId,
-  readStoredAnalyticsConsent,
-  storeAnalyticsConsent,
-  updateGoogleAnalyticsConsent
+  normalizeCloudflareWebAnalyticsToken
 } from "../../apps/web/src/lib/analytics.js";
 
-type AnalyticsWindow = Window & {
-  dataLayer?: ArrayLike<unknown>[];
-  gtag?: (...args: [string, ...unknown[]]) => void;
-  __lawmakerMonitorAnalyticsCleanup?: () => void;
-};
-
-function getDataLayerCommands() {
-  const analyticsWindow = window as AnalyticsWindow;
-  return analyticsWindow.dataLayer?.map((command) => Array.from(command)) ?? [];
-}
-
-function getPageViewEvents() {
-  return getDataLayerCommands().filter(
-    ([command, eventName]) => command === "event" && eventName === "page_view"
-  );
-}
+const VALID_TOKEN = "0123456789abcdef0123456789abcdef";
 
 afterEach(() => {
-  vi.useRealTimers();
-  const analyticsWindow = window as AnalyticsWindow;
-  analyticsWindow.__lawmakerMonitorAnalyticsCleanup?.();
-  delete analyticsWindow.dataLayer;
-  delete analyticsWindow.gtag;
+  vi.restoreAllMocks();
   document
     .querySelectorAll("script[data-lawmaker-monitor-analytics]")
     .forEach((script) => script.remove());
-  window.history.replaceState({}, "", "/");
 });
 
-describe("Google Analytics integration", () => {
-  it("accepts only GA4 measurement IDs", () => {
-    expect(normalizeGaMeasurementId(" g-ab12cd34 ")).toBe("G-AB12CD34");
-    expect(normalizeGaMeasurementId("UA-123456-1")).toBeNull();
-    expect(normalizeGaMeasurementId("")).toBeNull();
+describe("cookie-free aggregate analytics integration", () => {
+  it("accepts only plausible Cloudflare Web Analytics site tokens", () => {
+    expect(normalizeCloudflareWebAnalyticsToken(` ${VALID_TOKEN} `)).toBe(
+      VALID_TOKEN
+    );
+    expect(normalizeCloudflareWebAnalyticsToken("short-token")).toBeNull();
+    expect(
+      normalizeCloudflareWebAnalyticsToken("invalid token with spaces")
+    ).toBeNull();
+    expect(normalizeCloudflareWebAnalyticsToken(undefined)).toBeNull();
   });
 
   it("enables analytics only for configured production hosts", () => {
@@ -58,162 +38,72 @@ describe("Google Analytics integration", () => {
       )
     ).toBe(true);
     expect(isAnalyticsHostAllowed("127.0.0.1", "kuil09.github.io")).toBe(false);
-    expect(isAnalyticsHostAllowed("ga-probe.example", undefined)).toBe(false);
+    expect(isAnalyticsHostAllowed("preview.example", undefined)).toBe(false);
   });
 
-  it("persists only explicit analytics consent values", () => {
-    const values = new Map<string, string>();
-    const storage = {
-      getItem: (key: string) => values.get(key) ?? null,
-      setItem: (key: string, value: string) => values.set(key, value)
-    };
-    expect(readStoredAnalyticsConsent(storage)).toBeNull();
-
-    expect(storeAnalyticsConsent("granted", storage)).toBe(true);
-    expect(storage.getItem(ANALYTICS_CONSENT_STORAGE_KEY)).toBe("granted");
-    expect(readStoredAnalyticsConsent(storage)).toBe("granted");
-
-    storage.setItem(ANALYTICS_CONSENT_STORAGE_KEY, "unexpected");
-    expect(readStoredAnalyticsConsent(storage)).toBeNull();
-  });
-
-  it("groups traffic by public route and preserves public member identifiers", () => {
-    const page = buildAnalyticsPage(
-      "https://example.test/lawmaker-monitor/?ui=v2&deploy=abc&utm_source=social#calendar?member=M001&compare=M002&view=compare&note=SECRET",
-      "국회 출석부"
-    );
-
-    expect(page).toEqual({
-      location:
-        "https://example.test/lawmaker-monitor/?utm_source=social#calendar?member=M001&compare=M002",
-      path: "/lawmaker-monitor/?utm_source=social#calendar?member=M001&compare=M002",
-      title: "의원 활동 · 국회 출석부"
+  it("loads the Cloudflare beacon once on an allowed host", () => {
+    const firstResult = initializeCloudflareWebAnalytics({
+      allowedHosts: "localhost",
+      token: VALID_TOKEN
     });
-  });
-
-  it("preserves public district and province identifiers on map routes", () => {
-    expect(
-      buildAnalyticsPage(
-        "https://example.test/lawmaker-monitor/#map?district=%EC%84%9C%EC%9A%B8%EC%A4%91%EA%B5%AC&metric=negative"
-      ).path
-    ).toBe(
-      "/lawmaker-monitor/#map?district=%EC%84%9C%EC%9A%B8%EC%A4%91%EA%B5%AC"
-    );
-    expect(
-      buildAnalyticsPage(
-        "https://example.test/lawmaker-monitor/#map?province=%EB%B6%80%EC%82%B0&metric=assetTotal"
-      ).path
-    ).toBe("/lawmaker-monitor/#map?province=%EB%B6%80%EC%82%B0");
-  });
-
-  it("loads gtag with denied storage and records distinct hash routes", () => {
-    window.history.replaceState(
-      {},
-      "",
-      "/lawmaker-monitor/?deploy=test#calendar?member=M001"
-    );
-
-    const cleanup = initializeGoogleAnalytics({
-      measurementId: "G-AB12CD34"
+    const secondResult = initializeCloudflareWebAnalytics({
+      allowedHosts: "localhost",
+      token: VALID_TOKEN
     });
-    const analyticsWindow = window as AnalyticsWindow;
-    const script = document.querySelector<HTMLScriptElement>(
-      "script[data-lawmaker-monitor-analytics='G-AB12CD34']"
+    const scripts = document.querySelectorAll<HTMLScriptElement>(
+      'script[data-lawmaker-monitor-analytics="cloudflare"]'
     );
+    const script = scripts[0];
 
+    expect(firstResult).toBe(true);
+    expect(secondResult).toBe(true);
+    expect(scripts).toHaveLength(1);
+    expect(script?.defer).toBe(true);
     expect(script?.src).toBe(
-      "https://www.googletagmanager.com/gtag/js?id=G-AB12CD34"
+      "https://static.cloudflareinsights.com/beacon.min.js"
     );
-    expect(Object.prototype.toString.call(analyticsWindow.dataLayer?.[0])).toBe(
-      "[object Arguments]"
-    );
-    expect(getDataLayerCommands()[0]).toEqual([
-      "consent",
-      "default",
-      {
-        ad_personalization: "denied",
-        ad_storage: "denied",
-        ad_user_data: "denied",
-        analytics_storage: "denied"
-      }
-    ]);
-    expect(getPageViewEvents()).toHaveLength(1);
-    expect(getPageViewEvents()[0]?.[2]).toMatchObject({
-      page_path: "/lawmaker-monitor/#calendar?member=M001",
-      page_title: "의원 활동 · 국회 출석부"
+    expect(JSON.parse(script?.getAttribute("data-cf-beacon") ?? "{}")).toEqual({
+      token: VALID_TOKEN
     });
-
-    window.history.replaceState({}, "", "/lawmaker-monitor/#votes");
-    window.dispatchEvent(new HashChangeEvent("hashchange"));
-    window.dispatchEvent(new HashChangeEvent("hashchange"));
-
-    expect(getPageViewEvents()).toHaveLength(2);
-    expect(getPageViewEvents()[1]?.[2]).toMatchObject({
-      page_path: "/lawmaker-monitor/#votes",
-      page_referrer:
-        "http://localhost:3000/lawmaker-monitor/#calendar?member=M001",
-      page_title: "쟁점·표결 · 국회 출석부"
-    });
-
-    cleanup();
   });
 
-  it("uses stored analytics consent before the first measurement command", () => {
-    initializeGoogleAnalytics({
-      analyticsStorage: "granted",
-      measurementId: "G-AB12CD34"
-    });
-
-    expect(getDataLayerCommands()[0]).toEqual([
-      "consent",
-      "default",
-      {
-        ad_personalization: "denied",
-        ad_storage: "denied",
-        ad_user_data: "denied",
-        analytics_storage: "granted"
-      }
-    ]);
-  });
-
-  it("updates analytics consent and records a granted choice after processing", () => {
-    vi.useFakeTimers();
-    initializeGoogleAnalytics({ measurementId: "G-AB12CD34" });
-
-    updateGoogleAnalyticsConsent({ consent: "granted" });
-
-    expect(getDataLayerCommands()).toContainEqual([
-      "consent",
-      "update",
-      {
-        ad_personalization: "denied",
-        ad_storage: "denied",
-        ad_user_data: "denied",
-        analytics_storage: "granted"
-      }
-    ]);
+  it("does not load analytics without a valid token or allowed host", () => {
     expect(
-      getDataLayerCommands().some(
-        ([command, eventName]) =>
-          command === "event" && eventName === "analytics_consent_granted"
-      )
+      initializeCloudflareWebAnalytics({
+        allowedHosts: "localhost",
+        token: "invalid"
+      })
     ).toBe(false);
-
-    vi.advanceTimersByTime(250);
-
-    expect(getDataLayerCommands()).toContainEqual([
-      "event",
-      "analytics_consent_granted",
-      { event_category: "privacy" }
-    ]);
-  });
-
-  it("does not load analytics when the measurement ID is absent", () => {
-    initializeGoogleAnalytics({ measurementId: undefined });
-
+    expect(
+      initializeCloudflareWebAnalytics({
+        allowedHosts: "kuil09.github.io",
+        token: VALID_TOKEN
+      })
+    ).toBe(false);
     expect(
       document.querySelector("script[data-lawmaker-monitor-analytics]")
     ).toBeNull();
-    expect((window as AnalyticsWindow).dataLayer).toBeUndefined();
+  });
+
+  it("does not read or write browser storage or cookies", () => {
+    const getItem = vi.spyOn(Storage.prototype, "getItem");
+    const setItem = vi.spyOn(Storage.prototype, "setItem");
+    const removeItem = vi.spyOn(Storage.prototype, "removeItem");
+    const clear = vi.spyOn(Storage.prototype, "clear");
+    const cookieBefore = document.cookie;
+
+    initializeCloudflareWebAnalytics({
+      allowedHosts: "localhost",
+      token: VALID_TOKEN
+    });
+
+    expect(getItem).not.toHaveBeenCalled();
+    expect(setItem).not.toHaveBeenCalled();
+    expect(removeItem).not.toHaveBeenCalled();
+    expect(clear).not.toHaveBeenCalled();
+    expect(document.cookie).toBe(cookieBefore);
+    expect(
+      (window as Window & { dataLayer?: unknown }).dataLayer
+    ).toBeUndefined();
   });
 });
