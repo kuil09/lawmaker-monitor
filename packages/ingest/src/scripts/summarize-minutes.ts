@@ -171,7 +171,7 @@ function isTranscriptDocument(
   );
 }
 
-function isCurrentSummaryArtifact(
+export function isCurrentSummaryArtifact(
   item: MirroredDocumentIndexItem & {
     transcriptContentSha256: string;
   },
@@ -183,10 +183,7 @@ function isCurrentSummaryArtifact(
     artifact.sourceKind === "official_minutes_transcript" &&
     artifact.sourceContentSha256 === item.transcriptContentSha256 &&
     artifact.modelId === config.modelId &&
-    artifact.promptVersion === MINUTES_SUMMARY_PROMPT_VERSION &&
-    artifact.summaries.every((summary) =>
-      isPublishableMinutesSummary(summary.summary)
-    )
+    artifact.promptVersion === MINUTES_SUMMARY_PROMPT_VERSION
   );
 }
 
