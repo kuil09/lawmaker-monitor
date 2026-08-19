@@ -58,7 +58,7 @@ describe("incremental minutes workflows", () => {
     expect(workflow).toContain('-f retry_attempt="0"');
   });
 
-  it("summarizes one same-day batch with a single data commit", () => {
+  it("prioritizes same-day minutes and catches up with a single data commit", () => {
     const workflow = readRepositoryFile(
       ".github/workflows/summarize-minutes.yml"
     );
@@ -73,9 +73,8 @@ describe("incremental minutes workflows", () => {
     );
     expect(workflow).toContain("timeout-minutes: 60");
     expect(workflow).toContain("Resolve Korean summary date");
-    expect(workflow).toContain(
-      '.publishedDate == $target_date and (.transcriptRelativePath // "") != ""'
-    );
+    expect(workflow).toContain("Detect pending transcript inputs");
+    expect(workflow).toContain("--check-pending");
     expect(workflow).toContain("Commit and push summary changes");
     expect(
       workflow.match(

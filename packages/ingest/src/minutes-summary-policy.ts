@@ -41,9 +41,24 @@ export function selectPendingMinutesDocuments<
   isCurrent: (document: T) => boolean;
 }): T[] {
   return args.documents
+    .map((document, index) => ({ document, index }))
     .filter(
-      (document) =>
-        document.publishedDate === args.targetDate && !args.isCurrent(document)
+      ({ document }) =>
+        document.publishedDate <= args.targetDate && !args.isCurrent(document)
     )
+    .sort((left, right) => {
+      const leftIsTarget = left.document.publishedDate === args.targetDate;
+      const rightIsTarget = right.document.publishedDate === args.targetDate;
+      if (leftIsTarget !== rightIsTarget) {
+        return leftIsTarget ? -1 : 1;
+      }
+
+      return (
+        right.document.publishedDate.localeCompare(
+          left.document.publishedDate
+        ) || left.index - right.index
+      );
+    })
+    .map(({ document }) => document)
     .slice(0, args.maxDocuments);
 }

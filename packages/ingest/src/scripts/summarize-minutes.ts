@@ -371,7 +371,7 @@ async function main(): Promise<void> {
   const allTranscriptDocuments =
     documentIndex.items.filter(isTranscriptDocument);
   const candidateDocuments = allTranscriptDocuments.filter(
-    (item) => item.publishedDate === config.targetDate
+    (item) => item.publishedDate <= config.targetDate
   );
   const artifactByDocumentId = new Map(
     (await loadAllArtifacts(config)).map((artifact) => [
@@ -390,6 +390,10 @@ async function main(): Promise<void> {
         config
       )
   });
+  if (process.argv.includes("--check-pending")) {
+    process.stdout.write(`${pendingDocuments.length > 0}\n`);
+    return;
+  }
   const currentArtifacts = () =>
     allTranscriptDocuments.flatMap((item) => {
       const artifact = artifactByDocumentId.get(item.documentId);

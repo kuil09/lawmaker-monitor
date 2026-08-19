@@ -80,14 +80,13 @@ jobs:
           echo "MINUTES_SUMMARY_TARGET_DATE=${TARGET_DATE}" >> "${GITHUB_ENV}"
           echo "value=${TARGET_DATE}" >> "${GITHUB_OUTPUT}"
 
-      - name: Detect mirrored transcript inputs
+      - name: Detect pending transcript inputs
         id: transcript-inputs
         if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        env:
+          DATA_REPO_DIR: published-data
         run: |
-          if jq -e \
-            --arg target_date "${MINUTES_SUMMARY_TARGET_DATE}" \
-            'any(.items[]; .publishedDate == $target_date and (.transcriptRelativePath // "") != "")' \
-            published-data/raw/index/document_index.json >/dev/null; then
+          if [ "$(npm run --silent summarize:minutes --workspace @lawmaker-monitor/ingest -- --check-pending)" = "true" ]; then
             echo "available=true" >> "${GITHUB_OUTPUT}"
           else
             echo "available=false" >> "${GITHUB_OUTPUT}"
