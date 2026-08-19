@@ -19,21 +19,28 @@ describe("minutes summary policy", () => {
     );
   });
 
-  it("selects only unsummarized documents from the target date", () => {
+  it("prioritizes the target date, then catches up from newest pending documents", () => {
     const documents = [
       { documentId: "today-current", publishedDate: "2026-08-04" },
       { documentId: "today-first", publishedDate: "2026-08-04" },
       { documentId: "today-second", publishedDate: "2026-08-04" },
-      { documentId: "historical", publishedDate: "2026-08-03" }
+      { documentId: "historical", publishedDate: "2026-08-03" },
+      { documentId: "older", publishedDate: "2026-08-02" },
+      { documentId: "future", publishedDate: "2026-08-05" }
     ];
 
     expect(
       selectPendingMinutesDocuments({
         documents,
         targetDate: "2026-08-04",
-        maxDocuments: 1,
+        maxDocuments: 4,
         isCurrent: (document) => document.documentId === "today-current"
       })
-    ).toEqual([{ documentId: "today-first", publishedDate: "2026-08-04" }]);
+    ).toEqual([
+      { documentId: "today-first", publishedDate: "2026-08-04" },
+      { documentId: "today-second", publishedDate: "2026-08-04" },
+      { documentId: "historical", publishedDate: "2026-08-03" },
+      { documentId: "older", publishedDate: "2026-08-02" }
+    ]);
   });
 });
