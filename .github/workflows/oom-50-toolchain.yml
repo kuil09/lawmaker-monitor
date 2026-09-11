@@ -1,0 +1,27 @@
+name: oom-50-toolchain
+on:
+  push:
+    branches: [fix/oom-50]
+    paths: [.github/workflows/oom-50-toolchain.yml]
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-node-workspaces
+        with:
+          build-target: schemas-and-ingest
+      - name: Package test toolchain only, no credentials or user inputs
+        run: |
+          cp "$(command -v node)" "$RUNNER_TEMP/node24"
+          tar -czf "$RUNNER_TEMP/oom-50-deps.tar.gz" node_modules packages/schemas/dist packages/ingest/dist
+      - uses: actions/upload-artifact@v6
+        with:
+          name: oom-50-toolchain
+          path: |
+            ${{ runner.temp }}/node24
+            ${{ runner.temp }}/oom-50-deps.tar.gz
+          retention-days: 1
