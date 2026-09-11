@@ -1,0 +1,28 @@
+name: oom-50-completion
+on:
+  push:
+    branches: [ops/oom-50-completion]
+    paths: [.github/workflows/oom-50-completion.yml]
+permissions:
+  contents: read
+  actions: write
+jobs:
+  dispatch-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify main and dispatch production workflows once
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: kuil09/lawmaker-monitor
+        run: |
+          set -euo pipefail
+          EXPECTED=0f8462b62cba9acd64e9d4c4a5cd2739baa82577
+          ACTUAL="$(gh api repos/kuil09/lawmaker-monitor/git/ref/heads/main --jq '.object.sha')"
+          test "$ACTUAL" = "$EXPECTED"
+          echo "Verified main: $ACTUAL"
+          gh workflow run build-data.yml --repo "$GH_REPO" --ref main -f raw_source=latest_ingest -f ingest_run_id=34638768827
+          echo "Dispatched build-data on main using the pinned failing input."
+          gh workflow run ingest-live.yml --repo "$GH_REPO" --ref main
+          echo "Dispatched fresh ingest-live on main; its normal workflow_run path must build and deploy."
+          gh run list --repo "$GH_REPO" --branch main --limit 8 --json databaseId,name,event,headSha,status,conclusion,url
