@@ -1,0 +1,77 @@
+name: oom-50-fresh-chain
+on:
+  push:
+    branches: [ops/oom-50-completion]
+    paths: [.github/workflows/oom-50-fresh-chain.yml]
+permissions:
+  contents: read
+  actions: write
+jobs:
+  verify-fresh-chain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Follow fresh ingest through build and deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: kuil09/lawmaker-monitor
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED=0f8462b62cba9acd64e9d4c4a5cd2739baa82577
+          test "$(gh api repos/$GH_REPO/git/ref/heads/main --jq '.object.sha')" = "$EXPECTED"
+          mkdir -p evidence
+          gh run watch 34654031275 --repo "$GH_REPO" --exit-status --interval 30
+          BUILD_ID=''
+          BUILD_MODE=workflow_run
+          for attempt in $(seq 1 6); do
+            BUILD_ID="$(gh api "repos/$GH_REPO/actions/runs?branch=main&head_sha=$EXPECTED&event=workflow_run&per_page=30" --jq '[.workflow_runs[] | select(.name=="build-data" and .created_at>="2026-09-11T22:26:45Z")][0].id // empty')"
+            [ -n "$BUILD_ID" ] && break
+            sleep 15
+          done
+          if [ -z "$BUILD_ID" ]; then
+            BUILD_MODE=workflow_dispatch
+            SINCE="$(date -u +%FT%TZ)"
+            gh workflow run build-data.yml --repo "$GH_REPO" --ref main -f raw_source=latest_ingest -f ingest_run_id=34654031275
+            for attempt in $(seq 1 12); do
+              BUILD_ID="$(gh api "repos/$GH_REPO/actions/runs?branch=main&head_sha=$EXPECTED&event=workflow_dispatch&per_page=30" --jq "[.workflow_runs[] | select(.name==\"build-data\" and .created_at>=\"$SINCE\")][0].id // empty")"
+              [ -n "$BUILD_ID" ] && break
+              sleep 5
+            done
+          fi
+          test -n "$BUILD_ID"
+          echo "Fresh build: $BUILD_ID ($BUILD_MODE)"
+          gh run watch "$BUILD_ID" --repo "$GH_REPO" --exit-status --interval 30
+          gh run download "$BUILD_ID" --repo "$GH_REPO" --name build-data-diagnostics --dir evidence/build
+          jq -e '.ingestRunId=="34654031275" and .codeSha=="0f8462b62cba9acd64e9d4c4a5cd2739baa82577"' evidence/build/provenance.json
+          BUILD_STARTED="$(gh api repos/$GH_REPO/actions/runs/$BUILD_ID --jq '.created_at')"
+          DEPLOY_ID=''
+          DEPLOY_MODE=workflow_run
+          for attempt in $(seq 1 6); do
+            DEPLOY_ID="$(gh api "repos/$GH_REPO/actions/runs?branch=main&head_sha=$EXPECTED&event=workflow_run&per_page=30" --jq "[.workflow_runs[] | select(.name==\"deploy-web\" and .created_at>=\"$BUILD_STARTED\")][0].id // empty")"
+            [ -n "$DEPLOY_ID" ] && break
+            sleep 15
+          done
+          if [ -z "$DEPLOY_ID" ]; then
+            DEPLOY_MODE=workflow_dispatch
+            SINCE="$(date -u +%FT%TZ)"
+            gh workflow run deploy-web.yml --repo "$GH_REPO" --ref main
+            for attempt in $(seq 1 12); do
+              DEPLOY_ID="$(gh api "repos/$GH_REPO/actions/runs?branch=main&head_sha=$EXPECTED&event=workflow_dispatch&per_page=30" --jq "[.workflow_runs[] | select(.name==\"deploy-web\" and .created_at>=\"$SINCE\")][0].id // empty")"
+              [ -n "$DEPLOY_ID" ] && break
+              sleep 5
+            done
+          fi
+          test -n "$DEPLOY_ID"
+          echo "Fresh deployment: $DEPLOY_ID ($DEPLOY_MODE)"
+          gh run watch "$DEPLOY_ID" --repo "$GH_REPO" --exit-status --interval 30
+          DATA_SHA="$(gh api repos/kuil09/lawmaker-monitor-data/git/ref/heads/main --jq '.object.sha')"
+          jq -n --arg codeSha "$EXPECTED" --arg ingestRunId '34654031275' --arg buildRunId "$BUILD_ID" --arg buildMode "$BUILD_MODE" --arg deployRunId "$DEPLOY_ID" --arg deployMode "$DEPLOY_MODE" --arg dataSha "$DATA_SHA" --arg checkedAt "$(date -u +%FT%TZ)" '{codeSha:$codeSha,ingestRunId:$ingestRunId,buildRunId:$buildRunId,buildMode:$buildMode,deployRunId:$deployRunId,deployMode:$deployMode,dataSha:$dataSha,checkedAt:$checkedAt}' | tee evidence/chain.json
+      - name: Retain production chain evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: oom-50-fresh-chain
+          path: evidence
+          retention-days: 7
+          if-no-files-found: warn
