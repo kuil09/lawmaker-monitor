@@ -9,7 +9,7 @@ permissions:
 jobs:
   verify-service:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
         with:
@@ -18,15 +18,17 @@ jobs:
       - uses: ./.github/actions/setup-node-workspaces
         with:
           build-target: none
-      - name: Require completed production build
+      - name: Require completed fresh build and post-build deployment
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: kuil09/lawmaker-monitor
         run: |
-          gh run watch 34654029749 --repo "$GH_REPO" --exit-status --interval 30
-          mkdir -p artifacts/service-check
-          gh api repos/kuil09/lawmaker-monitor-data/git/ref/heads/main --jq '.object.sha' > artifacts/service-check/data-sha.txt
-      - name: Verify public manifest and all top-level exports
+          gh run watch 34654781685 --repo "$GH_REPO" --exit-status --interval 30
+          mkdir -p artifacts/service-check/chain
+          gh run download 34654781685 --repo "$GH_REPO" --name oom-50-fresh-chain --dir artifacts/service-check/chain
+          jq -e '.codeSha=="0f8462b62cba9acd64e9d4c4a5cd2739baa82577" and .ingestRunId=="34654031275" and .buildRunId=="34654902067"' artifacts/service-check/chain/chain.json
+          jq -r '.dataSha' artifacts/service-check/chain/chain.json > artifacts/service-check/data-sha.txt
+      - name: Verify final public manifest and top-level datasets
         run: |
           node --input-type=module <<'NODE'
           import { readFile, writeFile } from 'node:fs/promises';
@@ -38,10 +40,10 @@ jobs:
           async function get(url) { const r=await fetch(url,{signal:AbortSignal.timeout(30000)}); assert.equal(r.status,200,`${url}: ${r.status}`); return Buffer.from(await r.arrayBuffer()); }
           const expected=await get(`https://raw.githubusercontent.com/kuil09/lawmaker-monitor-data/${sha}/manifests/latest.json`);
           let actual;
-          for(let attempt=0;attempt<20;attempt++) {
+          for(let attempt=0;attempt<40;attempt++) {
             actual=await get(`${base}manifests/latest.json?recovery50=${Date.now()}`);
             if(actual.equals(expected)) break;
-            if(attempt===19) throw new Error('Published manifest did not converge to committed data');
+            if(attempt===39) throw new Error('Published manifest did not converge to committed data');
             await new Promise(r=>setTimeout(r,15000));
           }
           assert.ok(actual.equals(expected));
@@ -62,15 +64,17 @@ jobs:
           await writeFile(`${dir}/public-data.json`,JSON.stringify(result,null,2));
           console.log(JSON.stringify(result,null,2));
           NODE
-      - name: Inspect live home, calendar and map in Chromium
+      - name: Inspect final live home, calendar, comparison and map
         run: |
           export RECOVERY_CHROME="$(command -v google-chrome || command -v chromium)"
           node --input-type=module <<'NODE'
           import { chromium } from 'playwright';
-          import { writeFile } from 'node:fs/promises';
+          import { readFile, writeFile } from 'node:fs/promises';
           import assert from 'node:assert/strict';
           import { resolveProductionUiRoutes } from './scripts/resolve-production-ui-routes.mjs';
-          const routes=await resolveProductionUiRoutes();
+          const routes=await resolveProductionUiRoutes({fetchImpl:(url,init={})=>fetch(url,{...init,signal:AbortSignal.timeout(30000)})});
+          const publicData=JSON.parse(await readFile('artifacts/service-check/public-data.json','utf8'));
+          assert.equal(routes.snapshotId,publicData.snapshotId);
           const browser=await chromium.launch({headless:true,executablePath:process.env.RECOVERY_CHROME,args:['--no-sandbox','--disable-dev-shm-usage']});
           const results=[];
           try {
@@ -79,24 +83,34 @@ jobs:
               const errors=[],failedData=[];
               page.on('pageerror',e=>errors.push(e.message));
               page.on('response',r=>{if(r.url().includes('kuil09.github.io/lawmaker-monitor-data/') && r.status()>=400) failedData.push({url:r.url(),status:r.status()});});
-              const response=await page.goto(url,{waitUntil:'domcontentloaded',timeout:45000});
-              assert.equal(response.status(),200);
-              await page.waitForFunction(()=>document.querySelector('main')?.innerText.length>100,{},{timeout:45000});
-              await page.waitForTimeout(5000);
-              const text=(await page.locator('main').innerText()).slice(0,1800);
-              await page.screenshot({path:`artifacts/service-check/${name}.png`,fullPage:false});
-              results.push({name,url,text,pageErrors:errors,failedData});
+              const result={name,url,pageErrors:errors,failedData};
+              results.push(result);
+              try {
+                const response=await page.goto(url,{waitUntil:'domcontentloaded',timeout:45000});
+                result.status=response.status();
+                assert.equal(response.status(),200);
+                await page.waitForFunction(()=>document.querySelector('main')?.innerText.length>100,{},{timeout:45000});
+                await page.waitForTimeout(5000);
+                result.text=(await page.locator('main').innerText()).slice(0,2500);
+                result.fontStatus=await page.evaluate(()=>document.fonts.status);
+              } catch(error) { result.failure=String(error); }
+              // Capture the actual viewport via CDP; do not block functional checks on document.fonts.ready.
+              const session=await page.context().newCDPSession(page);
+              const shot=await session.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+              await writeFile(`artifacts/service-check/${name}.png`,Buffer.from(shot.data,'base64'));
+              await session.detach();
               await page.close();
             }
-          } finally { await browser.close(); await writeFile('artifacts/service-check/browser.json',JSON.stringify({checkedAt:new Date().toISOString(),snapshotId:routes.snapshotId,results},null,2)); }
-          for(const r of results){ assert.equal(r.pageErrors.length,0,`${r.name}: ${r.pageErrors.join('; ')}`); assert.equal(r.failedData.length,0,`${r.name}: failed published data`); }
-          console.log(JSON.stringify(results.map(({name,pageErrors,failedData})=>({name,pageErrors,failedData})),null,2));
+          } finally { await browser.close(); await writeFile('artifacts/service-check/browser.json',JSON.stringify({checkedAt:new Date().toISOString(),snapshotId:routes.snapshotId,captureMethod:'CDP viewport, no font-readiness wait',results},null,2)); }
+          assert.equal(results.length,4);
+          for(const r of results){ assert.equal(r.failure,undefined,`${r.name}: ${r.failure}`); assert.equal(r.pageErrors.length,0,`${r.name}: ${r.pageErrors.join('; ')}`); assert.equal(r.failedData.length,0,`${r.name}: failed published data`); }
+          console.log(JSON.stringify(results.map(({name,pageErrors,failedData,fontStatus})=>({name,pageErrors,failedData,fontStatus})),null,2));
           NODE
-      - name: Retain acceptance evidence
+      - name: Retain final acceptance evidence
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: oom-50-service-check
+          name: oom-50-final-service-check
           path: artifacts/service-check
           retention-days: 7
           if-no-files-found: warn
