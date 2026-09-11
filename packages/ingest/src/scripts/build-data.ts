@@ -7,6 +7,7 @@ import {
 } from "../build-data/input-stage.js";
 import { buildNormalizedStage } from "../build-data/normalize-stage.js";
 import { publishBuildOutputs } from "../build-data/publish-stage.js";
+import { createBuildMemoryRecorder } from "../build-memory.js";
 import { runWithDiagnostics } from "../run-diagnostics.js";
 
 export async function buildData(args?: {
@@ -14,12 +15,28 @@ export async function buildData(args?: {
   repositoryRoot?: string;
 }): Promise<void> {
   const runtimeConfig = resolveBuildDataRuntimeConfig(args);
-  const rawInputs = await loadBuildDataRawInputs(runtimeConfig);
-  const normalized = await buildNormalizedStage(rawInputs);
+  const memory = createBuildMemoryRecorder(
+    resolve(
+      runtimeConfig.repositoryRoot,
+      runtimeConfig.env.BUILD_DIAGNOSTICS_DIR ?? "artifacts/diagnostics"
+    )
+  );
+  memory("raw-inputs:start");
+  const normalized = await (async () => {
+    const rawInputs = await loadBuildDataRawInputs(runtimeConfig);
+    memory("normalize:start");
+    return buildNormalizedStage(rawInputs);
+  })();
+  memory("normalize:end", {
+    members: normalized.bundle.members.length,
+    votes: normalized.bundle.voteFacts.length,
+    attendance: normalized.bundle.attendanceFacts.length
+  });
 
   await publishBuildOutputs({
-    runtimeConfig: rawInputs,
-    normalized
+    runtimeConfig,
+    normalized,
+    memory
   });
 }
 

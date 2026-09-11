@@ -5,6 +5,7 @@ import {
 } from "./tenure.js";
 import { sha256 } from "./utils.js";
 
+import type { DatasetMetadata } from "./dataset-writer.js";
 import type { BillProposalRecord } from "./parsers.js";
 import type {
   AccountabilitySummaryExport,
@@ -24,7 +25,19 @@ import type {
   VoteCode
 } from "@lawmaker-monitor/schemas";
 
+type DatasetSource = { content: string; rowCount: number } | DatasetMetadata;
+export type NormalizedDatasetMetadata = Record<
+  | "members"
+  | "rollCalls"
+  | "voteFacts"
+  | "attendanceFacts"
+  | "meetings"
+  | "sources",
+  DatasetMetadata
+>;
+
 type BuildArtifactsInput = {
+  normalizedDatasets?: NormalizedDatasetMetadata;
   bundle: NormalizedBundle;
   dataRepoBaseUrl: string;
   currentAssembly: CurrentAssembly;
@@ -35,22 +48,10 @@ type BuildArtifactsInput = {
   memberActivityCalendar?: MemberActivityCalendarExport;
   memberAssetsIndex?: MemberAssetsIndexExport;
   memberSponsorshipAccounts?: MemberSponsorshipAccountsExport;
-  assetDisclosuresDataset?: {
-    content: string;
-    rowCount: number;
-  };
-  assetDisclosureRecordsDataset?: {
-    content: string;
-    rowCount: number;
-  };
-  assetDisclosureCategoriesDataset?: {
-    content: string;
-    rowCount: number;
-  };
-  assetDisclosureItemsDataset?: {
-    content: string;
-    rowCount: number;
-  };
+  assetDisclosuresDataset?: DatasetSource;
+  assetDisclosureRecordsDataset?: DatasetSource;
+  assetDisclosureCategoriesDataset?: DatasetSource;
+  assetDisclosureItemsDataset?: DatasetSource;
   constituencyBoundariesIndex?: ConstituencyBoundariesIndexExport;
   hexmapStaticIndex?: HexmapStaticIndexExport;
 };
@@ -239,18 +240,22 @@ function sortRollCallsByLatest(
   });
 }
 
-function toKoreanDateKey(value: string): string {
+// Reuse ICU's formatter. Constructing it inside the member × roll-call loop
+// allocates native state that V8's JS heap accounting does not reflect.
+const koreanDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  timeZone: "Asia/Seoul"
+});
+
+export function toKoreanDateKey(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value.slice(0, 10);
   }
 
-  return new Intl.DateTimeFormat("en-CA", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    timeZone: "Asia/Seoul"
-  }).format(date);
+  return koreanDateFormatter.format(date);
 }
 
 function compareDateKeys(left: string, right: string): number {
@@ -2071,13 +2076,15 @@ export function buildMemberActivityCalendarArtifacts(
   const assemblyRollCalls = eligibleRollCalls.filter(
     (rollCall) => rollCall.assemblyNo === assemblyNo
   );
-  const votingDates = [
-    ...new Set(
-      assemblyRollCalls.map((rollCall) =>
-        toKoreanDateKey(rollCall.voteDatetime)
-      )
-    )
-  ].sort(compareDateKeys);
+  const dateByRollCall = new Map(
+    assemblyRollCalls.map((rollCall) => [
+      rollCall,
+      toKoreanDateKey(rollCall.voteDatetime)
+    ])
+  );
+  const votingDates = [...new Set(dateByRollCall.values())].sort(
+    compareDateKeys
+  );
   const currentMembers = buildCurrentAssemblyMembers(bundle, assemblyNo);
   const membersById = new Map(
     currentMembers.map((member) => [member.memberId, member])
@@ -2133,7 +2140,7 @@ export function buildMemberActivityCalendarArtifacts(
         continue;
       }
 
-      const dayKey = toKoreanDateKey(rollCall.voteDatetime);
+      const dayKey = dateByRollCall.get(rollCall)!;
       const bucket = memberBuckets.get(dayKey) ?? createDayBucket();
       const voteCode = resolveMemberCentricVoteCode({
         rollCallId: rollCall.rollCallId,
@@ -2282,7 +2289,7 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
   const memberSponsorshipAccounts = input.memberSponsorshipAccounts;
   const constituencyBoundariesIndex = input.constituencyBoundariesIndex;
   const hexmapStaticIndex = input.hexmapStaticIndex;
-  const normalizedPayloads = {
+  const normalizedPayloads = input.normalizedDatasets ?? {
     members: toNdjson(bundle.members),
     rollCalls: toNdjson(bundle.rollCalls),
     voteFacts: toNdjson(bundle.voteFacts),
@@ -2293,12 +2300,17 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
 
   const createDatasetFile = (
     path: string,
-    content: string,
+    content: string | DatasetSource,
     rowCount?: number
   ) => ({
     path,
     url: new URL(path, `${dataRepoBaseUrl.replace(/\/$/, "")}/`).toString(),
-    checksumSha256: sha256(content),
+    checksumSha256:
+      typeof content === "string"
+        ? sha256(content)
+        : "checksumSha256" in content
+          ? content.checksumSha256
+          : sha256(content.content),
     rowCount
   });
   const createPublishedExportFile = (
@@ -2348,7 +2360,7 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
         ? {
             assetDisclosures: createDatasetFile(
               "curated/asset_disclosures.parquet",
-              input.assetDisclosuresDataset.content,
+              input.assetDisclosuresDataset,
               input.assetDisclosuresDataset.rowCount
             )
           }
@@ -2357,7 +2369,7 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
         ? {
             assetDisclosureRecords: createDatasetFile(
               "curated/asset_disclosure_records.parquet",
-              input.assetDisclosureRecordsDataset.content,
+              input.assetDisclosureRecordsDataset,
               input.assetDisclosureRecordsDataset.rowCount
             )
           }
@@ -2366,7 +2378,7 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
         ? {
             assetDisclosureCategories: createDatasetFile(
               "curated/asset_disclosure_categories.parquet",
-              input.assetDisclosureCategoriesDataset.content,
+              input.assetDisclosureCategoriesDataset,
               input.assetDisclosureCategoriesDataset.rowCount
             )
           }
@@ -2375,7 +2387,7 @@ export function buildManifest(input: BuildArtifactsInput): Manifest {
         ? {
             assetDisclosureItems: createDatasetFile(
               "curated/asset_disclosure_items.parquet",
-              input.assetDisclosureItemsDataset.content,
+              input.assetDisclosureItemsDataset,
               input.assetDisclosureItemsDataset.rowCount
             )
           }
@@ -2455,26 +2467,30 @@ export function toNdjson(items: unknown[]): string {
   return items.map((item) => JSON.stringify(item)).join("\n");
 }
 
+export const ATTENDANCE_DATASET_SEED = {
+  __seed: true,
+  attendanceId: "__seed__",
+  memberId: "__seed__",
+  memberName: "__seed__",
+  meetingDate: "1970-01-01",
+  meetingType: "plenary",
+  committeeName: null,
+  status: "absent",
+  sourceUrl: "https://example.test/attendance",
+  retrievedAt: "1970-01-01T00:00:00.000Z",
+  sourceHash: "__seed__"
+};
+
+export function* attendanceDatasetRows(
+  items: NormalizedBundle["attendanceFacts"]
+) {
+  for (const item of items) {
+    yield { __seed: false, ...item };
+  }
+}
+
 export function toAttendanceFactsNdjson(
   items: NormalizedBundle["attendanceFacts"]
 ): string {
-  return toNdjson([
-    {
-      __seed: true,
-      attendanceId: "__seed__",
-      memberId: "__seed__",
-      memberName: "__seed__",
-      meetingDate: "1970-01-01",
-      meetingType: "plenary",
-      committeeName: null,
-      status: "absent",
-      sourceUrl: "https://example.test/attendance",
-      retrievedAt: "1970-01-01T00:00:00.000Z",
-      sourceHash: "__seed__"
-    },
-    ...items.map((item) => ({
-      __seed: false,
-      ...item
-    }))
-  ]);
+  return toNdjson([ATTENDANCE_DATASET_SEED, ...attendanceDatasetRows(items)]);
 }

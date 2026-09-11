@@ -1,3 +1,11 @@
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { publishGeographyOutputs } from "../../packages/ingest/src/build-data/geography-stage.js";
+import {
+  buildHexmapStaticRuntimeArtifacts,
+  HEXMAP_STATIC_INDEX_PATH
+} from "../../packages/ingest/src/hexmap-static-runtime.js";
 import { describe, expect, it } from "vitest";
 
 import type { ConstituencyBoundaryExport } from "../../packages/schemas/src/index.js";
@@ -5,6 +13,7 @@ import type { ConstituencyBoundaryExport } from "../../packages/schemas/src/inde
 import {
   buildConstituencyBoundaryProvinceShardPath,
   buildConstituencyBoundaryRuntimeArtifacts,
+  iterateConstituencyBoundaryProvinceShards,
   CONSTITUENCY_BOUNDARIES_INDEX_PATH
 } from "../../packages/ingest/src/constituency-boundary-runtime.js";
 import {
@@ -280,6 +289,94 @@ describe("constituency boundary runtime artifacts", () => {
       expect(() =>
         assertPublishedJsonFileSize(shard.path, shard.content)
       ).not.toThrow();
+    }
+  });
+});
+
+describe("bounded geography publication", () => {
+  it("writes byte-identical province artifacts and indexes without retaining all shards", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "geo-bounded-"));
+    try {
+      const boundaryExport = createBoundaryExport();
+      const original = JSON.stringify(boundaryExport);
+      const args = {
+        boundaryExport,
+        generatedAt: "2026-03-28T08:00:00.000Z",
+        snapshotId: "snapshot-22"
+      };
+      const boundary = buildConstituencyBoundaryRuntimeArtifacts(args);
+      const hexmap = buildHexmapStaticRuntimeArtifacts({
+        ...args,
+        provinceShards: boundary.shards
+      });
+      await writeFile(
+        join(directory, "constituency_boundaries.geojson"),
+        original
+      );
+      const outputDir = join(directory, "output");
+      const result = await publishGeographyOutputs({
+        ...args,
+        boundaryDir: directory,
+        outputDir,
+        memory: () => {}
+      });
+      expect(result.constituencyBoundariesIndex).toEqual(boundary.index);
+      expect(result.hexmapStaticIndex).toEqual(hexmap.index);
+      expect(
+        await readFile(
+          join(outputDir, CONSTITUENCY_BOUNDARIES_INDEX_PATH),
+          "utf8"
+        )
+      ).toBe(boundary.indexJson);
+      expect(
+        await readFile(join(outputDir, HEXMAP_STATIC_INDEX_PATH), "utf8")
+      ).toBe(hexmap.indexJson);
+      for (const shard of [...boundary.shards, ...hexmap.provinces]) {
+        const content = await readFile(join(outputDir, shard.path), "utf8");
+        expect(content).toBe(shard.content);
+        expect(sha256(content)).toBe(shard.checksumSha256);
+      }
+      expect(JSON.stringify(boundaryExport)).toBe(original);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("does not build a later invalid province until it is consumed", () => {
+    const boundary = createBoundaryExport();
+    boundary.features[1]!.properties.provinceName = "invalid";
+    const shards = iterateConstituencyBoundaryProvinceShards(boundary);
+    expect(shards.next().value?.provinceShortName).toBe("부산");
+    expect(() => shards.next()).toThrow("mixes province names");
+  });
+
+  it("does not publish indexes after a province validation failure", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "geo-invalid-"));
+    try {
+      const boundary = createBoundaryExport();
+      boundary.features[1]!.properties.provinceName = "invalid";
+      await writeFile(
+        join(directory, "constituency_boundaries.geojson"),
+        JSON.stringify(boundary)
+      );
+      const outputDir = join(directory, "output");
+      await expect(
+        publishGeographyOutputs({
+          boundaryDir: directory,
+          outputDir,
+          generatedAt: "2026-03-28T08:00:00.000Z",
+          snapshotId: "snapshot-22",
+          memory: () => {}
+        })
+      ).rejects.toThrow("mixes province names");
+      await expect(
+        readFile(join(outputDir, CONSTITUENCY_BOUNDARIES_INDEX_PATH))
+      ).rejects.toThrow();
+      await expect(
+        readFile(join(outputDir, HEXMAP_STATIC_INDEX_PATH))
+      ).rejects.toThrow();
+    } finally {
+      await rm(directory, { recursive: true, force: true });
     }
   });
 });

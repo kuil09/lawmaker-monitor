@@ -47,26 +47,25 @@ export async function runWithDiagnostics(
   directory?: string
 ): Promise<void> {
   const startedAt = new Date().toISOString();
-  let errorMessage: string | null = null;
-  try {
-    await task();
-  } catch (error) {
-    errorMessage = diagnosticErrorMessage(error);
-    throw new Error(errorMessage);
-  } finally {
-    const root = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
-    const path = resolve(
-      directory ?? resolve(root, "artifacts/diagnostics"),
-      `${stage}.json`
-    );
+  const root = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
+  const path = resolve(
+    directory ??
+      process.env.BUILD_DIAGNOSTICS_DIR ??
+      resolve(root, "artifacts/diagnostics"),
+    `${stage}.json`
+  );
+  const save = async (
+    outcome: "running" | "success" | "failure",
+    error: string | null = null
+  ) => {
     const report = {
       stage,
-      outcome: errorMessage === null ? "success" : "failure",
+      outcome,
       startedAt,
-      finishedAt: new Date().toISOString(),
+      finishedAt: outcome === "running" ? null : new Date().toISOString(),
       runId: process.env.GITHUB_RUN_ID ?? null,
       commitSha: process.env.GITHUB_SHA ?? null,
-      error: errorMessage
+      error
     };
     try {
       await mkdir(dirname(path), { recursive: true });
@@ -76,5 +75,17 @@ export async function runWithDiagnostics(
         "Unable to save run diagnostics; inspect the Actions job log."
       );
     }
+  };
+
+  // Fatal V8 errors do not reach catch/finally. Persist an unfinished attempt first.
+  await save("running");
+  let errorMessage: string | null = null;
+  try {
+    await task();
+  } catch (error) {
+    errorMessage = diagnosticErrorMessage(error);
+    throw new Error(errorMessage);
+  } finally {
+    await save(errorMessage === null ? "success" : "failure", errorMessage);
   }
 }

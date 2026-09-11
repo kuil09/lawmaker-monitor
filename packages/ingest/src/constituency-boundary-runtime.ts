@@ -86,77 +86,88 @@ function buildProvinceTopology(
   });
 }
 
-export function buildConstituencyBoundaryRuntimeArtifacts(args: {
-  boundaryExport: ConstituencyBoundaryExport;
-  generatedAt: string;
-  snapshotId: string;
-}): ConstituencyBoundaryRuntimeArtifacts {
+/** Yield one province at a time so production can write and release each shard. */
+export function* iterateConstituencyBoundaryProvinceShards(
+  boundaryExport: ConstituencyBoundaryExport
+): Generator<ConstituencyBoundaryProvinceShard> {
   const provinces = new Map<string, ConstituencyBoundaryFeature[]>();
 
-  for (const feature of args.boundaryExport.features) {
+  for (const feature of boundaryExport.features) {
     const provinceShortName = feature.properties.provinceShortName;
     const bucket = provinces.get(provinceShortName) ?? [];
     bucket.push(feature);
     provinces.set(provinceShortName, bucket);
   }
 
-  const shards = [...provinces.entries()]
-    .sort(([leftProvince], [rightProvince]) =>
-      leftProvince.localeCompare(rightProvince, "ko")
-    )
-    .map(([provinceShortName, features]) => {
-      const sortedFeatures = [...features].sort((left, right) =>
-        left.properties.memberDistrictKey.localeCompare(
-          right.properties.memberDistrictKey,
-          "ko"
-        )
+  const entries = [...provinces.entries()].sort(([left], [right]) =>
+    left.localeCompare(right, "ko")
+  );
+  for (const [provinceShortName, features] of entries) {
+    const sortedFeatures = [...features].sort((left, right) =>
+      left.properties.memberDistrictKey.localeCompare(
+        right.properties.memberDistrictKey,
+        "ko"
+      )
+    );
+    const provinceName =
+      sortedFeatures[0]?.properties.provinceName ?? provinceShortName;
+    const inconsistentProvince = sortedFeatures.find(
+      (feature) => feature.properties.provinceName !== provinceName
+    );
+
+    if (inconsistentProvince) {
+      throw new Error(
+        `Province shard ${provinceShortName} mixes province names ${provinceName} and ${inconsistentProvince.properties.provinceName}.`
       );
-      const provinceName =
-        sortedFeatures[0]?.properties.provinceName ?? provinceShortName;
-      const inconsistentProvince = sortedFeatures.find(
-        (feature) => feature.properties.provinceName !== provinceName
-      );
+    }
 
-      if (inconsistentProvince) {
-        throw new Error(
-          `Province shard ${provinceShortName} mixes province names ${provinceName} and ${inconsistentProvince.properties.provinceName}.`
-        );
-      }
+    const path = buildConstituencyBoundaryProvinceShardPath(provinceShortName);
+    const topology = buildProvinceTopology(sortedFeatures);
+    const content = JSON.stringify(topology);
 
-      const path =
-        buildConstituencyBoundaryProvinceShardPath(provinceShortName);
-      const topology = buildProvinceTopology(sortedFeatures);
-      const content = JSON.stringify(topology);
+    yield {
+      provinceName,
+      provinceShortName,
+      featureCount: sortedFeatures.length,
+      path,
+      checksumSha256: sha256(content),
+      content,
+      topology
+    };
+  }
+}
 
-      return {
-        provinceName,
-        provinceShortName,
-        featureCount: sortedFeatures.length,
-        path,
-        checksumSha256: sha256(content),
-        content,
-        topology
-      };
-    });
-
-  const index = {
+export function buildConstituencyBoundariesIndex(args: {
+  boundaryExport: ConstituencyBoundaryExport;
+  generatedAt: string;
+  snapshotId: string;
+  provinces: ConstituencyBoundariesIndexProvince[];
+}): ConstituencyBoundariesIndexExport {
+  return {
     generatedAt: args.generatedAt,
     snapshotId: args.snapshotId,
     lawEffectiveDate: args.boundaryExport.lawEffectiveDate,
     lawSourceUrl: args.boundaryExport.lawSourceUrl,
     sourceGeneratedAt: args.boundaryExport.generatedAt,
     sourceFeatureCount: args.boundaryExport.features.length,
-    sources: args.boundaryExport.sources.map((source) => ({
-      ...source
-    })),
+    sources: args.boundaryExport.sources.map((source) => ({ ...source })),
+    provinces: args.provinces
+  };
+}
+
+export function buildConstituencyBoundaryRuntimeArtifacts(args: {
+  boundaryExport: ConstituencyBoundaryExport;
+  generatedAt: string;
+  snapshotId: string;
+}): ConstituencyBoundaryRuntimeArtifacts {
+  const shards = [
+    ...iterateConstituencyBoundaryProvinceShards(args.boundaryExport)
+  ];
+  const index = buildConstituencyBoundariesIndex({
+    ...args,
     provinces: shards.map(
       ({ content: _content, topology: _topology, ...province }) => province
     )
-  } satisfies ConstituencyBoundariesIndexExport;
-
-  return {
-    index,
-    indexJson: JSON.stringify(index),
-    shards
-  };
+  });
+  return { index, indexJson: JSON.stringify(index), shards };
 }

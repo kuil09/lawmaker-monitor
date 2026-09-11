@@ -298,3 +298,30 @@ application, geospatial visualization, data ingestion, and test pipeline.
 
 See [NOTICE](./NOTICE) for the dependency license index, required upstream
 attributions, and the current project-license status.
+
+### Build memory and failure diagnostics
+
+`build-data` runs with an explicit 4096 MiB V8 old-space budget; this is not a
+larger-heap workaround. Normalized/property NDJSON is written with backpressure,
+with checksums computed from the exact written bytes. The manifest consumes those
+checksums instead of serializing the entire dataset again. Existing NDJSON seed,
+newline, row-count, and checksum conventions are preserved.
+
+The calendar reuses one Korean date formatter and computes each roll-call date
+once, rather than allocating ICU formatters for every member/roll-call pair.
+Geography writes one province's boundary and hexmap artifacts at a time, retaining
+only index metadata after each province. The full source GeoJSON is still parsed
+once; the build does not claim memory independent of the source dataset size.
+
+Property PDFs are parsed one document at a time. Each page is cleaned after text
+extraction and each loading task is destroyed even on errors. Raw ingest payloads
+are not passed into the publish stage.
+
+`bash scripts/run-data-build.sh` retains code/data SHA provenance, the source ingest
+run ID, process exit code and `/usr/bin/time` peak RSS. `build-memory.ndjson` contains
+synchronous stage checkpoints (`heapUsed`, `rss`, external/ArrayBuffer memory and
+row/byte counts). Its sampled peaks are not continuous heap profiling. No heap
+snapshot, environment dump, source text or API key is included. An unfinished
+`running` diagnostic plus a non-zero process exit is a failure, not a success.
+`BUILD_DIAGNOSTICS_DIR` optionally redirects the diagnostic files. Publication and
+deployment still require the build to succeed.
