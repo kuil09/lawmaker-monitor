@@ -1,0 +1,88 @@
+name: oom-50-verify
+on:
+  push:
+    branches: [fix/oom-50]
+    paths: [.github/workflows/oom-50-verify.yml]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - name: Apply checked patch and remove temporary repair files
+        run: |
+          cat .repair/oom-50.part1 .repair/oom-50.part2 | base64 -d | gzip -d > "$RUNNER_TEMP/oom-50.patch"
+          echo "3e57a8c9eaa491624b633501f4687808b02d08783c2916729d4407e0499ae8f6  $RUNNER_TEMP/oom-50.patch" | sha256sum -c -
+          git apply --check "$RUNNER_TEMP/oom-50.patch"
+          git apply "$RUNNER_TEMP/oom-50.patch"
+          git rm .repair/oom-50.part1 .repair/oom-50.part2 .github/workflows/oom-50-check.yml .github/workflows/oom-50-toolchain.yml .github/workflows/oom-50-verify.yml
+          git add -A
+          test "$(git write-tree)" = "70d44dd48c85ae09a6731d7ca7362c518a462716"
+          git diff --cached --check
+      - uses: ./.github/actions/setup-node-workspaces
+        with:
+          build-target: schemas-and-ingest
+      - name: Validate complete repaired source
+        env:
+          SKIP_MEMBER_SHARE_GENERATION: '1'
+          VITE_DATA_REPO_BASE_URL: http://127.0.0.1:4174
+        run: |
+          npm run lint
+          npm run format:check
+          npm test
+          npm run typecheck
+          npm run build --workspace @lawmaker-monitor/web
+      - name: Commit the exact tested tree to the repair branch
+        run: |
+          test "$(git write-tree)" = "70d44dd48c85ae09a6731d7ca7362c518a462716"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix: bound build memory and preserve fatal diagnostics (#50)'
+          git push origin HEAD:fix/oom-50
+      - name: Fetch pinned production inputs without write credentials
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p artifacts/ingest artifacts/constituency-boundaries/current artifacts/diagnostics
+          gh run download 34638768827 --name raw-snapshot --dir artifacts/ingest
+          git init published-data
+          git -C published-data remote add origin https://github.com/kuil09/lawmaker-monitor-data.git
+          git -C published-data fetch --depth 1 origin 5c83899b686214e828c4054a6c2fb047edab91f8
+          git -C published-data checkout --detach FETCH_HEAD
+          test "$(git -C published-data rev-parse HEAD)" = "5c83899b686214e828c4054a6c2fb047edab91f8"
+          gh release download constituency-boundaries-v1 --repo kuil09/lawmaker-monitor-data --dir artifacts/constituency-boundaries/current --pattern '*.geojson' --pattern '*.json'
+          sha256sum artifacts/constituency-boundaries/current/* > artifacts/diagnostics/boundary-checksums.txt
+      - name: Build full production input including live sponsorship without publication
+        env:
+          RAW_DIR: artifacts/ingest
+          DATA_REPO_DIR: published-data
+          OUTPUT_DIR: artifacts/build
+          INGEST_RUN_ID: '34638768827'
+          DATA_REPO_BASE_URL: https://kuil09.github.io/lawmaker-monitor-data/
+          COLLECT_SPONSORSHIP_ACCOUNTS: 'true'
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: bash scripts/run-data-build.sh
+      - name: Check complete manifest and collect output fingerprints
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+          import { join, relative } from 'node:path';
+          import { createHash } from 'node:crypto';
+          const root='artifacts/build';
+          const files=[];
+          function visit(dir) { for(const name of readdirSync(dir)) {const path=join(dir,name); if(statSync(path).isDirectory()) visit(path); else files.push({path:relative(root,path),bytes:statSync(path).size,sha256:createHash('sha256').update(readFileSync(path)).digest('hex')});}}
+          visit(root);
+          JSON.parse(readFileSync(join(root,'manifests/latest.json'),'utf8'));
+          writeFileSync('artifacts/diagnostics/output-files.json',JSON.stringify(files,null,2));
+          NODE
+      - name: Save bounded-build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: oom-50-fixed-diagnostics
+          path: artifacts/diagnostics
+          retention-days: 7
+          if-no-files-found: warn
