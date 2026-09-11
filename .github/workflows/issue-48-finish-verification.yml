@@ -1,0 +1,44 @@
+name: issue-48-finish-verification
+
+on:
+  push:
+    branches: [ops/issue-48-verification]
+    paths: [.github/workflows/issue-48-finish-verification.yml]
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      EXPECTED_SHA: 2fbf84a5bb5768ea6c67244d560ab01fa93a5f8d
+    steps:
+      - name: Verify successful fresh ingest and dispatch its build
+        id: build
+        run: |
+          test "$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GH_REPO/actions/runs/34638768827" --jq '.conclusion + ":" + .head_sha')" = "success:$EXPECTED_SHA"
+          RUN_URL=$(gh workflow run build-data.yml --repo "$GH_REPO" --ref main -f raw_source=latest_ingest -f ingest_run_id=34638768827)
+          RUN_ID=${RUN_URL##*/}
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "Latest-input build: $RUN_URL"
+      - name: Confirm fixed-input production build and publication
+        run: gh run watch 34638766614 --repo "$GH_REPO" --interval 20 --exit-status
+      - name: Confirm fresh-input production build and publication
+        run: gh run watch "${{ steps.build.outputs.run_id }}" --repo "$GH_REPO" --interval 20 --exit-status
+      - name: Deploy verified data and confirm Pages deployment
+        run: |
+          test "$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          RUN_URL=$(gh workflow run deploy-web.yml --repo "$GH_REPO" --ref main)
+          RUN_ID=${RUN_URL##*/}
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          echo "Verified-data deployment: $RUN_URL"
+          gh run watch "$RUN_ID" --repo "$GH_REPO" --interval 20 --exit-status
+      - name: Confirm property mirror
+        run: gh run watch 34638771362 --repo "$GH_REPO" --interval 20 --exit-status
