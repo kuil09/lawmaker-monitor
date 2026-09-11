@@ -7,6 +7,7 @@ import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { propertyDisclosureOverrides } from "./property-disclosure-overrides.js";
 import { mapWithConcurrency, readJsonFile, sha256 } from "./utils.js";
 
+import type { BuildMemoryRecorder } from "./build-memory.js";
 import type {
   MirroredDocumentIndex,
   MirroredDocumentMetadata
@@ -141,6 +142,7 @@ export type PropertyDisclosureArtifacts = {
 };
 
 type BuildPropertyDisclosureArtifactsInput = {
+  memory?: BuildMemoryRecorder;
   assemblyLabel: string;
   assemblyNo: number;
   currentMembers: MemberRecord[];
@@ -617,92 +619,101 @@ function resolveCategorySortKey(
   return `99:${String(fallbackOrder).padStart(2, "0")}:${categoryLabel}`;
 }
 
-async function extractPdfLines(pdfPath: string): Promise<PdfLine[]> {
+export async function extractPdfLines(pdfPath: string): Promise<PdfLine[]> {
   const data = new Uint8Array(await readFile(pdfPath));
-  const document = await getDocument({
+  const loadingTask = getDocument({
     data,
     cMapUrl: `${join(pdfjsDistRoot, "cmaps")}/`,
     useWorkerFetch: false,
     isEvalSupported: false
-  }).promise;
-  const lines: PdfLine[] = [];
+  });
+  try {
+    const document = await loadingTask.promise;
+    const lines: PdfLine[] = [];
 
-  for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
-    const page = await document.getPage(pageNumber);
-    const content = await page.getTextContent();
-    const tokens = (content.items as unknown[])
-      .filter(isPdfTextToken)
-      .map((item) => ({
-        text: normalizeWhitespace(item.str ?? ""),
-        x: item.transform?.[4] ?? 0,
-        y: item.transform?.[5] ?? 0,
-        width: item.width ?? 0
-      }))
-      .filter((item) => item.text.length > 0)
-      .sort((left, right) => {
-        const yGap = Math.abs(left.y - right.y);
-        if (yGap > 1.5) {
-          return right.y - left.y;
+    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+      const page = await document.getPage(pageNumber);
+      try {
+        const content = await page.getTextContent();
+        const tokens = (content.items as unknown[])
+          .filter(isPdfTextToken)
+          .map((item) => ({
+            text: normalizeWhitespace(item.str ?? ""),
+            x: item.transform?.[4] ?? 0,
+            y: item.transform?.[5] ?? 0,
+            width: item.width ?? 0
+          }))
+          .filter((item) => item.text.length > 0)
+          .sort((left, right) => {
+            const yGap = Math.abs(left.y - right.y);
+            if (yGap > 1.5) {
+              return right.y - left.y;
+            }
+
+            return left.x - right.x;
+          });
+
+        const pageLines: Array<{
+          y: number;
+          items: Array<{ text: string; x: number; width: number }>;
+        }> = [];
+
+        for (const token of tokens) {
+          const currentLine = pageLines.at(-1);
+          if (!currentLine || Math.abs(currentLine.y - token.y) > 2.5) {
+            pageLines.push({
+              y: token.y,
+              items: [{ text: token.text, x: token.x, width: token.width }]
+            });
+            continue;
+          }
+
+          currentLine.items.push({
+            text: token.text,
+            x: token.x,
+            width: token.width
+          });
         }
 
-        return left.x - right.x;
-      });
+        for (const pageLine of pageLines) {
+          const sortedItems = [...pageLine.items].sort(
+            (left, right) => left.x - right.x
+          );
+          let text = "";
+          let lastEndX: number | null = null;
 
-    const pageLines: Array<{
-      y: number;
-      items: Array<{ text: string; x: number; width: number }>;
-    }> = [];
+          for (const item of sortedItems) {
+            const needsGap =
+              lastEndX !== null && item.x - lastEndX > 4 && !text.endsWith(" ");
+            text += `${needsGap ? " " : ""}${item.text}`;
+            lastEndX = item.x + item.width;
+          }
 
-    for (const token of tokens) {
-      const currentLine = pageLines.at(-1);
-      if (!currentLine || Math.abs(currentLine.y - token.y) > 2.5) {
-        pageLines.push({
-          y: token.y,
-          items: [{ text: token.text, x: token.x, width: token.width }]
-        });
-        continue;
+          const normalized = normalizeWhitespace(text);
+          if (!normalized) {
+            continue;
+          }
+
+          lines.push({
+            pageNumber,
+            text: normalized
+          });
+        }
+      } finally {
+        page.cleanup();
       }
-
-      currentLine.items.push({
-        text: token.text,
-        x: token.x,
-        width: token.width
-      });
     }
 
-    for (const pageLine of pageLines) {
-      const sortedItems = [...pageLine.items].sort(
-        (left, right) => left.x - right.x
+    if (lines.length === 0) {
+      throw new Error(
+        `Property disclosure PDF has no extractable text layer: ${pdfPath}`
       );
-      let text = "";
-      let lastEndX: number | null = null;
-
-      for (const item of sortedItems) {
-        const needsGap =
-          lastEndX !== null && item.x - lastEndX > 4 && !text.endsWith(" ");
-        text += `${needsGap ? " " : ""}${item.text}`;
-        lastEndX = item.x + item.width;
-      }
-
-      const normalized = normalizeWhitespace(text);
-      if (!normalized) {
-        continue;
-      }
-
-      lines.push({
-        pageNumber,
-        text: normalized
-      });
     }
-  }
 
-  if (lines.length === 0) {
-    throw new Error(
-      `Property disclosure PDF has no extractable text layer: ${pdfPath}`
-    );
+    return lines;
+  } finally {
+    await loadingTask.destroy();
   }
-
-  return lines;
 }
 
 export function extractLawmakerLines(lines: PdfLine[]): PdfLine[] {
@@ -1566,9 +1577,10 @@ export async function buildPropertyDisclosureArtifacts(
     mirroredMetadata.map((metadata) => [metadata.documentId, metadata] as const)
   );
 
+  const memory = input.memory ?? (() => {});
   const parsedPayloads = await mapWithConcurrency(
     propertyFiles,
-    2,
+    1,
     async (propertyFile) => {
       const metadata = metadataByDocumentId.get(propertyFile.sourceDocumentId);
       if (!metadata) {
@@ -1577,13 +1589,24 @@ export async function buildPropertyDisclosureArtifacts(
         );
       }
 
-      return parseMirroredPropertyDisclosure({
+      memory("property-file:start", {
+        fileSeq: propertyFile.fileSeq,
+        bytes: propertyFile.currentBytes
+      });
+      const parsed = await parseMirroredPropertyDisclosure({
         currentMembers: input.currentMembers,
         metadata,
         propertyFile,
         tenureIndex: input.tenureIndex,
         dataRepoDir: input.dataRepoDir
       });
+      memory("property-file:end", {
+        fileSeq: propertyFile.fileSeq,
+        records: parsed.records.length,
+        categories: parsed.categories.length,
+        items: parsed.items.length
+      });
+      return parsed;
     }
   );
 

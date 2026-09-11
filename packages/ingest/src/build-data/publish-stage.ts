@@ -1,12 +1,12 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import {
-  buildConstituencyBoundaryRuntimeArtifacts,
-  CONSTITUENCY_BOUNDARIES_INDEX_PATH
-} from "../constituency-boundary-runtime.js";
+import { publishGeographyOutputs } from "./geography-stage.js";
+import { writeNdjsonDataset } from "../dataset-writer.js";
 import {
   assertPublishedJsonFileSize,
+  ATTENDANCE_DATASET_SEED,
+  attendanceDatasetRows,
   buildAccountabilitySummaryExport,
   buildAccountabilityTrendsExport,
   buildBillProposalActivityExport,
@@ -16,13 +16,8 @@ import {
   buildMemberActivityCalendarMemberDetailPath,
   MEMBER_ACTIVITY_MEMBER_DETAILS_DIR,
   serializePublishedJson,
-  toAttendanceFactsNdjson,
-  toNdjson
+  type NormalizedDatasetMetadata
 } from "../exports.js";
-import {
-  buildHexmapStaticRuntimeArtifacts,
-  HEXMAP_STATIC_INDEX_PATH
-} from "../hexmap-static-runtime.js";
 import { collectMemberSponsorshipAccounts } from "../member-sponsorship-accounts.js";
 import {
   DEFAULT_PROPERTY_DOCUMENT_INDEX_PATH,
@@ -32,9 +27,6 @@ import {
   validateAccountabilitySummaryExport,
   validateAccountabilityTrendsExport,
   validateBillProposalActivityExport,
-  validateConstituencyBoundariesIndexExport,
-  validateHexmapStaticIndexExport,
-  validateHexmapStaticProvinceArtifact,
   validateLatestVotesExport,
   validateManifest,
   validateMemberActivityCalendarExport,
@@ -44,10 +36,11 @@ import {
   validateMemberSponsorshipAccountsExport
 } from "../validation.js";
 
-import type { BuildDataRawInputs } from "./input-stage.js";
+import type { BuildMemoryRecorder } from "../build-memory.js";
+import type { DatasetMetadata } from "../dataset-writer.js";
+import type { BuildDataRuntimeConfig } from "./input-stage.js";
 import type { NormalizedBuildArtifacts } from "./normalize-stage.js";
 import type {
-  ConstituencyBoundaryExport,
   MemberSponsorshipAccountsExport,
   NormalizedBundle
 } from "@lawmaker-monitor/schemas";
@@ -57,43 +50,58 @@ const POLITICAL_DONATION_CENTER_URL =
 
 async function writeBundle(
   outputDir: string,
-  bundle: NormalizedBundle
-): Promise<void> {
+  bundle: NormalizedBundle,
+  memory: BuildMemoryRecorder
+): Promise<NormalizedDatasetMetadata> {
   const normalizedDir = join(outputDir, "normalized");
-  const exportsDir = join(outputDir, "exports");
-  const manifestsDir = join(outputDir, "manifests");
-
-  await mkdir(normalizedDir, { recursive: true });
-  await mkdir(exportsDir, { recursive: true });
-  await mkdir(manifestsDir, { recursive: true });
-
-  await Promise.all([
-    writeFile(join(normalizedDir, "members.ndjson"), toNdjson(bundle.members)),
-    writeFile(
-      join(normalizedDir, "roll_calls.ndjson"),
-      toNdjson(bundle.rollCalls)
+  await mkdir(join(outputDir, "exports"), { recursive: true });
+  await mkdir(join(outputDir, "manifests"), { recursive: true });
+  const write = async (name: string, rows: Iterable<unknown>, prefix = "") => {
+    memory(`ndjson:${name}:start`);
+    const metadata = await writeNdjsonDataset(
+      join(normalizedDir, `${name}.ndjson`),
+      rows,
+      prefix
+    );
+    memory(`ndjson:${name}:end`, {
+      rows: metadata.rowCount,
+      bytes: metadata.byteSize
+    });
+    return metadata;
+  };
+  return {
+    members: await write("members", bundle.members),
+    rollCalls: await write("roll_calls", bundle.rollCalls),
+    voteFacts: await write("vote_facts", bundle.voteFacts),
+    attendanceFacts: await write(
+      "attendance_facts",
+      attendanceDatasetRows(bundle.attendanceFacts),
+      JSON.stringify(ATTENDANCE_DATASET_SEED) +
+        (bundle.attendanceFacts.length ? "\n" : "")
     ),
-    writeFile(
-      join(normalizedDir, "vote_facts.ndjson"),
-      toNdjson(bundle.voteFacts)
-    ),
-    writeFile(
-      join(normalizedDir, "attendance_facts.ndjson"),
-      toAttendanceFactsNdjson(bundle.attendanceFacts)
-    ),
-    writeFile(
-      join(normalizedDir, "meetings.ndjson"),
-      toNdjson(bundle.meetings)
-    ),
-    writeFile(join(normalizedDir, "sources.ndjson"), toNdjson(bundle.sources))
-  ]);
+    meetings: await write("meetings", bundle.meetings),
+    sources: await write("sources", bundle.sources)
+  };
 }
 
-function toOptionalNdjson<T extends Record<string, unknown>>(
+async function writeOptionalDataset<T extends Record<string, unknown>>(
+  outputDir: string,
+  name: string,
   items: T[],
-  seedRow: T & { __seed: true }
-): string {
-  return `${JSON.stringify(seedRow)}\n${items.length > 0 ? toNdjson(items) : ""}`;
+  seedRow: T & { __seed: true },
+  memory: BuildMemoryRecorder
+): Promise<DatasetMetadata> {
+  memory(`ndjson:${name}:start`, { rows: items.length });
+  const metadata = await writeNdjsonDataset(
+    join(outputDir, "normalized", `${name}.ndjson`),
+    items,
+    `${JSON.stringify(seedRow)}\n`
+  );
+  memory(`ndjson:${name}:end`, {
+    rows: metadata.rowCount,
+    bytes: metadata.byteSize
+  });
+  return metadata;
 }
 
 async function loadPublishedSponsorshipAccounts(
@@ -173,7 +181,7 @@ function parsePositiveInteger(
 }
 
 async function resolveMemberSponsorshipAccounts(args: {
-  runtimeConfig: BuildDataRawInputs;
+  runtimeConfig: BuildDataRuntimeConfig;
   normalized: NormalizedBuildArtifacts;
   accountabilitySummary: ReturnType<typeof buildAccountabilitySummaryExport>;
 }): Promise<MemberSponsorshipAccountsExport | null> {
@@ -227,11 +235,20 @@ async function resolveMemberSponsorshipAccounts(args: {
 }
 
 export async function publishBuildOutputs(args: {
-  runtimeConfig: BuildDataRawInputs;
+  runtimeConfig: BuildDataRuntimeConfig;
   normalized: NormalizedBuildArtifacts;
+  memory?: BuildMemoryRecorder;
 }): Promise<void> {
-  await writeBundle(args.runtimeConfig.outputDir, args.normalized.bundle);
+  const memory = args.memory ?? (() => {});
+  memory("write-bundle:start");
+  const normalizedDatasets = await writeBundle(
+    args.runtimeConfig.outputDir,
+    args.normalized.bundle,
+    memory
+  );
+  memory("write-bundle:end");
 
+  memory("exports:start");
   const latestVotes = validateLatestVotesExport(
     buildLatestVotesExport(args.normalized.bundle, {
       tenureIndex: args.normalized.tenureIndex
@@ -247,11 +264,13 @@ export async function publishBuildOutputs(args: {
       tenureIndex: args.normalized.tenureIndex
     })
   );
+  memory("sponsorship:start");
   const memberSponsorshipAccounts = await resolveMemberSponsorshipAccounts({
     runtimeConfig: args.runtimeConfig,
     normalized: args.normalized,
     accountabilitySummary
   });
+  memory("sponsorship:end");
   const billProposalActivity = validateBillProposalActivityExport(
     buildBillProposalActivityExport({
       bundle: args.normalized.bundle,
@@ -261,6 +280,7 @@ export async function publishBuildOutputs(args: {
       generatedAt: latestVotes.generatedAt
     })
   );
+  memory("calendar:start");
   const {
     memberActivityCalendar: builtMemberActivityCalendar,
     memberDetails: builtMemberDetails
@@ -274,7 +294,9 @@ export async function publishBuildOutputs(args: {
     validateMemberActivityCalendarMemberDetailExport(detail)
   );
 
+  memory("property:start");
   const propertyDisclosureArtifacts = await buildPropertyDisclosureArtifacts({
+    memory,
     assemblyLabel: args.normalized.currentAssembly.label,
     assemblyNo: args.normalized.currentAssembly.assemblyNo,
     currentMembers: args.normalized.propertyMemberContext.currentMembers,
@@ -287,6 +309,7 @@ export async function publishBuildOutputs(args: {
     snapshotId: args.normalized.snapshotId,
     tenureIndex: args.normalized.propertyMemberContext.tenureIndex
   });
+  memory("property:end");
   const memberAssetsIndex = validateMemberAssetsIndexExport(
     propertyDisclosureArtifacts.memberAssetsIndex
   );
@@ -294,115 +317,121 @@ export async function publishBuildOutputs(args: {
     propertyDisclosureArtifacts.memberAssetsHistory.map((history) =>
       validateMemberAssetsHistoryExport(history)
     );
+  memory("property-ndjson:start");
   const propertyDatasetFiles = {
-    files: toOptionalNdjson(propertyDisclosureArtifacts.files, {
-      __seed: true,
-      disclosureFileId: "__seed__",
-      sourceDocumentId: "__seed__",
-      sourceId: "__seed__",
-      fileSeq: 0,
-      infId: "__seed__",
-      infSeq: 0,
-      issueNo: null,
-      viewFileNm: "__seed__",
-      reportedAt: "1970-01-01",
-      fileExt: "pdf",
-      cvtFileSize: null,
-      sourceUrl: "https://example.test/property",
-      downloadUrl: "https://example.test/property",
-      metadataRelativePath: "__seed__",
-      latestRelativePath: "__seed__",
-      contentSha256: "__seed__",
-      currentBytes: 0
-    }),
-    records: toOptionalNdjson(propertyDisclosureArtifacts.records, {
-      __seed: true,
-      disclosureRecordId: "__seed__",
-      disclosureFileId: "__seed__",
-      sourceDocumentId: "__seed__",
-      fileSeq: 0,
-      issueNo: null,
-      disclosureName: "__seed__",
-      normalizedName: "__seed__",
-      officeTitle: null,
-      sectionLabel: "국회의원",
-      reportedAt: "1970-01-01",
-      pageStart: 0,
-      pageEnd: 0,
-      memberId: null,
-      mappingStatus: "unmatched",
-      previousAmount: 0,
-      increaseAmount: 0,
-      decreaseAmount: 0,
-      currentAmount: 0,
-      deltaAmount: 0,
-      valueChangeAmount: 0,
-      rawSummaryText: "__seed__"
-    }),
-    categories: toOptionalNdjson(propertyDisclosureArtifacts.categories, {
-      __seed: true,
-      disclosureCategoryId: "__seed__",
-      disclosureRecordId: "__seed__",
-      categoryOrder: 0,
-      categoryKey: "__seed__",
-      categoryLabel: "__seed__",
-      previousAmount: 0,
-      increaseAmount: 0,
-      decreaseAmount: 0,
-      currentAmount: 0
-    }),
-    items: toOptionalNdjson(propertyDisclosureArtifacts.items, {
-      __seed: true,
-      disclosureItemId: "__seed__",
-      disclosureCategoryId: "__seed__",
-      disclosureRecordId: "__seed__",
-      categoryOrder: 0,
-      itemOrder: 0,
-      relation: null,
-      assetTypeLabel: null,
-      locationText: null,
-      measureText: null,
-      reasonText: null,
-      rawDetailText: "__seed__",
-      previousAmount: 0,
-      increaseAmount: 0,
-      decreaseAmount: 0,
-      currentAmount: 0
-    })
+    files: await writeOptionalDataset(
+      args.runtimeConfig.outputDir,
+      "asset_disclosures",
+      propertyDisclosureArtifacts.files,
+      {
+        __seed: true,
+        disclosureFileId: "__seed__",
+        sourceDocumentId: "__seed__",
+        sourceId: "__seed__",
+        fileSeq: 0,
+        infId: "__seed__",
+        infSeq: 0,
+        issueNo: null,
+        viewFileNm: "__seed__",
+        reportedAt: "1970-01-01",
+        fileExt: "pdf",
+        cvtFileSize: null,
+        sourceUrl: "https://example.test/property",
+        downloadUrl: "https://example.test/property",
+        metadataRelativePath: "__seed__",
+        latestRelativePath: "__seed__",
+        contentSha256: "__seed__",
+        currentBytes: 0
+      },
+      memory
+    ),
+    records: await writeOptionalDataset(
+      args.runtimeConfig.outputDir,
+      "asset_disclosure_records",
+      propertyDisclosureArtifacts.records,
+      {
+        __seed: true,
+        disclosureRecordId: "__seed__",
+        disclosureFileId: "__seed__",
+        sourceDocumentId: "__seed__",
+        fileSeq: 0,
+        issueNo: null,
+        disclosureName: "__seed__",
+        normalizedName: "__seed__",
+        officeTitle: null,
+        sectionLabel: "국회의원",
+        reportedAt: "1970-01-01",
+        pageStart: 0,
+        pageEnd: 0,
+        memberId: null,
+        mappingStatus: "unmatched",
+        previousAmount: 0,
+        increaseAmount: 0,
+        decreaseAmount: 0,
+        currentAmount: 0,
+        deltaAmount: 0,
+        valueChangeAmount: 0,
+        rawSummaryText: "__seed__"
+      },
+      memory
+    ),
+    categories: await writeOptionalDataset(
+      args.runtimeConfig.outputDir,
+      "asset_disclosure_categories",
+      propertyDisclosureArtifacts.categories,
+      {
+        __seed: true,
+        disclosureCategoryId: "__seed__",
+        disclosureRecordId: "__seed__",
+        categoryOrder: 0,
+        categoryKey: "__seed__",
+        categoryLabel: "__seed__",
+        previousAmount: 0,
+        increaseAmount: 0,
+        decreaseAmount: 0,
+        currentAmount: 0
+      },
+      memory
+    ),
+    items: await writeOptionalDataset(
+      args.runtimeConfig.outputDir,
+      "asset_disclosure_items",
+      propertyDisclosureArtifacts.items,
+      {
+        __seed: true,
+        disclosureItemId: "__seed__",
+        disclosureCategoryId: "__seed__",
+        disclosureRecordId: "__seed__",
+        categoryOrder: 0,
+        itemOrder: 0,
+        relation: null,
+        assetTypeLabel: null,
+        locationText: null,
+        measureText: null,
+        reasonText: null,
+        rawDetailText: "__seed__",
+        previousAmount: 0,
+        increaseAmount: 0,
+        decreaseAmount: 0,
+        currentAmount: 0
+      },
+      memory
+    )
   };
 
-  const constituencyBoundaryExport = JSON.parse(
-    await readFile(
-      join(
-        args.runtimeConfig.constituencyBoundaryDir,
-        "constituency_boundaries.geojson"
-      ),
-      "utf8"
-    )
-  ) as ConstituencyBoundaryExport;
-  const constituencyBoundaryRuntimeArtifacts =
-    buildConstituencyBoundaryRuntimeArtifacts({
-      boundaryExport: constituencyBoundaryExport,
+  const { constituencyBoundariesIndex, hexmapStaticIndex } =
+    await publishGeographyOutputs({
+      boundaryDir: args.runtimeConfig.constituencyBoundaryDir,
+      outputDir: args.runtimeConfig.outputDir,
       generatedAt: latestVotes.generatedAt,
-      snapshotId: args.normalized.snapshotId
+      snapshotId: args.normalized.snapshotId,
+      memory
     });
-  const hexmapStaticRuntimeArtifacts = buildHexmapStaticRuntimeArtifacts({
-    generatedAt: latestVotes.generatedAt,
-    snapshotId: args.normalized.snapshotId,
-    provinceShards: constituencyBoundaryRuntimeArtifacts.shards
-  });
-  const constituencyBoundariesIndex = validateConstituencyBoundariesIndexExport(
-    constituencyBoundaryRuntimeArtifacts.index
-  );
-  const hexmapStaticIndex = validateHexmapStaticIndexExport(
-    hexmapStaticRuntimeArtifacts.index
-  );
-  for (const provinceArtifact of hexmapStaticRuntimeArtifacts.provinces) {
-    validateHexmapStaticProvinceArtifact(provinceArtifact.artifact);
-  }
 
+  memory("manifest:start");
   const manifest = validateManifest(
     buildManifest({
+      normalizedDatasets,
       bundle: args.normalized.bundle,
       dataRepoBaseUrl: args.runtimeConfig.baseUrl,
       currentAssembly: args.normalized.currentAssembly,
@@ -413,27 +442,16 @@ export async function publishBuildOutputs(args: {
       memberActivityCalendar,
       memberAssetsIndex,
       ...(memberSponsorshipAccounts ? { memberSponsorshipAccounts } : {}),
-      assetDisclosuresDataset: {
-        content: propertyDatasetFiles.files,
-        rowCount: propertyDisclosureArtifacts.files.length
-      },
-      assetDisclosureRecordsDataset: {
-        content: propertyDatasetFiles.records,
-        rowCount: propertyDisclosureArtifacts.records.length
-      },
-      assetDisclosureCategoriesDataset: {
-        content: propertyDatasetFiles.categories,
-        rowCount: propertyDisclosureArtifacts.categories.length
-      },
-      assetDisclosureItemsDataset: {
-        content: propertyDatasetFiles.items,
-        rowCount: propertyDisclosureArtifacts.items.length
-      },
+      assetDisclosuresDataset: propertyDatasetFiles.files,
+      assetDisclosureRecordsDataset: propertyDatasetFiles.records,
+      assetDisclosureCategoriesDataset: propertyDatasetFiles.categories,
+      assetDisclosureItemsDataset: propertyDatasetFiles.items,
       constituencyBoundariesIndex,
       hexmapStaticIndex
     })
   );
 
+  memory("serialization:start");
   const latestVotesJson = serializePublishedJson(latestVotes);
   const accountabilitySummaryJson = serializePublishedJson(
     accountabilitySummary
@@ -447,32 +465,7 @@ export async function publishBuildOutputs(args: {
   const memberSponsorshipAccountsJson = memberSponsorshipAccounts
     ? serializePublishedJson(memberSponsorshipAccounts)
     : null;
-  const constituencyBoundariesIndexJson =
-    constituencyBoundaryRuntimeArtifacts.indexJson;
-  const hexmapStaticIndexJson = hexmapStaticRuntimeArtifacts.indexJson;
   const manifestJson = JSON.stringify(manifest, null, 2);
-  const memberActivityCalendarDetailWrites =
-    memberActivityCalendarMemberDetails.map((detail) => {
-      const relativePath = buildMemberActivityCalendarMemberDetailPath(
-        detail.memberId
-      );
-      const content = serializePublishedJson(detail);
-      assertPublishedJsonFileSize(relativePath, content);
-      return {
-        path: join(args.runtimeConfig.outputDir, relativePath),
-        content
-      };
-    });
-  const memberAssetHistoryWrites = memberAssetsHistory.map((history) => {
-    const relativePath = `exports/member_assets_history/${history.memberId}.json`;
-    const content = serializePublishedJson(history);
-    assertPublishedJsonFileSize(relativePath, content);
-    return {
-      path: join(args.runtimeConfig.outputDir, relativePath),
-      content
-    };
-  });
-
   assertPublishedJsonFileSize("exports/latest_votes.json", latestVotesJson);
   assertPublishedJsonFileSize(
     "exports/accountability_summary.json",
@@ -500,21 +493,6 @@ export async function publishBuildOutputs(args: {
       memberSponsorshipAccountsJson
     );
   }
-  assertPublishedJsonFileSize(
-    CONSTITUENCY_BOUNDARIES_INDEX_PATH,
-    constituencyBoundariesIndexJson
-  );
-  assertPublishedJsonFileSize(HEXMAP_STATIC_INDEX_PATH, hexmapStaticIndexJson);
-  for (const shard of constituencyBoundaryRuntimeArtifacts.shards) {
-    assertPublishedJsonFileSize(shard.path, shard.content);
-  }
-  for (const provinceArtifact of hexmapStaticRuntimeArtifacts.provinces) {
-    assertPublishedJsonFileSize(
-      provinceArtifact.path,
-      provinceArtifact.content
-    );
-  }
-
   await mkdir(
     join(args.runtimeConfig.outputDir, MEMBER_ACTIVITY_MEMBER_DETAILS_DIR),
     {
@@ -527,27 +505,7 @@ export async function publishBuildOutputs(args: {
       recursive: true
     }
   );
-  await mkdir(
-    join(
-      args.runtimeConfig.outputDir,
-      "exports",
-      "constituency_boundaries",
-      "provinces"
-    ),
-    {
-      recursive: true
-    }
-  );
-  await mkdir(
-    join(args.runtimeConfig.outputDir, "exports", "hexmap_static", "provinces"),
-    {
-      recursive: true
-    }
-  );
-  await mkdir(join(args.runtimeConfig.outputDir, "normalized"), {
-    recursive: true
-  });
-
+  memory("export-write:start");
   await Promise.all([
     writeFile(
       join(args.runtimeConfig.outputDir, "exports", "latest_votes.json"),
@@ -602,63 +560,21 @@ export async function publishBuildOutputs(args: {
         ]
       : []),
     writeFile(
-      join(args.runtimeConfig.outputDir, CONSTITUENCY_BOUNDARIES_INDEX_PATH),
-      constituencyBoundariesIndexJson
-    ),
-    writeFile(
-      join(args.runtimeConfig.outputDir, HEXMAP_STATIC_INDEX_PATH),
-      hexmapStaticIndexJson
-    ),
-    writeFile(
       join(args.runtimeConfig.outputDir, "manifests", "latest.json"),
       manifestJson
-    ),
-    writeFile(
-      join(
-        args.runtimeConfig.outputDir,
-        "normalized",
-        "asset_disclosures.ndjson"
-      ),
-      propertyDatasetFiles.files
-    ),
-    writeFile(
-      join(
-        args.runtimeConfig.outputDir,
-        "normalized",
-        "asset_disclosure_records.ndjson"
-      ),
-      propertyDatasetFiles.records
-    ),
-    writeFile(
-      join(
-        args.runtimeConfig.outputDir,
-        "normalized",
-        "asset_disclosure_categories.ndjson"
-      ),
-      propertyDatasetFiles.categories
-    ),
-    writeFile(
-      join(
-        args.runtimeConfig.outputDir,
-        "normalized",
-        "asset_disclosure_items.ndjson"
-      ),
-      propertyDatasetFiles.items
-    ),
-    ...constituencyBoundaryRuntimeArtifacts.shards.map((shard) =>
-      writeFile(join(args.runtimeConfig.outputDir, shard.path), shard.content)
-    ),
-    ...hexmapStaticRuntimeArtifacts.provinces.map((provinceArtifact) =>
-      writeFile(
-        join(args.runtimeConfig.outputDir, provinceArtifact.path),
-        provinceArtifact.content
-      )
-    ),
-    ...memberActivityCalendarDetailWrites.map((item) =>
-      writeFile(item.path, item.content)
-    ),
-    ...memberAssetHistoryWrites.map((item) =>
-      writeFile(item.path, item.content)
     )
   ]);
+  for (const detail of memberActivityCalendarMemberDetails) {
+    const path = buildMemberActivityCalendarMemberDetailPath(detail.memberId);
+    const content = serializePublishedJson(detail);
+    assertPublishedJsonFileSize(path, content);
+    await writeFile(join(args.runtimeConfig.outputDir, path), content);
+  }
+  for (const history of memberAssetsHistory) {
+    const path = `exports/member_assets_history/${history.memberId}.json`;
+    const content = serializePublishedJson(history);
+    assertPublishedJsonFileSize(path, content);
+    await writeFile(join(args.runtimeConfig.outputDir, path), content);
+  }
+  memory("export-write:end");
 }

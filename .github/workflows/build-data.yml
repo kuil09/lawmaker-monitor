@@ -113,8 +113,10 @@ jobs:
           fi
 
       - name: Build normalized data and exports
-        run: npm run build:data --workspace @lawmaker-monitor/ingest
+        run: bash scripts/run-data-build.sh
         env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          INGEST_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || steps.resolve-manual-run.outputs.run_id }}
           RAW_DIR: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.raw_source == 'fixtures' && 'tests/fixtures' || 'artifacts/ingest' }}
           DATA_REPO_DIR: published-data
           OUTPUT_DIR: artifacts/build
