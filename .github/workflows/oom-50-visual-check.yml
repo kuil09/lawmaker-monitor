@@ -1,0 +1,81 @@
+name: oom-50-visual-check
+on:
+  push:
+    branches: [ops/oom-50-completion]
+    paths: [.github/workflows/oom-50-visual-check.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify-korean-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 0f8462b62cba9acd64e9d4c4a5cd2739baa82577
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node-workspaces
+        with:
+          build-target: none
+      - name: Install Korean fallback fonts for the Linux test browser
+        timeout-minutes: 4
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y fonts-noto-cjk
+          mkdir -p artifacts/korean-ui
+          fc-match ':lang=ko' | tee artifacts/korean-ui/font.txt
+      - name: Require completed final public-data acceptance check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run watch 34655321119 --repo kuil09/lawmaker-monitor --exit-status --interval 30
+      - name: Verify Korean content and capture live production pages
+        run: |
+          export RECOVERY_CHROME="$(command -v google-chrome || command -v chromium)"
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright';
+          import { writeFile } from 'node:fs/promises';
+          import assert from 'node:assert/strict';
+          import { resolveProductionUiRoutes } from './scripts/resolve-production-ui-routes.mjs';
+          const routes=await resolveProductionUiRoutes({fetchImpl:(url,init={})=>fetch(url,{...init,signal:AbortSignal.timeout(30000)})});
+          assert.equal(routes.snapshotId,'2026-09-11T22-27-10-941Z');
+          const browser=await chromium.launch({headless:true,executablePath:process.env.RECOVERY_CHROME,args:['--no-sandbox','--disable-dev-shm-usage']});
+          const results=[];
+          try {
+            for(const [name,url,required] of [
+              ['home',routes.appBaseUrl,['공개 기록표결 현황','의원']],
+              ['calendar',routes.single.url,[routes.single.name,'1,777']],
+              ['compare',routes.compare.url,[routes.compare.primaryMember.name,routes.compare.secondaryMember.name]],
+              ['map',`${routes.appBaseUrl}#map`,['서울','표결 불참률']]
+            ]) {
+              const page=await browser.newPage({viewport:{width:1440,height:1000},locale:'ko-KR',timezoneId:'Asia/Seoul'});
+              const pageErrors=[],failedData=[];
+              page.on('pageerror',e=>pageErrors.push(e.message));
+              page.on('response',r=>{if(r.url().includes('kuil09.github.io/lawmaker-monitor-data/') && r.status()>=400) failedData.push({url:r.url(),status:r.status()});});
+              const result={name,url,pageErrors,failedData}; results.push(result);
+              try {
+                const response=await page.goto(url,{waitUntil:'domcontentloaded',timeout:45000});
+                result.status=response.status(); assert.equal(result.status,200);
+                await page.waitForFunction(values=>values.every(value=>document.querySelector('main')?.innerText.includes(value)),required,{timeout:45000});
+                await page.waitForTimeout(5000);
+                result.text=(await page.locator('main').innerText()).slice(0,3000);
+                result.fontStatus=await page.evaluate(()=>document.fonts.status);
+              } catch(error) {result.failure=String(error);}
+              const cdp=await page.context().newCDPSession(page);
+              const shot=await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+              await writeFile(`artifacts/korean-ui/${name}.png`,Buffer.from(shot.data,'base64'));
+              await cdp.detach(); await page.close();
+            }
+          } finally {await browser.close(); await writeFile('artifacts/korean-ui/results.json',JSON.stringify({checkedAt:new Date().toISOString(),snapshotId:routes.snapshotId,locale:'ko-KR',timezone:'Asia/Seoul',results},null,2));}
+          assert.equal(results.length,4);
+          for(const r of results){assert.equal(r.failure,undefined,`${r.name}: ${r.failure}`); assert.equal(r.pageErrors.length,0,`${r.name}: ${r.pageErrors.join('; ')}`); assert.equal(r.failedData.length,0,`${r.name}: data errors`);}
+          console.log(JSON.stringify(results.map(({name,status,pageErrors,failedData})=>({name,status,pageErrors,failedData})),null,2));
+          NODE
+      - name: Retain Korean rendering evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: oom-50-korean-ui
+          path: artifacts/korean-ui
+          retention-days: 7
+          if-no-files-found: warn
