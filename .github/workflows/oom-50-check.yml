@@ -1,0 +1,70 @@
+name: oom-50-check
+on:
+  push:
+    branches: [fix/oom-50]
+    paths: [.github/workflows/oom-50-check.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - name: Export source for repair workspace
+        run: git archive HEAD -o "$RUNNER_TEMP/oom-50-source.tar"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: oom-50-source
+          path: ${{ runner.temp }}/oom-50-source.tar
+          retention-days: 2
+      - uses: ./.github/actions/setup-node-workspaces
+        with:
+          build-target: schemas-and-ingest
+      - name: Fetch pinned failed raw and public inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p artifacts/ingest artifacts/constituency-boundaries/current artifacts/diagnostics
+          gh run download 34638768827 --name raw-snapshot --dir artifacts/ingest
+          git clone --depth 1 https://github.com/kuil09/lawmaker-monitor-data.git published-data
+          gh release download constituency-boundaries-v1 --repo kuil09/lawmaker-monitor-data --dir artifacts/constituency-boundaries/current --pattern '*.geojson' --pattern '*.json'
+          { git rev-parse HEAD; git -C published-data rev-parse HEAD; node --version; free -m; du -sh published-data artifacts/ingest; } | tee artifacts/diagnostics/provenance.txt
+      - name: Instrument compiled stage boundaries only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('packages/ingest/dist/build-data/publish-stage.js')
+          s=p.read_text()
+          s='import { appendFileSync as oomAppend } from "node:fs";\nimport { getHeapStatistics as oomHeap } from "node:v8";\nfunction oomMark(stage) { const row = {stage, at: new Date().toISOString(), ...process.memoryUsage(), heapLimit: oomHeap().heap_size_limit}; console.log("[oom-50]", JSON.stringify(row)); oomAppend(process.env.GITHUB_WORKSPACE + "/artifacts/diagnostics/memory.ndjson", JSON.stringify(row) + "\\n"); }\n'+s
+          markers=['await writeBundle(args.runtimeConfig.outputDir','const latestVotes =','const accountabilitySummary =','const accountabilityTrends =','const memberSponsorshipAccounts =','const billProposalActivity =','const { memberActivityCalendar:','const propertyDisclosureArtifacts =','const memberAssetsIndex =','const propertyDatasetFiles =','const constituencyBoundaryExport =','const constituencyBoundaryRuntimeArtifacts =','const hexmapStaticRuntimeArtifacts =','const manifest =','const latestVotesJson =','const memberActivityCalendarDetailWrites =']
+          for m in markers:
+              if m not in s: print('marker not found:',m)
+              else: s=s.replace(m, 'oomMark('+repr(m)+');\n    '+m, 1)
+          p.write_text(s)
+          p=Path('packages/ingest/dist/property-disclosures.js')
+          s=p.read_text()
+          s='import { appendFileSync as oomAppend } from "node:fs";\nfunction oomMark(stage, details={}) { const row={stage, ...details, at:new Date().toISOString(), ...process.memoryUsage()}; console.log("[oom-50]", JSON.stringify(row)); oomAppend(process.env.GITHUB_WORKSPACE+"/artifacts/diagnostics/memory.ndjson",JSON.stringify(row)+"\\n"); }\n'+s
+          s=s.replace('return parseMirroredPropertyDisclosure({','oomMark("property-file-start", {fileSeq: propertyFile.fileSeq, bytes: propertyFile.currentBytes});\n        return parseMirroredPropertyDisclosure({')
+          p.write_text(s)
+          PY
+      - name: Reproduce without publishing or optional live sponsorship
+        env:
+          RAW_DIR: artifacts/ingest
+          DATA_REPO_DIR: published-data
+          OUTPUT_DIR: artifacts/build
+          DATA_REPO_BASE_URL: https://kuil09.github.io/lawmaker-monitor-data/
+          COLLECT_SPONSORSHIP_ACCOUNTS: 'false'
+        run: |
+          ulimit -c 0
+          set -o pipefail
+          /usr/bin/time -v npm run build:data --workspace @lawmaker-monitor/ingest 2>&1 | tee artifacts/diagnostics/build.log
+      - name: Save diagnostics even after abort
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: oom-50-baseline-diagnostics
+          path: artifacts/diagnostics
+          retention-days: 7
+          if-no-files-found: warn
