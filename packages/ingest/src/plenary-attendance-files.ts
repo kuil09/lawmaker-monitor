@@ -128,10 +128,6 @@ function parseSessionNo(
   return [...sessionNumbers][0]!;
 }
 
-function uniqueNames(names: string[]): string[] {
-  return [...new Set(names)];
-}
-
 export function parseOfficialPlenaryAttendanceXlsx(args: {
   content: Uint8Array;
   sourceUrl: string;
@@ -235,10 +231,11 @@ export function parseOfficialPlenaryAttendanceXlsx(args: {
         meetingDate,
         meetingType: "plenary" as const,
         committeeName: null,
-        presentNames: uniqueNames(names.present),
-        absentNames: uniqueNames(names.absent),
-        leaveNames: uniqueNames(names.leave),
-        tripNames: uniqueNames(names.trip),
+        // Preserve source row multiplicity and Hanja spellings for identity resolution.
+        presentNames: names.present,
+        absentNames: names.absent,
+        leaveNames: names.leave,
+        tripNames: names.trip,
         sourceUrl: args.sourceUrl,
         retrievedAt: args.retrievedAt,
         sourceHash

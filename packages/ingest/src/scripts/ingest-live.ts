@@ -36,6 +36,8 @@ import {
   writeSnapshotManifest,
   writeSnapshotPayload
 } from "../raw-snapshot.js";
+import { officialRequestRetryOptions } from "../request-policy.js";
+import { runWithDiagnostics } from "../run-diagnostics.js";
 import {
   fetchBufferWithTimeout,
   fetchTextWithTimeout,
@@ -223,10 +225,11 @@ async function fetchText(
         },
         fetchPolicy.timeoutMs
       ),
-    {
-      retries: fetchPolicy.retries,
-      backoffMs: fetchPolicy.backoffMs
-    }
+    officialRequestRetryOptions(
+      request.url,
+      fetchPolicy.retries,
+      fetchPolicy.backoffMs
+    )
   );
 }
 
@@ -243,10 +246,11 @@ async function fetchBuffer(
         },
         fetchPolicy.timeoutMs
       ),
-    {
-      retries: fetchPolicy.retries,
-      backoffMs: fetchPolicy.backoffMs
-    }
+    officialRequestRetryOptions(
+      request.url,
+      fetchPolicy.retries,
+      fetchPolicy.backoffMs
+    )
   );
 }
 
@@ -1487,4 +1491,4 @@ async function main(): Promise<void> {
   });
 }
 
-void main();
+void runWithDiagnostics("ingest-live", main);

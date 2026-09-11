@@ -470,6 +470,15 @@ export function buildOfficialAttendanceFacts(args: {
   const currentMembers = args.members.filter(
     (member) => member.isCurrentMember
   );
+  const currentMemberIds = new Set<string>();
+  for (const member of currentMembers) {
+    if (currentMemberIds.has(member.memberId)) {
+      throw new Error(
+        `Official attendance roster contains duplicate member ID ${member.memberId}.`
+      );
+    }
+    currentMemberIds.add(member.memberId);
+  }
   const membersByProfileUrl = new Map<string, MemberRecord[]>();
   for (const member of currentMembers) {
     for (const value of [
@@ -605,6 +614,52 @@ export function buildOfficialAttendanceFacts(args: {
     addReferencedStatuses(meeting.leaveMemberReferences, "leave");
     addReferencedStatuses(meeting.tripMemberReferences, "trip");
 
+    // Workbooks distinguish namesakes using the official Hanja spelling, without
+    // profile links. Consume those rows by official identity before Hangul counts.
+    const membersByHanja = new Map<string, MemberRecord[]>();
+    for (const member of currentMembers) {
+      const hanja = normalizeComparableText(member.profile?.nameHanja);
+      if (hanja && hanja !== normalizeComparableText(member.name)) {
+        membersByHanja.set(hanja, [
+          ...(membersByHanja.get(hanja) ?? []),
+          member
+        ]);
+      }
+    }
+    for (const status of ["present", "absent", "leave", "trip"] as const) {
+      for (const [name, count] of nameCountsByStatus[status]) {
+        if (!/\p{Script=Han}/u.test(name)) {
+          continue;
+        }
+        const knownMembers = membersByHanja.get(name) ?? [];
+        const candidates = knownMembers.filter((member) =>
+          eligibleMemberIds.has(member.memberId)
+        );
+        // A known member outside this meeting's tenure/committee is out of scope,
+        // just as with Hangul rows. An unknown Hanja row must never imply absence.
+        if (knownMembers.length > 0 && candidates.length === 0) {
+          continue;
+        }
+        if (candidates.length !== 1) {
+          throw new Error(
+            `Official attendance Hanja name is unresolved or ambiguous for ${meeting.documentId}: ${name}; candidates=[${candidates.map((member) => member.memberId).join(",")}].`
+          );
+        }
+        const member = candidates[0]!;
+        if (
+          count !== 1 ||
+          availableNameStatuses(name).length !== 1 ||
+          referencedStatusByMemberId.has(member.memberId)
+        ) {
+          throw new Error(
+            `Official attendance Hanja rows are duplicate or conflicting for ${meeting.documentId}: ${name} (${member.memberId}).`
+          );
+        }
+        referencedStatusByMemberId.set(member.memberId, status);
+        consumeNameStatus(status, name);
+      }
+    }
+
     for (const member of eligibleMembers) {
       const name = normalizeComparableText(member.name);
       eligibleByName.set(name, [...(eligibleByName.get(name) ?? []), member]);
@@ -635,9 +690,17 @@ export function buildOfficialAttendanceFacts(args: {
           }
         } else if (availableCount > 0) {
           throw new Error(
-            `Official attendance name is ambiguous for ${meeting.documentId}: ${name}.`
+            `Official attendance name is ambiguous for ${meeting.documentId}: ${name}; remaining rows=${availableCount}, unresolved candidates=[${unresolvedCandidates.map((member) => `${member.memberId}/${member.profile?.nameHanja ?? "no-Hanja"}`).join(",")}].`
           );
         }
+      } else if (
+        nameStatuses.length > 0 &&
+        candidates[0] &&
+        referencedStatusByMemberId.has(candidates[0].memberId)
+      ) {
+        throw new Error(
+          `Official attendance list contains duplicate identity rows for ${meeting.documentId}: ${name}.`
+        );
       } else if (
         nameStatuses[0] &&
         (nameCountsByStatus[nameStatuses[0]].get(name) ?? 0) > 1

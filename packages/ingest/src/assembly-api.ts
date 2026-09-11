@@ -76,6 +76,15 @@ function readPositiveInt(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+export function readRetryCount(
+  value: string | undefined,
+  fallback: number
+): number {
+  const text = value?.trim() ?? "";
+  const parsed = Number(text);
+  return /^\d+$/.test(text) && Number.isSafeInteger(parsed) ? parsed : fallback;
+}
+
 function toRecord(
   value: Record<string, string | number | undefined>
 ): Record<string, string> {
@@ -112,7 +121,7 @@ export function resolveAssemblyApiConfig(
       env.ASSEMBLY_FETCH_TIMEOUT_MS,
       DEFAULT_FETCH_TIMEOUT_MS
     ),
-    fetchRetries: readPositiveInt(
+    fetchRetries: readRetryCount(
       env.ASSEMBLY_FETCH_RETRIES,
       DEFAULT_FETCH_RETRIES
     ),

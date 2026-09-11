@@ -13,6 +13,7 @@ concurrency:
 jobs:
   mirror-property-disclosures:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
     env:
@@ -24,6 +25,9 @@ jobs:
       MIRROR_START_URL: https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700
       MIRROR_SERVICE_INF_ID: O2853M000835T714700
       MIRROR_SERVICE_INF_SEQ: "1"
+      MIRROR_TIMEOUT_MS: ${{ vars.MIRROR_TIMEOUT_MS || '45000' }}
+      MIRROR_FETCH_RETRIES: ${{ vars.MIRROR_FETCH_RETRIES || '3' }}
+      ASSEMBLY_CONNECT_TIMEOUT_MS: ${{ vars.ASSEMBLY_CONNECT_TIMEOUT_MS || '15000' }}
       MIRROR_MAX_DOWNLOADS: ${{ vars.PROPERTY_MIRROR_MAX_DOWNLOADS || '120' }}
       MIRROR_TIME_ZONE: Asia/Seoul
       MIRROR_RECENT_DAYS: "7"
@@ -91,4 +95,13 @@ jobs:
           path: |
             published-data/raw/index/assembly_property_document_index.json
             published-data/manifests/assembly_property_document_mirror_state.json
+          if-no-files-found: warn
+
+      - name: Upload run diagnostics even after failure
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: mirror-property-disclosures-diagnostics
+          path: artifacts/diagnostics
+          retention-days: 7
           if-no-files-found: warn

@@ -10,6 +10,7 @@ import {
   type Page
 } from "playwright";
 
+import { readRetryCount } from "../assembly-api.js";
 import {
   buildAssemblySearchWindows,
   hasPendingBackfill,
@@ -40,6 +41,11 @@ import {
   isOfficialAttendanceRelevantMinutesTitle,
   parseOfficialMinutesAttendanceHtml
 } from "../official-attendance.js";
+import {
+  HttpResponseError,
+  officialRequestRetryOptions
+} from "../request-policy.js";
+import { runWithDiagnostics } from "../run-diagnostics.js";
 import {
   readJsonFile,
   readPositiveInteger,
@@ -82,6 +88,7 @@ type MirrorConfig = {
   pageSize: number;
   pageDelayMs: number;
   timeoutMs: number;
+  fetchRetries: number;
   timeZone: string;
   dataRepoDir: string;
   indexPath: string;
@@ -322,6 +329,7 @@ function loadConfig(): MirrorConfig {
     pageSize: readPositiveInteger("MIRROR_PAGE_SIZE", 100),
     pageDelayMs: readPositiveInteger("MIRROR_PAGE_DELAY_MS", 1000),
     timeoutMs: readPositiveInteger("MIRROR_TIMEOUT_MS", 20_000),
+    fetchRetries: readRetryCount(process.env.MIRROR_FETCH_RETRIES, 3),
     timeZone: process.env.MIRROR_TIME_ZONE?.trim() || "Asia/Seoul",
     dataRepoDir: resolveMirrorDataRepoDir(
       repositoryRoot,
@@ -1834,35 +1842,59 @@ export function buildExistingAssemblyMinutesRetryCollection(args: {
   };
 }
 
-async function postAssemblyFileServiceSearch(
+export async function postAssemblyFileServiceSearch(
   api: APIRequestContext,
-  config: MirrorConfig
+  config: Pick<
+    MirrorConfig,
+    "serviceInfId" | "serviceInfSeq" | "startUrl" | "timeoutMs" | "fetchRetries"
+  >
 ): Promise<AssemblyFileServiceResponse> {
   if (!config.serviceInfId) {
     throw new Error(
       "MIRROR_SERVICE_INF_ID must be configured for assembly_file_service mode."
     );
   }
-
-  const response = await api.post(
-    new URL("/portal/data/file/searchFileData.do", config.startUrl).toString(),
-    {
-      headers: {
-        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-        referer: config.startUrl
-      },
-      data: new URLSearchParams({
-        infId: config.serviceInfId,
-        infSeq: String(config.serviceInfSeq),
-        page: "1",
-        rows: "500"
-      }).toString(),
-      timeout: config.timeoutMs,
-      failOnStatusCode: true
-    }
+  const url = new URL(
+    "/portal/data/file/searchFileData.do",
+    config.startUrl
+  ).toString();
+  return retryFetch(
+    async () => {
+      const response = await api.post(url, {
+        headers: {
+          "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+          referer: config.startUrl
+        },
+        data: new URLSearchParams({
+          infId: config.serviceInfId!,
+          infSeq: String(config.serviceInfSeq),
+          page: "1",
+          rows: "500"
+        }).toString(),
+        timeout: config.timeoutMs,
+        failOnStatusCode: false
+      });
+      try {
+        if (!response.ok()) {
+          throw new HttpResponseError(response.status(), url);
+        }
+        const payload: unknown = await response.json();
+        if (
+          !payload ||
+          typeof payload !== "object" ||
+          !Array.isArray((payload as AssemblyFileServiceResponse).data)
+        ) {
+          throw new Error(
+            "Official Assembly file service returned no data array."
+          );
+        }
+        return payload as AssemblyFileServiceResponse;
+      } finally {
+        await response.dispose();
+      }
+    },
+    officialRequestRetryOptions(url, config.fetchRetries, 750)
   );
-
-  return (await response.json()) as AssemblyFileServiceResponse;
 }
 
 async function collectAssemblyFileServiceCandidates(
@@ -3129,5 +3161,5 @@ if (
   process.argv[1] &&
   resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
-  void main();
+  void runWithDiagnostics("mirror-documents", main);
 }
