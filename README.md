@@ -112,10 +112,29 @@ Only the following Assembly ingest variables are part of the supported surface a
 - `ASSEMBLY_BILL_FEED_CONCURRENCY`
 - `ASSEMBLY_VOTE_DETAIL_CONCURRENCY`
 - `ASSEMBLY_BILL_VOTE_SUMMARY_CONCURRENCY`
+- `ASSEMBLY_CONNECT_TIMEOUT_MS`
 - `ASSEMBLY_FETCH_TIMEOUT_MS`
 - `ASSEMBLY_FETCH_RETRIES`
 
 `ASSEMBLY_API_KEY` is required for production-like ingest runs. The remaining values tune page size, concurrency, timeout, and retry behavior for official API collection.
+
+`ASSEMBLY_CONNECT_TIMEOUT_MS` controls connection establishment to
+`open.assembly.go.kr` (default 15000 ms), separately from the full request/body
+deadline `ASSEMBLY_FETCH_TIMEOUT_MS` (default 20000 ms). Keep the full request
+deadline greater than the connection deadline. `ASSEMBLY_FETCH_RETRIES=0` disables
+retries; transient transport errors and HTTP 408/429/500/502/503/504 are retried
+with bounded exponential backoff and jitter, while authentication and validation
+errors fail immediately.
+
+The property mirror's file-list POST uses `MIRROR_TIMEOUT_MS` and
+`MIRROR_FETCH_RETRIES`, **not** the `ASSEMBLY_FETCH_*` settings. Its workflow
+defaults are 45000 ms and 3 retries (at most 4 attempts). Increasing a timeout is
+not a substitute for diagnosing persistent source or network failures.
+
+Ingest, build and property-mirror workflows retain a separate diagnostic artifact
+on failure. It records this attempt's timestamps, outcome, run ID and sanitized
+error. It is not a successful source snapshot; failed collection never advances
+published mirror state, and incomplete raw/build outputs are not promoted.
 
 ## Operational Settings
 
@@ -159,6 +178,7 @@ Public document mirror settings:
 - `MIRROR_MAX_DOWNLOADS`
 - `MIRROR_PAGE_DELAY_MS`
 - `MIRROR_TIMEOUT_MS`
+- `MIRROR_FETCH_RETRIES`
 - `MIRROR_TIME_ZONE`
 - `MIRROR_RECENT_DAYS`
 - `MIRROR_MIN_RECENT_DAYS`

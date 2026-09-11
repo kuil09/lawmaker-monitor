@@ -4,6 +4,12 @@ import { dirname, isAbsolute, resolve } from "node:path";
 
 import { XMLParser } from "fast-xml-parser";
 
+import {
+  assemblyRequestDispatcher,
+  HttpResponseError,
+  publicRequestUrl
+} from "./request-policy.js";
+
 const xmlParser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: "",
@@ -165,6 +171,11 @@ export async function retryFetch<T>(
   options: {
     retries: number;
     backoffMs: number;
+    shouldRetry?: (error: unknown) => boolean;
+    exponentialBackoff?: boolean;
+    jitter?: boolean;
+    maxBackoffMs?: number;
+    onRetry?: (attempt: number, delayMs: number) => void;
   }
 ): Promise<T> {
   const retries = Math.max(0, Math.floor(options.retries));
@@ -174,11 +185,23 @@ export async function retryFetch<T>(
     try {
       return await task(attempt);
     } catch (error) {
-      if (attempt >= retries) {
+      if (
+        attempt >= retries ||
+        (options.shouldRetry && !options.shouldRetry(error))
+      ) {
         throw error;
       }
 
-      const delay = backoffMs * (attempt + 1);
+      const multiplier = options.exponentialBackoff
+        ? 2 ** attempt
+        : attempt + 1;
+      const baseDelay = backoffMs * multiplier;
+      const delay = Math.min(
+        baseDelay +
+          (options.jitter ? Math.floor(Math.random() * backoffMs) : 0),
+        options.maxBackoffMs ?? Number.MAX_SAFE_INTEGER
+      );
+      options.onRetry?.(attempt + 1, delay);
       if (delay > 0) {
         await new Promise((resolveDelay) => setTimeout(resolveDelay, delay));
       }
@@ -229,24 +252,30 @@ async function fetchBodyWithTimeout<T>(
       : ({ headers: init as HeadersInit } satisfies RequestInit);
 
   try {
+    const dispatcher = assemblyRequestDispatcher(url);
     const response = await fetch(url, {
       ...requestInit,
+      ...(dispatcher ? { dispatcher } : {}),
       signal: controller.signal
     });
 
     if (!response.ok) {
-      throw new Error(
-        `Failed to fetch ${url}: ${response.status} ${response.statusText}`
-      );
+      await response.body?.cancel();
+      throw new HttpResponseError(response.status, url);
     }
 
-    return readBody(response);
+    // Await the body before clearing the deadline; headers are not completion.
+    return await readBody(response);
   } catch (error) {
     if (
       error instanceof Error &&
       (error.name === "AbortError" || error.message.includes("aborted"))
     ) {
-      throw new Error(`Request timed out for ${url} after ${timeoutMs}ms`);
+      const timeoutError = new Error(
+        `Request timed out for ${publicRequestUrl(url)} after ${timeoutMs}ms`
+      );
+      timeoutError.name = "TimeoutError";
+      throw timeoutError;
     }
 
     throw error;

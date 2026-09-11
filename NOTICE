@@ -49,6 +49,8 @@ Runtime and distributed application dependencies:
   https://github.com/microsoft/playwright
 - shapefile — BSD-3-Clause
   https://github.com/mbostock/shapefile
+- Undici (undici) — MIT
+  https://github.com/nodejs/undici
 - wkx — MIT
   https://github.com/cschwarz/wkx
 - Zod — MIT

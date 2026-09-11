@@ -7,6 +7,7 @@ import {
 } from "../build-data/input-stage.js";
 import { buildNormalizedStage } from "../build-data/normalize-stage.js";
 import { publishBuildOutputs } from "../build-data/publish-stage.js";
+import { runWithDiagnostics } from "../run-diagnostics.js";
 
 export async function buildData(args?: {
   env?: NodeJS.ProcessEnv;
@@ -30,5 +31,5 @@ if (
   process.argv[1] &&
   resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
-  void main();
+  void runWithDiagnostics("build-data", main);
 }
