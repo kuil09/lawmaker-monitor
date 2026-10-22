@@ -874,7 +874,29 @@ async function openMemberAnalysisFlow(viewportName: string): Promise<void> {
     await page
       .getByRole("button", { name: "활동 수록 전체 기간", exact: true })
       .click();
+    await page
+      .getByLabel("기준 이력", { exact: true })
+      .selectOption("party-change-2026");
+    await expect
+      .poll(() =>
+        page.locator("#analysis-transitions").locator("..").innerText()
+      )
+      .toContain("사이의 4일은 비교에서 제외");
+    await page
+      .getByLabel("기준 이력", { exact: true })
+      .selectOption("committee-2026");
     await page.getByLabel("의제", { exact: true }).selectOption("보건·복지");
+    await page
+      .getByLabel("소속 비교 기준", { exact: true })
+      .selectOption("verified_period");
+    await expect
+      .poll(() =>
+        page.locator("#analysis-coalitions").locator("..").innerText()
+      )
+      .toContain("당시 소속 확인 0건");
+    await page
+      .getByLabel("소속 비교 기준", { exact: true })
+      .selectOption("current_roster");
     await expect
       .poll(() => page.locator(".analysis-evidence-list").innerText())
       .toContain("지역 의료 접근성 개선");

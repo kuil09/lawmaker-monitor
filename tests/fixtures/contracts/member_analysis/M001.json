@@ -169,6 +169,33 @@
   ],
   "transitions": [
     {
+      "eventId": "party-change-2026",
+      "label": "이전정당 → 미래개혁당 (소속 관찰 변화)",
+      "date": "2026-03-15",
+      "basis": "party_observation_bounds",
+      "beforeEndDate": "2026-03-10",
+      "afterStartDate": "2026-03-15",
+      "uncertainDays": 4,
+      "before": {
+        "eligibleVotes": 2,
+        "participatedVotes": 2,
+        "unknownVotes": 0,
+        "participationRate": 1,
+        "proposals": 1,
+        "statements": 0
+      },
+      "after": {
+        "eligibleVotes": 2,
+        "participatedVotes": 2,
+        "unknownVotes": 0,
+        "participationRate": 1,
+        "proposals": 1,
+        "statements": 0
+      },
+      "beforeObservedDays": 10,
+      "afterObservedDays": 8
+    },
+    {
       "eventId": "a90198fc9ba075a6610caeac",
       "label": "제22대 국회 재임",
       "date": "2024-05-30",

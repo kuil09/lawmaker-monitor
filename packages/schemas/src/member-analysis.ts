@@ -1,6 +1,38 @@
 import { z } from "zod";
 
 const nullableDate = z.string().nullable();
+export const memberAffiliationPeriodsSchema = z.array(
+  z
+    .object({
+      memberId: z.string().min(1),
+      assemblyNo: z.number().int().positive(),
+      party: z.string().min(1),
+      startDate: z.string().date(),
+      endDate: z.string().date(),
+      sourceUrl: z.string().url(),
+      sourceExcerpt: z.string().min(1),
+      reviewedAt: z.string().datetime({ offset: true })
+    })
+    .refine(
+      (row) => row.startDate <= row.endDate,
+      "Affiliation period must have an ordered date range."
+    )
+);
+export const memberObservationsSchema = z.array(
+  z
+    .object({
+      memberId: z.string(),
+      party: z.string(),
+      role: z.string().nullable(),
+      sourceUrl: z.string().url(),
+      observedAt: z.string().datetime({ offset: true }),
+      lastSeenAt: z.string().datetime({ offset: true })
+    })
+    .refine(
+      (row) => Date.parse(row.observedAt) <= Date.parse(row.lastSeenAt),
+      "Observation dates must be ordered."
+    )
+);
 export const careerClaimSchema = z.object({
   category: z.string(),
   label: z.string(),
@@ -38,6 +70,8 @@ export const memberAnalysisIndexSchema = z.object({
     careerMembers: z.number(),
     datedRoles: z.number(),
     statements: z.number(),
+    verifiedPartyVotes: z.number().int().nonnegative().default(0),
+    currentPartyObservedAt: z.string().nullable().default(null),
     firstActivityDate: nullableDate,
     lastActivityDate: nullableDate
   }),
@@ -50,7 +84,8 @@ export const analysisEventSchema = z.object({
     "committee",
     "party_observation",
     "role_observation",
-    "career"
+    "career",
+    "affiliation"
   ]),
   label: z.string(),
   startDate: nullableDate,
@@ -60,7 +95,8 @@ export const analysisEventSchema = z.object({
     "official_period",
     "observed",
     "biography_period",
-    "biography_mention"
+    "biography_mention",
+    "verified_affiliation"
   ]),
   dateLabel: z.string().nullable().optional(),
   sourceUrl: z.string().url()
@@ -119,7 +155,10 @@ export const memberAnalysisDetailSchema = z.object({
       sharedVotes: z.number(),
       sameVotes: z.number(),
       agreementRate: z.number(),
-      crossPartyVotes: z.number()
+      crossPartyVotes: z.number(),
+      basis: z
+        .enum(["current_roster", "verified_period"])
+        .default("current_roster")
     })
   ),
   transitions: z.array(
@@ -127,6 +166,12 @@ export const memberAnalysisDetailSchema = z.object({
       eventId: z.string(),
       label: z.string(),
       date: z.string(),
+      basis: z
+        .enum(["official_period", "party_observation_bounds"])
+        .default("official_period"),
+      beforeEndDate: z.string().nullable().default(null),
+      afterStartDate: z.string().nullable().default(null),
+      uncertainDays: z.number().int().nonnegative().default(0),
       before: analysisMetricsSchema,
       after: analysisMetricsSchema,
       beforeObservedDays: z.number(),

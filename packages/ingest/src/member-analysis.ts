@@ -2,7 +2,11 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { memberStatementSummariesExportSchema } from "@lawmaker-monitor/schemas";
+import {
+  memberStatementSummariesExportSchema,
+  memberAffiliationPeriodsSchema,
+  memberObservationsSchema
+} from "@lawmaker-monitor/schemas";
 
 import { splitCareerClauses } from "./career-dates.js";
 import { writeNdjsonDataset } from "./dataset-writer.js";
@@ -226,15 +230,33 @@ export async function writeMemberAnalysisInputs(args: {
     (member) => member.isCurrentMember
   );
   const memberIds = new Set(members.map((member) => member.memberId));
+  const periodPayload = await readOptionalJson(
+    join(args.dataRepoDir, "manifests/member_affiliation_periods.json")
+  );
+  const periods = memberAffiliationPeriodsSchema.parse(periodPayload ?? []);
+  const periodsByMember = new Map(
+    members.map((member) => [
+      member.memberId,
+      periods.filter(
+        (period) =>
+          period.memberId === member.memberId &&
+          period.assemblyNo === member.assemblyNo
+      )
+    ])
+  );
   const old = await readOptionalJson(
     join(args.dataRepoDir, "exports/member_analysis/observations.json")
   );
-  const observations = (Array.isArray(old) ? old : []) as Observation[];
+  const observations = memberObservationsSchema.parse(old ?? []);
   for (const member of members) {
     const last = observations
       .filter((row) => row.memberId === member.memberId)
       .at(-1);
     const role = member.profile?.roleName ?? null;
+    if (last && Date.parse(last.lastSeenAt) > Date.parse(args.observedAt))
+      throw new Error(
+        "An older snapshot cannot overwrite newer affiliation observations."
+      );
     if (last && last.party === member.party && last.role === role)
       last.lastSeenAt = args.observedAt;
     else
@@ -293,6 +315,24 @@ export async function writeMemberAnalysisInputs(args: {
           : event.sourceUrl
     }))
   );
+  for (const period of periods)
+    if (memberIds.has(period.memberId))
+      events.push({
+        memberId: period.memberId,
+        eventId: key(
+          period.memberId,
+          period.party,
+          period.startDate,
+          period.endDate
+        ),
+        kind: "affiliation",
+        label: `${period.party} (검증 기간)`,
+        startDate: period.startDate,
+        endDate: period.endDate,
+        dateBasis: "verified_affiliation",
+        observedAt: period.reviewedAt,
+        sourceUrl: period.sourceUrl
+      });
   const activity: Array<Record<string, unknown>> = [];
   const votes = new Map(
     args.bundle.voteFacts
@@ -310,6 +350,15 @@ export async function writeMemberAnalysisInputs(args: {
       )
         continue;
       const vote = votes.get(`${call.rollCallId}|${member.memberId}`);
+      const datedParties = (periodsByMember.get(member.memberId) ?? []).filter(
+        (period) =>
+          period.startDate <= call.voteDatetime.slice(0, 10) &&
+          period.endDate >= call.voteDatetime.slice(0, 10)
+      );
+      if (new Set(datedParties.map((period) => period.party)).size > 1)
+        throw new Error(
+          `Conflicting dated affiliation sources for ${member.memberId}.`
+        );
       activity.push({
         activityId: call.rollCallId,
         memberId: member.memberId,
@@ -318,7 +367,9 @@ export async function writeMemberAnalysisInputs(args: {
         title: call.billName,
         topic: classifyActivityTopic(call.billName),
         voteCode: vote?.voteCode ?? "unknown",
-        partyAtVote: vote?.party ?? null,
+        partyAtVote: datedParties[0]?.party ?? null,
+        partySourceUrl: datedParties[0]?.sourceUrl ?? null,
+        sourcePartyLabel: vote?.recordedParty ?? null,
         sourceUrl: call.officialSourceUrl,
         excerpt: null
       });
@@ -371,6 +422,7 @@ export async function writeMemberAnalysisInputs(args: {
   const meta = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
+    observedAt: args.observedAt,
     snapshotId: args.snapshotId
   };
   await writeFile(join(dir, "meta.json"), JSON.stringify(meta));

@@ -94,6 +94,8 @@ export const voteFactSchema = z.object({
   memberId: nonEmptyString.nullable().optional(),
   memberName: nonEmptyString.nullable().optional(),
   party: nonEmptyString.nullable().optional(),
+  // Only source-provided affiliation; `party` may contain a current-roster fallback.
+  recordedParty: nonEmptyString.nullable().optional(),
   voteCode: voteCodeSchema,
   publishedAt: nonEmptyString,
   retrievedAt: nonEmptyString,

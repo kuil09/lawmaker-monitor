@@ -1491,4 +1491,9 @@ async function main(): Promise<void> {
   });
 }
 
-void runWithDiagnostics("ingest-live", main);
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  void runWithDiagnostics("ingest-live", main);
+}

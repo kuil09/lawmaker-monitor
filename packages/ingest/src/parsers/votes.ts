@@ -292,6 +292,7 @@ export function parseOfficialVoteXml(
       memberId,
       memberName,
       party,
+      recordedParty: rawParty,
       voteCode: normalizeVoteCode(row),
       publishedAt:
         readString(

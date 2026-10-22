@@ -11,15 +11,21 @@ model, or browser database is required.
 1. Career and activity: explicitly matched occupations in official biographies
    are linked to title/excerpt keyword topics, retaining the supporting text.
 2. Transitions: dated official tenure and committee periods support 90-day
-   before/after counts. Observed party/role snapshots do not establish a change
-   date and are excluded from this causal-looking comparison.
+   before/after counts. Dated roster observations support
+   comparison around the last old-party observation and first new-party observation; the
+   uncertain interval between these witnesses is excluded. This does not assign
+   a definitive party-change date. Current-roster observations alone never
+   establish affiliation on earlier voting dates.
 3. Peers: shared current committees, reelection label, and election type determine
    the comparison order. Participation denominators include only public recorded
    votes during each member's official tenure; missing records stay unknown.
 4. Cross-party voting: explicit yes/no/abstain choices, at least five shared votes
    in a topic while in different parties, and less than 95% consensus within the
-   current analytical member cohort. Parties
-   come from individual vote records, never today's roster.
+   current analytical member cohort. Two distinct modes are exposed: grouping
+   historical choices by the current roster, or using reviewed dated affiliation
+   periods. Current grouping is explicitly labelled and never presented as party
+   membership at the time of a past vote. Unknown historical parties are excluded
+   from the historical mode.
 5. Topic continuity: monthly counts and source records can be filtered by period,
    activity, and topic. These are observed interests; campaign-promise compliance
    is not inferred without a collected promise dataset.
@@ -36,6 +42,17 @@ model, or browser database is required.
   page. Tenure periods preserve their official history source page.
 - Observations retain first/last observed timestamps when the same party and role
   persist. An observed date is explicitly distinguished from an effective date.
+- Roster observations are grouped into dated witness segments, not presumed
+  continuous memberships. Conflicting labels on a day are excluded. A vote API's
+  party field can be updated retrospectively: retaining `recordedParty` preserves
+  what the source said, but does not prove historical membership. It is retained
+  as `sourcePartyLabel` for audit and is never used as a dated membership period.
+- Reviewed periods are read from `manifests/member_affiliation_periods.json` in
+  the data repository. Each row requires `memberId`, `assemblyNo`, `party`,
+  `startDate`, `endDate`, `sourceUrl`, `sourceExcerpt`, and `reviewedAt`. Date ranges
+  must reflect documented coverage; an end date must not assume future continued
+  membership. Conflicting periods fail the build. An absent file means unknown
+  historical affiliations; the directory reports the verified vote coverage.
 - Undated biography claims remain undated. Explicit year/month/day prefixes are
   retained with their original precision; a standalone date is a dated mention,
   not an indefinite appointment. A graduation year is not interpreted as the

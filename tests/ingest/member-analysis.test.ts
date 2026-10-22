@@ -20,8 +20,66 @@ import {
   memberAnalysisIndexSchema,
   memberAnalysisDetailSchema
 } from "../../packages/schemas/src/index.js";
+import { parseOfficialVoteXml } from "../../packages/ingest/src/parsers.js";
 
 describe("member history analysis", () => {
+  it("distinguishes source party labels from current-roster fallbacks", async () => {
+    const normalized = await buildNormalizedStage(
+      await loadBuildDataRawInputs(
+        resolveBuildDataRuntimeConfig({
+          env: {
+            RAW_DIR: "tests/fixtures",
+            DATA_REPO_DIR: "tests/fixtures/property_mirror"
+          }
+        })
+      )
+    );
+    const xml = await readFile(
+      "tests/fixtures/raw/fixture-snapshot-20260322-114500/official/votes/PRC_A1B2C3D4E5F6.xml",
+      "utf8"
+    );
+    const context = {
+      sourceUrl: "https://example.test/vote",
+      retrievedAt: "2026-03-22T00:00:00Z",
+      snapshotId: "test"
+    };
+    const source = parseOfficialVoteXml(xml, context, {
+      currentMembers: normalized.bundle.members
+    });
+    expect(
+      source.voteFacts.find((row) => row.memberId === "M001")?.recordedParty
+    ).toBe("Future Reform Party");
+    const fallback = parseOfficialVoteXml(
+      xml.replace(/<POLY_NM>.*?<\/POLY_NM>/g, ""),
+      context,
+      { currentMembers: normalized.bundle.members }
+    );
+    expect(
+      fallback.voteFacts.find((row) => row.memberId === "M001")
+    ).toMatchObject({
+      party: normalized.bundle.members.find(
+        (member) => member.memberId === "M001"
+      )!.party,
+      recordedParty: null
+    });
+  });
+
+  it("imports the ingest CLI without starting a live collection", () => {
+    const url = new URL(
+      "../../packages/ingest/dist/scripts/ingest-live.js",
+      import.meta.url
+    );
+    const output = execFileSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `globalThis.fetch=async()=>{throw new Error('Unexpected live fetch during module import');}; await import(${JSON.stringify(url.toString())});`
+      ],
+      { encoding: "utf8", timeout: 10000 }
+    );
+    expect(output).toBe("");
+  });
   it("retains the original career claim and does not turn education or a substring into employment", () => {
     expect(
       extractCareerClaims(
@@ -165,7 +223,7 @@ describe("member history analysis", () => {
         a!.party = "현재 같은 정당";
         b!.party = "현재 같은 정당";
         const template = normalized.bundle.rollCalls[0]!;
-        normalized.bundle.rollCalls = Array.from({ length: 9 }, (_, i) => ({
+        normalized.bundle.rollCalls = Array.from({ length: 10 }, (_, i) => ({
           ...template,
           rollCallId: `vote-${i}`,
           billName: "국민건강보험법",
@@ -181,6 +239,7 @@ describe("member history analysis", () => {
                     rollCallId: call.rollCallId,
                     memberId: a!.memberId,
                     party: "표결 당시 A당",
+                    recordedParty: "API의 현재 정당 표기",
                     voteCode: "yes" as const,
                     publishedAt: call.voteDatetime,
                     retrievedAt: call.voteDatetime,
@@ -191,6 +250,7 @@ describe("member history analysis", () => {
               rollCallId: call.rollCallId,
               memberId: b!.memberId,
               party: "표결 당시 B당",
+              recordedParty: "표결 당시 B당",
               voteCode: "yes" as const,
               publishedAt: call.voteDatetime,
               retrievedAt: call.voteDatetime,
@@ -200,6 +260,7 @@ describe("member history analysis", () => {
               rollCallId: call.rollCallId,
               memberId: c!.memberId,
               party: "C당",
+              recordedParty: "C당",
               voteCode: i === 6 ? ("yes" as const) : ("no" as const),
               publishedAt: call.voteDatetime,
               retrievedAt: call.voteDatetime,
@@ -210,6 +271,53 @@ describe("member history analysis", () => {
         normalized.tenureIndex.set(c!.memberId, [
           { startDate: "2026-03-12", endDate: null }
         ]);
+        await mkdir(join(root, "manifests"), { recursive: true });
+        const period = (
+          memberId: string,
+          party: string,
+          startDate: string,
+          endDate: string
+        ) => ({
+          memberId,
+          assemblyNo: 22,
+          party,
+          startDate,
+          endDate,
+          sourceUrl: "https://example.test/dated-affiliation",
+          sourceExcerpt: "Controlled dated affiliation evidence",
+          reviewedAt: "2026-03-22T00:00:00Z"
+        });
+        await writeFile(
+          join(root, "manifests/member_affiliation_periods.json"),
+          JSON.stringify([
+            period(a!.memberId, "표결 당시 A당", "2026-03-10", "2026-03-13"),
+            period(a!.memberId, "표결 당시 새 A당", "2026-03-15", "2026-03-19"),
+            period(b!.memberId, "표결 당시 B당", "2026-03-10", "2026-03-19"),
+            period(c!.memberId, "C당", "2026-03-12", "2026-03-19")
+          ])
+        );
+        await mkdir(join(root, "exports/member_analysis"), { recursive: true });
+        await writeFile(
+          join(root, "exports/member_analysis/observations.json"),
+          JSON.stringify([
+            {
+              memberId: a!.memberId,
+              party: "관찰된 이전 정당",
+              role: null,
+              observedAt: "2026-03-01T00:00:00Z",
+              lastSeenAt: "2026-03-13T00:00:00Z",
+              sourceUrl: "https://example.test/old-roster"
+            },
+            {
+              memberId: a!.memberId,
+              party: a!.party,
+              role: a!.profile?.roleName ?? null,
+              observedAt: "2026-03-15T00:00:00Z",
+              lastSeenAt: "2026-03-15T00:00:00Z",
+              sourceUrl: "https://example.test/new-roster"
+            }
+          ])
+        );
         await writeMemberAnalysisInputs({
           outputDir: root,
           dataRepoDir: root,
@@ -324,12 +432,21 @@ describe("member history analysis", () => {
           dateLabel: "2010~2012 (약력·연 단위)"
         });
         expect(detail.metrics).toMatchObject({
-          eligibleVotes: 9,
-          participatedVotes: 8,
+          eligibleVotes: 10,
+          participatedVotes: 9,
           unknownVotes: 1,
-          participationRate: 8 / 9
+          participationRate: 9 / 10
         });
-        expect(later.metrics.eligibleVotes).toBe(7);
+        expect(later.metrics.eligibleVotes).toBe(8);
+        expect(
+          detail.transitions.find(
+            (row) => row.basis === "party_observation_bounds"
+          )
+        ).toMatchObject({
+          beforeEndDate: "2026-03-13",
+          afterStartDate: "2026-03-15",
+          uncertainDays: 1
+        });
         // Five contested shared votes: two early votes are consensus after tenure filtering,
         // and the unanimous seventh vote is excluded. Current party is deliberately identical.
         expect(
@@ -371,6 +488,39 @@ describe("member history analysis", () => {
         expect(
           fewer.coalitions.find((row) => row.memberId === b!.memberId)
         ).toBeUndefined();
+        // A populated API party label is insufficient evidence for historical affiliation.
+        await writeFile(
+          join(root, "manifests/member_affiliation_periods.json"),
+          "[]"
+        );
+        await writeMemberAnalysisInputs({
+          outputDir: root,
+          dataRepoDir: root,
+          bundle: normalized.bundle,
+          billProposals: normalized.billProposals,
+          tenureIndex: normalized.tenureIndex,
+          snapshotId: normalized.snapshotId,
+          ...normalized.analysisHistory
+        });
+        execFileSync(
+          process.execPath,
+          ["scripts/build-member-analysis.mjs", root],
+          { env: { ...process.env, DUCKDB_BIN: binary } }
+        );
+        const unknown = memberAnalysisDetailSchema.parse(
+          JSON.parse(
+            await readFile(
+              join(root, `exports/member_analysis/${a!.memberId}.json`),
+              "utf8"
+            )
+          )
+        );
+        expect(
+          unknown.coalitions.some((row) => row.basis === "verified_period")
+        ).toBe(false);
+        expect(
+          unknown.coalitions.some((row) => row.basis === "current_roster")
+        ).toBe(true);
       } finally {
         await rm(root, { recursive: true, force: true });
       }

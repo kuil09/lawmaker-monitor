@@ -86,6 +86,9 @@ export function MemberAnalysisPage({ memberId }: { memberId: string | null }) {
   const [to, setTo] = useState("");
   const [kind, setKind] = useState<"all" | keyof typeof kindNames>("all");
   const [transitionId, setTransitionId] = useState("");
+  const [affiliationBasis, setAffiliationBasis] = useState<
+    "current_roster" | "verified_period"
+  >("current_roster");
   useEffect(() => {
     let active = true;
     setError(null);
@@ -202,7 +205,9 @@ export function MemberAnalysisPage({ memberId }: { memberId: string | null }) {
     detail?.transitions.find((row) => row.eventId === transitionId) ??
     detail?.transitions.at(-1);
   const coalitionRows =
-    detail?.coalitions.filter((row) => !topic || row.topic === topic) ?? [];
+    detail?.coalitions.filter(
+      (row) => row.basis === affiliationBasis && (!topic || row.topic === topic)
+    ) ?? [];
   const assetRows =
     detail?.assets.filter(
       (row) =>
@@ -580,14 +585,15 @@ export function MemberAnalysisPage({ memberId }: { memberId: string | null }) {
                               </select>
                             </label>
                             <p>
-                              선택 이력: {transition.date}. 전후 변화는 관찰된
-                              차이이며, 역할 변경의 인과효과를 뜻하지 않습니다.
+                              {transition.basis === "party_observation_bounds"
+                                ? `이전 소속의 마지막 관찰일 ${transition.beforeEndDate}, 새 소속의 첫 관찰일 ${transition.afterStartDate} 기준입니다. 사이의 ${transition.uncertainDays}일은 비교에서 제외합니다. 관찰된 소속의 차이는 실제 변경일을 확정하지 않습니다.`
+                                : `선택 이력: ${transition.date}.`}{" "}
+                              전후 변화는 관찰된 차이이며, 인과효과를 뜻하지
+                              않습니다.
                             </p>
                             <div className="analysis-scroll">
                               <table>
-                                <caption>
-                                  날짜가 확인된 이력 기준 전후 비교
-                                </caption>
+                                <caption>이력·소속 기록 기준 전후 비교</caption>
                                 <thead>
                                   <tr>
                                     <th>기간</th>
@@ -710,13 +716,36 @@ export function MemberAnalysisPage({ memberId }: { memberId: string | null }) {
                         <h3 id="analysis-coalitions">
                           정당을 가로지르는 표결 관계
                         </h3>
+                        <label>
+                          소속 비교 기준
+                          <select
+                            aria-label="소속 비교 기준"
+                            value={affiliationBasis}
+                            onChange={(event) =>
+                              setAffiliationBasis(
+                                event.target.value as typeof affiliationBasis
+                              )
+                            }
+                          >
+                            <option value="current_roster">
+                              현재 소속 기준
+                            </option>
+                            <option value="verified_period">
+                              검증된 당시 소속 기준
+                            </option>
+                          </select>
+                        </label>
+                        <p>
+                          {affiliationBasis === "current_roster"
+                            ? `소속 확인 시점 ${index.coverage.currentPartyObservedAt ? formatDateTime(index.coverage.currentPartyObservedAt) : formatDateTime(index.generatedAt)}의 서로 다른 정당 의원을 묶어 과거 표결을 비교합니다. 이 소속을 표결 당시 소속으로 해석하지 않습니다.`
+                            : `명시적인 날짜와 근거가 검토된 소속 기간만 사용합니다. 전체 수록 표결 중 당시 소속 확인 ${index.coverage.verifiedPartyVotes.toLocaleString()}건이며, 미확인 표결은 관계 계산에서 제외합니다.`}
+                        </p>
                         <p>
                           현재 분석 대상 의원의 명시된 찬성·반대·기권 중 최다
-                          선택이 95% 미만인 안건에서, 서로 다른 정당 소속으로
-                          같은 의제에 공동 표결한 기록이 5건 이상인 관계입니다.
-                          정당은 표결 원문에 기록된 소속을 사용합니다. 수록된
-                          전체 기간·선택한 의제 기준이며, 의제마다 일치율이 높은
-                          최대 5명을 표시합니다.
+                          선택이 95% 미만인 안건에서, 선택한 소속 기준으로 같은
+                          의제에 공동 표결한 기록이 5건 이상인 관계입니다.
+                          수록된 전체 기간·선택한 의제 기준이며, 의제마다
+                          일치율이 높은 최대 5명을 표시합니다.
                         </p>
                         {coalitionRows.length ? (
                           <div className="analysis-scroll">
@@ -730,7 +759,7 @@ export function MemberAnalysisPage({ memberId }: { memberId: string | null }) {
                                   <th>의제</th>
                                   <th>일치/공동 표결</th>
                                   <th>일치율</th>
-                                  <th>서로 다른 당으로 표결</th>
+                                  <th>소속 기준 충족</th>
                                 </tr>
                               </thead>
                               <tbody>
