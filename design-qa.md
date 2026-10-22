@@ -527,3 +527,17 @@ performance, and missing conditions from dissimilarity.
 - This review does not establish full screen-reader, device or contrast compliance.
 
 final result: passed
+
+### Production stylesheet-order regression
+
+The initial production capture exposed an additional P2: the shared route CSS
+loaded after the analysis stylesheet and restored `overflow: hidden` on the root,
+preventing the directory from sticking during scroll. Increased the root selector
+specificity so the intended overflow is independent of CSS chunk arrival order,
+and bounded the directory list by the viewport's available height. The production
+bundle reproduced this failure in all three responsive analysis flows before the
+fix. All 15 responsive flows pass after the fix. The regression assertions check
+computed overflow and scroll into a later section before checking that the desktop
+and tablet directory remains below navigation and fully inside the viewport.
+
+final result: passed
