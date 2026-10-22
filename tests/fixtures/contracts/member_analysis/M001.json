@@ -1,0 +1,254 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-03-22T11:45:00+09:00",
+  "snapshotId": "fixture-snapshot-20260322-114500",
+  "memberId": "M001",
+  "events": [
+    {
+      "eventId": "a90198fc9ba075a6610caeac",
+      "kind": "tenure",
+      "label": "제22대 국회 재임",
+      "startDate": "2024-05-30",
+      "endDate": "2028-05-29",
+      "observedAt": "2026-03-22T11:45:00+09:00",
+      "dateBasis": "official_period",
+      "sourceUrl": "https://open.assembly.go.kr/portal/openapi/nexgtxtmaamffofof?Type=xml&pIndex=1&pSize=1000"
+    },
+    {
+      "eventId": "0b38d2a87fe8fedfaab093f4",
+      "kind": "role_observation",
+      "label": "국회의원",
+      "startDate": "2026-03-22",
+      "endDate": "2026-03-22",
+      "observedAt": "2026-03-22T11:45:00+09:00",
+      "dateBasis": "observed",
+      "sourceUrl": "https://www.assembly.go.kr/members/22nd/KIMARA"
+    },
+    {
+      "eventId": "70d03bd8d120e7d2833e5645",
+      "kind": "party_observation",
+      "label": "미래개혁당",
+      "startDate": "2026-03-22",
+      "endDate": "2026-03-22",
+      "observedAt": "2026-03-22T11:45:00+09:00",
+      "dateBasis": "observed",
+      "sourceUrl": "https://www.assembly.go.kr/members/22nd/KIMARA"
+    },
+    {
+      "eventId": "committee-2026",
+      "kind": "committee",
+      "label": "보건복지위원회",
+      "startDate": "2026-03-15",
+      "endDate": null,
+      "observedAt": "2026-03-22T11:45:00+09:00",
+      "dateBasis": "official_period",
+      "sourceUrl": "https://example.test/career/M001"
+    },
+    {
+      "eventId": "career-medicine-2010",
+      "kind": "career",
+      "label": "의료 경력",
+      "startDate": "2010-01-01",
+      "endDate": "2012-12-31",
+      "observedAt": "2026-03-22T11:45:00+09:00",
+      "dateBasis": "biography_period",
+      "dateLabel": "2010~2012 (약력·연 단위)",
+      "sourceUrl": "https://example.test/profile/M001"
+    }
+  ],
+  "topics": [
+    {
+      "month": "2026-03",
+      "topic": "과학·디지털",
+      "kind": "proposal",
+      "count": 1,
+      "sourceUrl": "https://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_L1"
+    },
+    {
+      "month": "2026-03",
+      "topic": "기타·미분류",
+      "kind": "vote",
+      "count": 2,
+      "sourceUrl": "http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_A1B2C3D4E5F6"
+    },
+    {
+      "month": "2026-03",
+      "topic": "보건·복지",
+      "kind": "statement",
+      "count": 3,
+      "sourceUrl": "https://example.test/minutes/1"
+    },
+    {
+      "month": "2026-03",
+      "topic": "보건·복지",
+      "kind": "proposal",
+      "count": 1,
+      "sourceUrl": "https://example.test/bill/1"
+    }
+  ],
+  "evidence": [
+    {
+      "date": "2026-03-22",
+      "kind": "vote",
+      "title": "Act on Civic Transparency",
+      "topic": "기타·미분류",
+      "sourceUrl": "http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_A1B2C3D4E5F6",
+      "excerpt": null
+    },
+    {
+      "date": "2026-03-22",
+      "kind": "vote",
+      "title": "Budget Adjustment Motion",
+      "topic": "기타·미분류",
+      "sourceUrl": "http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_B2C3D4E5F6G7",
+      "excerpt": null
+    },
+    {
+      "date": "2026-03-01",
+      "kind": "proposal",
+      "title": "공공데이터 접근성 강화법안",
+      "topic": "과학·디지털",
+      "sourceUrl": "https://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_L1",
+      "excerpt": null
+    },
+    {
+      "date": "2026-03-16",
+      "kind": "statement",
+      "title": "지역 의료 접근성 개선",
+      "topic": "보건·복지",
+      "sourceUrl": "https://example.test/minutes/1",
+      "excerpt": "지역 주민의 의료 접근성을 높이기 위한 공공의료 확충이 필요합니다."
+    }
+  ],
+  "metrics": {
+    "eligibleVotes": 2,
+    "participatedVotes": 2,
+    "unknownVotes": 0,
+    "participationRate": 1,
+    "proposals": 1,
+    "statements": 0
+  },
+  "peers": [
+    {
+      "memberId": "M002",
+      "sharedCommittees": 1,
+      "sameElectionType": true,
+      "sameReelectionLabel": false,
+      "metrics": {
+        "eligibleVotes": 2,
+        "participatedVotes": 1,
+        "unknownVotes": 0,
+        "participationRate": 0.5,
+        "proposals": 1,
+        "statements": 0
+      },
+      "monthlyMetrics": [
+        {
+          "month": "2026-03",
+          "metrics": {
+            "eligibleVotes": 2,
+            "participatedVotes": 1,
+            "unknownVotes": 0,
+            "participationRate": 0.5,
+            "proposals": 1,
+            "statements": 0
+          }
+        }
+      ]
+    }
+  ],
+  "coalitions": [
+    {
+      "memberId": "M003",
+      "topic": "보건·복지",
+      "sharedVotes": 8,
+      "sameVotes": 6,
+      "agreementRate": 0.75,
+      "crossPartyVotes": 8
+    }
+  ],
+  "transitions": [
+    {
+      "eventId": "a90198fc9ba075a6610caeac",
+      "label": "제22대 국회 재임",
+      "date": "2024-05-30",
+      "before": {
+        "eligibleVotes": 0,
+        "participatedVotes": 0,
+        "unknownVotes": 0,
+        "participationRate": null,
+        "proposals": 0,
+        "statements": 0
+      },
+      "after": {
+        "eligibleVotes": 0,
+        "participatedVotes": 0,
+        "unknownVotes": 0,
+        "participationRate": null,
+        "proposals": 0,
+        "statements": 0
+      },
+      "beforeObservedDays": 0,
+      "afterObservedDays": 0
+    },
+    {
+      "eventId": "committee-2026",
+      "label": "보건복지위원회",
+      "date": "2026-03-15",
+      "before": {
+        "eligibleVotes": 2,
+        "participatedVotes": 2,
+        "unknownVotes": 0,
+        "participationRate": 1,
+        "proposals": 1,
+        "statements": 0
+      },
+      "after": {
+        "eligibleVotes": 1,
+        "participatedVotes": 1,
+        "unknownVotes": 0,
+        "participationRate": 1,
+        "proposals": 1,
+        "statements": 3
+      },
+      "beforeObservedDays": 14,
+      "afterObservedDays": 8
+    }
+  ],
+  "assets": [
+    {
+      "reportedAt": "2025-03-27",
+      "currentAmount": 790000,
+      "deltaAmount": 40000,
+      "valueChangeAmount": 10000,
+      "sourceUrl": "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700"
+    },
+    {
+      "reportedAt": "2025-04-29",
+      "currentAmount": 820000,
+      "deltaAmount": 30000,
+      "valueChangeAmount": 0,
+      "sourceUrl": "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700"
+    },
+    {
+      "reportedAt": "2026-03-20",
+      "currentAmount": 850000,
+      "deltaAmount": 30000,
+      "valueChangeAmount": 10000,
+      "sourceUrl": "https://example.test/assets/1"
+    }
+  ],
+  "monthlyMetrics": [
+    {
+      "month": "2026-03",
+      "metrics": {
+        "eligibleVotes": 2,
+        "participatedVotes": 2,
+        "unknownVotes": 0,
+        "participationRate": 1,
+        "proposals": 1,
+        "statements": 0
+      }
+    }
+  ]
+}

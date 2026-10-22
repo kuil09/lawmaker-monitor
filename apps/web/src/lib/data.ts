@@ -15,6 +15,10 @@ import {
   manifestSchema,
   voteMinutesOpinionsExportSchema
 } from "@lawmaker-monitor/schemas";
+import {
+  memberAnalysisIndexSchema,
+  memberAnalysisDetailSchema
+} from "@lawmaker-monitor/schemas";
 
 import type {
   AccountabilitySummaryExport,
@@ -44,6 +48,20 @@ const defaultHexmapStaticIndexPath = "exports/hexmap_static/index.json";
 
 function buildUrl(path: string): string {
   return new URL(path, `${dataRepoBaseUrl.replace(/\/$/, "")}/`).toString();
+}
+
+export function loadMemberAnalysisIndex() {
+  return fetchOptionalJson(
+    buildUrl("exports/member_analysis/index.json"),
+    (payload) => memberAnalysisIndexSchema.parse(payload)
+  );
+}
+export function loadMemberAnalysisDetail(path: string) {
+  if (!/^exports\/member_analysis\/[^/]+\.json$/.test(path))
+    throw new Error("Invalid member analysis path.");
+  return fetchJson(buildUrl(path), (payload) =>
+    memberAnalysisDetailSchema.parse(payload)
+  );
 }
 
 async function fetchJson<T>(

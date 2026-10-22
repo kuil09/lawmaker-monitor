@@ -827,6 +827,102 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
   }
 }
 
+async function openMemberAnalysisFlow(viewportName: string): Promise<void> {
+  const { context, page, issues } = await createBrowserSession(
+    browser,
+    viewportCases.find((item) => item.name === viewportName)!
+  );
+  try {
+    await page.goto(`${appUrl}/#analysis?member=M001`, {
+      waitUntil: "networkidle"
+    });
+    await page
+      .getByRole("heading", { name: "경험이 활동으로 이어지는 시간" })
+      .waitFor();
+    for (const name of [
+      "경력에서 활동으로",
+      "이력과 활동 연표",
+      "역할 변화 전후 90일",
+      "비슷한 조건의 의원과 비교",
+      "정당을 가로지르는 표결 관계",
+      "재산 신고와 공적 역할",
+      "관심사의 흐름과 근거 기록"
+    ]) {
+      await page.getByRole("heading", { name, exact: true }).waitFor();
+    }
+    await expect
+      .poll(() => page.locator(".analysis-career-claims").innerText())
+      .toContain("전) 서울병원 의사");
+    await page
+      .getByRole("button", { name: "경력 기간을 연표에서 보기", exact: true })
+      .click();
+    await expect
+      .poll(() => page.getByLabel("분석 시작 월", { exact: true }).inputValue())
+      .toBe("2010-01");
+    await expect
+      .poll(() =>
+        page.locator(".analysis-event-period.is-biography").innerText()
+      )
+      .toContain("2010~2012");
+    await expect
+      .poll(() =>
+        page
+          .getByRole("table", { name: "참여 가능한 표결 수를 반영한 비교" })
+          .innerText()
+      )
+      .toContain("자료 없음");
+    await page
+      .getByRole("button", { name: "활동 수록 전체 기간", exact: true })
+      .click();
+    await page.getByLabel("의제", { exact: true }).selectOption("보건·복지");
+    await expect
+      .poll(() => page.locator(".analysis-evidence-list").innerText())
+      .toContain("지역 의료 접근성 개선");
+    await page.getByText("월별 수치 표", { exact: true }).click();
+    const countTable = page.getByRole("table", {
+      name: "선택한 기간·의제·활동의 월별 건수"
+    });
+    await expect.poll(() => countTable.innerText()).toContain("2026-03");
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            document.documentElement.scrollWidth -
+            document.documentElement.clientWidth
+        )
+      )
+      .toBeLessThanOrEqual(1);
+    await page
+      .getByRole("heading", { name: "경험이 활동으로 이어지는 시간" })
+      .scrollIntoViewIfNeeded();
+    const screenshot = await saveScreenshot(
+      page,
+      `${viewportName}/member-analysis.png`
+    );
+    scenarioManifest.push({
+      viewport: viewportName,
+      scenario: "member-analysis",
+      screenshot
+    });
+    await page
+      .getByLabel("약력에서 찾은 경력", { exact: true })
+      .selectOption("law");
+    await page
+      .locator(".analysis-directory")
+      .getByRole("button", { name: /박민/ })
+      .click();
+    await expect
+      .poll(() => page.locator(".analysis-member-heading").innerText())
+      .toContain("박민");
+    await expect
+      .poll(() => page.locator(".analysis-career-claims").innerText())
+      .toContain("공익 변호사");
+    expect(getUnexpectedBrowserIssues(issues)).toEqual([]);
+  } finally {
+    await context.close();
+  }
+}
+
 describe("UI flow coverage", () => {
   beforeAll(async () => {
     await ensureScreenshotRoot();
@@ -844,6 +940,9 @@ describe("UI flow coverage", () => {
   });
 
   for (const viewport of viewportCases) {
+    it(`explores member history analysis on ${viewport.name}`, async () => {
+      await openMemberAnalysisFlow(viewport.name);
+    });
     it(`captures the home and single-member flow on ${viewport.name}`, async () => {
       await openHomeFlow(viewport.name);
     });

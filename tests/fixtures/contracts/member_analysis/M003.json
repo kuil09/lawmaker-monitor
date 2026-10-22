@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-03-22T11:45:00+09:00",
+  "snapshotId": "fixture-snapshot-20260322-114500",
+  "memberId": "M003",
+  "events": [
+    {
+      "eventId": "55fcbfb12d0465dae81dbb85",
+      "kind": "tenure",
+      "label": "제22대 국회 재임",
+      "startDate": "2024-05-30",
+      "endDate": "2028-05-29",
+      "observedAt": "2026-03-22T11:45:00+09:00",
+      "dateBasis": "official_period",
+      "sourceUrl": "https://open.assembly.go.kr/portal/openapi/nexgtxtmaamffofof?Type=xml&pIndex=1&pSize=1000"
+    },
+    {
+      "eventId": "44cba1c662594ce879228585",
+      "kind": "role_observation",
+      "label": "국회의원",
+      "startDate": "2026-03-22",
+      "endDate": "2026-03-22",
+      "observedAt": "2026-03-22T11:45:00+09:00",
+      "dateBasis": "observed",
+      "sourceUrl": "https://www.assembly.go.kr/members/22nd/LEESU"
+    },
+    {
+      "eventId": "cfc548b34a06a41983e35763",
+      "kind": "party_observation",
+      "label": "시민녹색당",
+      "startDate": "2026-03-22",
+      "endDate": "2026-03-22",
+      "observedAt": "2026-03-22T11:45:00+09:00",
+      "dateBasis": "observed",
+      "sourceUrl": "https://www.assembly.go.kr/members/22nd/LEESU"
+    }
+  ],
+  "topics": [
+    {
+      "month": "2026-03",
+      "topic": "기타·미분류",
+      "kind": "vote",
+      "count": 2,
+      "sourceUrl": "http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_A1B2C3D4E5F6"
+    },
+    {
+      "month": "2026-03",
+      "topic": "환경·에너지",
+      "kind": "proposal",
+      "count": 1,
+      "sourceUrl": "https://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_L3"
+    }
+  ],
+  "evidence": [
+    {
+      "date": "2026-03-22",
+      "kind": "vote",
+      "title": "Act on Civic Transparency",
+      "topic": "기타·미분류",
+      "sourceUrl": "http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_A1B2C3D4E5F6",
+      "excerpt": null
+    },
+    {
+      "date": "2026-03-22",
+      "kind": "vote",
+      "title": "Budget Adjustment Motion",
+      "topic": "기타·미분류",
+      "sourceUrl": "http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_B2C3D4E5F6G7",
+      "excerpt": null
+    },
+    {
+      "date": "2026-03-08",
+      "kind": "proposal",
+      "title": "기후대응 기본법안",
+      "topic": "환경·에너지",
+      "sourceUrl": "https://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_L3",
+      "excerpt": null
+    }
+  ],
+  "metrics": {
+    "eligibleVotes": 2,
+    "participatedVotes": 2,
+    "unknownVotes": 0,
+    "participationRate": 1,
+    "proposals": 1,
+    "statements": 0
+  },
+  "peers": [],
+  "coalitions": [],
+  "transitions": [
+    {
+      "eventId": "55fcbfb12d0465dae81dbb85",
+      "label": "제22대 국회 재임",
+      "date": "2024-05-30",
+      "before": {
+        "eligibleVotes": 0,
+        "participatedVotes": 0,
+        "unknownVotes": 0,
+        "participationRate": null,
+        "proposals": 0,
+        "statements": 0
+      },
+      "after": {
+        "eligibleVotes": 0,
+        "participatedVotes": 0,
+        "unknownVotes": 0,
+        "participationRate": null,
+        "proposals": 0,
+        "statements": 0
+      },
+      "beforeObservedDays": 0,
+      "afterObservedDays": 0
+    }
+  ],
+  "assets": [],
+  "monthlyMetrics": [
+    {
+      "month": "2026-03",
+      "metrics": {
+        "eligibleVotes": 2,
+        "participatedVotes": 2,
+        "unknownVotes": 0,
+        "participationRate": 1,
+        "proposals": 1,
+        "statements": 0
+      }
+    }
+  ]
+}

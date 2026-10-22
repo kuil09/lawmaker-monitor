@@ -14,6 +14,7 @@ export type V2GlobalNavRoute =
   | "distribution"
   | "votes"
   | "trends"
+  | "analysis"
   | "map";
 
 type V2NavigationRoute = Exclude<V2GlobalNavRoute, "home">;
@@ -35,7 +36,7 @@ type PrimaryNavigationItem = {
   label: string;
   accessibleLabel: string;
   href: string;
-  target: "home" | "distribution" | "map" | "votes" | "trends";
+  target: "home" | "distribution" | "map" | "votes" | "trends" | "analysis";
   activeRoutes: V2GlobalNavRoute[];
 };
 
@@ -79,6 +80,14 @@ const primaryNavigationItems: PrimaryNavigationItem[] = [
     href: "#trends",
     target: "trends",
     activeRoutes: ["trends"]
+  },
+  {
+    index: "06",
+    label: "이력·활동",
+    accessibleLabel: "의원 이력 분석",
+    href: "#analysis",
+    target: "analysis",
+    activeRoutes: ["analysis"]
   }
 ];
 

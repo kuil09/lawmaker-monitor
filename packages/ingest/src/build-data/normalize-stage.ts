@@ -50,6 +50,19 @@ export type NormalizedBuildArtifacts = {
   currentAssembly: CurrentAssembly;
   bundle: NormalizedBundle;
   billProposals: BillProposalRecord[];
+  analysisHistory: {
+    tenures: Array<
+      ReturnType<typeof parseMemberHistoryXml>[number] & { sourceUrl: string }
+    >;
+    committees: Array<
+      ReturnType<typeof resolveCommitteeCareerMembers>[number] & {
+        sourceUrl: string;
+      }
+    >;
+    observedAt: string;
+    historySourceUrl: string;
+    committeeSourceUrl: string;
+  };
   tenureIndex: ReturnType<typeof buildMemberTenureIndex>;
   propertyMemberContext: Awaited<ReturnType<typeof loadPropertyMemberContext>>;
 };
@@ -454,6 +467,30 @@ export async function buildNormalizedStage(
     currentAssembly,
     bundle,
     billProposals,
+    analysisHistory: {
+      tenures: rawInputs.memberHistoryXmls.flatMap((xml, index) =>
+        parseMemberHistoryXml(xml).map((tenure) => ({
+          ...tenure,
+          sourceUrl: rawInputs.memberHistoryEntries[index]!.sourceUrl
+        }))
+      ),
+      committees: rawInputs.committeeCareerJsons.flatMap((payload, index) =>
+        resolveCommitteeCareerMembers({
+          careers: parseCommitteeCareerSheetJson(payload).filter(
+            (role) => role.assemblyNo === currentAssembly.assemblyNo
+          ),
+          members: memberInfoMembers
+        }).map((role) => ({
+          ...role,
+          sourceUrl: rawInputs.committeeCareerEntries[index]!.sourceUrl
+        }))
+      ),
+      observedAt: rawInputs.resolvedRaw.manifest.retrievedAt,
+      historySourceUrl: rawInputs.memberHistoryEntries[0]!.sourceUrl,
+      committeeSourceUrl:
+        rawInputs.committeeCareerEntries[0]?.sourceUrl ??
+        rawInputs.memberHistoryEntries[0]!.sourceUrl
+    },
     tenureIndex,
     propertyMemberContext
   };

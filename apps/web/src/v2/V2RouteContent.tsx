@@ -12,6 +12,11 @@ import type {
   Manifest
 } from "@lawmaker-monitor/schemas";
 
+const MemberAnalysisPage = lazy(async () => {
+  const module = await import("./MemberAnalysisPage.js");
+  return { default: module.MemberAnalysisPage };
+});
+
 const DistributionPage = lazy(async () => {
   const module = await import("../components/DistributionPage.js");
   return { default: module.DistributionPage };
@@ -116,6 +121,12 @@ export function V2RouteContent() {
       ) as string[],
     [activityCalendarState.activityError, leaderboardError]
   );
+  if (routeState.route === "analysis")
+    return (
+      <Suspense fallback={<RouteLoadingFallback title="이력·활동" />}>
+        <MemberAnalysisPage memberId={routeState.memberId} />
+      </Suspense>
+    );
   if (routeState.route === "distribution") {
     return (
       <Suspense fallback={<RouteLoadingFallback title="전체 분포" />}>

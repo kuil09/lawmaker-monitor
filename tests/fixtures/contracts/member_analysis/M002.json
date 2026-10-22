@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-03-22T11:45:00+09:00",
+  "snapshotId": "fixture-snapshot-20260322-114500",
+  "memberId": "M002",
+  "events": [
+    {
+      "eventId": "224cf54e27c4a18bc78a9d1f",
+      "kind": "tenure",
+      "label": "제22대 국회 재임",
+      "startDate": "2024-05-30",
+      "endDate": "2028-05-29",
+      "observedAt": "2026-03-22T11:45:00+09:00",
+      "dateBasis": "official_period",
+      "sourceUrl": "https://open.assembly.go.kr/portal/openapi/nexgtxtmaamffofof?Type=xml&pIndex=1&pSize=1000"
+    },
+    {
+      "eventId": "84b3f6da1e6560a2ef2e140a",
+      "kind": "party_observation",
+      "label": "미래개혁당",
+      "startDate": "2026-03-22",
+      "endDate": "2026-03-22",
+      "observedAt": "2026-03-22T11:45:00+09:00",
+      "dateBasis": "observed",
+      "sourceUrl": "https://www.assembly.go.kr/members/22nd/PARKMIN"
+    },
+    {
+      "eventId": "84c08e3bae8cabdc6080effb",
+      "kind": "role_observation",
+      "label": "국회의원",
+      "startDate": "2026-03-22",
+      "endDate": "2026-03-22",
+      "observedAt": "2026-03-22T11:45:00+09:00",
+      "dateBasis": "observed",
+      "sourceUrl": "https://www.assembly.go.kr/members/22nd/PARKMIN"
+    }
+  ],
+  "topics": [
+    {
+      "month": "2026-03",
+      "topic": "기타·미분류",
+      "kind": "proposal",
+      "count": 1,
+      "sourceUrl": "https://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_L2"
+    },
+    {
+      "month": "2026-03",
+      "topic": "기타·미분류",
+      "kind": "vote",
+      "count": 1,
+      "sourceUrl": "http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_A1B2C3D4E5F6"
+    }
+  ],
+  "evidence": [
+    {
+      "date": "2026-03-22",
+      "kind": "vote",
+      "title": "Act on Civic Transparency",
+      "topic": "기타·미분류",
+      "sourceUrl": "http://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_A1B2C3D4E5F6",
+      "excerpt": null
+    },
+    {
+      "date": "2026-03-05",
+      "kind": "proposal",
+      "title": "지역균형발전 지원법안",
+      "topic": "기타·미분류",
+      "sourceUrl": "https://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_L2",
+      "excerpt": null
+    }
+  ],
+  "metrics": {
+    "eligibleVotes": 2,
+    "participatedVotes": 1,
+    "unknownVotes": 0,
+    "participationRate": 0.5,
+    "proposals": 1,
+    "statements": 0
+  },
+  "peers": [
+    {
+      "memberId": "M001",
+      "sharedCommittees": 1,
+      "sameElectionType": true,
+      "sameReelectionLabel": false,
+      "metrics": {
+        "eligibleVotes": 2,
+        "participatedVotes": 2,
+        "unknownVotes": 0,
+        "participationRate": 1,
+        "proposals": 1,
+        "statements": 0
+      },
+      "monthlyMetrics": [
+        {
+          "month": "2026-03",
+          "metrics": {
+            "eligibleVotes": 2,
+            "participatedVotes": 2,
+            "unknownVotes": 0,
+            "participationRate": 1,
+            "proposals": 1,
+            "statements": 0
+          }
+        }
+      ]
+    }
+  ],
+  "coalitions": [],
+  "transitions": [
+    {
+      "eventId": "224cf54e27c4a18bc78a9d1f",
+      "label": "제22대 국회 재임",
+      "date": "2024-05-30",
+      "before": {
+        "eligibleVotes": 0,
+        "participatedVotes": 0,
+        "unknownVotes": 0,
+        "participationRate": null,
+        "proposals": 0,
+        "statements": 0
+      },
+      "after": {
+        "eligibleVotes": 0,
+        "participatedVotes": 0,
+        "unknownVotes": 0,
+        "participationRate": null,
+        "proposals": 0,
+        "statements": 0
+      },
+      "beforeObservedDays": 0,
+      "afterObservedDays": 0
+    }
+  ],
+  "assets": [
+    {
+      "reportedAt": "2025-03-27",
+      "currentAmount": 220000,
+      "deltaAmount": 20000,
+      "valueChangeAmount": 0,
+      "sourceUrl": "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700"
+    },
+    {
+      "reportedAt": "2025-04-29",
+      "currentAmount": 270000,
+      "deltaAmount": 20000,
+      "valueChangeAmount": 10000,
+      "sourceUrl": "https://open.assembly.go.kr/portal/data/service/selectServicePage.do/O2853M000835T714700"
+    }
+  ],
+  "monthlyMetrics": [
+    {
+      "month": "2026-03",
+      "metrics": {
+        "eligibleVotes": 2,
+        "participatedVotes": 1,
+        "unknownVotes": 0,
+        "participationRate": 0.5,
+        "proposals": 1,
+        "statements": 0
+      }
+    }
+  ]
+}
