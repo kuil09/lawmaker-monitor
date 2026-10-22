@@ -848,6 +848,29 @@ async function openMemberAnalysisFlow(viewportName: string): Promise<void> {
     ]) {
       await page.getByRole("heading", { name, exact: true }).waitFor();
     }
+    expect(
+      await page
+        .locator(".member-analysis")
+        .evaluate((element) => getComputedStyle(element).overflow)
+    ).toBe("visible");
+    if (viewportName !== "mobile") {
+      await page
+        .getByRole("heading", { name: "경력에서 활동으로", exact: true })
+        .scrollIntoViewIfNeeded();
+      const bounds = await page
+        .locator(".analysis-directory")
+        .evaluate((element) => ({
+          top: element.getBoundingClientRect().top,
+          bottom: element.getBoundingClientRect().bottom,
+          viewportHeight: document.documentElement.clientHeight,
+          navigationBottom: document
+            .querySelector(".v2-global-nav")!
+            .getBoundingClientRect().bottom
+        }));
+      expect(bounds.top).toBeGreaterThanOrEqual(bounds.navigationBottom);
+      expect(bounds.top).toBeLessThanOrEqual(bounds.navigationBottom + 32);
+      expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight);
+    }
     await page
       .locator(".condition-extreme")
       .filter({ hasText: "가장 먼 조건" })

@@ -1,4 +1,4 @@
-.member-analysis {
+.v3-evidence-page.member-analysis {
   --analysis-ink: var(--text);
   --analysis-accent: var(--accent);
   --analysis-vote: var(--accent);
@@ -98,7 +98,7 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 60vh;
+  max-height: max(8rem, calc(100dvh - 330px));
   scrollbar-width: thin;
   overflow: auto;
 }
