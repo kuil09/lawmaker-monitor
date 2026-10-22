@@ -1,4 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+import indexFixture from "../fixtures/contracts/member_analysis/index.json";
+import detailFixture from "../fixtures/contracts/member_analysis/M001.json";
+import {
+  loadMemberAnalysisIndex,
+  loadMemberAnalysisDetail
+} from "../../apps/web/src/lib/data.js";
 
 import { aggregatePeriodMetrics } from "../../apps/web/src/lib/member-analysis.js";
 import {
@@ -7,6 +14,33 @@ import {
 } from "../../apps/web/src/lib/route-state.js";
 
 describe("member analysis period semantics", () => {
+  it("revalidates the directory and versions detail requests to avoid mixing cached builds", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => indexFixture
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => detailFixture
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    await loadMemberAnalysisIndex();
+    await loadMemberAnalysisDetail(
+      "exports/member_analysis/M001.json",
+      indexFixture.generatedAt
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual({ cache: "no-cache" });
+    expect(
+      new URL(fetchMock.mock.calls[1]![0]).searchParams.get("generation")
+    ).toBe(indexFixture.generatedAt);
+    expect(() =>
+      loadMemberAnalysisDetail("exports/member_analysis/../../private.json")
+    ).toThrow("Invalid member analysis path");
+  });
   it("weights participation by eligible votes rather than averaging monthly percentages", () => {
     const metrics = aggregatePeriodMetrics(
       [

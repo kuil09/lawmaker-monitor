@@ -121,11 +121,12 @@ export function MemberAnalysisPage({ memberId }: { memberId: string | null }) {
     setTransitionId("");
     if (!member) return;
     setError(null);
-    void loadMemberAnalysisDetail(member.detailPath)
+    void loadMemberAnalysisDetail(member.detailPath, index?.generatedAt)
       .then((data) => {
         if (!active) return;
         if (
           data.memberId !== member.memberId ||
+          data.generatedAt !== index?.generatedAt ||
           data.snapshotId !== index?.snapshotId
         ) {
           setError("분석 자료가 갱신 중입니다. 잠시 뒤 다시 시도해 주세요.");
@@ -139,7 +140,7 @@ export function MemberAnalysisPage({ memberId }: { memberId: string | null }) {
     return () => {
       active = false;
     };
-  }, [member, index?.snapshotId, retry]);
+  }, [member, index?.snapshotId, index?.generatedAt, retry]);
   const directory = useMemo(
     () =>
       index?.members.filter(
