@@ -42,3 +42,17 @@ jobs:
 
       - name: Run typecheck
         run: npm run typecheck
+
+      - name: Install browser for UI verification
+        run: npx playwright install --with-deps chromium
+
+      - name: Run responsive browser flows
+        run: npm run test:ui
+
+      - name: Upload UI evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ui-evidence
+          path: .artifacts/ui
+          if-no-files-found: warn

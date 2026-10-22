@@ -101,7 +101,7 @@ describe("durable build diagnostics", () => {
       ).toMatchObject({ exitCode: 134 });
       expect(
         await readFile(join(dir, "process-resources.txt"), "utf8")
-      ).toContain("Maximum resident set size");
+      ).toMatch(/maximum resident set size/i);
       expect(
         JSON.parse(await readFile(join(dir, "provenance.json"), "utf8"))
       ).toHaveProperty("heapSizeLimit");

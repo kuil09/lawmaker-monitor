@@ -227,16 +227,18 @@ Collection and summarization are intentionally incremental. A mirror run
 downloads at most 20 documents and advances at most two catch-up windows. A
 summary run processes one transcript and up to eight member-agenda groups with
 two concurrent local-model requests. Each model request times out after 60
-seconds, completed work is committed after every run, and the workflow
-dispatches another bounded run while documents remain.
+seconds, completed work is committed after every run, and the next scheduled run continues remaining work. Successful runs do not
+recursively dispatch more summaries.
 
 The daily pipeline is fully chained in this order:
 
 1. `mirror-documents` searches the rolling recent window and writes official
    transcript artifacts.
 2. A successful mirror explicitly dispatches `summarize-minutes`.
-3. `summarize-minutes` publishes one checkpointed batch and dispatches the next
-   batch while documents remain.
+3. `summarize-minutes` publishes one checkpointed batch. Unattempted work gets
+   priority over earlier attempts; transient failures receive exponential cooldowns,
+   and source groups without a publishable sentence are explicitly recorded as
+   skipped. Partial progress is committed before reporting any transient failure.
 4. A successful summary run triggers `deploy-web`.
 
 Recent-window collection, historical backfill, summary processing, and the
@@ -303,9 +305,10 @@ attributions, and the current project-license status.
 
 `build-data` runs with an explicit 4096 MiB V8 old-space budget; this is not a
 larger-heap workaround. Normalized/property NDJSON is written with backpressure,
-with checksums computed from the exact written bytes. The manifest consumes those
-checksums instead of serializing the entire dataset again. Existing NDJSON seed,
-newline, row-count, and checksum conventions are preserved.
+with checksums computed from the exact written bytes. After DuckDB materializes
+Parquet, `scripts/finalize-data-manifest.mjs` replaces dataset checksums with hashes
+of the final published Parquet bytes. JSON export hashes are unchanged. Existing
+NDJSON seed, newline, and row-count conventions are preserved.
 
 The calendar reuses one Korean date formatter and computes each roll-call date
 once, rather than allocating ICU formatters for every member/roll-call pair.
@@ -318,10 +321,27 @@ extraction and each loading task is destroyed even on errors. Raw ingest payload
 are not passed into the publish stage.
 
 `bash scripts/run-data-build.sh` retains code/data SHA provenance, the source ingest
-run ID, process exit code and `/usr/bin/time` peak RSS. `build-memory.ndjson` contains
+run ID, process exit code and peak RSS (`/usr/bin/time` on Linux and Python 3 standard
+library child resource usage on macOS). `build-memory.ndjson` contains
 synchronous stage checkpoints (`heapUsed`, `rss`, external/ArrayBuffer memory and
 row/byte counts). Its sampled peaks are not continuous heap profiling. No heap
 snapshot, environment dump, source text or API key is included. An unfinished
 `running` diagnostic plus a non-zero process exit is a failure, not a success.
 `BUILD_DIAGNOSTICS_DIR` optionally redirects the diagnostic files. Publication and
 deployment still require the build to succeed.
+
+### Operational verification
+
+Scheduled `monitor-sources` validates the latest successful live ingest artifact,
+checks that it and the published manifest are at most 96 hours old, probes the
+live official member API, and checks mirror/summary failure counters. Local runs
+without `SOURCE_MONITOR_LIVE=true` remain fixture regression checks and report that
+mode explicitly. The monitor workflow opens or updates an incident on failure.
+
+Minutes collection overlaps the preceding 30 days and resumes historical gaps
+from the last mirrored meeting date when the old same-day mode cleared the cursor.
+A seven-day revalidation interval prevents unchanged documents from consuming every
+bounded batch. `PROPERTY_MIRROR_TIMEOUT_MS` controls the property workflow timeout
+(default 60000 ms), independently of legacy `MIRROR_TIMEOUT_MS` repository values.
+Playwright request timeouts are retried with the same bounded transient-error policy.
+PR checks now run the responsive browser suite and retain screenshot evidence.

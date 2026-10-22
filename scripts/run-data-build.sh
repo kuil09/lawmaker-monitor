@@ -27,9 +27,15 @@ writeFileSync(join(process.env.BUILD_DIAGNOSTICS_DIR, 'provenance.json'), JSON.s
 }, null, 2));
 NODE
 set +e
-/usr/bin/time -v -o "${BUILD_DIAGNOSTICS_DIR}/process-resources.txt" \
-  npm run build:data --workspace @lawmaker-monitor/ingest
-status=$?
+if [ "$(uname -s)" = "Darwin" ]; then
+  python3 scripts/run-with-resources.py "${BUILD_DIAGNOSTICS_DIR}/process-resources.txt" \
+    npm run build:data --workspace @lawmaker-monitor/ingest
+  status=$?
+else
+  /usr/bin/time -v -o "${BUILD_DIAGNOSTICS_DIR}/process-resources.txt" \
+    npm run build:data --workspace @lawmaker-monitor/ingest
+  status=$?
+fi
 set -e
 printf '{"exitCode":%d,"finishedAt":"%s"}\n' "${status}" "$(date -u +%FT%TZ)" \
   > "${BUILD_DIAGNOSTICS_DIR}/process-exit.json"

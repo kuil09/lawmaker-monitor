@@ -16,7 +16,8 @@ import {
   buildMinutesSummaryGroups,
   createLlamaServerSummarizer,
   DEFAULT_MINUTES_SUMMARY_MODEL,
-  isPublishableMinutesSummary,
+  isPublishableExtractiveMinutesSummary,
+  NoPublishableMinutesSourceError,
   MINUTES_SUMMARY_PROMPT_VERSION,
   summarizeMinutesGroup,
   type MinutesDocumentSummaryArtifact,
@@ -66,6 +67,7 @@ type SummaryState = {
   documentsCompleted: number;
   groupsSummarized: number;
   groupsFailed: number;
+  groupsSkipped: number;
   remainingDocuments: number;
   membersPublished: number;
   mirroredDocuments: number;
@@ -380,6 +382,10 @@ async function main(): Promise<void> {
     documents: candidateDocuments,
     targetDate: config.targetDate,
     maxDocuments: config.maxDocuments,
+    lastAttemptAt: (item) =>
+      artifactByDocumentId.get(item.documentId)?.generatedAt,
+    nextRetryAt: (item) =>
+      artifactByDocumentId.get(item.documentId)?.nextRetryAt,
     isCurrent: (item) =>
       isCurrentSummaryArtifact(
         item,
@@ -422,6 +428,7 @@ async function main(): Promise<void> {
         documentsCompleted: 0,
         groupsSummarized: 0,
         groupsFailed: 0,
+        groupsSkipped: 0,
         membersPublished: memberIndex.members.length,
         ...buildSummaryCoverage({
           documentIndex,
@@ -472,9 +479,12 @@ async function main(): Promise<void> {
   let remainingGroupBudget = config.maxGroups;
   let groupsSummarized = 0;
   let groupsFailed = 0;
+  let groupsSkipped = 0;
+  let documentsVisited = 0;
   let documentsCompleted = 0;
 
   for (const item of pendingDocuments) {
+    documentsVisited += 1;
     const transcript = await readTranscript(config, item);
     const groups = buildMinutesSummaryGroups({
       transcript,
@@ -488,15 +498,30 @@ async function main(): Promise<void> {
       existingArtifact.promptVersion === MINUTES_SUMMARY_PROMPT_VERSION;
     const summaries = canReuseExisting
       ? existingArtifact.summaries.filter((summary) =>
-          isPublishableMinutesSummary(summary.summary)
+          isPublishableExtractiveMinutesSummary(summary.summary)
         )
       : [];
-    const completedGroupIds = new Set(
-      summaries.map((summary) => summary.statementId)
+    const skippedGroups = canReuseExisting
+      ? [...(existingArtifact.skippedGroups ?? [])]
+      : [];
+    const failures = new Map(
+      (canReuseExisting ? (existingArtifact.failedGroups ?? []) : []).map(
+        (failure) => [failure.statementId, failure]
+      )
     );
+    const completedGroupIds = new Set([
+      ...summaries.map((summary) => summary.statementId),
+      ...skippedGroups.map((group) => group.statementId)
+    ]);
 
     const groupsToSummarize = groups
-      .filter((group) => !completedGroupIds.has(group.groupId))
+      .filter(
+        (group) =>
+          !completedGroupIds.has(group.groupId) &&
+          (!failures.has(group.groupId) ||
+            Date.parse(failures.get(group.groupId)!.nextRetryAt) <=
+              Date.parse(generatedAt))
+      )
       .slice(0, remainingGroupBudget);
     remainingGroupBudget -= groupsToSummarize.length;
     const results = await mapWithConcurrency(
@@ -546,11 +571,34 @@ async function main(): Promise<void> {
           party: group.member.party
         });
         completedGroupIds.add(group.groupId);
+        failures.delete(group.groupId);
         groupsSummarized += 1;
         continue;
       }
 
+      if (result.error instanceof NoPublishableMinutesSourceError) {
+        skippedGroups.push({
+          statementId: result.group.groupId,
+          reason: result.error.message
+        });
+        completedGroupIds.add(result.group.groupId);
+        failures.delete(result.group.groupId);
+        groupsSkipped += 1;
+        continue;
+      }
       groupsFailed += 1;
+      const attempts = (failures.get(result.group.groupId)?.attempts ?? 0) + 1;
+      failures.set(result.group.groupId, {
+        statementId: result.group.groupId,
+        attempts,
+        nextRetryAt: new Date(
+          Date.parse(generatedAt) + Math.min(24 * 7, 2 ** attempts) * 3_600_000
+        ).toISOString(),
+        error:
+          result.error instanceof Error
+            ? result.error.message
+            : String(result.error)
+      });
       process.stderr.write(
         `Could not summarize ${item.documentId}/${result.group.groupId}: ${
           result.error instanceof Error
@@ -580,7 +628,18 @@ async function main(): Promise<void> {
       promptVersion: MINUTES_SUMMARY_PROMPT_VERSION,
       summaryGroupCount: groups.length,
       complete,
-      summaries
+      summaries,
+      skippedGroups,
+      failedGroups: [...failures.values()],
+      nextRetryAt:
+        groups.every(
+          (group) =>
+            completedGroupIds.has(group.groupId) || failures.has(group.groupId)
+        ) && failures.size > 0
+          ? [...failures.values()]
+              .map((failure) => failure.nextRetryAt)
+              .sort()[0]
+          : undefined
     };
     artifactByDocumentId.set(item.documentId, artifact);
     await writeJsonFile(
@@ -667,10 +726,11 @@ async function main(): Promise<void> {
     promptVersion: MINUTES_SUMMARY_PROMPT_VERSION,
     sourceKind: "official_minutes_transcript",
     targetDate: config.targetDate,
-    documentsVisited: pendingDocuments.length,
+    documentsVisited,
     documentsCompleted,
     groupsSummarized,
     groupsFailed,
+    groupsSkipped,
     membersPublished: memberExports.length,
     ...buildSummaryCoverage({
       documentIndex,
@@ -682,7 +742,7 @@ async function main(): Promise<void> {
   await writeJsonFile(join(config.dataRepoDir, config.statePath), state);
   process.stdout.write(`${JSON.stringify(state, null, 2)}\n`);
 
-  if (groupsFailed > 0 && groupsSummarized === 0) {
+  if (groupsFailed > 0) {
     process.exitCode = 1;
   }
 }

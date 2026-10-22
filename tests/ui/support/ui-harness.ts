@@ -220,6 +220,7 @@ function resolveChromiumExecutablePath(): string {
   const candidates = [
     process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
     process.env.UI_CHROME_EXECUTABLE_PATH,
+    chromium.executablePath(),
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Chromium.app/Contents/MacOS/Chromium",
     "/usr/bin/google-chrome",
@@ -269,6 +270,7 @@ export async function stopServer(server: Server | undefined): Promise<void> {
 
       resolveServer();
     });
+    server.closeAllConnections();
   });
 }
 

@@ -17,6 +17,10 @@ import {
   parseVoteDetailEntryPayload
 } from "../parsers.js";
 import { resolveRawSnapshot } from "../raw-snapshot.js";
+import {
+  assertFreshTimestamp,
+  probeLiveAssemblyMembers
+} from "../source-monitoring.js";
 import { resolvePathFromRoot } from "../utils.js";
 
 const REQUIRED_KINDS = [
@@ -47,10 +51,66 @@ async function main(): Promise<void> {
   );
   const fixturesDir = resolvePathFromRoot(
     repositoryRoot,
-    process.env.FIXTURES_DIR ?? join(repositoryRoot, "tests/fixtures")
+    process.env.SOURCE_SNAPSHOT_DIR ??
+      process.env.FIXTURES_DIR ??
+      join(repositoryRoot, "tests/fixtures")
   );
   const snapshot = await resolveRawSnapshot(fixturesDir);
   assertRawSnapshotManifestSourcePolicy(snapshot.manifest);
+  const live = process.env.SOURCE_MONITOR_LIVE === "true";
+  if (live) {
+    assertFreshTimestamp(
+      snapshot.manifest.retrievedAt,
+      "Latest successful ingest snapshot",
+      96
+    );
+    await probeLiveAssemblyMembers();
+    const base = process.env.DATA_REPO_BASE_URL;
+    if (!base) throw new Error("Live monitoring requires DATA_REPO_BASE_URL.");
+    const response = await fetch(
+      new URL("manifests/latest.json", `${base.replace(/\/$/, "")}/`),
+      { signal: AbortSignal.timeout(60_000) }
+    );
+    if (!response.ok)
+      throw new Error(
+        `Published manifest request failed: HTTP ${response.status}`
+      );
+    const published = (await response.json()) as {
+      updatedAt: string;
+      snapshotId: string;
+    };
+    assertFreshTimestamp(published.updatedAt, "Published data manifest", 96);
+    for (const name of [
+      "document_mirror_state",
+      "minutes_summary_state",
+      "assembly_property_document_mirror_state"
+    ]) {
+      const stateResponse = await fetch(
+        new URL(`manifests/${name}.json`, `${base.replace(/\/$/, "")}/`),
+        { signal: AbortSignal.timeout(60_000) }
+      );
+      if (!stateResponse.ok)
+        throw new Error(`${name} request failed: HTTP ${stateResponse.status}`);
+      const state = (await stateResponse.json()) as {
+        updatedAt: string;
+        downloadFailures?: number;
+        transcriptFailures?: number;
+        groupsFailed?: number;
+      };
+      if (name !== "minutes_summary_state")
+        assertFreshTimestamp(state.updatedAt, name, 48);
+      if (
+        (state.downloadFailures ?? 0) +
+          (state.transcriptFailures ?? 0) +
+          (state.groupsFailed ?? 0) >
+        0
+      ) {
+        throw new Error(
+          `${name} reports unresolved collection or summary failures.`
+        );
+      }
+    }
+  }
 
   const missingKinds = REQUIRED_KINDS.filter(
     (kind) => !snapshot.manifest.entries.some((entry) => entry.kind === kind)
@@ -239,6 +299,8 @@ async function main(): Promise<void> {
     JSON.stringify(
       {
         ok: true,
+        mode: live ? "live-and-latest-ingest" : "fixture",
+        snapshotId: snapshot.snapshotId,
         members: enrichedMembers.length,
         memberProfileAll: memberProfileAllRows.length,
         committeeOverview: committeeOverviewRows.length,

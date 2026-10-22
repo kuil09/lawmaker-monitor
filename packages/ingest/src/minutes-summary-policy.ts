@@ -39,12 +39,19 @@ export function selectPendingMinutesDocuments<
   targetDate: string;
   maxDocuments: number;
   isCurrent: (document: T) => boolean;
+  lastAttemptAt?: (document: T) => string | undefined;
+  nextRetryAt?: (document: T) => string | undefined;
+  now?: Date;
 }): T[] {
   return args.documents
     .map((document, index) => ({ document, index }))
     .filter(
       ({ document }) =>
-        document.publishedDate <= args.targetDate && !args.isCurrent(document)
+        document.publishedDate <= args.targetDate &&
+        !args.isCurrent(document) &&
+        (!args.nextRetryAt?.(document) ||
+          Date.parse(args.nextRetryAt(document)!) <=
+            (args.now ?? new Date()).getTime())
     )
     .sort((left, right) => {
       const leftIsTarget = left.document.publishedDate === args.targetDate;
@@ -53,6 +60,10 @@ export function selectPendingMinutesDocuments<
         return leftIsTarget ? -1 : 1;
       }
 
+      const leftAttempt = args.lastAttemptAt?.(left.document) ?? "";
+      const rightAttempt = args.lastAttemptAt?.(right.document) ?? "";
+      if (leftAttempt !== rightAttempt)
+        return leftAttempt.localeCompare(rightAttempt);
       return (
         right.document.publishedDate.localeCompare(
           left.document.publishedDate

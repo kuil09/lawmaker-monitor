@@ -61,6 +61,14 @@ export type MinutesDocumentSummaryArtifact = {
   summaryGroupCount: number;
   complete: boolean;
   summaries: MinutesDocumentMemberSummary[];
+  skippedGroups?: Array<{ statementId: string; reason: string }>;
+  failedGroups?: Array<{
+    statementId: string;
+    attempts: number;
+    nextRetryAt: string;
+    error: string;
+  }>;
+  nextRetryAt?: string;
 };
 
 export type SummarizeMinutesText = (input: {
@@ -596,7 +604,8 @@ function splitExtractiveCandidates(value: string): string[] {
     .filter(
       (sentence) =>
         sentence.length >= 10 &&
-        sentence.length <= 260 &&
+        sentence.length <= 599 &&
+        (sentence.match(/[가-힣]/g)?.length ?? 0) >= 10 &&
         !/^(?:이상입니다|감사합니다|다음 것 보여 주세요|PPT 좀 띄워 주세요)[.!?]?$/.test(
           sentence
         )
@@ -645,10 +654,14 @@ function formatExtractiveSelection(
   }
 
   if (summaryParts.length === 0) {
-    throw new Error("The source sentences exceeded the publication boundary.");
+    throw new NoPublishableMinutesSourceError();
   }
 
-  return summaryParts.join(" ");
+  const summary = summaryParts.join(" ");
+  if (!isPublishableExtractiveMinutesSummary(summary)) {
+    throw new NoPublishableMinutesSourceError();
+  }
+  return summary;
 }
 
 export function buildExtractiveMinutesSummary(
@@ -657,7 +670,7 @@ export function buildExtractiveMinutesSummary(
 ): string {
   const candidates = splitExtractiveCandidates(sourceText);
   if (candidates.length === 0) {
-    throw new Error("The source did not contain a publishable sentence.");
+    throw new NoPublishableMinutesSourceError();
   }
 
   const ranked = candidates
@@ -673,6 +686,26 @@ export function buildExtractiveMinutesSummary(
     .slice(0, Math.min(3, ranked.length))
     .sort((left, right) => left.index - right.index);
   return formatExtractiveSelection(selected);
+}
+
+export class NoPublishableMinutesSourceError extends Error {
+  constructor() {
+    super(
+      "The source did not contain a publishable sentence within 600 characters."
+    );
+    this.name = "NoPublishableMinutesSourceError";
+  }
+}
+
+// Extractive summaries can retain Latin text and names present in the source.
+// This same quality boundary is used at creation, reuse, and publication.
+export function isPublishableExtractiveMinutesSummary(value: string): boolean {
+  return (
+    value.length >= 10 &&
+    value.length <= 600 &&
+    (value.match(/[가-힣]/g)?.length ?? 0) >= 10 &&
+    /[.!?]$/.test(value)
+  );
 }
 
 export function isPublishableMinutesSummary(value: string): boolean {
@@ -963,7 +996,11 @@ export function buildMemberStatementSummaryExports(args: {
     }
 
     for (const summary of artifact.summaries) {
-      if (!isPublishableMinutesSummary(summary.summary)) {
+      if (
+        !(args.promptVersion === MINUTES_SUMMARY_PROMPT_VERSION
+          ? isPublishableExtractiveMinutesSummary(summary.summary)
+          : isPublishableMinutesSummary(summary.summary))
+      ) {
         continue;
       }
       summariesByMemberId.set(summary.memberId, [

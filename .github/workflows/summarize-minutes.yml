@@ -86,7 +86,8 @@ jobs:
         env:
           DATA_REPO_DIR: published-data
         run: |
-          if [ "$(npm run --silent summarize:minutes --workspace @lawmaker-monitor/ingest -- --check-pending)" = "true" ]; then
+          PENDING="$(npm run --silent summarize:minutes --workspace @lawmaker-monitor/ingest -- --check-pending)"
+          if [ "${PENDING}" = "true" ]; then
             echo "available=true" >> "${GITHUB_OUTPUT}"
           else
             echo "available=false" >> "${GITHUB_OUTPUT}"
@@ -151,6 +152,8 @@ jobs:
           exit 1
 
       - name: Summarize new member statements
+        id: summarize
+        continue-on-error: true
         if: steps.transcript-inputs.outputs.available == 'true'
         run: npm run summarize:minutes --workspace @lawmaker-monitor/ingest
         env:
@@ -179,7 +182,7 @@ jobs:
 
       - name: Commit and push summary changes
         if: >-
-          steps.transcript-inputs.outputs.available == 'true' &&
+          always() && steps.transcript-inputs.outputs.available == 'true' &&
           env.DATA_REPO != '' &&
           env.DATA_REPO_PAT != ''
         working-directory: published-data
@@ -193,6 +196,10 @@ jobs:
             exports/member_statement_summaries \
             exports/vote_minutes_opinions.json \
             manifests/minutes_summary_state.json
+
+      - name: Fail after preserving partial progress
+        if: always() && steps.summarize.outcome == 'failure'
+        run: exit 1
 
   retry-failed-summary:
     needs: summarize-minutes
