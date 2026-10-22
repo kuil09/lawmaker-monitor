@@ -16,8 +16,18 @@ model, or browser database is required.
    uncertain interval between these witnesses is excluded. This does not assign
    a definitive party-change date. Current-roster observations alone never
    establish affiliation on earlier voting dates.
-3. Peers: shared current committees, reelection label, and election type determine
-   the comparison order. Participation denominators include only public recorded
+3. Peers: the condition-distance view compares every other member in the same
+   assembly whose committee, reelection, and election-type conditions are known.
+   Committee difference is one minus the Jaccard overlap of the committee sets;
+   reelection and election-type differences are zero for a match and one otherwise.
+   The three equal-weight differences are averaged and multiplied by 100. Unknown
+   conditions are excluded from both extremes, not scored as different. The chart
+   positions represent distance and shared committee count; coincident members
+   are grouped with their full count. Both extremes disclose ties, displayed in
+   official-ID order, and every member is reachable through the group selector.
+   These are current roster conditions, independent of activity-period filters.
+   A separate expandable activity table retains the existing nearest-committee
+   cohort and its ranking. Participation denominators include only public recorded
    votes during each member's official tenure; missing records stay unknown.
 4. Cross-party voting: explicit yes/no/abstain choices, at least five shared votes
    in a topic while in different parties, and less than 95% consensus within the
