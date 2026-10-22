@@ -182,7 +182,7 @@ jobs:
 
       - name: Commit and push summary changes
         if: >-
-          always() && steps.transcript-inputs.outputs.available == 'true' &&
+          !cancelled() && steps.transcript-inputs.outputs.available == 'true' &&
           env.DATA_REPO != '' &&
           env.DATA_REPO_PAT != ''
         working-directory: published-data
@@ -198,7 +198,7 @@ jobs:
             manifests/minutes_summary_state.json
 
       - name: Fail after preserving partial progress
-        if: always() && steps.summarize.outcome == 'failure'
+        if: ${{ !cancelled() && steps.summarize.outcome == 'failure' }}
         run: exit 1
 
   retry-failed-summary:
