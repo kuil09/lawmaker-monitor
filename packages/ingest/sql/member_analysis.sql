@@ -16,7 +16,7 @@ SELECT DISTINCT * FROM read_json('analysis-input/activities.ndjson', format='new
  activityId:'VARCHAR', memberId:'VARCHAR', kind:'VARCHAR', date:'DATE', title:'VARCHAR', topic:'VARCHAR', voteCode:'VARCHAR', partyAtVote:'VARCHAR', sourceUrl:'VARCHAR', excerpt:'VARCHAR'
 });
 CREATE TEMP TABLE analysis_assets AS
-SELECT r.memberId, r.reportedAt::DATE AS reportedAt, r.currentAmount, r.deltaAmount, r.valueChangeAmount, f.sourceUrl
+SELECT r.memberId, r.reportedAt::DATE AS reportedAt, r.currentAmount, r.deltaAmount, r.valueChangeAmount, coalesce(f.downloadUrl,f.sourceUrl) AS sourceUrl
 FROM read_parquet('curated/asset_disclosure_records.parquet') r
 JOIN read_parquet('curated/asset_disclosures.parquet') f USING(disclosureFileId)
 WHERE r.memberId IS NOT NULL AND r.mappingStatus = 'matched';
@@ -102,4 +102,5 @@ COPY (
 
 COPY analysis_members TO 'curated/analysis_members.parquet' (FORMAT PARQUET,COMPRESSION ZSTD);
 COPY analysis_events TO 'curated/analysis_events.parquet' (FORMAT PARQUET,COMPRESSION ZSTD);
+COPY analysis_activities TO 'curated/analysis_activities.parquet' (FORMAT PARQUET,COMPRESSION ZSTD);
 COPY monthly_topics TO 'curated/analysis_monthly_topics.parquet' (FORMAT PARQUET,COMPRESSION ZSTD);

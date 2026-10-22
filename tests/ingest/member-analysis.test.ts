@@ -232,6 +232,7 @@ describe("member history analysis", () => {
             {
               __seed: true,
               disclosureFileId: "seed",
+              downloadUrl: "https://example.test/property.pdf",
               sourceUrl: "https://example.test/property"
             }
           ],

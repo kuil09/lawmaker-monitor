@@ -930,6 +930,7 @@ export const manifestSchema = z.object({
     assetDisclosureItems: datasetFileSchema.optional(),
     analysisMembers: datasetFileSchema.optional(),
     analysisEvents: datasetFileSchema.optional(),
+    analysisActivities: datasetFileSchema.optional(),
     analysisMonthlyTopics: datasetFileSchema.optional()
   }),
   exports: z.object({

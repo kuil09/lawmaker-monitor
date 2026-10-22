@@ -52,6 +52,7 @@ const files = {};
 for (const name of [
   "analysis_members",
   "analysis_events",
+  "analysis_activities",
   "analysis_monthly_topics"
 ]) {
   const path = `curated/${name}.parquet`;
@@ -76,6 +77,7 @@ try {
   const names = {
     analysis_members: "analysisMembers",
     analysis_events: "analysisEvents",
+    analysis_activities: "analysisActivities",
     analysis_monthly_topics: "analysisMonthlyTopics"
   };
   for (const [name, file] of Object.entries(files))

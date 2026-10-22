@@ -1,7 +1,8 @@
 # Member history analysis
 
 The analytical build uses the pinned, checksum-verified DuckDB 2.0.0 CLI. It
-publishes typed Parquet tables, a small directory, and one JSON document per
+publishes typed member, history-event, activity-fact, and monthly-topic Parquet
+tables, a small directory, and one JSON document per
 member. The website remains a static Pages application. No query server, paid
 model, or browser database is required.
 
