@@ -63,6 +63,11 @@ model, or browser database is required.
   the latest 500 activities per member; the screen shows 40 matching previews.
 - Statement counts cover collected, successfully exported minutes only. Missing
   minutes or unclassified careers do not mean inactivity or lack of experience.
+- An official temporary minutes viewer with an explicitly empty body and no
+  previously published transcript remains `pending_official_body`, counted in
+  the mirror run's `transcriptsPending`. It creates no empty transcript or zero
+  activity fact. Other parser failures, and regressions from a prior transcript,
+  still fail collection. Pending sources can be revisited when text is published.
 - The first/last activity dates describe the available activity range, not proof
   of complete coverage on every day. Before/after overlap days share this limit.
 
