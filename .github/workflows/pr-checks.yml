@@ -16,6 +16,7 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -43,8 +44,15 @@ jobs:
       - name: Run typecheck
         run: npm run typecheck
 
-      - name: Install browser for UI verification
-        run: npx playwright install --with-deps chromium
+      - name: Resolve browser for UI verification
+        timeout-minutes: 5
+        run: |
+          if command -v google-chrome >/dev/null 2>&1; then
+            echo "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(command -v google-chrome)" >> "${GITHUB_ENV}"
+            google-chrome --version
+          else
+            npx playwright install --with-deps chromium
+          fi
 
       - name: Run responsive browser flows
         run: npm run test:ui
