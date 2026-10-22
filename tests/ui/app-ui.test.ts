@@ -836,20 +836,29 @@ async function openMemberAnalysisFlow(viewportName: string): Promise<void> {
     await page.goto(`${appUrl}/#analysis?member=M001`, {
       waitUntil: "networkidle"
     });
-    await page
-      .getByRole("heading", { name: "경험이 활동으로 이어지는 시간" })
-      .waitFor();
+    await page.getByRole("heading", { name: "의원 이력·활동 분석" }).waitFor();
     for (const name of [
       "경력에서 활동으로",
       "이력과 활동 연표",
       "역할 변화 전후 90일",
-      "비슷한 조건의 의원과 비교",
+      "조건이 가까운 의원과 먼 의원",
       "정당을 가로지르는 표결 관계",
       "재산 신고와 공적 역할",
       "관심사의 흐름과 근거 기록"
     ]) {
       await page.getByRole("heading", { name, exact: true }).waitFor();
     }
+    await page
+      .locator(".condition-extreme")
+      .filter({ hasText: "가장 먼 조건" })
+      .getByRole("button", { name: /이수/ })
+      .click();
+    await expect
+      .poll(() => page.locator(".condition-selection").innerText())
+      .toContain("이수");
+    await page
+      .getByText("같은 위원회 의원의 활동 수치 보기", { exact: true })
+      .click();
     await expect
       .poll(() => page.locator(".analysis-career-claims").innerText())
       .toContain("전) 서울병원 의사");
@@ -915,7 +924,7 @@ async function openMemberAnalysisFlow(viewportName: string): Promise<void> {
       )
       .toBeLessThanOrEqual(1);
     await page
-      .getByRole("heading", { name: "경험이 활동으로 이어지는 시간" })
+      .getByRole("heading", { name: "의원 이력·활동 분석" })
       .scrollIntoViewIfNeeded();
     const screenshot = await saveScreenshot(
       page,

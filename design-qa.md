@@ -466,3 +466,64 @@ final result: passed
 - Deployment verification: GitHub Pages workflow `30690035412` completed successfully for `71fd03f` before production browser QA.
 
 final result: passed
+
+## Member analysis design QA (2026-10-23)
+
+Verified: 2026-10-23. Final result: passed.
+
+### Visual truth and scope
+
+Match the existing newspaper design of the deployed trends route. Preserve the
+analytical data and existing filters, and add the requested near/far condition
+visualization. This is a consistency review between different routes, not a
+pixel-identical recreation of the trends content.
+
+Local screenshots, captured through the in-app browser at CSS/pixel dimensions
+1280 × 720 for desktop and 390 × 844 for mobile, at 1× density:
+
+- Source: `.artifacts/design-alignment/01-existing-trends.jpg` and
+  `07-existing-trends-mobile.jpg`.
+- Previous analysis: `.artifacts/design-alignment/02-analysis-before.jpg`.
+- Final analysis: `.artifacts/design-alignment/04-analysis-after-desktop.jpg` and
+  `06-analysis-after-mobile.jpg`.
+- Focused distance view: `.artifacts/design-alignment/03-distance-desktop.jpg`
+  and `05-distance-mobile.jpg`.
+
+Source and result were opened together for full-view and focused comparisons.
+These use real published data; automated responsive flows use controlled fixtures.
+
+### Findings and fixes
+
+- P1, fixed: the new route used an independent green palette, sans-serif display
+  type, and a loose unframed introduction. Reused the editorial header and shared
+  paper/ink/lime tokens, aligned type hierarchy, rules, controls and data strip.
+- P1, fixed: comparison offered only a table of nearby committee peers. Added a
+  condition-distance distribution and both extremes, with tie counts, explicit
+  axes, grouped points, explanations and member navigation. The table remains
+  available as an expandable activity breakdown.
+- P2, fixed: mobile header padding was overridden by the shared route cascade.
+  Corrected specificity and retained a readable inset. Compact search controls
+  and horizontal member selection bring the main comparison into reach.
+- P2, fixed: Recharts placed a native blue focus outline around a mouse-target
+  group. Suppressed that internal non-keyboard target outline; equivalent
+  distance buttons retain the shared visible keyboard focus and 44px targets.
+
+Post-fix captures show serif headings, consistent paper/ink colors, restrained
+lime selections, square evidence surfaces and no viewport overflow. No new image
+assets were needed or fabricated. The existing masthead and native controls are
+preserved. Copy distinguishes condition distance from political agreement or
+performance, and missing conditions from dissimilarity.
+
+### Interaction and evidence limits
+
+- Real-data chart click selected the distance-100 group of 128 members.
+- A member action changed the analysis reference to Nam In-soon and loaded her
+  current committees and analysis. The back action restored the original member.
+- Shared filters and expandable activity records remain functional.
+- Automated flows cover mobile, tablet and desktop, including the farthest fixture
+  cohort, member switching, period and topic filtering, and overflow checks.
+- Distance tests cover symmetry, duplicate committees, complete differences,
+  incomplete conditions, cross-assembly exclusion, ties and grouped counts.
+- This review does not establish full screen-reader, device or contrast compliance.
+
+final result: passed

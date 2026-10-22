@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { MemberCareerConnections } from "./MemberCareerConnections.js";
+import { MemberConditionDistance } from "./MemberConditionDistance.js";
 import {
   loadMemberAnalysisDetail,
   loadMemberAnalysisIndex
 } from "../lib/data.js";
 import { formatDateTime } from "../lib/format.js";
 import { aggregatePeriodMetrics } from "../lib/member-analysis.js";
+import "../styles/v3-evidence.css";
 import "../styles/member-analysis.css";
 
 import type {
@@ -218,13 +220,22 @@ export function MemberAnalysisPage({ memberId }: { memberId: string | null }) {
     index?.members.find((item) => item.memberId === id);
 
   return (
-    <main className="app-shell member-analysis">
-      <header className="analysis-heading">
-        <p className="section-label">공개 이력과 의정활동</p>
-        <h1>경험이 활동으로 이어지는 시간</h1>
-        <p>
-          이력의 근거와 활동 기록을 같은 시간축에서 살펴보세요. 경력 분류와 의제
-          분류는 원문의 표현에 따른 탐색용 분류입니다.
+    <main className="v3-evidence-page member-analysis">
+      <header className="v3-page-header analysis-heading">
+        <div className="v3-page-header__copy">
+          <h1>의원 이력·활동 분석</h1>
+          <p>
+            어떤 경험을 가진 의원이 어떤 활동을 했을까요? 공개 약력과 의정활동을
+            같은 시간축에서 비교합니다.
+          </p>
+        </div>
+        <p className="v3-page-header__stamp">
+          <span>활동 수록 기간</span>
+          <strong>
+            {index
+              ? `${index.coverage.firstActivityDate ?? "미확인"} — ${index.coverage.lastActivityDate ?? "미확인"}`
+              : "자료 확인 중"}
+          </strong>
         </p>
       </header>
       {indexLoading ? (
@@ -246,25 +257,35 @@ export function MemberAnalysisPage({ memberId }: { memberId: string | null }) {
       ) : null}
       {index ? (
         <>
-          <div className="analysis-coverage">
-            <span>
-              활동 수록 {index.coverage.firstActivityDate ?? "미확인"} —{" "}
-              {index.coverage.lastActivityDate ?? "미확인"}
-            </span>
-            <span>
-              약력 분류 {index.coverage.careerMembers}/{index.coverage.members}
-              명 · 날짜가 있는 재임·위원회 이력 {index.coverage.datedRoles}건
-            </span>
-            <span>
-              발언 {index.coverage.statements.toLocaleString()}건 · 수집된
-              회의록 범위
-            </span>
+          <div className="analysis-coverage" aria-label="분석 자료 수록 범위">
+            <div>
+              <span>공식 약력 경력 분류</span>
+              <strong>
+                {index.coverage.careerMembers}
+                <small> / {index.coverage.members}명</small>
+              </strong>
+            </div>
+            <div>
+              <span>날짜가 있는 재임·위원회 이력</span>
+              <strong>
+                {index.coverage.datedRoles.toLocaleString()}
+                <small>건</small>
+              </strong>
+            </div>
+            <div>
+              <span>수집된 회의록의 발언</span>
+              <strong>
+                {index.coverage.statements.toLocaleString()}
+                <small>건</small>
+              </strong>
+            </div>
           </div>
           <div className="analysis-workspace">
             <aside className="analysis-directory" aria-label="분석할 의원 선택">
               <label>
                 의원·정당·지역 검색
                 <input
+                  placeholder="이름·정당·지역으로 찾기"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   type="search"
@@ -339,6 +360,91 @@ export function MemberAnalysisPage({ memberId }: { memberId: string | null }) {
                   ) : null}
                   {detail ? (
                     <>
+                      <section
+                        className="analysis-section"
+                        aria-labelledby="analysis-peers"
+                      >
+                        <h3 id="analysis-peers">
+                          조건이 가까운 의원과 먼 의원
+                        </h3>
+                        <MemberConditionDistance
+                          key={member.memberId}
+                          member={member}
+                          members={index.members}
+                          onChoose={chooseMember}
+                        />
+                        <details className="analysis-peer-table">
+                          <summary>같은 위원회 의원의 활동 수치 보기</summary>
+                          <p>
+                            현재 위원회가 겹치는 의원 중 선수·선출 방식이 가까운
+                            의원을 먼저 표시합니다. 선택한 기간의 각 의원 재임
+                            중 공개 표결 기준입니다. 의제·활동 필터는 이 표의
+                            참여율 분모를 바꾸지 않습니다.
+                          </p>
+                          <div className="analysis-scroll">
+                            <table>
+                              <caption>
+                                참여 가능한 표결 수를 반영한 비교
+                              </caption>
+                              <thead>
+                                <tr>
+                                  <th>의원·비교 조건</th>
+                                  <th>표결 참여율 (참여/대상)</th>
+                                  <th>확인 불가</th>
+                                  <th>대표발의</th>
+                                  <th>발언</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <th>{member.name} (선택)</th>
+                                  <MetricRow
+                                    metrics={aggregatePeriodMetrics(
+                                      detail.monthlyMetrics,
+                                      from,
+                                      to
+                                    )}
+                                  />
+                                </tr>
+                                {detail.peers.map((peer) => (
+                                  <tr key={peer.memberId}>
+                                    <th>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          chooseMember(peer.memberId)
+                                        }
+                                      >
+                                        {findMember(peer.memberId)?.name ??
+                                          peer.memberId}
+                                      </button>
+                                      <small>
+                                        위원회 {peer.sharedCommittees}개 공통
+                                        {peer.sameReelectionLabel
+                                          ? " · 같은 선수"
+                                          : ""}
+                                        {peer.sameElectionType
+                                          ? " · 같은 선출 방식"
+                                          : ""}
+                                      </small>
+                                    </th>
+                                    <MetricRow
+                                      metrics={aggregatePeriodMetrics(
+                                        peer.monthlyMetrics,
+                                        from,
+                                        to
+                                      )}
+                                    />
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          {!detail.peers.length ? (
+                            <p>같은 위원회에 속한 비교군이 없습니다.</p>
+                          ) : null}
+                        </details>
+                      </section>
                       <MemberCareerConnections
                         member={member}
                         detail={detail}
@@ -637,78 +743,6 @@ export function MemberAnalysisPage({ memberId }: { memberId: string | null }) {
                         ) : (
                           <p>비교할 수 있는 날짜가 있는 이력이 없습니다.</p>
                         )}
-                      </section>
-                      <section
-                        className="analysis-section"
-                        aria-labelledby="analysis-peers"
-                      >
-                        <h3 id="analysis-peers">비슷한 조건의 의원과 비교</h3>
-                        <p>
-                          현재 위원회가 겹치는 의원 중 선수·선출 방식이 가까운
-                          의원을 먼저 표시합니다. 선택한 기간의 각 의원 재임 중
-                          공개 표결 기준입니다. 의제·활동 필터는 이 표의 참여율
-                          분모를 바꾸지 않습니다.
-                        </p>
-                        <div className="analysis-scroll">
-                          <table>
-                            <caption>참여 가능한 표결 수를 반영한 비교</caption>
-                            <thead>
-                              <tr>
-                                <th>의원·비교 조건</th>
-                                <th>표결 참여율 (참여/대상)</th>
-                                <th>확인 불가</th>
-                                <th>대표발의</th>
-                                <th>발언</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr>
-                                <th>{member.name} (선택)</th>
-                                <MetricRow
-                                  metrics={aggregatePeriodMetrics(
-                                    detail.monthlyMetrics,
-                                    from,
-                                    to
-                                  )}
-                                />
-                              </tr>
-                              {detail.peers.map((peer) => (
-                                <tr key={peer.memberId}>
-                                  <th>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        chooseMember(peer.memberId)
-                                      }
-                                    >
-                                      {findMember(peer.memberId)?.name ??
-                                        peer.memberId}
-                                    </button>
-                                    <small>
-                                      위원회 {peer.sharedCommittees}개 공통
-                                      {peer.sameReelectionLabel
-                                        ? " · 같은 선수"
-                                        : ""}
-                                      {peer.sameElectionType
-                                        ? " · 같은 선출 방식"
-                                        : ""}
-                                    </small>
-                                  </th>
-                                  <MetricRow
-                                    metrics={aggregatePeriodMetrics(
-                                      peer.monthlyMetrics,
-                                      from,
-                                      to
-                                    )}
-                                  />
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                        {!detail.peers.length ? (
-                          <p>같은 위원회에 속한 비교군이 없습니다.</p>
-                        ) : null}
                       </section>
                       <section
                         className="analysis-section"
