@@ -182,3 +182,14 @@ export function buildPartyLineMoverChartData(
     })
     .slice(0, limit);
 }
+
+export function buildRecentWeekKeys(endDate: string): string[] {
+  const end = new Date(`${endDate}T00:00:00Z`);
+  const day = end.getUTCDay();
+  end.setUTCDate(end.getUTCDate() + (day === 0 ? -6 : 1 - day));
+  return Array.from({ length: 12 }, (_, index) => {
+    const date = new Date(end);
+    date.setUTCDate(date.getUTCDate() - (11 - index) * 7);
+    return date.toISOString().slice(0, 10);
+  });
+}

@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: read
       issues: write
     steps:
       - name: Checkout repository
@@ -20,10 +21,27 @@ jobs:
         with:
           build-target: schemas-and-ingest
 
+      - name: Download latest successful live snapshot
+        id: snapshot
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RUN_ID="$(gh run list --workflow ingest-live --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          test -n "${RUN_ID}" && test "${RUN_ID}" != "null"
+          gh run download "${RUN_ID}" --name raw-snapshot --dir artifacts/monitor-snapshot
+
       - name: Run source monitoring
         id: monitor
         continue-on-error: true
         shell: bash
+        env:
+          SOURCE_MONITOR_LIVE: "true"
+          SOURCE_SNAPSHOT_DIR: artifacts/monitor-snapshot
+          ASSEMBLY_API_KEY: ${{ secrets.ASSEMBLY_API_KEY }}
+          ASSEMBLY_FETCH_TIMEOUT_MS: "60000"
+          ASSEMBLY_FETCH_RETRIES: "3"
+          DATA_REPO_BASE_URL: ${{ vars.DATA_REPO_BASE_URL }}
         run: |
           set +e
           npm run monitor:sources --workspace @lawmaker-monitor/ingest > monitor-sources.log 2>&1

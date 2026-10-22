@@ -146,6 +146,9 @@ jobs:
           mkdir -p curated
           ~/.local/duckdb/duckdb :memory: -c ".read ../../packages/ingest/sql/materialize_parquet.sql"
 
+      - name: Finalize published file checksums
+        run: node scripts/finalize-data-manifest.mjs artifacts/build
+
       - name: Sync build outputs into public data repository
         if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
         run: |

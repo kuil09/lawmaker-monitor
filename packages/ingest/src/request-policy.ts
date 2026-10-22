@@ -47,7 +47,9 @@ export function isTransientRequestError(error: unknown): boolean {
   // Playwright sometimes serializes network codes into an Error message.
   return (
     error instanceof Error &&
-    /\b(ECONNRESET|ETIMEDOUT|ECONNREFUSED|EAI_AGAIN)\b/.test(error.message)
+    /\b(ECONNRESET|ETIMEDOUT|ECONNREFUSED|EAI_AGAIN)\b|(?:apiRequestContext\.(?:post|get): )?Timeout \d+ms exceeded/.test(
+      error.message
+    )
   );
 }
 

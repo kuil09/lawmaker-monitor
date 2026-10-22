@@ -8,7 +8,7 @@ function readRepositoryFile(path: string): string {
 }
 
 describe("incremental minutes workflows", () => {
-  it("mirrors only the Korean calendar date without historical backfill", () => {
+  it("overlaps recent dates and resumes bounded historical backfill", () => {
     const workflow = readRepositoryFile(
       ".github/workflows/mirror-documents.yml"
     );
@@ -28,7 +28,7 @@ describe("incremental minutes workflows", () => {
     expect(workflow).toContain(
       "MIRROR_RETRY_EXISTING_ONLY: ${{ inputs.retry_existing_only && 'true' || 'false' }}"
     );
-    expect(workflow).toContain('MIRROR_LATEST_DATE_ONLY: "true"');
+    expect(workflow).toContain('MIRROR_LATEST_DATE_ONLY: "false"');
     expect(workflow).toContain("Validate indexed minutes repair");
     expect(workflow).toContain("Validate indexed repair configuration");
     expect(workflow).toContain(

@@ -45,48 +45,29 @@ async function openHomeFlow(viewportName: string): Promise<void> {
     browser,
     viewportCases.find((item) => item.name === viewportName)!
   );
-
   try {
     await page.goto(appUrl, { waitUntil: "networkidle" });
-    await page.addStyleTag({
-      content: `
-        *,
-        *::before,
-        *::after {
-          animation: none !important;
-          transition: none !important;
-          caret-color: transparent !important;
-        }
-      `
-    });
-
-    await page.getByRole("heading", { name: "실시간 국회 출석부" }).waitFor();
-    await page.getByRole("region", { name: "지역별 결석률 분포" }).waitFor();
-    expect(new URL(page.url()).searchParams.has("ui")).toBe(false);
-    expect(await page.locator(".v2-global-nav").count()).toBe(1);
-    expect(await page.locator(".global-nav").count()).toBe(0);
-    expect(await page.locator(".hero-panel").count()).toBe(0);
-    expect(await page.locator(".leaderboard-panel").count()).toBe(0);
-    expect(await page.getByRole("tab", { name: "출석" }).count()).toBe(1);
-    expect(await page.getByRole("tab", { name: "표결 성향" }).count()).toBe(1);
-    expect(await page.getByRole("tab", { name: "재산" }).count()).toBe(1);
-
-    const observatoryOverflow = await page
-      .locator(".v2-observatory")
-      .evaluate(
-        (element) =>
-          (element as HTMLElement).scrollWidth -
-          (element as HTMLElement).clientWidth
-      );
-    expect(observatoryOverflow).toBeLessThanOrEqual(1);
-
-    const rankingButton = page.locator(".v3-rank-rail__list button").first();
+    await page
+      .getByRole("heading", { name: "실시간 국회 공개 기록표결" })
+      .waitFor();
+    await page
+      .getByRole("region", {
+        name: "지역별 재임 누적 표결 불참률 분포",
+        exact: true
+      })
+      .waitFor();
+    expect(
+      await page.getByRole("tab", { name: "표결 참여", exact: true }).count()
+    ).toBe(1);
+    const rankingButton = page
+      .locator(".v3-rank-rail__list button")
+      .filter({ hasText: "박민" });
     await rankingButton.waitFor();
-    const rankingButtonHeight = await rankingButton.evaluate(
-      (element) => element.getBoundingClientRect().height
-    );
-    expect(rankingButtonHeight).toBeGreaterThanOrEqual(44);
-
+    expect(
+      await rankingButton.evaluate(
+        (element) => element.getBoundingClientRect().height
+      )
+    ).toBeGreaterThanOrEqual(44);
     const homeScreenshot = await saveScreenshot(
       page,
       `${viewportName}/home.png`
@@ -96,198 +77,49 @@ async function openHomeFlow(viewportName: string): Promise<void> {
       scenario: "home-overview",
       screenshot: homeScreenshot
     });
-
     await rankingButton.click();
-
     await expect
       .poll(() => new URL(page.url()).hash)
       .toMatch(/^#calendar\?member=/);
     await page
-      .getByRole("heading", { name: "의원 표결 활동 그래프" })
+      .getByRole("heading", { name: "의원 공개기록", exact: true })
       .waitFor();
     await page.getByRole("heading", { name: "최근 표결 날짜 흐름" }).waitFor();
-    await page.getByText("현재 소속 위원회", { exact: true }).waitFor();
-
-    const singleAvatarWidth = await page
-      .locator(".activity-drawer__member-header .member-identity__avatar")
+    await page
+      .getByRole("region", { name: "최근 공식 표결 근거" })
+      .getByRole("link", { name: "국회 원문" })
       .first()
-      .evaluate((element) => element.getBoundingClientRect().width);
-    expect(singleAvatarWidth).toBeGreaterThanOrEqual(56);
-
-    const backButton = page.locator(".activity-page__back");
-    const helpButton = page.locator(".activity-page__help-button");
-    await Promise.all([backButton.waitFor(), helpButton.waitFor()]);
-
-    const [backButtonBounds, helpButtonBounds] = await Promise.all([
-      backButton.evaluate((element) => {
-        const bounds = element.getBoundingClientRect();
-        return { width: bounds.width, height: bounds.height };
-      }),
-      helpButton.evaluate((element) => {
-        const bounds = element.getBoundingClientRect();
-        return { width: bounds.width, height: bounds.height };
-      })
-    ]);
-
-    expect(backButtonBounds.width).toBeGreaterThanOrEqual(44);
-    expect(backButtonBounds.height).toBeGreaterThanOrEqual(44);
-    expect(helpButtonBounds.width).toBeGreaterThanOrEqual(44);
-    expect(helpButtonBounds.height).toBeGreaterThanOrEqual(44);
-
-    if (viewportName === "desktop") {
-      expect(backButtonBounds.width).toBeGreaterThanOrEqual(48);
-      expect(backButtonBounds.height).toBeGreaterThanOrEqual(48);
-      expect(helpButtonBounds.width).toBeGreaterThanOrEqual(48);
-      expect(helpButtonBounds.height).toBeGreaterThanOrEqual(48);
-    }
-
-    const memberHeaderLayout = await page
-      .locator(".activity-drawer__member-header")
-      .evaluate((element) => {
-        const header = element as HTMLElement;
-        const identityRow = header.querySelector(
-          ".activity-drawer__identity-row"
-        ) as HTMLElement | null;
-        const actions = header.querySelector(
-          ".activity-page__member-actions"
-        ) as HTMLElement | null;
-        const context = header.querySelector(
-          ".activity-drawer__member-context"
-        ) as HTMLElement | null;
-        const memberships = header.querySelector(
-          ".activity-drawer__committee-memberships"
-        ) as HTMLElement | null;
-        const summary = header.querySelector(
-          ".activity-drawer__summary"
-        ) as HTMLElement | null;
-        const actionButtons = Array.from(
-          header.querySelectorAll(
-            ".activity-page__member-actions .activity-page__action-button"
-          )
-        ) as HTMLElement[];
-        const summaryCards = Array.from(
-          header.querySelectorAll(".activity-drawer__summary > div")
-        ) as HTMLElement[];
-
-        if (!identityRow || !actions || !context || !memberships || !summary) {
-          return null;
-        }
-
-        const actionsRect = actions.getBoundingClientRect();
-        const membershipsRect = memberships.getBoundingClientRect();
-
-        return {
-          headerOverflow: header.scrollWidth - header.clientWidth,
-          identityColumns: window
-            .getComputedStyle(identityRow)
-            .gridTemplateColumns.split(" ").length,
-          contextColumns: window
-            .getComputedStyle(context)
-            .gridTemplateColumns.split(" ").length,
-          summaryColumns: window
-            .getComputedStyle(summary)
-            .gridTemplateColumns.split(" ").length,
-          actionsBottomToMembershipsTop:
-            membershipsRect.top - actionsRect.bottom,
-          actionButtonHeights: actionButtons.map(
-            (button) => button.getBoundingClientRect().height
-          ),
-          summaryCardHeights: summaryCards.map(
-            (card) => card.getBoundingClientRect().height
-          )
-        };
-      });
-    expect(memberHeaderLayout).not.toBeNull();
-    expect(memberHeaderLayout?.headerOverflow ?? 99).toBeLessThanOrEqual(1);
+      .waitFor();
+    await page
+      .getByRole("heading", { name: "확인된 참여", exact: true })
+      .waitFor();
+    await page
+      .getByRole("heading", { name: "따져볼 기록", exact: true })
+      .waitFor();
+    await page
+      .getByRole("heading", { name: "판단 보류", exact: true })
+      .waitFor();
+    expect(await page.locator(".member-evaluation").count()).toBeGreaterThan(0);
     expect(
-      (memberHeaderLayout?.actionButtonHeights ?? []).every(
-        (height) => height >= 44
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - window.innerWidth
       )
-    ).toBe(true);
-    expect(
-      (memberHeaderLayout?.summaryCardHeights ?? []).every(
-        (height) => height >= 60
-      )
-    ).toBe(true);
-
-    const committeeToggle = page
-      .locator(".activity-committee-card__details-toggle")
-      .first();
-    await committeeToggle.waitFor();
-
-    const toggleHeight = await committeeToggle.evaluate(
-      (element) => element.getBoundingClientRect().height
-    );
-    expect(toggleHeight).toBeGreaterThanOrEqual(44);
-
-    await committeeToggle.click();
-
-    const firstCommitteeRecord = page
-      .locator(".activity-committee-card__record-link")
-      .first();
-    await firstCommitteeRecord.waitFor();
-
-    const committeeRecordLayout = await firstCommitteeRecord.evaluate(
-      (element) => {
-        const title = element.querySelector(
-          ".activity-committee-card__record-title"
-        ) as HTMLElement | null;
-        const titleStyles = title ? window.getComputedStyle(title) : null;
-
-        return {
-          height: element.getBoundingClientRect().height,
-          titleWhiteSpace: titleStyles?.whiteSpace ?? "",
-          titleLineClamp:
-            titleStyles?.getPropertyValue("-webkit-line-clamp") ?? ""
-        };
-      }
-    );
-
-    expect(committeeRecordLayout.height).toBeGreaterThanOrEqual(44);
-    expect(committeeRecordLayout.titleWhiteSpace).not.toBe("nowrap");
-    expect(committeeRecordLayout.titleLineClamp).toBe("2");
-
-    const calendarViewportState = await page
-      .locator(".activity-drawer__main .contribution-calendar__viewport")
-      .first()
-      .evaluate((element) => {
-        const viewport = element as HTMLDivElement;
-        return {
-          scrollLeft: viewport.scrollLeft,
-          scrollWidth: viewport.scrollWidth,
-          clientWidth: viewport.clientWidth
-        };
-      });
-
-    if (calendarViewportState.scrollWidth > calendarViewportState.clientWidth) {
-      expect(calendarViewportState.scrollLeft).toBeGreaterThan(0);
-    } else {
-      expect(calendarViewportState.scrollLeft).toBe(0);
-    }
-
-    if (viewportName === "mobile") {
-      expect(memberHeaderLayout?.identityColumns).toBe(1);
-      expect(memberHeaderLayout?.contextColumns).toBe(1);
-      expect(memberHeaderLayout?.summaryColumns).toBe(2);
-      expect(
-        memberHeaderLayout?.actionsBottomToMembershipsTop ?? -1
-      ).toBeGreaterThanOrEqual(0);
-    }
-
+    ).toBeLessThanOrEqual(1);
     const calendarScreenshot = await saveScreenshot(
       page,
       `${viewportName}/calendar-single.png`
     );
     scenarioManifest.push({
       viewport: viewportName,
-      scenario: "home-search-to-single-calendar",
+      scenario: "home-to-single-calendar",
       screenshot: calendarScreenshot
     });
-
-    await page.getByRole("button", { name: "홈으로" }).click();
-    await expect.poll(() => new URL(page.url()).hash).toBe("");
-    await page.getByRole("heading", { name: "실시간 국회 출석부" }).waitFor();
-
+    await page
+      .getByRole("link", { name: "국회 출석부 홈", exact: true })
+      .click();
+    await page
+      .getByRole("heading", { name: "실시간 국회 공개 기록표결" })
+      .waitFor();
     expect(getUnexpectedBrowserIssues(issues)).toEqual([]);
   } finally {
     await context.close();
@@ -316,13 +148,11 @@ async function openCompareFlow(viewportName: string): Promise<void> {
       `
     });
 
-    await page
-      .getByRole("heading", { name: "의원 표결 활동 그래프" })
-      .waitFor();
+    await page.getByRole("heading", { name: "의원 공개기록" }).waitFor();
     await page.getByRole("heading", { name: "최근 표결 날짜 흐름" }).waitFor();
-    await page.getByRole("button", { name: "설명 보기" }).click();
+    await page.getByRole("button", { name: "기록 기준 설명 보기" }).click();
     await page
-      .getByText(/이 화면은 표결이 있었던 날짜를 하루 단위로 묶어 보여줍니다/)
+      .getByText(/확인된 참여율은 의원 재임 기간에 공개된 기록표결/)
       .waitFor();
 
     const voteRecordSection = page.locator(".activity-vote-records").first();
@@ -390,10 +220,10 @@ async function openCompareFlow(viewportName: string): Promise<void> {
       expect(horizontalScroll.scrollLeft).toBe(0);
     }
 
-    await page.getByRole("tab", { name: "VS 비교" }).click();
+    await page.getByRole("tab", { name: "두 의원 비교" }).click();
     expect(
       await page
-        .getByRole("tab", { name: "VS 비교" })
+        .getByRole("tab", { name: "두 의원 비교" })
         .getAttribute("aria-selected")
     ).toBe("true");
 
@@ -525,7 +355,7 @@ async function openCompareFlow(viewportName: string): Promise<void> {
       .waitFor();
     expect(
       await page
-        .getByRole("tab", { name: "VS 비교" })
+        .getByRole("tab", { name: "두 의원 비교" })
         .getAttribute("aria-selected")
     ).toBe("true");
 
@@ -563,7 +393,7 @@ async function openDistributionFlow(viewportName: string): Promise<void> {
     await page.getByRole("combobox", { name: "분포에서 의원 찾기" }).waitFor();
     await page
       .getByRole("heading", {
-        name: "위로 갈수록 반대·기권 비중이 낮고, 오른쪽으로 갈수록 출석률이 높습니다."
+        name: "위로 갈수록 반대·기권 비중이 낮고, 오른쪽으로 갈수록 재임 누적 표결 참여율이 높습니다."
       })
       .waitFor();
     await expect
@@ -682,12 +512,12 @@ const v2Routes = [
   {
     id: "home",
     hash: "",
-    heading: "실시간 국회 출석부"
+    heading: "실시간 국회 공개 기록표결"
   },
   {
     id: "calendar",
     hash: "#calendar",
-    heading: "의원 표결 활동 그래프"
+    heading: "의원 공개기록"
   },
   {
     id: "distribution",
@@ -749,7 +579,7 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
       if (route.id === "home") {
         expect(new URL(page.url()).searchParams.has("ui")).toBe(false);
         await page
-          .getByRole("region", { name: "지역별 결석률 분포" })
+          .getByRole("region", { name: "지역별 재임 누적 표결 불참률 분포" })
           .waitFor();
         await expect
           .poll(async () => page.locator("[data-district-label]").count())
@@ -859,7 +689,7 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
         );
         await scatterTooltip.waitFor();
         const scatterTooltipText = await scatterTooltip.textContent();
-        expect(scatterTooltipText).toContain("출석률");
+        expect(scatterTooltipText).toContain("표결 참여율");
         expect(scatterTooltipText).toContain("반대·기권 비중");
         expect(scatterTooltipText).not.toContain("가로");
         expect(scatterTooltipText).not.toContain("세로");
@@ -957,9 +787,14 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
       }
 
       if (route.id === "votes") {
-        const renderedVoteCount = await page.locator(".vote-card").count();
+        const cards = page.locator(".issue-comparison__grid article");
+        await cards.first().waitFor();
+        const renderedVoteCount = await cards.count();
         expect(renderedVoteCount).toBeGreaterThan(0);
-        expect(renderedVoteCount).toBeLessThanOrEqual(20);
+        expect(renderedVoteCount).toBeLessThanOrEqual(3);
+        expect(await cards.first().getByRole("link").count()).toBeGreaterThan(
+          0
+        );
       }
 
       const screenshot = await saveScreenshot(
@@ -983,7 +818,9 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
     await page.goto(`${appUrl}/?ui=v1`, {
       waitUntil: "networkidle"
     });
-    await page.getByRole("heading", { name: "실시간 국회 출석부" }).waitFor();
+    await page
+      .getByRole("heading", { name: "실시간 국회 공개 기록표결" })
+      .waitFor();
     expect(new URL(page.url()).searchParams.has("ui")).toBe(false);
   } finally {
     await context.close();

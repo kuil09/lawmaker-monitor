@@ -2659,10 +2659,13 @@ export function shouldReuseExistingBackfillDocument(args: {
   hasExistingMetadata: boolean;
   hasFreshTranscript: boolean;
   rawMatchesMetadata: boolean;
+  recentlyChecked?: boolean;
 }): boolean {
   return (
     args.mode === "assembly_minutes_catalog" &&
-    (args.skipRecent || args.retryExistingOnly === true) &&
+    (args.skipRecent ||
+      args.retryExistingOnly === true ||
+      args.recentlyChecked === true) &&
     args.workItemKind === "discovered" &&
     args.hasExistingMetadata &&
     args.hasFreshTranscript &&
@@ -2758,6 +2761,27 @@ async function main(): Promise<void> {
     stateFile,
     null
   );
+  // Recover from same-day-only runs, which cleared the historical cursor.
+  if (
+    config.mode === "assembly_minutes_catalog" &&
+    !config.retryExistingOnly &&
+    !config.latestDateOnly &&
+    !config.backfillCursorOverride &&
+    !existingState?.nextBackfillCursorDate
+  ) {
+    const latestDate = existingIndex.items
+      .map((item) => item.publishedDate)
+      .sort()
+      .at(-1);
+    if (latestDate) {
+      config.backfillCursorOverride = [
+        config.backfillStartDate,
+        shiftIsoDate(latestDate, 1)
+      ]
+        .sort()
+        .at(-1);
+    }
+  }
   const existingMetadata = await loadExistingMetadata(
     config.dataRepoDir,
     existingIndex
@@ -2939,7 +2963,12 @@ async function main(): Promise<void> {
           !isAssemblyMinutesViewerUrl(candidate.sourceUrl) ||
           existingCandidateMetadata?.transcriptParserVersion ===
             ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION,
-        rawMatchesMetadata
+        rawMatchesMetadata,
+        recentlyChecked: Boolean(
+          existingCandidateMetadata &&
+          Date.parse(existingCandidateMetadata.lastMirroredAt) >
+            now.getTime() - 7 * 86_400_000
+        )
       })
     ) {
       unchangedCount += 1;
@@ -2956,6 +2985,21 @@ async function main(): Promise<void> {
     });
   }
 
+  pendingWorkItems.sort((left, right) => {
+    const leftMetadata = left.candidate.documentId
+      ? updatedMetadataByDocumentId.get(left.candidate.documentId)
+      : undefined;
+    const rightMetadata = right.candidate.documentId
+      ? updatedMetadataByDocumentId.get(right.candidate.documentId)
+      : undefined;
+    return (
+      Number(right.blocksBackfillCursorOnDownloadFailure) -
+        Number(left.blocksBackfillCursorOnDownloadFailure) ||
+      (leftMetadata?.lastMirroredAt ?? "").localeCompare(
+        rightMetadata?.lastMirroredAt ?? ""
+      )
+    );
+  });
   const selectedWorkItems = pendingWorkItems.slice(0, config.maxDownloads);
   const reachedDownloadLimit = pendingWorkItems
     .slice(config.maxDownloads)
@@ -3155,6 +3199,11 @@ async function main(): Promise<void> {
   await writeJsonFile(stateFile, state);
 
   process.stdout.write(`${JSON.stringify(state, null, 2)}\n`);
+  if (downloadFailures > 0 || transcriptFailures > 0) {
+    throw new Error(
+      `Mirror preserved partial progress with ${downloadFailures} download failures and ${transcriptFailures} transcript failures.`
+    );
+  }
 }
 
 if (

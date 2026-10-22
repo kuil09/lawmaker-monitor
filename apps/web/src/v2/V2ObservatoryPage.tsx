@@ -27,7 +27,10 @@ import {
   type ProportionalComparisonItem
 } from "../components/ProportionalMemberComparison.js";
 import { WatchQueueSnapshot } from "../components/WatchQueueSnapshot.js";
-import { buildWeeklyTrendChartData } from "../lib/charts.js";
+import {
+  buildRecentWeekKeys,
+  buildWeeklyTrendChartData
+} from "../lib/charts.js";
 import { convertThousandWonToEok, formatShortDate } from "../lib/format.js";
 import { getPartyCssColor } from "../lib/geo-utils.js";
 import { calculateDebtRatio } from "../lib/member-assets.js";
@@ -240,11 +243,7 @@ function buildAttendanceTrend(
     memberWeeks.set(member.memberId, weeks);
   }
 
-  const weekKeys = [
-    ...new Set([...memberWeeks.values()].flatMap((weeks) => [...weeks.keys()]))
-  ]
-    .sort()
-    .slice(-12);
+  const weekKeys = buildRecentWeekKeys(calendar.assembly.endDate);
 
   return weekKeys.map((weekKey) => {
     const rates = [...memberWeeks.values()].flatMap((weeks) => {
@@ -1018,7 +1017,7 @@ export function V2ObservatoryPage({
                 />
                 <Tooltip
                   cursor={{ strokeDasharray: "3 3" }}
-                  wrapperStyle={{ pointerEvents: "auto" }}
+                  wrapperStyle={{ pointerEvents: "none" }}
                   content={
                     <ScatterTooltipContent
                       config={config}
@@ -1187,7 +1186,7 @@ export function V2ObservatoryPage({
                       tickLine={false}
                     />
                     <Tooltip
-                      wrapperStyle={{ pointerEvents: "auto" }}
+                      wrapperStyle={{ pointerEvents: "none" }}
                       content={
                         <AssetComparisonTooltipContent
                           config={config}

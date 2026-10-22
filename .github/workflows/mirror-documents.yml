@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       max_downloads:
-        description: Maximum same-day documents to process
+        description: Maximum documents to process in one bounded batch
         required: false
         default: "20"
         type: string
@@ -63,7 +63,11 @@ jobs:
       MIRROR_TIMEOUT_MS: "60000"
       MIRROR_TIME_ZONE: ${{ vars.MIRROR_TIME_ZONE }}
       MIRROR_RETRY_EXISTING_ONLY: ${{ inputs.retry_existing_only && 'true' || 'false' }}
-      MIRROR_LATEST_DATE_ONLY: "true"
+      MIRROR_LATEST_DATE_ONLY: "false"
+      MIRROR_RECENT_DAYS: "30"
+      MIRROR_MIN_RECENT_DAYS: "30"
+      MIRROR_BACKFILL_DAYS: "7"
+      MIRROR_BACKFILL_WINDOWS_PER_RUN: "1"
       MIRROR_INCLUDE_APPENDICES: "false"
     steps:
       - name: Checkout repository
@@ -109,6 +113,8 @@ jobs:
           fi
 
       - name: Mirror public documents into data repository
+        id: mirror
+        continue-on-error: true
         if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
         run: npm run mirror:documents --workspace @lawmaker-monitor/ingest
         env:
@@ -154,6 +160,10 @@ jobs:
             .pendingExistingRetry == false and
             (.downloadFailures // 0) == 0
           ' published-data/manifests/document_mirror_state.json
+
+      - name: Fail after preserving mirror progress
+        if: always() && steps.mirror.outcome == 'failure'
+        run: exit 1
 
       - name: Start minutes summaries
         if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''

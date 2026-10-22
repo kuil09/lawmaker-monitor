@@ -1014,3 +1014,15 @@
     min-height: 44px;
   }
 }
+
+.v2-trend-card .v2-card-heading {
+  flex-wrap: wrap;
+}
+
+.v2-trend-card .v2-card-heading > div {
+  flex: 1 1 15rem;
+}
+
+.v2-chart-tooltip a {
+  pointer-events: auto;
+}

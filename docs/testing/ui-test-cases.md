@@ -21,7 +21,7 @@ This suite verifies the main public user flows with deterministic fixture data, 
 ### 1. Home Overview
 
 - Open the home route with the published fixture set.
-- Verify the briefing header, leaderboard heading, trend section, and feed controls are visible.
+- Verify the public vote briefing, ranking rail, trend section, and feed controls are visible.
 - Capture `.artifacts/ui/<viewport>/home.png`.
 
 ### 2. Search To Single-Member Calendar
@@ -42,7 +42,7 @@ This suite verifies the main public user flows with deterministic fixture data, 
 
 ### 4. Compare View
 
-- Switch from `개인 분석` to `VS 비교`.
+- Switch from `공개기록` to `두 의원 비교`.
 - Select a second member in the compare search field.
 - Verify the compare summary and both member identities are visible.
 - Open the fixture compare deep link directly and verify the compare tab remains selected.

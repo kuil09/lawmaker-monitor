@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildRecentWeekKeys,
   buildPartyLineMoverChartData,
   buildPartyLineTrendChartData,
   buildWeeklyTrendChartData
@@ -157,4 +158,16 @@ describe("weekly trend chart data", () => {
       deltaRate: 0.5
     });
   });
+});
+
+it("keeps exactly twelve consecutive weeks including weeks without votes", () => {
+  const weeks = buildRecentWeekKeys("2026-10-02");
+  expect(weeks).toHaveLength(12);
+  expect(weeks[0]).toBe("2026-07-13");
+  expect(weeks.at(-1)).toBe("2026-09-28");
+  for (let index = 1; index < weeks.length; index++) {
+    expect(Date.parse(weeks[index]!) - Date.parse(weeks[index - 1]!)).toBe(
+      7 * 86400000
+    );
+  }
 });
