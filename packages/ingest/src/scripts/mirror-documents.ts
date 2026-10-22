@@ -2306,7 +2306,7 @@ async function downloadAssemblyMinutesSearchFallback(args: {
   };
 }
 
-async function mirrorCandidate(
+export async function mirrorCandidate(
   candidate: MirrorCandidate,
   config: MirrorConfig,
   api: APIRequestContext,
@@ -2451,6 +2451,7 @@ async function mirrorCandidate(
         }
       : undefined;
   const metadata: MirroredDocumentMetadata = {
+    ...existingMetadata,
     documentId,
     sourceId: config.sourceId,
     sourceUrl: candidate.sourceUrl,
@@ -2479,7 +2480,7 @@ async function mirrorCandidate(
   };
 }
 
-async function mirrorAssemblyMinutesTranscript(args: {
+export async function mirrorAssemblyMinutesTranscript(args: {
   candidate: MirrorCandidate;
   config: MirrorConfig;
   metadata: MirroredDocumentMetadata;
