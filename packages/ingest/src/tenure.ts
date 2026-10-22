@@ -28,6 +28,13 @@ function isDateWithinPeriod(date: string, period: MemberTenurePeriod): boolean {
   return true;
 }
 
+export function isDateWithinTenure(
+  date: string,
+  periods: MemberTenurePeriod[]
+): boolean {
+  return periods.some((period) => isDateWithinPeriod(date, period));
+}
+
 function getTenureCandidates(
   currentMembers: MemberRecord[],
   tenure: MemberTenureRecord

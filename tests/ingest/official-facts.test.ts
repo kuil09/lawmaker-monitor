@@ -209,6 +209,45 @@ function buildMeeting(args: {
 }
 
 describe("official vote fact completion", () => {
+  it("preserves the source party through vote completion without treating a roster fallback as historical", () => {
+    const source = buildVoteSource({
+      billId: "PRC_PARTY_SOURCE",
+      billNo: "2201000",
+      date: "2026-02-01",
+      voteCode: "yes",
+      member: lee
+    });
+    const rollCallId = `${buildMeetingId({ assemblyNo: 22, sessionNo: 0, meetingNo: 0, meetingDate: "2026-02-01" })}:${source.summary.billId}`;
+    const merged = mergeOfficialVoteFacts({
+      members: [lee, kim],
+      rollCalls: [],
+      voteFacts: [
+        {
+          rollCallId,
+          memberId: lee.memberId,
+          memberName: lee.name,
+          party: "원문 정당",
+          recordedParty: "원문 정당",
+          voteCode: "yes",
+          publishedAt: "2026-02-01",
+          retrievedAt: "2026-08-02T00:00:00Z",
+          sourceHash: "source-party"
+        }
+      ],
+      summaries: [source.summary],
+      voteMemberListPayloads: [{ entry: source.entry, html: source.html }],
+      assemblyNo: 22,
+      snapshotId: "party-fixture",
+      snapshotRetrievedAt: "2026-08-02T00:00:00Z",
+      tenureIndex
+    });
+    expect(
+      merged.voteFacts.find((row) => row.memberId === lee.memberId)
+    ).toMatchObject({ recordedParty: "원문 정당" });
+    expect(
+      merged.voteFacts.find((row) => row.memberId === kim.memberId)
+    ).toMatchObject({ voteCode: "absent", recordedParty: null });
+  });
   it("restores a newly seated member's explicit votes and marks only recorded-vote nonparticipation as absent", () => {
     const sources = [
       buildVoteSource({

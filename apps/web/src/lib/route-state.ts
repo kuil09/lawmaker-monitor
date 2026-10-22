@@ -25,6 +25,7 @@ export type RouteState =
     }
   | { route: "votes" }
   | { route: "trends" }
+  | { route: "analysis"; memberId: string | null }
   | {
       route: "map";
       province: string | null;
@@ -65,6 +66,9 @@ export function parseHashRoute(hash: string): RouteState {
     return { route: "trends" };
   }
 
+  if (path === "analysis")
+    return { route: "analysis", memberId: params.get("member") };
+
   if (path === "map") {
     const mapRoute = parseMapRoute(params);
     return {
@@ -97,6 +101,8 @@ export function buildHashForRoute(routeState: RouteState): string {
       return "votes";
     case "trends":
       return "trends";
+    case "analysis":
+      return `analysis${routeState.memberId ? `?member=${encodeURIComponent(routeState.memberId)}` : ""}`;
     case "map":
       return buildMapHash({
         province: routeState.province,

@@ -18,6 +18,7 @@ import {
   serializePublishedJson,
   type NormalizedDatasetMetadata
 } from "../exports.js";
+import { writeMemberAnalysisInputs } from "../member-analysis.js";
 import { collectMemberSponsorshipAccounts } from "../member-sponsorship-accounts.js";
 import {
   DEFAULT_PROPERTY_DOCUMENT_INDEX_PATH,
@@ -247,6 +248,16 @@ export async function publishBuildOutputs(args: {
     memory
   );
   memory("write-bundle:end");
+
+  await writeMemberAnalysisInputs({
+    outputDir: args.runtimeConfig.outputDir,
+    dataRepoDir: args.runtimeConfig.dataRepoDir,
+    bundle: args.normalized.bundle,
+    billProposals: args.normalized.billProposals,
+    tenureIndex: args.normalized.tenureIndex,
+    snapshotId: args.normalized.snapshotId,
+    ...args.normalized.analysisHistory
+  });
 
   memory("exports:start");
   const latestVotes = validateLatestVotesExport(

@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-03-22T11:45:00+09:00",
+  "snapshotId": "fixture-snapshot-20260322-114500",
+  "engineVersion": "v2.0.0",
+  "coverage": {
+    "members": 3,
+    "careerMembers": 2,
+    "datedRoles": 3,
+    "statements": 0,
+    "firstActivityDate": "2026-03-01",
+    "lastActivityDate": "2026-03-22"
+  },
+  "members": [
+    {
+      "personId": "assembly-person:M001",
+      "memberId": "M001",
+      "assemblyNo": 22,
+      "name": "김아라",
+      "party": "미래개혁당",
+      "district": "서울 중구",
+      "proportionalFlag": false,
+      "reelectionLabel": "초선",
+      "committees": ["과학기술정보방송통신위원회", "예산결산특별위원회"],
+      "careerClaims": [
+        {
+          "category": "medicine",
+          "label": "의료",
+          "evidence": "2010~2012 전) 서울병원 의사",
+          "sourceUrl": "https://example.test/profile/M001",
+          "startDate": "2010-01-01",
+          "endDate": "2012-12-31",
+          "precision": "year",
+          "dateBasis": "stated_period",
+          "dateText": "2010~2012"
+        }
+      ],
+      "sourceUrl": "https://www.assembly.go.kr/members/22nd/KIMARA",
+      "detailPath": "exports/member_analysis/M001.json"
+    },
+    {
+      "personId": "assembly-person:M002",
+      "memberId": "M002",
+      "assemblyNo": 22,
+      "name": "박민",
+      "party": "미래개혁당",
+      "district": "부산 남구",
+      "proportionalFlag": false,
+      "reelectionLabel": "재선",
+      "committees": ["법제사법위원회", "예산결산특별위원회"],
+      "careerClaims": [
+        {
+          "category": "law",
+          "label": "법률",
+          "evidence": "전) 공익 변호사",
+          "sourceUrl": "https://example.test/profile/M002",
+          "startDate": null,
+          "endDate": null,
+          "precision": "unknown"
+        }
+      ],
+      "sourceUrl": "https://www.assembly.go.kr/members/22nd/PARKMIN",
+      "detailPath": "exports/member_analysis/M002.json"
+    },
+    {
+      "personId": "assembly-person:M003",
+      "memberId": "M003",
+      "assemblyNo": 22,
+      "name": "이수",
+      "party": "시민녹색당",
+      "district": "비례대표",
+      "proportionalFlag": true,
+      "reelectionLabel": "초선",
+      "committees": ["환경노동위원회"],
+      "careerClaims": [],
+      "sourceUrl": "https://www.assembly.go.kr/members/22nd/LEESU",
+      "detailPath": "exports/member_analysis/M003.json"
+    }
+  ]
+}

@@ -130,21 +130,22 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.local/duckdb
-          key: duckdb-cli-v1.1.3-linux-amd64
+          key: duckdb-cli-v2.0.0-linux-amd64-c6507206
 
       - name: Install DuckDB CLI
         if: steps.duckdb-cache.outputs.cache-hit != 'true'
-        run: |
-          curl -L https://github.com/duckdb/duckdb/releases/download/v1.1.3/duckdb_cli-linux-amd64.zip -o duckdb.zip
-          mkdir -p ~/.local/duckdb
-          unzip duckdb.zip -d ~/.local/duckdb
-          chmod +x ~/.local/duckdb/duckdb
+        run: bash scripts/install-duckdb.sh "${HOME}/.local/duckdb"
 
       - name: Materialize Parquet datasets
         working-directory: artifacts/build
         run: |
           mkdir -p curated
-          ~/.local/duckdb/duckdb :memory: -c ".read ../../packages/ingest/sql/materialize_parquet.sql"
+          ~/.local/duckdb/duckdb -no-agent :memory: -c ".read ../../packages/ingest/sql/materialize_parquet.sql"
+
+      - name: Build and validate member history analyses
+        run: node scripts/build-member-analysis.mjs artifacts/build
+        env:
+          DUCKDB_BIN: /home/runner/.local/duckdb/duckdb
 
       - name: Finalize published file checksums
         run: node scripts/finalize-data-manifest.mjs artifacts/build

@@ -41,6 +41,11 @@ jobs:
       - name: Run test suite
         run: npm test
 
+      - name: Install verified DuckDB 2.0 and test analytical contracts
+        run: |
+          bash scripts/install-duckdb.sh "${RUNNER_TEMP}/duckdb"
+          DUCKDB_BIN="${RUNNER_TEMP}/duckdb/duckdb" npx vitest run tests/ingest/member-analysis.test.ts
+
       - name: Run typecheck
         run: npm run typecheck
 

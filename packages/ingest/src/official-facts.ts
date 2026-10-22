@@ -243,6 +243,18 @@ export function mergeOfficialVoteFacts(args: {
   tenureIndex: MemberTenureIndex;
 }): OfficialVoteMergeResult {
   const resolver = buildCurrentMemberResolvers(args.members, args.tenureIndex);
+  const recordedParties = new Map<string, string | null>();
+  for (const fact of args.voteFacts) {
+    if (!fact.memberId || !fact.recordedParty) continue;
+    const key = `${fact.rollCallId}|${fact.memberId}`;
+    recordedParties.set(
+      key,
+      recordedParties.has(key) &&
+        recordedParties.get(key) !== fact.recordedParty
+        ? null
+        : fact.recordedParty
+    );
+  }
   const summariesByBillId = new Map(
     args.summaries.map((summary) => [summary.billId, summary])
   );
@@ -355,6 +367,9 @@ export function mergeOfficialVoteFacts(args: {
         memberId: member.memberId,
         memberName: member.name,
         party: member.party,
+        recordedParty:
+          recordedParties.get(`${rollCall.rollCallId}|${member.memberId}`) ??
+          null,
         voteCode: record.voteCode,
         publishedAt: info.voteDate,
         retrievedAt: entry.retrievedAt,
@@ -434,6 +449,7 @@ export function mergeOfficialVoteFacts(args: {
         memberId: member.memberId,
         memberName: member.name,
         party: member.party,
+        recordedParty: null,
         voteCode: "absent",
         publishedAt: rollCall.voteDatetime,
         retrievedAt: args.snapshotRetrievedAt,

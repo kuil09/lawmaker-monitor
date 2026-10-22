@@ -35,6 +35,7 @@ import {
 import {
   ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION,
   isOfficialAssemblyMinutesViewerUrl,
+  isPendingAssemblyMinutesViewerHtml,
   parseAssemblyMinutesViewerHtml
 } from "../minutes-transcript.js";
 import {
@@ -2487,6 +2488,7 @@ async function mirrorAssemblyMinutesTranscript(args: {
 }): Promise<{
   metadata: MirroredDocumentMetadata;
   written: boolean;
+  pending?: boolean;
 }> {
   const downloaded = args.downloaded;
   if (!downloaded.contentType.toLowerCase().includes("html")) {
@@ -2503,6 +2505,23 @@ async function mirrorAssemblyMinutesTranscript(args: {
     html: downloaded.body.toString("utf8")
   });
   if (transcript.statements.length === 0) {
+    if (
+      !args.metadata.transcriptRelativePath &&
+      isPendingAssemblyMinutesViewerHtml(downloaded.body.toString("utf8"))
+    ) {
+      const metadata: MirroredDocumentMetadata = {
+        ...args.metadata,
+        sourceMetadata: {
+          ...args.metadata.sourceMetadata,
+          transcriptAvailability: "pending_official_body"
+        }
+      };
+      await writeJsonFile(
+        join(args.config.dataRepoDir, metadata.metadataRelativePath),
+        metadata
+      );
+      return { metadata, written: false, pending: true };
+    }
     throw new Error(
       `Assembly minutes viewer returned no member statements for ${args.metadata.documentId}.`
     );
@@ -2568,7 +2587,11 @@ async function mirrorAssemblyMinutesTranscript(args: {
     transcriptContentSha256,
     transcriptStatementCount: transcript.statements.length,
     transcriptParserVersion: ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION,
-    transcriptVersions
+    transcriptVersions,
+    sourceMetadata: {
+      ...args.metadata.sourceMetadata,
+      transcriptAvailability: "available"
+    }
   };
   await writeJsonFile(
     join(args.config.dataRepoDir, metadata.metadataRelativePath),
@@ -2904,6 +2927,7 @@ async function main(): Promise<void> {
   let downloadFailures = 0;
   let transcriptsWritten = 0;
   let transcriptFailures = 0;
+  let transcriptsPending = 0;
   type PendingWorkItem = (typeof workItems)[number] & {
     blocksBackfillCursorOnDownloadFailure: boolean;
   };
@@ -3040,6 +3064,7 @@ async function main(): Promise<void> {
               downloaded: outcome.downloaded
             });
             mirroredMetadata = transcriptOutcome.metadata;
+            if (transcriptOutcome.pending) transcriptsPending += 1;
             if (transcriptOutcome.written) {
               transcriptsWritten += 1;
             }
@@ -3160,6 +3185,7 @@ async function main(): Promise<void> {
     skippedWithoutDate,
     downloadFailures,
     transcriptsWritten,
+    transcriptsPending,
     transcriptFailures,
     lastStartUrl: config.startUrl,
     recentWindowStartDate,

@@ -46,6 +46,9 @@ function navigateFromV2(
   target: Exclude<RouteState["route"], "home">
 ) {
   switch (target) {
+    case "analysis":
+      routing.navigate({ route: "analysis", memberId: null });
+      return;
     case "calendar":
       routing.navigateToCalendar();
       return;
@@ -78,7 +81,9 @@ function useRouteAccessibility(route: RouteState) {
               ? "쟁점·표결"
               : route.route === "trends"
                 ? "변화 전후"
-                : "지역 감시";
+                : route.route === "analysis"
+                  ? "이력·활동"
+                  : "지역 감시";
 
     document.title = `${pageLabel} · 국회 출석부`;
     const shouldMoveFocus =

@@ -15,6 +15,10 @@ import {
   manifestSchema,
   voteMinutesOpinionsExportSchema
 } from "@lawmaker-monitor/schemas";
+import {
+  memberAnalysisIndexSchema,
+  memberAnalysisDetailSchema
+} from "@lawmaker-monitor/schemas";
 
 import type {
   AccountabilitySummaryExport,
@@ -46,6 +50,23 @@ function buildUrl(path: string): string {
   return new URL(path, `${dataRepoBaseUrl.replace(/\/$/, "")}/`).toString();
 }
 
+export function loadMemberAnalysisIndex() {
+  return fetchOptionalJson(
+    buildUrl("exports/member_analysis/index.json"),
+    (payload) => memberAnalysisIndexSchema.parse(payload),
+    { cache: "no-cache" }
+  );
+}
+export function loadMemberAnalysisDetail(path: string, generation?: string) {
+  if (!/^exports\/member_analysis\/[^/]+\.json$/.test(path))
+    throw new Error("Invalid member analysis path.");
+  const url = new URL(buildUrl(path));
+  if (generation) url.searchParams.set("generation", generation);
+  return fetchJson(url.toString(), (payload) =>
+    memberAnalysisDetailSchema.parse(payload)
+  );
+}
+
 async function fetchJson<T>(
   url: string,
   parse: (value: unknown) => T
@@ -60,9 +81,10 @@ async function fetchJson<T>(
 
 async function fetchOptionalJson<T>(
   url: string,
-  parse: (value: unknown) => T
+  parse: (value: unknown) => T,
+  options?: RequestInit
 ): Promise<T | null> {
-  const response = await fetch(url);
+  const response = options ? await fetch(url, options) : await fetch(url);
   if (response.status === 404) {
     return null;
   }

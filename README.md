@@ -18,6 +18,7 @@ The current product is organized around two main views. The home view focuses on
 - Asset summary cards with latest total, first disclosure date, latest disclosure date, and cumulative delta
 - Category toggles for asset subtotal series plus a real-estate-focused readout for land and building categories
 - Scope toggle for family-included totals versus self-only totals when item-level disclosure parsing supports it
+- Member history analysis at `#analysis`: source-backed career periods, role/activity timelines, period-adjusted peers, cross-party voting relationships, topic continuity, and asset/role chronology. See [the analytical model and verification notes](docs/member-analysis.md).
 
 ## Repository Layout
 

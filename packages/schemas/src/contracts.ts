@@ -927,7 +927,11 @@ export const manifestSchema = z.object({
     assetDisclosures: datasetFileSchema.optional(),
     assetDisclosureRecords: datasetFileSchema.optional(),
     assetDisclosureCategories: datasetFileSchema.optional(),
-    assetDisclosureItems: datasetFileSchema.optional()
+    assetDisclosureItems: datasetFileSchema.optional(),
+    analysisMembers: datasetFileSchema.optional(),
+    analysisEvents: datasetFileSchema.optional(),
+    analysisActivities: datasetFileSchema.optional(),
+    analysisMonthlyTopics: datasetFileSchema.optional()
   }),
   exports: z.object({
     latestVotes: datasetFileSchema,
@@ -938,7 +942,8 @@ export const manifestSchema = z.object({
     constituencyBoundariesIndex: datasetFileSchema.optional(),
     hexmapStaticIndex: datasetFileSchema.optional(),
     memberAssetsIndex: datasetFileSchema.optional(),
-    memberSponsorshipAccounts: datasetFileSchema.optional()
+    memberSponsorshipAccounts: datasetFileSchema.optional(),
+    memberAnalysis: datasetFileSchema.optional()
   })
 });
 

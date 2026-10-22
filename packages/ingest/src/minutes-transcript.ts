@@ -31,6 +31,17 @@ export type AssemblyMinutesTranscript = {
 
 export const ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION = "2";
 
+export function isPendingAssemblyMinutesViewerHtml(html: string): boolean {
+  const $ = load(html);
+  const body = $(".minutes_body");
+  return (
+    body.length === 1 &&
+    (body.html() ?? "").replace(/<!--[\s\S]*?-->/g, "").trim() === "" &&
+    $(".minutes_header .tmp").text().includes("임시회의록") &&
+    $(".minutes_header h1").text().trim().length > 0
+  );
+}
+
 function normalizeText(value: string): string {
   return value.replaceAll("\u00a0", " ").replace(/\s+/g, " ").trim();
 }

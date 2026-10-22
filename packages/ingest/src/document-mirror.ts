@@ -84,6 +84,7 @@ export type DocumentMirrorState = {
   skippedWithoutDate: number;
   downloadFailures?: number;
   transcriptsWritten?: number;
+  transcriptsPending?: number;
   transcriptFailures?: number;
   lastStartUrl: string;
   recentWindowStartDate?: string;
