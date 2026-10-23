@@ -43,6 +43,9 @@ Source examples:
    successful ingest artifact, refreshing analysis even during an upstream API
    outage. The normal data build also recomputes vote evidence from its new vote
    records and current transcript hashes, without another model call.
+   The app deploys after the derived data build; summary completion does not
+   launch a duplicate, earlier app deployment. A scheduled no-op recovery check
+   therefore does not rebuild the app.
 4. A daily independent recovery check at 03:30 KST runs a bounded summary batch
    if work remains and the last run is at least 18 hours old, or reports failed
    groups. A recent successful nightly batch is not duplicated. Retries explicitly
