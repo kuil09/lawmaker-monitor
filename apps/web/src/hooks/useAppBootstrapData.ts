@@ -21,6 +21,7 @@ import type {
 type BootstrapDataState = {
   latestVotes: LatestVotesExport | null;
   voteMinutesOpinions: VoteMinutesOpinionsExport | null;
+  voteMinutesOpinionsLoaded: boolean;
   accountabilitySummary: AccountabilitySummaryExport | null;
   accountabilityTrends: AccountabilityTrendsExport | null;
   billProposalActivity: BillProposalActivityExport | null;
@@ -36,6 +37,7 @@ type BootstrapDataState = {
 const initialState: BootstrapDataState = {
   latestVotes: null,
   voteMinutesOpinions: null,
+  voteMinutesOpinionsLoaded: false,
   accountabilitySummary: null,
   accountabilityTrends: null,
   billProposalActivity: null,
@@ -83,12 +85,16 @@ export function useAppBootstrapData() {
         updateState((current) => ({
           ...current,
           voteMinutesOpinions,
-          voteMinutesOpinionsError: null
+          voteMinutesOpinionsLoaded: true,
+          voteMinutesOpinionsError: voteMinutesOpinions
+            ? null
+            : "표결별 회의록 근거 파일이 아직 발행되지 않았습니다."
         }));
       })
       .catch((error: Error) => {
         updateState((current) => ({
           ...current,
+          voteMinutesOpinionsLoaded: true,
           voteMinutesOpinionsError: `표결별 회의록 근거를 불러오지 못했습니다. ${error.message}`
         }));
       });

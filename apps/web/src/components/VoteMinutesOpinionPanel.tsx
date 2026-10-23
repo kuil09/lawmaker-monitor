@@ -2,6 +2,8 @@ import { ArrowSquareOutIcon } from "@phosphor-icons/react/dist/csr/ArrowSquareOu
 import { QuotesIcon } from "@phosphor-icons/react/dist/csr/Quotes";
 
 import { MemberDetailLink } from "./MemberDetailLink.js";
+import { MinutesCoverageNote } from "./MinutesCoverageNote.js";
+import { buildDataUrl } from "../lib/data.js";
 import { formatDate } from "../lib/format.js";
 
 import type {
@@ -13,6 +15,8 @@ import type {
 type VoteMinutesOpinionPanelProps = {
   vote: LatestVoteItem;
   opinion: VoteMinutesOpinionItem | null;
+  loading?: boolean;
+  error?: string | null;
 };
 
 type OpinionSection = {
@@ -66,7 +70,9 @@ function buildSourceHref(evidence: VoteMinutesOpinionEvidence): string {
 
 export function VoteMinutesOpinionPanel({
   vote,
-  opinion
+  opinion,
+  loading = false,
+  error = null
 }: VoteMinutesOpinionPanelProps) {
   const sections = buildOpinionSections(opinion?.majorityVoteCode ?? null);
 
@@ -89,11 +95,23 @@ export function VoteMinutesOpinionPanel({
             <span>{`${opinion.sourceMeetingCount}개 회의록 · ${formatDate(opinion.latestMeetingDate)}`}</span>
           </p>
         ) : (
-          <span className="vote-opinion-panel__pending">연결 대기</span>
+          <span className="vote-opinion-panel__pending">
+            {error
+              ? "불러오기 실패"
+              : loading
+                ? "불러오는 중"
+                : "현재 연결 없음"}
+          </span>
         )}
       </header>
 
-      {opinion ? (
+      <MinutesCoverageNote />
+
+      {error ? (
+        <p role="alert">{error} 잠시 후 화면을 새로고침해 주세요.</p>
+      ) : null}
+
+      {!error && opinion ? (
         <>
           <div className="vote-opinion-panel__sections">
             {sections.map((section) => {
@@ -138,6 +156,15 @@ export function VoteMinutesOpinionPanel({
                               aria-hidden="true"
                             />
                           </a>
+                          {entry.sourceDocumentPath ? (
+                            <a
+                              href={`${buildDataUrl(entry.sourceDocumentPath)}${entry.sourceFragment}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              수집 회의록 원문
+                            </a>
+                          ) : null}
                         </li>
                       ))}
                     </ol>
@@ -163,15 +190,20 @@ export function VoteMinutesOpinionPanel({
             않습니다.
           </p>
         </>
-      ) : (
+      ) : !error ? (
         <div className="vote-opinion-panel__empty-state">
-          <strong>연결된 회의록 발언이 아직 없습니다.</strong>
+          <strong>
+            {loading
+              ? "회의록 발언 자료를 불러오는 중입니다."
+              : "현재 공개 자료에서 연결된 발언을 찾지 못했습니다."}
+          </strong>
           <p>
-            공식 회의록의 의안번호와 이 표결을 대조한 뒤 확인된 의원 발언만
-            표시합니다.
+            같은 의안번호의 발언과 발언자의 찬성·반대·기권 기록이 모두 확인된
+            경우 표시합니다. 회의록 수집·요약이 미완료이거나 개별 표결을
+            연결하지 못한 경우도 있으며, 발언이 없었다는 뜻은 아닙니다.
           </p>
         </div>
-      )}
+      ) : null}
     </section>
   );
 }

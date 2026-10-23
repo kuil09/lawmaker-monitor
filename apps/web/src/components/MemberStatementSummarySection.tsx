@@ -1,6 +1,7 @@
 import { ArrowRightIcon } from "@phosphor-icons/react/dist/csr/ArrowRight";
 import { useEffect, useMemo, useState } from "react";
 
+import { MinutesCoverageNote } from "./MinutesCoverageNote.js";
 import {
   buildDataUrl,
   loadMemberStatementSummaries,
@@ -25,7 +26,7 @@ export function MemberStatementSummarySection({
   const [showAll, setShowAll] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const usesExtractiveSafety =
-    payload?.promptVersion.includes("extractive") ?? false;
+    payload?.promptVersion === "minutes-summary-v8-extractive-agenda";
 
   useEffect(() => {
     let active = true;
@@ -35,11 +36,30 @@ export function MemberStatementSummarySection({
     setShowAll(false);
 
     void loadMemberStatementSummariesIndex()
-      .then((index) => {
+      .then(async (index) => {
+        if (!index)
+          throw new Error("발언 요약 목록이 아직 발행되지 않았습니다.");
         const member = index?.members.find(
           (candidate) => candidate.memberId === memberId
         );
-        return member ? loadMemberStatementSummaries(member.path) : null;
+        if (!member) return null;
+        const result = await loadMemberStatementSummaries(
+          member.path,
+          index.generatedAt
+        );
+        if (!result)
+          throw new Error(
+            "목록에 있는 의원 발언 파일을 찾지 못했습니다. 다시 시도해 주세요."
+          );
+        if (
+          result.memberId !== memberId ||
+          result.generatedAt !== index.generatedAt ||
+          result.modelId !== index.modelId ||
+          result.promptVersion !== index.promptVersion ||
+          result.summaries.length !== member.summaryCount
+        )
+          throw new Error("발언 자료가 갱신 중입니다. 다시 시도해 주세요.");
+        return result;
       })
       .then((result) => {
         if (active) {
@@ -70,6 +90,8 @@ export function MemberStatementSummarySection({
     const groups = new Map<string, typeof summaries>();
 
     for (const item of summaries) {
+      if (item.billIds.length === 0 && item.agendaTitle === "회의 일반 발언")
+        continue;
       const issueKey =
         item.billIds[0] ??
         item.agendaTitle.replace(/\s+/g, " ").trim().toLocaleLowerCase("ko-KR");
@@ -100,10 +122,6 @@ export function MemberStatementSummarySection({
     );
   }, [payload]);
 
-  if (!loading && !error && !payload) {
-    return null;
-  }
-
   return (
     <section className="member-statement-summary" aria-label="회의록 발언 요약">
       <div className="member-statement-summary__header">
@@ -128,6 +146,23 @@ export function MemberStatementSummarySection({
         </div>
       ) : null}
 
+      <MinutesCoverageNote />
+
+      {!loading && !error && !payload ? (
+        <div className="member-statement-summary__status" role="status">
+          <p>
+            이 의원의 발언 요약이 아직 발행되지 않았습니다. 회의록 수집·처리가
+            미완료일 수 있으며, 발언이 없었다는 뜻은 아닙니다.
+          </p>
+          <button
+            type="button"
+            onClick={() => setRetryKey((value) => value + 1)}
+          >
+            다시 확인
+          </button>
+        </div>
+      ) : null}
+
       {error ? (
         <div className="member-statement-summary__status is-error">
           <p>발언 요약을 불러오지 못했습니다. {error}</p>
@@ -143,8 +178,8 @@ export function MemberStatementSummarySection({
       {payload && !usesExtractiveSafety ? (
         <div className="member-statement-summary__status is-warning">
           <p>
-            기존 생성형 요약은 사실 보존 검증을 강화해 다시 처리하고 있습니다.
-            검증이 끝난 원문 인용형 기록만 공개합니다.
+            기존 요약은 안건 연결과 사실 보존 검증을 강화해 다시 확인하고
+            있습니다. 검증이 끝난 원문 인용형 기록만 공개합니다.
           </p>
         </div>
       ) : null}
@@ -232,7 +267,7 @@ export function MemberStatementSummarySection({
                     국회 회의록에서 확인
                   </a>
                   <a
-                    href={buildDataUrl(item.sourceDocumentPath)}
+                    href={`${buildDataUrl(item.sourceDocumentPath)}${item.sourceFragment}`}
                     target="_blank"
                     rel="noreferrer"
                   >

@@ -215,7 +215,8 @@ export const voteMinutesOpinionEvidenceSchema = z
     meetingDate: nonEmptyString,
     agendaTitle: nonEmptyString,
     sourceUrl: nonEmptyString.url(),
-    sourceFragment: nonEmptyString
+    sourceFragment: nonEmptyString,
+    sourceDocumentPath: nonEmptyString.optional()
   })
   .strict();
 
@@ -673,6 +674,18 @@ export const memberStatementSummariesIndexExportSchema = z
     members: z.array(memberStatementSummariesIndexItemSchema)
   })
   .strict();
+
+export const minutesSummaryCoverageSchema = z.object({
+  updatedAt: nonEmptyString,
+  transcriptDocuments: z.number().int().nonnegative(),
+  summarizedDocuments: z.number().int().nonnegative(),
+  remainingDocuments: z.number().int().nonnegative(),
+  lastProgressAt: nonEmptyString.nullable().optional()
+});
+
+export type MinutesSummaryCoverage = z.infer<
+  typeof minutesSummaryCoverageSchema
+>;
 
 export const memberAssetLatestSummarySchema = z
   .object({

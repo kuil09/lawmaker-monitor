@@ -10,6 +10,7 @@ import {
 
 import { splitCareerClauses } from "./career-dates.js";
 import { writeNdjsonDataset } from "./dataset-writer.js";
+import { MINUTES_SUMMARY_PROMPT_VERSION } from "./minutes-summarization.js";
 import { isDateWithinTenure } from "./tenure.js";
 
 import type { BillProposalRecord } from "./parsers/types.js";
@@ -401,6 +402,7 @@ export async function writeMemberAnalysisInputs(args: {
     );
     if (!raw) continue;
     const statements = memberStatementSummariesExportSchema.parse(raw);
+    if (statements.promptVersion !== MINUTES_SUMMARY_PROMPT_VERSION) continue;
     if (statements.memberId !== member.memberId)
       throw new Error("Statement member identity mismatch.");
     for (const statement of statements.summaries)
@@ -415,7 +417,7 @@ export async function writeMemberAnalysisInputs(args: {
         ),
         voteCode: null,
         partyAtVote: null,
-        sourceUrl: statement.sourceUrl,
+        sourceUrl: `${statement.sourceUrl}${statement.sourceFragment}`,
         excerpt: statement.evidenceExcerpt
       });
   }

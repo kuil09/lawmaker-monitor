@@ -1,4 +1,4 @@
-import { readdir, readFile, unlink } from "node:fs/promises";
+import { appendFile, readdir, readFile, unlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -19,6 +19,7 @@ import {
   isPublishableExtractiveMinutesSummary,
   NoPublishableMinutesSourceError,
   MINUTES_SUMMARY_PROMPT_VERSION,
+  rebindMinutesSummaryArtifact,
   summarizeMinutesGroup,
   type MinutesDocumentSummaryArtifact,
   type MinutesSummaryMember
@@ -31,7 +32,12 @@ import {
   isOfficialAssemblyMinutesViewerUrl,
   type AssemblyMinutesTranscript
 } from "../minutes-transcript.js";
-import { readJsonFile, readPositiveInteger, writeJsonFile } from "../utils.js";
+import {
+  readJsonFile,
+  readPositiveInteger,
+  sha256,
+  writeJsonFile
+} from "../utils.js";
 import { buildVoteMinutesOpinionsExport } from "../vote-minutes-opinions.js";
 
 import type {
@@ -59,6 +65,7 @@ type SummaryConfig = {
 
 type SummaryState = {
   updatedAt: string;
+  lastProgressAt: string | null;
   modelId: string;
   promptVersion: string;
   sourceKind: "official_minutes_transcript";
@@ -75,6 +82,8 @@ type SummaryState = {
   summarizedDocuments: number;
   latestMirroredMeetingDate: string | null;
   latestSummarizedMeetingDate: string | null;
+  reboundDocuments: number;
+  reboundSummaries: number;
 };
 
 function loadConfig(): SummaryConfig {
@@ -237,16 +246,21 @@ async function readTranscript(
   config: SummaryConfig,
   item: MirroredDocumentIndexItem & {
     transcriptRelativePath: string;
+    transcriptContentSha256: string;
   }
 ): Promise<AssemblyMinutesTranscript> {
-  const payload = JSON.parse(
-    await readFile(
-      join(config.dataRepoDir, item.transcriptRelativePath),
-      "utf8"
-    )
-  ) as AssemblyMinutesTranscript;
+  const content = await readFile(
+    join(config.dataRepoDir, item.transcriptRelativePath),
+    "utf8"
+  );
+  if (sha256(content) !== item.transcriptContentSha256)
+    throw new Error(
+      `Minutes transcript checksum mismatch: ${item.transcriptRelativePath}`
+    );
+  const payload = JSON.parse(content) as AssemblyMinutesTranscript;
   if (
     payload.schemaVersion !== 1 ||
+    payload.documentId !== item.documentId ||
     !Array.isArray(payload.agendaItems) ||
     !Array.isArray(payload.statements) ||
     !isOfficialAssemblyMinutesViewerUrl(payload.sourceUrl) ||
@@ -343,6 +357,10 @@ async function publishVoteMinutesOpinions(args: {
 async function main(): Promise<void> {
   const config = loadConfig();
   const generatedAt = new Date().toISOString();
+  const previousState = await readJsonFile<SummaryState | null>(
+    join(config.dataRepoDir, config.statePath),
+    null
+  );
   const documentIndex = await readJsonFile<MirroredDocumentIndex>(
     join(config.dataRepoDir, config.documentIndexPath),
     {
@@ -378,6 +396,43 @@ async function main(): Promise<void> {
       artifact
     ])
   );
+  const repairAgendas = process.argv.includes("--rebind-agendas");
+  let reboundDocuments = 0;
+  let reboundSummaries = 0;
+  if (repairAgendas) {
+    for (const item of allTranscriptDocuments) {
+      const artifact = artifactByDocumentId.get(item.documentId);
+      if (
+        artifact?.promptVersion !== "minutes-summary-v7-extractive-ranker" ||
+        artifact.modelId !== config.modelId ||
+        artifact.sourceContentSha256 !== item.transcriptContentSha256
+      )
+        continue;
+      const repaired = rebindMinutesSummaryArtifact({
+        artifact,
+        transcript: await readTranscript(config, item),
+        members,
+        generatedAt
+      });
+      artifactByDocumentId.set(item.documentId, repaired);
+      await writeJsonFile(
+        join(config.dataRepoDir, artifactRelativePath(config, item.documentId)),
+        repaired
+      );
+      reboundDocuments += 1;
+      reboundSummaries += repaired.summaries.length;
+    }
+    if (process.env.GITHUB_OUTPUT) {
+      await appendFile(
+        process.env.GITHUB_OUTPUT,
+        `changed=${reboundDocuments > 0}\n`
+      );
+    }
+    if (reboundDocuments === 0) {
+      process.stdout.write("No legacy agenda bindings require repair.\n");
+      return;
+    }
+  }
   const pendingDocuments = selectPendingMinutesDocuments({
     documents: candidateDocuments,
     targetDate: config.targetDate,
@@ -404,7 +459,7 @@ async function main(): Promise<void> {
         ? [artifact]
         : [];
     });
-  if (pendingDocuments.length === 0) {
+  if (pendingDocuments.length === 0 && !repairAgendas) {
     try {
       const memberIndex = memberStatementSummariesIndexExportSchema.parse(
         JSON.parse(
@@ -420,6 +475,8 @@ async function main(): Promise<void> {
       );
       const idleState: SummaryState = {
         updatedAt: generatedAt,
+        lastProgressAt:
+          previousState?.lastProgressAt ?? previousState?.updatedAt ?? null,
         modelId: config.modelId,
         promptVersion: MINUTES_SUMMARY_PROMPT_VERSION,
         sourceKind: "official_minutes_transcript",
@@ -429,6 +486,8 @@ async function main(): Promise<void> {
         groupsSummarized: 0,
         groupsFailed: 0,
         groupsSkipped: 0,
+        reboundDocuments: 0,
+        reboundSummaries: 0,
         membersPublished: memberIndex.members.length,
         ...buildSummaryCoverage({
           documentIndex,
@@ -483,7 +542,7 @@ async function main(): Promise<void> {
   let documentsVisited = 0;
   let documentsCompleted = 0;
 
-  for (const item of pendingDocuments) {
+  for (const item of repairAgendas ? [] : pendingDocuments) {
     documentsVisited += 1;
     const transcript = await readTranscript(config, item);
     const groups = buildMinutesSummaryGroups({
@@ -722,6 +781,10 @@ async function main(): Promise<void> {
 
   const state: SummaryState = {
     updatedAt: generatedAt,
+    lastProgressAt:
+      groupsSummarized > 0 || documentsCompleted > 0 || reboundSummaries > 0
+        ? generatedAt
+        : (previousState?.lastProgressAt ?? previousState?.updatedAt ?? null),
     modelId: config.modelId,
     promptVersion: MINUTES_SUMMARY_PROMPT_VERSION,
     sourceKind: "official_minutes_transcript",
@@ -731,6 +794,8 @@ async function main(): Promise<void> {
     groupsSummarized,
     groupsFailed,
     groupsSkipped,
+    reboundDocuments,
+    reboundSummaries,
     membersPublished: memberExports.length,
     ...buildSummaryCoverage({
       documentIndex,

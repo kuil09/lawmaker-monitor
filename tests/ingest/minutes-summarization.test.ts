@@ -10,6 +10,7 @@ import {
   createLlamaServerSummarizer,
   isPublishableMinutesSummary,
   resolveStatementAgendaItem,
+  rebindMinutesSummaryArtifact,
   sanitizeModelSummary,
   summarizeMinutesGroup,
   type MinutesDocumentSummaryArtifact
@@ -44,6 +45,88 @@ const viewerHtml = `
 `;
 
 describe("minutes transcript summarization", () => {
+  it("does not bind jointly introduced bills using the viewer's last-item CSS class", () => {
+    const quote =
+      "기존 중소기업이 피해를 입지 않도록 지원 예산의 배분 기준을 구체적으로 정해야 합니다.";
+    const transcript = parseAssemblyMinutesViewerHtml({
+      documentId: "joint-minutes",
+      sourceUrl:
+        "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=56737&type=view",
+      fallbackMeetingDate: "2026-05-20",
+      fallbackTitle: "제1차 위원회",
+      html: `<div class="minutes_body">
+        <a id="item1" class="tit">1. 중소기업기본법 일부개정법률안(의안번호 2210001)</a>
+        <a id="item19" class="tit">19. 소상공인기본법 일부개정법률안(의안번호 2212713)</a>
+        <div id="spk_16" class="item19 speaker" data-name="김민수" data-pos="위원"><div class="talk"><span class="spk_sub">${quote}</span></div></div>
+      </div>`
+    });
+    const members = [{ memberId: "M001", name: "김민수", party: "테스트당" }];
+    const groups = buildMinutesSummaryGroups({ transcript, members });
+    expect(groups[0]).toMatchObject({
+      agendaTitle: "회의 일반 발언",
+      billIds: []
+    });
+    const previous = {
+      schemaVersion: 1,
+      sourceKind: "official_minutes_transcript",
+      generatedAt: "2026-10-22T00:00:00Z",
+      documentId: "joint-minutes",
+      sourceContentSha256: "sha",
+      sourceTranscriptPath: "latest.transcript.json",
+      sourceDocumentPath: "latest.html",
+      sourceUrl: transcript.sourceUrl,
+      modelId: "model",
+      promptVersion: "minutes-summary-v7-extractive-ranker",
+      summaryGroupCount: 1,
+      complete: true,
+      summaries: [
+        {
+          statementId: "old-id",
+          documentId: "joint-minutes",
+          meetingTitle: transcript.meetingTitle,
+          meetingDate: transcript.meetingDate,
+          committeeName: null,
+          agendaTitle: "19. 소상공인기본법",
+          billIds: ["2212713"],
+          speakerRole: "위원",
+          summary: quote,
+          evidenceExcerpt: quote,
+          sourceUrl: transcript.sourceUrl,
+          sourceFragment: "#spk_16",
+          sourceDocumentPath: "latest.html",
+          sourceContentSha256: "sha",
+          sourceKind: "official_minutes_transcript",
+          memberId: "M001",
+          name: "김민수",
+          party: "테스트당"
+        }
+      ]
+    } as MinutesDocumentSummaryArtifact;
+    const repaired = rebindMinutesSummaryArtifact({
+      artifact: previous,
+      transcript,
+      members,
+      generatedAt: "2026-10-23T00:00:00Z"
+    });
+    expect(repaired.summaries).toHaveLength(1);
+    expect(repaired.summaries[0]).toMatchObject({
+      summary: quote,
+      billIds: [],
+      agendaTitle: "회의 일반 발언",
+      sourceFragment: "#spk_16"
+    });
+    expect(repaired.complete).toBe(true);
+    previous.summaries[0]!.summary =
+      "원문에서 확인되지 않는 전혀 새로운 발언을 생성한 결과입니다.";
+    expect(
+      rebindMinutesSummaryArtifact({
+        artifact: previous,
+        transcript,
+        members,
+        generatedAt: "2026-10-23T00:00:00Z"
+      }).summaries
+    ).toHaveLength(0);
+  });
   afterEach(() => {
     vi.unstubAllGlobals();
   });

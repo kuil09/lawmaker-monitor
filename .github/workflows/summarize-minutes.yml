@@ -1,6 +1,8 @@
 name: summarize-minutes
 
 on:
+  schedule:
+    - cron: "30 18 * * *"
   workflow_dispatch:
     inputs:
       target_date:
@@ -80,12 +82,27 @@ jobs:
           echo "MINUTES_SUMMARY_TARGET_DATE=${TARGET_DATE}" >> "${GITHUB_ENV}"
           echo "value=${TARGET_DATE}" >> "${GITHUB_OUTPUT}"
 
+      - name: Repair ambiguous agenda bindings without model requests
+        id: repair-agendas
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        env:
+          DATA_REPO_DIR: published-data
+        run: |
+          npm run summarize:minutes --workspace @lawmaker-monitor/ingest -- --rebind-agendas
+
       - name: Detect pending transcript inputs
         id: transcript-inputs
         if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
         env:
           DATA_REPO_DIR: published-data
         run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            RECOVER="$(node scripts/check-minutes-recovery.mjs published-data/manifests/minutes_summary_state.json)"
+            if [ "${RECOVER}" != "true" ]; then
+              echo "available=false" >> "${GITHUB_OUTPUT}"
+              exit 0
+            fi
+          fi
           PENDING="$(npm run --silent summarize:minutes --workspace @lawmaker-monitor/ingest -- --check-pending)"
           if [ "${PENDING}" = "true" ]; then
             echo "available=true" >> "${GITHUB_OUTPUT}"
@@ -181,8 +198,9 @@ jobs:
           fi
 
       - name: Commit and push summary changes
+        id: publish
         if: >-
-          !cancelled() && steps.transcript-inputs.outputs.available == 'true' &&
+          !cancelled() && (steps.transcript-inputs.outputs.available == 'true' || steps.repair-agendas.outputs.changed == 'true') &&
           env.DATA_REPO != '' &&
           env.DATA_REPO_PAT != ''
         working-directory: published-data
@@ -196,6 +214,20 @@ jobs:
             exports/member_statement_summaries \
             exports/vote_minutes_opinions.json \
             manifests/minutes_summary_state.json
+
+      - name: Refresh analyses after published summaries
+        if: >-
+          !cancelled() && steps.publish.outcome == 'success' &&
+          (steps.repair-agendas.outputs.changed == 'true' ||
+          (steps.summary-progress.outputs.groups_summarized != '' &&
+          steps.summary-progress.outputs.groups_summarized != '0'))
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh workflow run build-data.yml \
+            --ref "${{ github.event.repository.default_branch }}" \
+            -f raw_source=latest_ingest
 
       - name: Fail after preserving partial progress
         if: ${{ !cancelled() && steps.summarize.outcome == 'failure' }}
@@ -213,6 +245,7 @@ jobs:
       - name: Retry failed summary batch
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           CURRENT_RETRY_ATTEMPT: ${{ inputs.retry_attempt || '0' }}
           MAX_RETRY_ATTEMPTS: "3"
           TARGET_DATE: ${{ needs.summarize-minutes.outputs.target_date || inputs.target_date }}

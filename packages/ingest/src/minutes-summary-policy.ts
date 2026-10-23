@@ -2,6 +2,25 @@ import { dateInTimeZone } from "./document-mirror.js";
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
+export function shouldRunScheduledMinutesRecovery(
+  state: {
+    remainingDocuments: number;
+    groupsFailed?: number;
+    updatedAt: string;
+  } | null,
+  now = new Date()
+): boolean {
+  if (!state) return true;
+  if (state.remainingDocuments === 0 && !state.groupsFailed) return false;
+  const age = now.getTime() - Date.parse(state.updatedAt);
+  return (
+    Boolean(state.groupsFailed) ||
+    !Number.isFinite(age) ||
+    age < 0 ||
+    age >= 18 * 3_600_000
+  );
+}
+
 function isValidIsoDate(value: string): boolean {
   if (!isoDatePattern.test(value)) {
     return false;

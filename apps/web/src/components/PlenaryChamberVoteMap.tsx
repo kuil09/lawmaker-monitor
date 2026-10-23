@@ -30,6 +30,8 @@ type PlenaryChamberVoteMapProps = {
   unavailable: boolean;
   mode?: "latest" | "archive";
   voteMinutesOpinions?: VoteMinutesOpinionsExport | null;
+  voteMinutesOpinionsLoading?: boolean;
+  voteMinutesOpinionsError?: string | null;
 };
 
 type OutcomeFilter = "all" | "yes" | "no" | "abstain" | "absent";
@@ -111,7 +113,9 @@ export function PlenaryChamberVoteMap({
   loading,
   unavailable,
   mode = "latest",
-  voteMinutesOpinions = null
+  voteMinutesOpinions = null,
+  voteMinutesOpinionsLoading = false,
+  voteMinutesOpinionsError = null
 }: PlenaryChamberVoteMapProps) {
   const recordedVotes = useMemo(
     () =>
@@ -802,6 +806,8 @@ export function PlenaryChamberVoteMap({
             <VoteMinutesOpinionPanel
               vote={selectedVote}
               opinion={selectedOpinion}
+              loading={voteMinutesOpinionsLoading}
+              error={voteMinutesOpinionsError}
             />
           ) : null}
 
@@ -833,7 +839,7 @@ export function PlenaryChamberVoteMap({
                 target="_blank"
                 rel="noreferrer"
               >
-                국회 회의록
+                국회 회의록 검색
                 <ArrowSquareOutIcon
                   size={15}
                   weight="bold"

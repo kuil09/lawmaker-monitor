@@ -119,7 +119,8 @@ export function buildVoteMinutesOpinionsExport(args: {
             meetingDate: summary.meetingDate,
             agendaTitle: summary.agendaTitle,
             sourceUrl: summary.sourceUrl,
-            sourceFragment: summary.sourceFragment
+            sourceFragment: summary.sourceFragment,
+            sourceDocumentPath: summary.sourceDocumentPath
           }
         ];
       })
