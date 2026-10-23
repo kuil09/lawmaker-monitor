@@ -97,6 +97,9 @@ describe("incremental minutes workflows", () => {
     expect(workflow).toContain('MAX_RETRY_ATTEMPTS: "3"');
     expect(workflow).toContain('-f retry_attempt="${NEXT_RETRY_ATTEMPT}"');
     expect(workflow).not.toContain("workflow_run:");
+    const deployment = readRepositoryFile(".github/workflows/deploy-web.yml");
+    expect(deployment).toContain('workflows: ["build-data"]');
+    expect(deployment).not.toContain('"summarize-minutes"');
   });
 
   it("publishes generated data through the shared retrying helper", () => {
