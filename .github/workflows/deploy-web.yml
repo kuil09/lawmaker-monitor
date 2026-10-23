@@ -5,10 +5,6 @@ on:
   push:
     branches:
       - main
-  workflow_run:
-    workflows: ["build-data"]
-    types:
-      - completed
 
 permissions:
   contents: read
@@ -21,7 +17,6 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     environment:
       name: github-pages

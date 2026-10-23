@@ -98,8 +98,15 @@ describe("incremental minutes workflows", () => {
     expect(workflow).toContain('-f retry_attempt="${NEXT_RETRY_ATTEMPT}"');
     expect(workflow).not.toContain("workflow_run:");
     const deployment = readRepositoryFile(".github/workflows/deploy-web.yml");
-    expect(deployment).toContain('workflows: ["build-data"]');
-    expect(deployment).not.toContain('"summarize-minutes"');
+    expect(deployment).not.toContain("workflow_run:");
+    const build = readRepositoryFile(".github/workflows/build-data.yml");
+    expect(build).toContain("Deploy web after data publication");
+    expect(build).toContain("actions: write");
+    expect(build).toContain("GH_REPO: ${{ github.repository }}");
+    expect(build).toContain("gh workflow run deploy-web.yml");
+    expect(build.indexOf("Deploy web after data publication")).toBeGreaterThan(
+      build.indexOf("Commit and push data changes when present")
+    );
   });
 
   it("publishes generated data through the shared retrying helper", () => {
