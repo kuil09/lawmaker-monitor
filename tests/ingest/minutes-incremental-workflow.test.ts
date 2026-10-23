@@ -85,6 +85,15 @@ describe("incremental minutes workflows", () => {
     expect(workflow).toContain("group: published-data-${{ vars.DATA_REPO");
     expect(workflow).toContain("queue: max");
     expect(workflow).toContain("Retry failed summary batch");
+    const retryJob = workflow.slice(
+      workflow.indexOf("  retry-failed-summary:")
+    );
+    expect(retryJob).toContain("GH_REPO: ${{ github.repository }}");
+    expect(workflow).toContain('cron: "30 18 * * *"');
+    expect(workflow).toContain("scripts/check-minutes-recovery.mjs");
+    expect(workflow).toContain("Refresh analyses after published summaries");
+    expect(workflow).toContain("steps.publish.outcome == 'success'");
+    expect(workflow).toContain("gh workflow run build-data.yml");
     expect(workflow).toContain('MAX_RETRY_ATTEMPTS: "3"');
     expect(workflow).toContain('-f retry_attempt="${NEXT_RETRY_ATTEMPT}"');
     expect(workflow).not.toContain("workflow_run:");

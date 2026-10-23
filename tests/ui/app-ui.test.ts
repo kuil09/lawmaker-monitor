@@ -787,6 +787,14 @@ async function openV2RouteFlow(viewportName: string): Promise<void> {
       }
 
       if (route.id === "votes") {
+        await page
+          .getByText(/본문 추출 3건 중 요약 완료 2건 · 미완료 1건/)
+          .waitFor();
+        expect(
+          await page
+            .getByRole("link", { name: "국회 회의록 검색", exact: true })
+            .count()
+        ).toBe(1);
         const cards = page.locator(".issue-comparison__grid article");
         await cards.first().waitFor();
         const renderedVoteCount = await cards.count();

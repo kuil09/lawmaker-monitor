@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { describe, it, expect } from "vitest";
-import { assertFreshTimestamp } from "../../packages/ingest/src/source-monitoring.js";
+import {
+  assertFreshTimestamp,
+  assertMinutesSummaryProgress
+} from "../../packages/ingest/src/source-monitoring.js";
 import { isTransientRequestError } from "../../packages/ingest/src/request-policy.js";
 import { selectPendingMinutesDocuments } from "../../packages/ingest/src/minutes-summary-policy.js";
 import {
@@ -16,6 +19,31 @@ import {
 } from "../../packages/ingest/src/minutes-summarization.js";
 
 describe("operational audit regressions", () => {
+  it("detects a stalled summary backlog even when a no-progress run updated the state", () => {
+    const now = new Date("2026-10-23T00:00:00Z");
+    expect(() =>
+      assertMinutesSummaryProgress(
+        {
+          updatedAt: "2026-10-22T23:00:00Z",
+          remainingDocuments: 1700,
+          lastProgressAt: "2026-10-20T00:00:00Z"
+        },
+        now
+      )
+    ).toThrow("Pending minutes summary progress");
+    expect(() =>
+      assertMinutesSummaryProgress(
+        { updatedAt: "2026-10-22T23:00:00Z", remainingDocuments: 1700 },
+        now
+      )
+    ).not.toThrow();
+    expect(() =>
+      assertMinutesSummaryProgress(
+        { updatedAt: "2026-10-01T00:00:00Z", remainingDocuments: 0 },
+        now
+      )
+    ).not.toThrow();
+  });
   it("hashes final Parquet bytes rather than normalized JSON", async () => {
     const dir = await mkdtemp(join(tmpdir(), "published-checksum-"));
     try {

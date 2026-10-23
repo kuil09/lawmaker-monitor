@@ -2,10 +2,49 @@ import { describe, expect, it } from "vitest";
 
 import {
   resolveMinutesSummaryTargetDate,
+  shouldRunScheduledMinutesRecovery,
   selectPendingMinutesDocuments
 } from "../../packages/ingest/src/minutes-summary-policy.js";
 
 describe("minutes summary policy", () => {
+  it("recovers a missed batch without duplicating a recent successful bounded batch", () => {
+    const now = new Date("2026-10-23T18:30:00Z");
+    expect(shouldRunScheduledMinutesRecovery(null, now)).toBe(true);
+    expect(
+      shouldRunScheduledMinutesRecovery(
+        { updatedAt: "2026-10-23T15:40:00Z", remainingDocuments: 1700 },
+        now
+      )
+    ).toBe(false);
+    expect(
+      shouldRunScheduledMinutesRecovery(
+        { updatedAt: "2026-10-22T15:40:00Z", remainingDocuments: 1700 },
+        now
+      )
+    ).toBe(true);
+    expect(
+      shouldRunScheduledMinutesRecovery(
+        {
+          updatedAt: "2026-10-23T15:40:00Z",
+          remainingDocuments: 1700,
+          groupsFailed: 1
+        },
+        now
+      )
+    ).toBe(true);
+    expect(
+      shouldRunScheduledMinutesRecovery(
+        { updatedAt: "2026-10-20T15:40:00Z", remainingDocuments: 0 },
+        now
+      )
+    ).toBe(false);
+    expect(
+      shouldRunScheduledMinutesRecovery(
+        { updatedAt: "invalid", remainingDocuments: 2 },
+        now
+      )
+    ).toBe(true);
+  });
   it("resolves the target date in Korea", () => {
     expect(
       resolveMinutesSummaryTargetDate(

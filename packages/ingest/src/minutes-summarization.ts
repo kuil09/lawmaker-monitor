@@ -14,7 +14,7 @@ import type {
 export const DEFAULT_MINUTES_SUMMARY_MODEL =
   "LGAI-EXAONE/EXAONE-4.0-1.2B-GGUF:Q8_0";
 export const MINUTES_SUMMARY_PROMPT_VERSION =
-  "minutes-summary-v7-extractive-ranker";
+  "minutes-summary-v8-extractive-agenda";
 const MAX_MINUTES_SUMMARY_GROUP_CHARACTERS = 800;
 const MAX_INTERVENING_STATEMENTS = 8;
 
@@ -191,14 +191,13 @@ export function resolveStatementAgendaItem(args: {
     const declaredAgenda = args.agendaItems.find(
       (agenda) => agenda.agendaItemId === args.statement.agendaItemId
     );
-    if (declaredAgenda) {
+    // Viewer classes can assign the last jointly introduced item to every
+    // subsequent speaker. They are not evidence of an individual bill match.
+    if (declaredAgenda && args.agendaItems.length === 1) {
       return declaredAgenda;
     }
 
-    if (
-      args.statement.agendaItemId === "item0" &&
-      /(?:의원|위원|위원장|위원장대리)$/.test(normalizedRole)
-    ) {
+    if (/(?:의원|위원|위원장|위원장대리)$/.test(normalizedRole)) {
       return {
         agendaItemId: "item0",
         title: "회의 일반 발언",
@@ -209,6 +208,70 @@ export function resolveStatementAgendaItem(args: {
   }
 
   return null;
+}
+
+export function rebindMinutesSummaryArtifact(args: {
+  artifact: MinutesDocumentSummaryArtifact;
+  transcript: AssemblyMinutesTranscript;
+  members: MinutesSummaryMember[];
+  generatedAt: string;
+}): MinutesDocumentSummaryArtifact {
+  const groups = buildMinutesSummaryGroups({
+    transcript: args.transcript,
+    members: args.members
+  });
+  const normalize = (value: string) =>
+    value.normalize("NFKC").replace(/\s+/g, " ").trim();
+  const summaries = groups.flatMap((group): MinutesDocumentMemberSummary[] => {
+    const source = normalize(group.text);
+    const previous = args.artifact.summaries.find(
+      (summary) =>
+        summary.memberId === group.member.memberId &&
+        group.statementIds.includes(summary.sourceFragment.replace(/^#/, "")) &&
+        isPublishableExtractiveMinutesSummary(summary.summary) &&
+        summary.summary
+          .split(/(?<=[.!?])\s+/)
+          .every((sentence) => source.includes(normalize(sentence)))
+    );
+    if (!previous) return [];
+    return [
+      {
+        ...previous,
+        statementId: group.groupId,
+        agendaTitle: group.agendaTitle,
+        billIds: group.billIds,
+        speakerRole: group.speakerRole,
+        sourceFragment: previous.sourceFragment,
+        evidenceExcerpt: previous.summary
+      }
+    ];
+  });
+  const coveredIds = new Set(summaries.map((summary) => summary.statementId));
+  const skippedGroups: NonNullable<
+    MinutesDocumentSummaryArtifact["skippedGroups"]
+  > = [];
+  for (const group of groups.filter(
+    (group) => !coveredIds.has(group.groupId)
+  )) {
+    try {
+      buildExtractiveMinutesSummary(group.text);
+    } catch (error) {
+      if (!(error instanceof NoPublishableMinutesSourceError)) throw error;
+      skippedGroups.push({ statementId: group.groupId, reason: error.message });
+      coveredIds.add(group.groupId);
+    }
+  }
+  return {
+    ...args.artifact,
+    generatedAt: args.generatedAt,
+    promptVersion: MINUTES_SUMMARY_PROMPT_VERSION,
+    summaryGroupCount: groups.length,
+    complete: groups.every((group) => coveredIds.has(group.groupId)),
+    summaries,
+    skippedGroups,
+    failedGroups: [],
+    nextRetryAt: undefined
+  };
 }
 
 function buildUniqueMemberLookup(

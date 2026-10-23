@@ -12,6 +12,7 @@ import {
   memberActivityCalendarMemberDetailExportSchema,
   memberStatementSummariesExportSchema,
   memberStatementSummariesIndexExportSchema,
+  minutesSummaryCoverageSchema,
   manifestSchema,
   voteMinutesOpinionsExportSchema
 } from "@lawmaker-monitor/schemas";
@@ -106,7 +107,13 @@ export function loadLatestVotes(): Promise<LatestVotesExport> {
 export function loadVoteMinutesOpinions(): Promise<VoteMinutesOpinionsExport | null> {
   return fetchOptionalJson(
     buildUrl("exports/vote_minutes_opinions.json"),
-    (payload) => voteMinutesOpinionsExportSchema.parse(payload)
+    (payload) => {
+      const result = voteMinutesOpinionsExportSchema.parse(payload);
+      if (result.promptVersion !== "minutes-summary-v8-extractive-agenda")
+        throw new Error("회의록의 안건 연결을 재검증하고 있습니다.");
+      return result;
+    },
+    { cache: "no-cache" }
   );
 }
 
@@ -168,17 +175,33 @@ export function loadMemberActivityCalendarMemberDetail(
 }
 
 export function loadMemberStatementSummaries(
-  path: string
+  path: string,
+  generation?: string
 ): Promise<MemberStatementSummariesExport | null> {
-  return fetchOptionalJson(buildUrl(path), (payload) =>
-    memberStatementSummariesExportSchema.parse(payload)
+  if (!/^exports\/member_statement_summaries\/[^/]+\.json$/.test(path))
+    throw new Error("Invalid member statement summaries path.");
+  const url = new URL(buildUrl(path));
+  if (generation) url.searchParams.set("generation", generation);
+  return fetchOptionalJson(
+    url.toString(),
+    (payload) => memberStatementSummariesExportSchema.parse(payload),
+    { cache: "no-cache" }
   );
 }
 
 export function loadMemberStatementSummariesIndex(): Promise<MemberStatementSummariesIndexExport | null> {
   return fetchOptionalJson(
     buildUrl("exports/member_statement_summaries/index.json"),
-    (payload) => memberStatementSummariesIndexExportSchema.parse(payload)
+    (payload) => memberStatementSummariesIndexExportSchema.parse(payload),
+    { cache: "no-cache" }
+  );
+}
+
+export function loadMinutesSummaryCoverage() {
+  return fetchOptionalJson(
+    buildUrl("manifests/minutes_summary_state.json"),
+    (payload) => minutesSummaryCoverageSchema.parse(payload),
+    { cache: "no-cache" }
   );
 }
 

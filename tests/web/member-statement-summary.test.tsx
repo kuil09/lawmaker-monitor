@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const dataMocks = vi.hoisted(() => ({
   loadMemberStatementSummariesIndex: vi.fn(),
   loadMemberStatementSummaries: vi.fn(),
+  loadMinutesSummaryCoverage: vi.fn(),
   buildDataUrl: vi.fn((path: string) => `https://data.example.test/${path}`)
 }));
 
@@ -12,6 +13,7 @@ vi.mock("../../apps/web/src/lib/data.js", () => ({
   loadMemberStatementSummariesIndex:
     dataMocks.loadMemberStatementSummariesIndex,
   loadMemberStatementSummaries: dataMocks.loadMemberStatementSummaries,
+  loadMinutesSummaryCoverage: dataMocks.loadMinutesSummaryCoverage,
   buildDataUrl: dataMocks.buildDataUrl
 }));
 
@@ -20,6 +22,7 @@ import { MemberStatementSummarySection } from "../../apps/web/src/components/Mem
 describe("member statement summary section", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    dataMocks.loadMinutesSummaryCoverage.mockResolvedValue(null);
   });
 
   it("renders AI disclosure, evidence, and official source links", async () => {
@@ -28,7 +31,7 @@ describe("member statement summary section", () => {
       assemblyNo: 22,
       assemblyLabel: "제22대 국회",
       modelId: "Qwen/Qwen3-1.7B-GGUF:Q8_0",
-      promptVersion: "minutes-summary-v6-extractive",
+      promptVersion: "minutes-summary-v8-extractive-agenda",
       members: [
         {
           memberId: "M001",
@@ -47,7 +50,7 @@ describe("member statement summary section", () => {
       name: "김민수",
       party: "테스트당",
       modelId: "Qwen/Qwen3-1.7B-GGUF:Q8_0",
-      promptVersion: "minutes-summary-v6-extractive",
+      promptVersion: "minutes-summary-v8-extractive-agenda",
       summaries: [
         {
           statementId: "statement-1",
@@ -91,10 +94,11 @@ describe("member statement summary section", () => {
       screen.getByRole("link", { name: "수집 회의록 원문" })
     ).toHaveAttribute(
       "href",
-      "https://data.example.test/raw/minutes-1/latest.html"
+      "https://data.example.test/raw/minutes-1/latest.html#spk_2"
     );
     expect(dataMocks.loadMemberStatementSummaries).toHaveBeenCalledWith(
-      "exports/member_statement_summaries/M001.json"
+      "exports/member_statement_summaries/M001.json",
+      "2025-08-02T00:00:00.000Z"
     );
   });
 
@@ -151,12 +155,12 @@ describe("member statement summary section", () => {
     render(<MemberStatementSummarySection memberId="1A82234K" />);
 
     expect(
-      await screen.findByText(/기존 생성형 요약은 사실 보존 검증을 강화/)
+      await screen.findByText(/기존 요약은 안건 연결과 사실 보존 검증을 강화/)
     ).toBeInTheDocument();
     expect(screen.queryByText(/오펜하이머/)).not.toBeInTheDocument();
   });
 
-  it("stays hidden when no summary artifact has been published", async () => {
+  it("keeps the evidence section visible and explains missing coverage", async () => {
     dataMocks.loadMemberStatementSummariesIndex.mockResolvedValue({
       generatedAt: "2025-08-02T00:00:00.000Z",
       assemblyNo: 22,
@@ -165,13 +169,57 @@ describe("member statement summary section", () => {
       promptVersion: "minutes-summary-v1",
       members: []
     });
-    const { container } = render(
-      <MemberStatementSummarySection memberId="M001" />
-    );
+    render(<MemberStatementSummarySection memberId="M001" />);
 
     await waitFor(() => {
-      expect(container).toBeEmptyDOMElement();
+      expect(
+        screen.getByText(/이 의원의 발언 요약이 아직 발행되지/)
+      ).toBeInTheDocument();
     });
     expect(dataMocks.loadMemberStatementSummaries).not.toHaveBeenCalled();
+  });
+
+  it("reports a missing indexed detail as a load failure", async () => {
+    dataMocks.loadMemberStatementSummariesIndex.mockResolvedValue({
+      generatedAt: "2026-10-23T00:00:00Z",
+      members: [
+        {
+          memberId: "M001",
+          path: "exports/member_statement_summaries/M001.json"
+        }
+      ]
+    });
+    dataMocks.loadMemberStatementSummaries.mockResolvedValue(null);
+    render(<MemberStatementSummarySection memberId="M001" />);
+    expect(
+      await screen.findByText(/목록에 있는 의원 발언 파일을 찾지 못했습니다/)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/이 의원의 발언 요약이 아직 발행되지/)
+    ).not.toBeInTheDocument();
+  });
+
+  it("rejects a detail from a different publication generation", async () => {
+    dataMocks.loadMemberStatementSummariesIndex.mockResolvedValue({
+      generatedAt: "2026-10-23T00:00:00Z",
+      modelId: "model",
+      promptVersion: "prompt",
+      members: [
+        {
+          memberId: "M001",
+          path: "exports/member_statement_summaries/M001.json",
+          summaryCount: 1
+        }
+      ]
+    });
+    dataMocks.loadMemberStatementSummaries.mockResolvedValue({
+      memberId: "M001",
+      generatedAt: "2026-10-22T00:00:00Z",
+      modelId: "model",
+      promptVersion: "prompt",
+      summaries: []
+    });
+    render(<MemberStatementSummarySection memberId="M001" />);
+    expect(await screen.findByText(/발언 자료가 갱신 중/)).toBeInTheDocument();
   });
 });

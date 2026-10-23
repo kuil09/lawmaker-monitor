@@ -76,6 +76,8 @@ export function V2RouteContent() {
   const {
     latestVotes,
     voteMinutesOpinions,
+    voteMinutesOpinionsLoaded,
+    voteMinutesOpinionsError,
     accountabilitySummary,
     accountabilityTrends,
     billProposalActivity,
@@ -211,6 +213,8 @@ export function V2RouteContent() {
         <VotesPage
           latestVotes={latestVotes}
           voteMinutesOpinions={voteMinutesOpinions}
+          voteMinutesOpinionsLoading={!voteMinutesOpinionsLoaded}
+          voteMinutesOpinionsError={voteMinutesOpinionsError}
           memberDirectory={accountabilitySummary?.items ?? []}
           loading={!latestVotes && !feedError}
           unavailable={Boolean(feedError)}

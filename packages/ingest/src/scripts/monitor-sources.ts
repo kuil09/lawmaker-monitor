@@ -19,6 +19,7 @@ import {
 import { resolveRawSnapshot } from "../raw-snapshot.js";
 import {
   assertFreshTimestamp,
+  assertMinutesSummaryProgress,
   probeLiveAssemblyMembers
 } from "../source-monitoring.js";
 import { resolvePathFromRoot } from "../utils.js";
@@ -96,9 +97,17 @@ async function main(): Promise<void> {
         downloadFailures?: number;
         transcriptFailures?: number;
         groupsFailed?: number;
+        remainingDocuments?: number;
+        lastProgressAt?: string | null;
       };
       if (name !== "minutes_summary_state")
         assertFreshTimestamp(state.updatedAt, name, 48);
+      else {
+        assertMinutesSummaryProgress(state);
+        console.info(
+          `Minutes summary backlog: ${state.remainingDocuments ?? "unknown"} documents. A successful batch does not imply complete coverage.`
+        );
+      }
       if (
         (state.downloadFailures ?? 0) +
           (state.transcriptFailures ?? 0) +

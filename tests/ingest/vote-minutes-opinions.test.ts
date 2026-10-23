@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 import { buildVoteMinutesOpinionsExport } from "../../packages/ingest/src/vote-minutes-opinions.js";
+import { rebuildPublishedVoteMinutesOpinions } from "../../packages/ingest/src/minutes-publication.js";
+import { MINUTES_SUMMARY_PROMPT_VERSION } from "../../packages/ingest/src/minutes-summarization.js";
 
 import type { MinutesDocumentSummaryArtifact } from "../../packages/ingest/src/minutes-summarization.js";
 import type {
@@ -108,6 +113,63 @@ const artifact: MinutesDocumentSummaryArtifact = {
     createSummary("member-absent", "불참의원")
   ]
 };
+
+describe("minutes publication with refreshed votes", () => {
+  it("joins new vote records without another model run and excludes superseded transcripts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "minutes-publication-"));
+    try {
+      const dir = join(root, "curated/minutes_summaries/documents");
+      await mkdir(dir, { recursive: true });
+      await mkdir(join(root, "raw/index"), { recursive: true });
+      const indexPath = join(root, "raw/index/document_index.json");
+      const writeIndex = (sha: string) =>
+        writeFile(
+          indexPath,
+          JSON.stringify({
+            items: [
+              {
+                documentId: "minutes-1",
+                transcriptContentSha256: sha,
+                transcriptRelativePath: artifact.sourceTranscriptPath
+              }
+            ]
+          })
+        );
+      await writeIndex("source-hash");
+      await writeFile(
+        join(dir, "minutes-1.json"),
+        JSON.stringify({
+          ...artifact,
+          promptVersion: MINUTES_SUMMARY_PROMPT_VERSION,
+          summaries: [createSummary("member-yes", "찬성의원")]
+        })
+      );
+      const args = {
+        dataRepoDir: root,
+        latestVotes,
+        modelId: "test-model",
+        memberDetails: [] as MemberActivityCalendarMemberDetailExport[]
+      };
+      expect(
+        (await rebuildPublishedVoteMinutesOpinions(args)).items
+      ).toHaveLength(0);
+      args.memberDetails = [createMemberDetail("member-yes", "yes")];
+      const refreshed = await rebuildPublishedVoteMinutesOpinions(args);
+      expect(refreshed.items).toHaveLength(1);
+      expect(refreshed.items[0]!.evidence[0]!.sourceDocumentPath).toBe(
+        "raw/minutes-1/latest.html"
+      );
+      await writeIndex("replaced-transcript-hash");
+      expect(
+        (await rebuildPublishedVoteMinutesOpinions(args)).items
+      ).toHaveLength(0);
+      await writeFile(join(dir, "minutes-1.json"), "invalid JSON");
+      await expect(rebuildPublishedVoteMinutesOpinions(args)).rejects.toThrow();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
 
 function createMemberDetail(
   memberId: string,

@@ -12,6 +12,8 @@ import type {
 type VotesPageProps = {
   latestVotes: LatestVotesExport | null;
   voteMinutesOpinions?: VoteMinutesOpinionsExport | null;
+  voteMinutesOpinionsLoading?: boolean;
+  voteMinutesOpinionsError?: string | null;
   memberDirectory?: AccountabilitySummaryExport["items"];
   loading: boolean;
   unavailable: boolean;
@@ -21,6 +23,8 @@ type VotesPageProps = {
 export function VotesPage({
   latestVotes,
   voteMinutesOpinions = null,
+  voteMinutesOpinionsLoading = false,
+  voteMinutesOpinionsError = null,
   memberDirectory = [],
   loading,
   unavailable,
@@ -84,6 +88,8 @@ export function VotesPage({
         loading={loading}
         unavailable={unavailable}
         voteMinutesOpinions={voteMinutesOpinions}
+        voteMinutesOpinionsLoading={voteMinutesOpinionsLoading}
+        voteMinutesOpinionsError={voteMinutesOpinionsError}
       />
 
       <IssueComparisonBoard items={items} />

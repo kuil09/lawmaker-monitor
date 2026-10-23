@@ -24,6 +24,24 @@ export function assertFreshTimestamp(
   }
 }
 
+export function assertMinutesSummaryProgress(
+  state: {
+    updatedAt: string;
+    remainingDocuments?: number;
+    lastProgressAt?: string | null;
+  },
+  now = new Date()
+): void {
+  if ((state.remainingDocuments ?? 0) > 0) {
+    assertFreshTimestamp(
+      state.lastProgressAt ?? state.updatedAt,
+      "Pending minutes summary progress",
+      48,
+      now
+    );
+  }
+}
+
 export async function probeLiveAssemblyMembers(
   env: NodeJS.ProcessEnv = process.env
 ): Promise<number> {

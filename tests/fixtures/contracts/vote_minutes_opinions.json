@@ -3,6 +3,6 @@
   "assemblyNo": 22,
   "assemblyLabel": "제22대 국회",
   "modelId": "fixture-only",
-  "promptVersion": "minutes-summary-v7-extractive-ranker",
+  "promptVersion": "minutes-summary-v8-extractive-agenda",
   "items": []
 }

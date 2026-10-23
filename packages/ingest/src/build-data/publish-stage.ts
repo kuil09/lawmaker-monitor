@@ -20,6 +20,7 @@ import {
 } from "../exports.js";
 import { writeMemberAnalysisInputs } from "../member-analysis.js";
 import { collectMemberSponsorshipAccounts } from "../member-sponsorship-accounts.js";
+import { rebuildPublishedVoteMinutesOpinions } from "../minutes-publication.js";
 import {
   DEFAULT_PROPERTY_DOCUMENT_INDEX_PATH,
   buildPropertyDisclosureArtifacts
@@ -304,6 +305,12 @@ export async function publishBuildOutputs(args: {
   const memberActivityCalendarMemberDetails = builtMemberDetails.map((detail) =>
     validateMemberActivityCalendarMemberDetailExport(detail)
   );
+  const voteMinutesOpinions = await rebuildPublishedVoteMinutesOpinions({
+    dataRepoDir: args.runtimeConfig.dataRepoDir,
+    latestVotes,
+    memberDetails: memberActivityCalendarMemberDetails,
+    modelId: args.runtimeConfig.env.MINUTES_SUMMARY_MODEL
+  });
 
   memory("property:start");
   const propertyDisclosureArtifacts = await buildPropertyDisclosureArtifacts({
@@ -518,6 +525,14 @@ export async function publishBuildOutputs(args: {
   );
   memory("export-write:start");
   await Promise.all([
+    writeFile(
+      join(
+        args.runtimeConfig.outputDir,
+        "exports",
+        "vote_minutes_opinions.json"
+      ),
+      serializePublishedJson(voteMinutesOpinions)
+    ),
     writeFile(
       join(args.runtimeConfig.outputDir, "exports", "latest_votes.json"),
       latestVotesJson
