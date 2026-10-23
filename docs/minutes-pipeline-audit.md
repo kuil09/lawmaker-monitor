@@ -43,9 +43,11 @@ Source examples:
    successful ingest artifact, refreshing analysis even during an upstream API
    outage. The normal data build also recomputes vote evidence from its new vote
    records and current transcript hashes, without another model call.
-   The app deploys after the derived data build; summary completion does not
-   launch a duplicate, earlier app deployment. A scheduled no-op recovery check
-   therefore does not rebuild the app.
+   After successful data publication and artifact upload, the build explicitly
+   dispatches `deploy-web`. Summary completion does not launch a duplicate,
+   earlier app deployment. A scheduled no-op recovery check therefore does not
+   rebuild the app. The build job has `actions: write` for this explicit dispatch;
+   Pages permissions and its protected environment remain in the deployment job.
 4. A daily independent recovery check at 03:30 KST runs a bounded summary batch
    if work remains and the last run is at least 18 hours old, or reports failed
    groups. A recent successful nightly batch is not duplicated. Retries explicitly
@@ -65,6 +67,13 @@ Existing source files, transcript versions, and v5 quarantined artifacts are
 preserved. The repair changes attribution and reuse eligibility, not the quoted
 source wording. Policy v8 is an agenda-binding revision of the extractive ranker;
 reused selections do not imply that the model was called again.
+
+The production build [39882426730](https://github.com/kuil09/lawmaker-monitor/actions/runs/39882426730),
+dispatched by the summary workflow, succeeded without creating the expected
+`workflow_run` app deployment. The final procedure uses explicit dispatch at both
+handoffs. This matches the documented exception to the default token's event
+recursion prevention: [`workflow_dispatch` starts a new workflow](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
+Configuration checks alone did not establish this deployment boundary.
 
 ## Verification and remaining coverage limits
 

@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      actions: read
+      actions: write
     env:
       DATA_REPO: ${{ vars.DATA_REPO }}
       DATA_REPO_BRANCH: ${{ vars.DATA_REPO_BRANCH }}
@@ -178,6 +178,13 @@ jobs:
           name: built-data
           path: artifacts/build
           if-no-files-found: error
+
+      - name: Deploy web after data publication
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run deploy-web.yml --ref "${{ github.event.repository.default_branch }}"
 
       - name: Upload run diagnostics even after failure
         if: always()
