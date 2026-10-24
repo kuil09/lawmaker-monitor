@@ -1,0 +1,61 @@
+name: Start local minutes model
+description: Load the existing EXAONE CPU inference service
+runs:
+  using: composite
+  steps:
+    - name: Cache local model
+      uses: actions/cache@v5
+      with:
+        path: ~/.cache/llama.cpp
+        key: llama-model-${{ runner.os }}-${{ env.MINUTES_SUMMARY_MODEL }}-v1
+
+    - name: Install llama.cpp
+      shell: bash
+      run: |
+        ARCHIVE="${RUNNER_TEMP}/llama.tar.gz"
+        INSTALL_DIR="${RUNNER_TEMP}/llama"
+        RELEASE_URL="https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP_RELEASE}/llama-${LLAMA_CPP_RELEASE}-bin-ubuntu-x64.tar.gz"
+        curl --fail --location --retry 3 "${RELEASE_URL}" --output "${ARCHIVE}"
+        mkdir -p "${INSTALL_DIR}"
+        tar -xzf "${ARCHIVE}" -C "${INSTALL_DIR}"
+        LLAMA_SERVER_PATH="$(find "${INSTALL_DIR}" -type f -name llama-server -print -quit)"
+        if [ -z "${LLAMA_SERVER_PATH}" ]; then
+          echo "llama-server was not found in the release archive." >&2
+          exit 1
+        fi
+        chmod +x "${LLAMA_SERVER_PATH}"
+        echo "LLAMA_SERVER_PATH=${LLAMA_SERVER_PATH}" >> "${GITHUB_ENV}"
+
+    - name: Start local summary model
+      shell: bash
+      run: |
+        CHAT_TEMPLATE_ARGS=()
+        if [ -n "${MINUTES_SUMMARY_CHAT_TEMPLATE_URL}" ]; then
+          CHAT_TEMPLATE_PATH="${RUNNER_TEMP}/minutes-summary-chat-template.jinja"
+          curl --fail --location --retry 3 \
+            "${MINUTES_SUMMARY_CHAT_TEMPLATE_URL}" \
+            --output "${CHAT_TEMPLATE_PATH}"
+          CHAT_TEMPLATE_ARGS=(--chat-template-file "${CHAT_TEMPLATE_PATH}")
+        fi
+
+        nohup "${LLAMA_SERVER_PATH}" \
+          -hf "${MINUTES_SUMMARY_MODEL}" \
+          --host 127.0.0.1 \
+          --port 8080 \
+          --ctx-size 8192 \
+          --threads 4 \
+          --parallel "${MINUTES_SUMMARY_CONCURRENCY}" \
+          --jinja \
+          "${CHAT_TEMPLATE_ARGS[@]}" \
+          >"${RUNNER_TEMP}/llama-server.log" 2>&1 &
+        echo "$!" > "${RUNNER_TEMP}/llama-server.pid"
+
+        for _attempt in $(seq 1 180); do
+          if curl --fail --silent http://127.0.0.1:8080/health >/dev/null; then
+            exit 0
+          fi
+          sleep 2
+        done
+
+        tail -n 200 "${RUNNER_TEMP}/llama-server.log"
+        exit 1

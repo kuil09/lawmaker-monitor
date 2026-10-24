@@ -18,6 +18,14 @@ import {
   type MinutesSummaryBatch
 } from "../minutes-backfill-policy.js";
 import {
+  assignMinutesDocument,
+  mergeMinutesWorkerArtifact,
+  minutesMemberContext,
+  MINUTES_WORKERS,
+  type MinutesWorkerPlan,
+  type MinutesWorkerResult
+} from "../minutes-parallel.js";
+import {
   buildMemberStatementSummaryExports,
   buildMinutesSummaryGroups,
   createLlamaServerSummarizer,
@@ -462,10 +470,51 @@ async function main(): Promise<void> {
       return;
     }
   }
-  const pendingDocuments = selectPendingMinutesDocuments({
-    documents: candidateDocuments,
+  const mergeDirectory = process.env.MINUTES_SUMMARY_MERGE_DIR;
+  const workerId = process.env.MINUTES_SUMMARY_WORKER_ID;
+  const planPath = process.env.MINUTES_SUMMARY_PLAN_PATH;
+  const planning = process.argv.includes("--plan-workers");
+  const plan =
+    !planning && planPath
+      ? (JSON.parse(await readFile(planPath, "utf8")) as MinutesWorkerPlan)
+      : null;
+  const contextHash = minutesMemberContext(members);
+  if (
+    plan &&
+    (plan.contextHash !== contextHash ||
+      plan.modelId !== config.modelId ||
+      plan.promptVersion !== MINUTES_SUMMARY_PROMPT_VERSION ||
+      plan.targetDate !== config.targetDate ||
+      plan.batchId !==
+        `${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`)
+  )
+    throw new Error("Minutes worker plan context mismatch.");
+  const worker =
+    workerId === undefined
+      ? null
+      : plan?.workers.find((entry) => entry.id === Number(workerId));
+  if (
+    workerId !== undefined &&
+    (!worker ||
+      plan?.sourceCommit !== process.env.MINUTES_SUMMARY_SOURCE_COMMIT)
+  )
+    throw new Error("Minutes worker snapshot mismatch.");
+  let pendingDocuments = selectPendingMinutesDocuments({
+    documents: worker
+      ? candidateDocuments.filter((item) =>
+          worker.documents.some(
+            (entry) =>
+              entry.documentId === item.documentId &&
+              entry.sourceHash === item.transcriptContentSha256
+          )
+        )
+      : candidateDocuments,
     targetDate: config.targetDate,
-    maxDocuments: config.maxDocuments,
+    maxDocuments: planning
+      ? candidateDocuments.length
+      : worker
+        ? 20
+        : config.maxDocuments,
     priority: config.runMode === "backfill" ? "oldest" : "recent",
     lastAttemptAt: (item) =>
       artifactByDocumentId.get(item.documentId)?.generatedAt,
@@ -478,6 +527,82 @@ async function main(): Promise<void> {
         config
       )
   });
+  if (planning) {
+    if (
+      !planPath ||
+      !/^[a-f0-9]{40}$/.test(process.env.MINUTES_SUMMARY_SOURCE_COMMIT ?? "")
+    )
+      throw new Error("A pinned source commit and plan path are required.");
+    const workers: MinutesWorkerPlan["workers"] = Array.from(
+      { length: MINUTES_WORKERS },
+      (_, id) => ({ id, documents: [], plannedGroups: 0 })
+    );
+    for (const item of pendingDocuments) {
+      if (
+        workers.every(
+          (entry) => entry.plannedGroups >= 160 || entry.documents.length >= 20
+        )
+      )
+        break;
+      const artifact = artifactByDocumentId.get(item.documentId);
+      const reusable =
+        artifact?.sourceContentSha256 === item.transcriptContentSha256 &&
+        artifact.modelId === config.modelId &&
+        artifact.promptVersion === MINUTES_SUMMARY_PROMPT_VERSION;
+      const done = new Set(
+        reusable
+          ? [
+              ...artifact.summaries.map((entry) => entry.statementId),
+              ...(artifact.skippedGroups ?? []).map(
+                (entry) => entry.statementId
+              )
+            ]
+          : []
+      );
+      const groups = buildMinutesSummaryGroups({
+        transcript: await readTranscript(config, item),
+        members
+      });
+      const ready = groups.filter(
+        (group) =>
+          !done.has(group.groupId) &&
+          !(
+            reusable &&
+            artifact.failedGroups?.some(
+              (failure) =>
+                failure.statementId === group.groupId &&
+                Date.parse(failure.nextRetryAt) > Date.now()
+            )
+          )
+      ).length;
+      if (!ready && groups.some((group) => !done.has(group.groupId))) continue;
+      assignMinutesDocument(
+        workers,
+        {
+          documentId: item.documentId,
+          sourceHash: item.transcriptContentSha256
+        },
+        ready
+      );
+    }
+    const planned: MinutesWorkerPlan = {
+      batchId: `${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`,
+      sourceCommit: process.env.MINUTES_SUMMARY_SOURCE_COMMIT!,
+      contextHash,
+      modelId: config.modelId,
+      promptVersion: MINUTES_SUMMARY_PROMPT_VERSION,
+      targetDate: config.targetDate,
+      workers: workers.filter((entry) => entry.documents.length > 0)
+    };
+    await writeJsonFile(planPath, planned);
+    if (process.env.GITHUB_OUTPUT)
+      await appendFile(
+        process.env.GITHUB_OUTPUT,
+        `matrix=${JSON.stringify({ worker: planned.workers.map((entry) => entry.id) })}\nactive=${planned.workers.length > 0}\n`
+      );
+    process.stdout.write(`${JSON.stringify(planned)}\n`);
+    return;
+  }
   if (process.argv.includes("--check-pending")) {
     process.stdout.write(`${pendingDocuments.length > 0}\n`);
     return;
@@ -489,7 +614,12 @@ async function main(): Promise<void> {
         ? [artifact]
         : [];
     });
-  if (pendingDocuments.length === 0 && !repairAgendas) {
+  if (
+    pendingDocuments.length === 0 &&
+    !repairAgendas &&
+    !worker &&
+    !mergeDirectory
+  ) {
     try {
       const memberIndex = memberStatementSummariesIndexExportSchema.parse(
         JSON.parse(
@@ -575,7 +705,92 @@ async function main(): Promise<void> {
   let documentsCompleted = 0;
   let timeLimitReached = false;
 
-  for (const item of repairAgendas ? [] : pendingDocuments) {
+  let workerElapsedMs = 0;
+  let earliestWorkerStart = startedAt;
+  let missingWorkers = 0;
+  const changedArtifacts: MinutesDocumentSummaryArtifact[] = [];
+  if (mergeDirectory) {
+    if (!plan) throw new Error("A worker plan is required for publication.");
+    pendingDocuments = [];
+    for (const assigned of plan.workers) {
+      const path = join(mergeDirectory, `worker-${assigned.id}.json`);
+      let result: MinutesWorkerResult;
+      try {
+        result = JSON.parse(
+          await readFile(path, "utf8")
+        ) as MinutesWorkerResult;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        missingWorkers++;
+        continue;
+      }
+      if (
+        result.batchId !== plan.batchId ||
+        result.sourceCommit !== plan.sourceCommit ||
+        result.contextHash !== plan.contextHash ||
+        result.workerId !== assigned.id ||
+        !Number.isFinite(result.elapsedMs) ||
+        result.elapsedMs < 0 ||
+        result.elapsedMs > 30 * 60_000 ||
+        !Number.isFinite(Date.parse(result.startedAt))
+      )
+        throw new Error("Invalid worker result provenance.");
+      workerElapsedMs += result.elapsedMs;
+      earliestWorkerStart = Math.min(
+        earliestWorkerStart,
+        Date.parse(result.startedAt)
+      );
+      timeLimitReached ||= result.timeLimitReached;
+      const seen = new Set<string>();
+      for (const incoming of result.artifacts) {
+        const assignment = assigned.documents.find(
+          (entry) => entry.documentId === incoming.documentId
+        );
+        if (!assignment || seen.has(incoming.documentId))
+          throw new Error("Duplicate or unassigned worker document.");
+        seen.add(incoming.documentId);
+        const item = allTranscriptDocuments.find(
+          (entry) => entry.documentId === incoming.documentId
+        );
+        if (!item || assignment.sourceHash !== item.transcriptContentSha256) {
+          process.stderr.write(
+            `Source changed; deferring ${incoming.documentId}\n`
+          );
+          continue;
+        }
+        const current = artifactByDocumentId.get(item.documentId);
+        const merged = mergeMinutesWorkerArtifact({
+          incoming,
+          current,
+          transcript: await readTranscript(config, item),
+          sourceHash: item.transcriptContentSha256,
+          transcriptPath: item.transcriptRelativePath,
+          documentPath: item.latestRelativePath,
+          members,
+          modelId: config.modelId,
+          generatedAt
+        });
+        artifactByDocumentId.set(item.documentId, merged.artifact);
+        await writeJsonFile(
+          join(
+            config.dataRepoDir,
+            artifactRelativePath(config, item.documentId)
+          ),
+          merged.artifact
+        );
+        documentsVisited++;
+        if (
+          merged.artifact.complete &&
+          !isCurrentSummaryArtifact(item, current, config)
+        )
+          documentsCompleted++;
+        groupsSummarized += merged.added;
+        groupsSkipped += merged.skipped;
+        groupsFailed += merged.artifact.failedGroups?.length ?? 0;
+      }
+    }
+  }
+  for (const item of repairAgendas || mergeDirectory ? [] : pendingDocuments) {
     if (!canStartMinutesRequest(deadline, config.requestTimeoutMs)) {
       timeLimitReached = true;
       break;
@@ -748,6 +963,19 @@ async function main(): Promise<void> {
               .sort()[0]
           : undefined
     };
+    changedArtifacts.push(artifact);
+    if (worker && plan && process.env.MINUTES_SUMMARY_WORKER_OUTPUT) {
+      await writeJsonFile(process.env.MINUTES_SUMMARY_WORKER_OUTPUT, {
+        batchId: plan.batchId,
+        sourceCommit: plan.sourceCommit,
+        contextHash,
+        workerId: worker.id,
+        startedAt: new Date(startedAt).toISOString(),
+        elapsedMs: Date.now() - startedAt,
+        timeLimitReached,
+        artifacts: changedArtifacts
+      } satisfies MinutesWorkerResult);
+    }
     artifactByDocumentId.set(item.documentId, artifact);
     await writeJsonFile(
       join(config.dataRepoDir, artifactRelativePath(config, item.documentId)),
@@ -757,6 +985,27 @@ async function main(): Promise<void> {
     if (remainingGroupBudget <= 0 || timeLimitReached) {
       break;
     }
+  }
+
+  if (worker) {
+    const output = process.env.MINUTES_SUMMARY_WORKER_OUTPUT;
+    if (!output || !plan) throw new Error("A worker output path is required.");
+    const result: MinutesWorkerResult = {
+      batchId: plan.batchId,
+      sourceCommit: plan.sourceCommit,
+      contextHash,
+      workerId: worker.id,
+      startedAt: new Date(startedAt).toISOString(),
+      elapsedMs: Date.now() - startedAt,
+      timeLimitReached,
+      artifacts: changedArtifacts
+    };
+    await writeJsonFile(output, result);
+    process.stdout.write(
+      `${JSON.stringify({ workerId: worker.id, groupsSummarized, groupsFailed, groupsSkipped, elapsedMs: result.elapsedMs })}\n`
+    );
+    if (groupsFailed > 0) process.exitCode = 1;
+    return;
   }
 
   const memberExports = buildMemberStatementSummaryExports({
@@ -861,7 +1110,7 @@ async function main(): Promise<void> {
     config.dataRepoDir,
     "curated/minutes_summaries/workload_index.json"
   );
-  const memberSignature = sha256(JSON.stringify(members));
+  const memberSignature = minutesMemberContext(members);
   const workload = await readJsonFile<{
     signature: string;
     documents: Record<string, { hash: string; groupIds: string[] }>;
@@ -924,7 +1173,13 @@ async function main(): Promise<void> {
       state.oldestPendingMeetingDate = item.publishedDate;
   }
   await writeJsonFile(workloadPath, workload);
-  state.elapsedMs = Date.now() - startedAt;
+  state.elapsedMs = Date.now() - earliestWorkerStart;
+  if (mergeDirectory)
+    Object.assign(state, {
+      workerElapsedMs,
+      workersExpected: plan!.workers.length,
+      missingWorkers
+    });
   if (!repairAgendas) {
     const historyPath = join(
       config.dataRepoDir,
@@ -947,6 +1202,13 @@ async function main(): Promise<void> {
       completedAt: new Date().toISOString(),
       runMode: config.runMode,
       elapsedMs: state.elapsedMs,
+      ...(mergeDirectory
+        ? {
+            workerElapsedMs,
+            workersExpected: plan!.workers.length,
+            missingWorkers
+          }
+        : {}),
       documentsCompleted,
       groupsSummarized,
       groupsSkipped,
@@ -962,9 +1224,11 @@ async function main(): Promise<void> {
     );
   }
   await writeJsonFile(join(config.dataRepoDir, config.statePath), state);
+  if (mergeDirectory && process.env.GITHUB_OUTPUT)
+    await appendFile(process.env.GITHUB_OUTPUT, "ready=true\n");
   process.stdout.write(`${JSON.stringify(state, null, 2)}\n`);
 
-  if (groupsFailed > 0) {
+  if (groupsFailed > 0 || missingWorkers > 0) {
     process.exitCode = 1;
   }
 }

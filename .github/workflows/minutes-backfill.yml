@@ -1,0 +1,195 @@
+name: minutes-backfill
+
+on:
+  workflow_call:
+    inputs:
+      target_date:
+        type: string
+        default: ""
+
+# Only one historical batch may have an outstanding snapshot. Recent-data
+# publication remains independent while this batch performs CPU inference.
+concurrency:
+  group: minutes-backfill-${{ vars.DATA_REPO || 'none' }}
+  queue: max
+  cancel-in-progress: false
+
+env:
+  DATA_REPO: ${{ vars.DATA_REPO }}
+  DATA_REPO_BRANCH: ${{ vars.DATA_REPO_BRANCH || 'main' }}
+  MINUTES_SUMMARY_RUN_MODE: backfill
+  MINUTES_SUMMARY_MODEL: ${{ vars.MINUTES_SUMMARY_MODEL || 'LGAI-EXAONE/EXAONE-4.0-1.2B-GGUF:Q8_0' }}
+  MINUTES_SUMMARY_MAX_DOCUMENTS: "20"
+  MINUTES_SUMMARY_MAX_GROUPS: "160"
+  MINUTES_SUMMARY_MAX_DURATION_MS: "1200000"
+  MINUTES_SUMMARY_REQUEST_TIMEOUT_MS: "60000"
+  MINUTES_SUMMARY_CONCURRENCY: "4"
+  MINUTES_SUMMARY_PLAN_PATH: ${{ github.workspace }}/minutes-plan.json
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: published-data-${{ vars.DATA_REPO || 'none' }}-${{ vars.DATA_REPO_BRANCH || 'main' }}
+      queue: max
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    outputs:
+      admitted: ${{ steps.budget.outputs.admitted }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      source_commit: ${{ steps.snapshot.outputs.commit }}
+      target_date: ${{ steps.snapshot.outputs.date }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-node-workspaces
+        with:
+          build-target: schemas-and-ingest
+      - name: Pin published input snapshot
+        id: snapshot
+        env:
+          DATA_REPO_PAT: ${{ secrets.DATA_REPO_PAT }}
+          TARGET_DATE: ${{ inputs.target_date }}
+        run: |
+          git clone --depth 1 --branch "${DATA_REPO_BRANCH}" "https://x-access-token:${DATA_REPO_PAT}@github.com/${DATA_REPO}.git" published-data
+          SOURCE_COMMIT="$(git -C published-data rev-parse HEAD)"
+          SUMMARY_DATE="${TARGET_DATE:-$(TZ=Asia/Seoul date +%F)}"
+          echo "MINUTES_SUMMARY_SOURCE_COMMIT=${SOURCE_COMMIT}" >> "${GITHUB_ENV}"
+          echo "MINUTES_SUMMARY_TARGET_DATE=${SUMMARY_DATE}" >> "${GITHUB_ENV}"
+          echo "commit=${SOURCE_COMMIT}" >> "${GITHUB_OUTPUT}"
+          echo "date=${SUMMARY_DATE}" >> "${GITHUB_OUTPUT}"
+      - name: Assign disjoint oldest document partitions
+        id: plan
+        env:
+          DATA_REPO_DIR: published-data
+        run: npm run --silent summarize:minutes --workspace @lawmaker-monitor/ingest -- --plan-workers
+      - name: Reserve all eight worker timeouts and control jobs
+        id: budget
+        if: steps.plan.outputs.active == 'true'
+        env:
+          MINUTES_BACKFILL_PARALLEL: "true"
+        run: node scripts/control-minutes-backfill.mjs reserve published-data
+      - uses: actions/upload-artifact@v4
+        if: steps.budget.outputs.admitted == 'true'
+        with:
+          name: minutes-plan-${{ github.run_attempt }}
+          path: minutes-plan.json
+          retention-days: 1
+          if-no-files-found: error
+
+  worker:
+    needs: plan
+    if: needs.plan.outputs.admitted == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      MINUTES_SUMMARY_SOURCE_COMMIT: ${{ needs.plan.outputs.source_commit }}
+      MINUTES_SUMMARY_TARGET_DATE: ${{ needs.plan.outputs.target_date }}
+      MINUTES_SUMMARY_WORKER_ID: ${{ matrix.worker }}
+      MINUTES_SUMMARY_WORKER_OUTPUT: ${{ github.workspace }}/worker-output/worker-${{ matrix.worker }}.json
+      LLAMA_CPP_RELEASE: ${{ vars.LLAMA_CPP_RELEASE || 'b10107' }}
+      MINUTES_SUMMARY_CHAT_TEMPLATE_URL: ${{ vars.MINUTES_SUMMARY_CHAT_TEMPLATE_URL || 'https://huggingface.co/LGAI-EXAONE/EXAONE-4.0-1.2B-GGUF/resolve/162446400ea4596377a3ce1d3ddffa32971af0a6/chat_template.jinja' }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-node-workspaces
+        with:
+          build-target: schemas-and-ingest
+      - uses: actions/download-artifact@v4
+        with:
+          name: minutes-plan-${{ github.run_attempt }}
+      - name: Checkout immutable public inputs without write credentials
+        run: |
+          git clone --no-checkout --filter=blob:none --depth 1 "https://github.com/${DATA_REPO}.git" published-data
+          git -C published-data fetch --depth 1 origin "${MINUTES_SUMMARY_SOURCE_COMMIT}"
+          git -C published-data checkout --detach "${MINUTES_SUMMARY_SOURCE_COMMIT}"
+          test "$(git -C published-data rev-parse HEAD)" = "${MINUTES_SUMMARY_SOURCE_COMMIT}"
+      - uses: ./.github/actions/start-minutes-model
+      - name: Process assigned documents only
+        env:
+          DATA_REPO_DIR: published-data
+        run: npm run --silent summarize:minutes --workspace @lawmaker-monitor/ingest
+      - name: Preserve valid partial worker output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: minutes-worker-${{ github.run_attempt }}-${{ matrix.worker }}
+          path: worker-output/*.json
+          retention-days: 1
+          if-no-files-found: warn
+      - name: Stop local model
+        if: always()
+        run: |
+          if [ -f "${RUNNER_TEMP}/llama-server.pid" ]; then
+            kill "$(cat "${RUNNER_TEMP}/llama-server.pid")" || true
+          fi
+
+  publish:
+    needs: [plan, worker]
+    if: ${{ always() && !cancelled() && needs.plan.outputs.admitted == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: published-data-${{ vars.DATA_REPO || 'none' }}-${{ vars.DATA_REPO_BRANCH || 'main' }}
+      queue: max
+      cancel-in-progress: false
+    permissions:
+      actions: write
+      contents: read
+    env:
+      MINUTES_SUMMARY_TARGET_DATE: ${{ needs.plan.outputs.target_date }}
+      MINUTES_SUMMARY_MERGE_DIR: ${{ github.workspace }}/worker-output
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-node-workspaces
+        with:
+          build-target: schemas-and-ingest
+      - uses: actions/download-artifact@v4
+        with:
+          name: minutes-plan-${{ github.run_attempt }}
+      - name: Collect worker results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: minutes-worker-${{ github.run_attempt }}-*
+          path: worker-output
+          merge-multiple: true
+      - name: Clone current publication head
+        env:
+          DATA_REPO_PAT: ${{ secrets.DATA_REPO_PAT }}
+        run: git clone --depth 1 --branch "${DATA_REPO_BRANCH}" "https://x-access-token:${DATA_REPO_PAT}@github.com/${DATA_REPO}.git" published-data
+      - name: Validate sources and merge onto current progress
+        id: merge
+        continue-on-error: true
+        env:
+          DATA_REPO_DIR: published-data
+        run: npm run --silent summarize:minutes --workspace @lawmaker-monitor/ingest
+      - name: Publish validated partial progress once
+        id: publish
+        # A merge can report missing/failed workers after preserving valid data.
+        if: ${{ !cancelled() && steps.merge.outputs.ready == 'true' }}
+        run: |
+          scripts/publish-data-repo.sh published-data "${DATA_REPO_BRANCH}" \
+            "Summarize Assembly minutes (parallel backfill)" \
+            curated/minutes_summaries exports/member_statement_summaries \
+            exports/vote_minutes_opinions.json manifests/minutes_summary_state.json \
+            manifests/minutes_summary_history.json
+      - name: Remove transient outputs after durable successful publication
+        if: steps.publish.outcome == 'success' && steps.merge.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh api "repos/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}/artifacts" \
+            --jq '.artifacts[] | select(.name | startswith("minutes-")) | .id' | \
+          while read -r artifact_id; do
+            gh api --method DELETE "repos/${GH_REPO}/actions/artifacts/${artifact_id}"
+          done
+      - name: Report incomplete workers after saving valid progress
+        if: ${{ !cancelled() && (steps.merge.outcome == 'failure' || needs.worker.result != 'success') }}
+        run: exit 1
