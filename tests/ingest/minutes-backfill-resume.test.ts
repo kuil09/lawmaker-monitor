@@ -58,6 +58,7 @@ it("preserves deferred work at a time limit, resumes without a model call, and i
         ]
       });
     };
+    let attempt = 0;
     const execute = async (duration: string) =>
       run(
         process.execPath,
@@ -65,6 +66,8 @@ it("preserves deferred work at a time limit, resumes without a model call, and i
         {
           env: {
             ...process.env,
+            GITHUB_RUN_ID: `fixture-${attempt++}`,
+            GITHUB_RUN_ATTEMPT: "1",
             DATA_REPO_DIR: directory,
             MINUTES_SUMMARY_RUN_MODE: "backfill",
             MINUTES_SUMMARY_MAX_DURATION_MS: duration,
