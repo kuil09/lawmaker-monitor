@@ -128,3 +128,24 @@ against actual parallel production runs; do not treat the capacity calculation
 as an observed completion date. Public standard GitHub-hosted runner execution
 is free; artifact/cache storage has separate limits and transient outputs are
 bounded as described above.
+
+## Transcript/source integrity repair
+
+An all-excerpt production audit found a legacy transcript pointing at a different
+preserved meeting body. Full reconstruction checked 1,928 source/transcript pairs:
+1,922 matched and six differed. A transcript checksum alone proves the JSON
+bytes, not their relationship to the linked HTML.
+
+Every consumable transcript now requires `transcriptSourceContentSha256` to
+match the document's `currentContentSha256`. Mirroring binds the exact downloaded
+bytes, validates official viewer identity in both collection modes, and retries
+missing/stale bindings even when the parser version is current. Summary and vote
+opinion publication exclude unbound transcripts.
+
+Run `repair-minutes-transcripts.yml` manually to validate and reconstruct the
+whole corpus under the shared publication lock. It validates all documents before
+writing, preserves original HTML and old transcript versions, and only retains
+old excerpts that match an exact sentence selection and speaker anchor in the
+corrected source. It rebuilds exports without inference, publishes the repair
+and matching exports together, then dispatches the analytical build. Re-running
+the repair leaves already-correct transcript bytes unchanged.

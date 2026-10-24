@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  hasBoundMinutesTranscript,
   isPendingAssemblyMinutesViewerHtml,
   parseAssemblyMinutesViewerHtml
 } from "../../packages/ingest/src/minutes-transcript.js";
@@ -13,7 +14,7 @@ import {
 } from "../../packages/ingest/src/scripts/mirror-documents.js";
 import type { MirroredDocumentMetadata } from "../../packages/ingest/src/document-mirror.js";
 
-const pending = `<div class="minutes_header"><h1>국회운영위원회회의록</h1><p class="tmp">(임시회의록)</p></div><div class="minutes_body"></div>`;
+const pending = `<div id="header"><h2><span class="date">(2025.09.06.)</span></h2></div><script>const mnts_id = 55355;</script><div class="minutes_header"><h1>국회운영위원회회의록</h1><p class="tmp">(임시회의록)</p></div><div class="minutes_body"></div>`;
 describe("official minutes availability", () => {
   it.each([false, true])(
     "preserves published transcript metadata on raw changes (published=%s)",
@@ -41,6 +42,7 @@ describe("official minutes availability", () => {
             ? {
                 transcriptRelativePath: "previous.transcript.json",
                 transcriptContentSha256: "published-sha",
+                transcriptSourceContentSha256: "old",
                 transcriptStatementCount: 1,
                 transcriptParserVersion: "v7",
                 transcriptVersions: [
@@ -110,6 +112,7 @@ describe("official minutes availability", () => {
               "utf8"
             )
           );
+          expect(hasBoundMinutesTranscript(saved)).toBe(false);
           expect(saved.transcriptRelativePath).toBe(
             previous.transcriptRelativePath
           );

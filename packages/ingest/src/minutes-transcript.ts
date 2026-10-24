@@ -31,6 +31,16 @@ export type AssemblyMinutesTranscript = {
 
 export const ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION = "2";
 
+export function hasBoundMinutesTranscript(item: {
+  currentContentSha256?: string;
+  transcriptSourceContentSha256?: string;
+}): boolean {
+  return Boolean(
+    item.currentContentSha256 &&
+    item.transcriptSourceContentSha256 === item.currentContentSha256
+  );
+}
+
 export function isPendingAssemblyMinutesViewerHtml(html: string): boolean {
   const $ = load(html);
   const body = $(".minutes_body");

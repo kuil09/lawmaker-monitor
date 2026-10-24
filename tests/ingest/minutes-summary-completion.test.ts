@@ -13,6 +13,8 @@ describe("minutes summary completion", () => {
   it("does not retry a complete artifact only because an excluded short excerpt remains", () => {
     const document = {
       documentId: "minutes-1",
+      currentContentSha256: "html-sha",
+      transcriptSourceContentSha256: "html-sha",
       transcriptContentSha256: "transcript-sha"
     } as MirroredDocumentIndexItem & {
       transcriptContentSha256: string;
@@ -32,5 +34,12 @@ describe("minutes summary completion", () => {
     expect(
       isCurrentSummaryArtifact(document, artifact, { modelId: "test-model" })
     ).toBe(true);
+    expect(
+      isCurrentSummaryArtifact(
+        { ...document, transcriptSourceContentSha256: "previous-html" },
+        artifact,
+        { modelId: "test-model" }
+      )
+    ).toBe(false);
   });
 });

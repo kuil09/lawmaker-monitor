@@ -129,6 +129,8 @@ describe("minutes publication with refreshed votes", () => {
             items: [
               {
                 documentId: "minutes-1",
+                currentContentSha256: "html-sha",
+                transcriptSourceContentSha256: "html-sha",
                 transcriptContentSha256: sha,
                 transcriptRelativePath: artifact.sourceTranscriptPath
               }

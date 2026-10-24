@@ -33,6 +33,7 @@ export type MirroredDocumentMetadata = {
   currentBytes: number;
   transcriptRelativePath?: string;
   transcriptContentSha256?: string;
+  transcriptSourceContentSha256?: string;
   transcriptStatementCount?: number;
   transcriptParserVersion?: string;
   transcriptVersions?: MirroredTranscriptVersion[];
@@ -54,6 +55,7 @@ export type MirroredDocumentIndexItem = {
   currentBytes: number;
   transcriptRelativePath?: string;
   transcriptContentSha256?: string;
+  transcriptSourceContentSha256?: string;
   transcriptStatementCount?: number;
   transcriptParserVersion?: string;
   versionCount: number;
@@ -311,6 +313,11 @@ export function toIndexItem(
       : {}),
     ...(metadata.transcriptContentSha256
       ? { transcriptContentSha256: metadata.transcriptContentSha256 }
+      : {}),
+    ...(metadata.transcriptSourceContentSha256
+      ? {
+          transcriptSourceContentSha256: metadata.transcriptSourceContentSha256
+        }
       : {}),
     ...(metadata.transcriptStatementCount !== undefined
       ? { transcriptStatementCount: metadata.transcriptStatementCount }

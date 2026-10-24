@@ -34,6 +34,7 @@ import {
 } from "../document-mirror.js";
 import {
   ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION,
+  hasBoundMinutesTranscript,
   isOfficialAssemblyMinutesViewerUrl,
   isPendingAssemblyMinutesViewerHtml,
   parseAssemblyMinutesViewerHtml
@@ -2317,10 +2318,7 @@ export async function mirrorCandidate(
   let downloaded: DownloadedDocument;
   try {
     downloaded = await downloadDocument(api, downloadTarget, config.timeoutMs);
-    if (
-      config.mode === "assembly_minutes_catalog" &&
-      isOfficialAssemblyMinutesViewerUrl(candidate.sourceUrl)
-    ) {
+    if (isOfficialAssemblyMinutesViewerUrl(candidate.sourceUrl)) {
       if (!candidate.publishedDate) {
         throw new Error(
           "Official Assembly minutes candidate has no published date."
@@ -2492,6 +2490,10 @@ export async function mirrorAssemblyMinutesTranscript(args: {
   pending?: boolean;
 }> {
   const downloaded = args.downloaded;
+  if (sha256Buffer(downloaded.body) !== args.metadata.currentContentSha256)
+    throw new Error(
+      "Minutes transcript input does not match the preserved source snapshot."
+    );
   if (!downloaded.contentType.toLowerCase().includes("html")) {
     throw new Error(
       `Expected Assembly minutes viewer HTML, received ${downloaded.contentType}.`
@@ -2536,8 +2538,16 @@ export async function mirrorAssemblyMinutesTranscript(args: {
     args.metadata.transcriptParserVersion ===
       ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION
   ) {
+    const metadata = {
+      ...args.metadata,
+      transcriptSourceContentSha256: args.metadata.currentContentSha256
+    };
+    await writeJsonFile(
+      join(args.config.dataRepoDir, metadata.metadataRelativePath),
+      metadata
+    );
     return {
-      metadata: args.metadata,
+      metadata,
       written: false
     };
   }
@@ -2586,6 +2596,7 @@ export async function mirrorAssemblyMinutesTranscript(args: {
     lastMirroredAt: args.retrievedAt,
     transcriptRelativePath,
     transcriptContentSha256,
+    transcriptSourceContentSha256: args.metadata.currentContentSha256,
     transcriptStatementCount: transcript.statements.length,
     transcriptParserVersion: ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION,
     transcriptVersions,
@@ -2637,8 +2648,9 @@ function buildTranscriptRefreshCandidates(
     .filter(
       (metadata) =>
         isOfficialAssemblyMinutesViewerUrl(metadata.sourceUrl) &&
-        metadata.transcriptParserVersion !==
-          ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION
+        (metadata.transcriptParserVersion !==
+          ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION ||
+          !hasBoundMinutesTranscript(metadata))
     )
     .sort((left, right) =>
       right.publishedDate.localeCompare(left.publishedDate)
@@ -2984,10 +2996,13 @@ async function main(): Promise<void> {
         workItemKind: workItem.kind,
         hasExistingMetadata: Boolean(existingCandidateMetadata),
         hasFreshTranscript:
-          config.retryExistingOnly ||
           !isAssemblyMinutesViewerUrl(candidate.sourceUrl) ||
-          existingCandidateMetadata?.transcriptParserVersion ===
-            ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION,
+          Boolean(
+            existingCandidateMetadata &&
+            hasBoundMinutesTranscript(existingCandidateMetadata) &&
+            existingCandidateMetadata.transcriptParserVersion ===
+              ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION
+          ),
         rawMatchesMetadata,
         recentlyChecked: Boolean(
           existingCandidateMetadata &&
@@ -3151,8 +3166,14 @@ async function main(): Promise<void> {
       .sort((left, right) => right.localeCompare(left))[0] ?? null;
   const staleTranscriptsRefreshed = [...staleTranscriptDocumentIds].filter(
     (documentId) =>
-      updatedMetadataByDocumentId.get(documentId)?.transcriptParserVersion ===
-      ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION
+      Boolean(
+        updatedMetadataByDocumentId.get(documentId) &&
+        hasBoundMinutesTranscript(
+          updatedMetadataByDocumentId.get(documentId)!
+        ) &&
+        updatedMetadataByDocumentId.get(documentId)?.transcriptParserVersion ===
+          ASSEMBLY_MINUTES_TRANSCRIPT_PARSER_VERSION
+      )
   ).length;
   const recentWindowStartDate =
     collectionResult.recentWindowStartDate ??
