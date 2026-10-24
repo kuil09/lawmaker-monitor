@@ -1,6 +1,11 @@
 name: repair-minutes-transcripts
 on:
   workflow_dispatch:
+    inputs:
+      recheck_transcripts:
+        description: Rebuild and audit all transcript-source pairs before repairing excerpts
+        type: boolean
+        default: true
 
 concurrency:
   group: published-data-${{ vars.DATA_REPO || 'none' }}-${{ vars.DATA_REPO_BRANCH || 'main' }}
@@ -29,6 +34,7 @@ jobs:
           DATA_REPO_PAT: ${{ secrets.DATA_REPO_PAT }}
         run: git clone --depth 1 --branch "${DATA_REPO_BRANCH}" "https://x-access-token:${DATA_REPO_PAT}@github.com/${DATA_REPO}.git" published-data
       - name: Rebuild and bind transcripts to verified preserved sources
+        if: inputs.recheck_transcripts
         run: node packages/ingest/dist/scripts/repair-minutes-transcripts.js --apply
       - name: Rebuild exports without running a model
         run: node packages/ingest/dist/scripts/summarize-minutes.js --publish-only

@@ -149,3 +149,14 @@ old excerpts that match an exact sentence selection and speaker anchor in the
 corrected source. It rebuilds exports without inference, publishes the repair
 and matching exports together, then dispatches the analytical build. Re-running
 the repair leaves already-correct transcript bytes unchanged.
+
+Publication also reconciles every current summary artifact against the current
+member roster and reconstructed groups. This removes stale identity/group
+assignments even when the transcript bytes have not changed. A changed member
+context requests normal publication work even without newly discovered minutes.
+Existing short source sentences remain valid if the complete excerpt meets the
+quality boundary and is an exact ordered selection; the stricter sentence-length
+policy for new generation is not retroactively applied to literal legacy quotes.
+Unknown identities are omitted rather than reassigned by approximate name.
+For an already-bound corpus, dispatch the repair workflow with
+`recheck_transcripts=false` to reconcile excerpts without repeating reconstruction.

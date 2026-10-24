@@ -21,6 +21,7 @@ import {
   assignMinutesDocument,
   mergeMinutesWorkerArtifact,
   minutesMemberContext,
+  reconcileMinutesArtifact,
   MINUTES_WORKERS,
   type MinutesWorkerPlan,
   type MinutesWorkerResult
@@ -506,6 +507,48 @@ async function main(): Promise<void> {
       plan?.sourceCommit !== process.env.MINUTES_SUMMARY_SOURCE_COMMIT)
   )
     throw new Error("Minutes worker snapshot mismatch.");
+  const workloadContext = await readJsonFile<{ signature?: string }>(
+    join(config.dataRepoDir, "curated/minutes_summaries/workload_index.json"),
+    {}
+  );
+  const needsContextRefresh =
+    workloadContext.signature !==
+    `${MINUTES_SUMMARY_PROMPT_VERSION}:${contextHash}`;
+  let reconciledDocuments = 0;
+  if (!worker && !planning && !process.argv.includes("--check-pending")) {
+    for (const item of allTranscriptDocuments) {
+      const artifact = artifactByDocumentId.get(item.documentId);
+      if (
+        !hasBoundMinutesTranscript(item) ||
+        !artifact ||
+        artifact.sourceContentSha256 !== item.transcriptContentSha256 ||
+        artifact.modelId !== config.modelId ||
+        artifact.promptVersion !== MINUTES_SUMMARY_PROMPT_VERSION
+      )
+        continue;
+      const corrected = reconcileMinutesArtifact({
+        incoming: artifact,
+        transcript: await readTranscript(config, item),
+        sourceHash: item.transcriptContentSha256,
+        transcriptPath: item.transcriptRelativePath,
+        documentPath: item.latestRelativePath,
+        members,
+        modelId: config.modelId,
+        generatedAt: artifact.generatedAt
+      });
+      if (JSON.stringify(corrected) !== JSON.stringify(artifact)) {
+        artifactByDocumentId.set(item.documentId, corrected);
+        await writeJsonFile(
+          join(
+            config.dataRepoDir,
+            artifactRelativePath(config, item.documentId)
+          ),
+          corrected
+        );
+        reconciledDocuments++;
+      }
+    }
+  }
   let pendingDocuments = selectPendingMinutesDocuments({
     documents: worker
       ? candidateDocuments.filter((item) =>
@@ -611,7 +654,9 @@ async function main(): Promise<void> {
     return;
   }
   if (process.argv.includes("--check-pending")) {
-    process.stdout.write(`${pendingDocuments.length > 0}\n`);
+    process.stdout.write(
+      `${pendingDocuments.length > 0 || needsContextRefresh}\n`
+    );
     return;
   }
   const currentArtifacts = () =>
@@ -627,6 +672,8 @@ async function main(): Promise<void> {
     !repairAgendas &&
     !worker &&
     !publishOnly &&
+    !needsContextRefresh &&
+    reconciledDocuments === 0 &&
     !mergeDirectory
   ) {
     try {
