@@ -657,7 +657,7 @@ export function assertModelSummarySourceFidelity(args: {
   }
 }
 
-function splitExtractiveCandidates(value: string): string[] {
+export function splitExtractiveCandidates(value: string): string[] {
   return value
     .replace(
       /\((?:영상자료를 보며|발언시간 초과로 마이크 중단|마이크 중단 이후 계속 발언한 부분)\)/g,

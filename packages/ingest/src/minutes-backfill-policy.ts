@@ -7,7 +7,12 @@ export class MinutesSummaryDeadlineError extends Error {
 }
 
 export type MinutesBackfillBudget = {
-  reservations: Array<{ batchId: string; startedAt: string; minutes: number }>;
+  reservations: Array<{
+    batchId: string;
+    startedAt: string;
+    minutes: number;
+    workers?: number;
+  }>;
 };
 
 // Reserve the whole job timeout before starting inference. A killed job still
@@ -15,7 +20,8 @@ export type MinutesBackfillBudget = {
 export function reserveMinutesBackfill(
   budget: MinutesBackfillBudget,
   batchId: string,
-  now = new Date()
+  now = new Date(),
+  parallel = false
 ): { admitted: boolean; budget: MinutesBackfillBudget } {
   const day = dateInTimeZone("Asia/Seoul", now);
   if (
@@ -24,7 +30,10 @@ export function reserveMinutesBackfill(
       (entry) =>
         !entry.batchId ||
         !Number.isFinite(Date.parse(entry.startedAt)) ||
-        entry.minutes !== 30
+        !(
+          (entry.minutes === 30 && entry.workers === undefined) ||
+          (entry.minutes === 265 && entry.workers === 8)
+        )
     )
   )
     throw new Error(
@@ -36,12 +45,18 @@ export function reserveMinutesBackfill(
   const today = reservations.filter(
     (entry) => dateInTimeZone("Asia/Seoul", new Date(entry.startedAt)) === day
   );
+  const minutes = parallel ? 265 : 30;
   const admitted =
     !reservations.some((entry) => entry.batchId === batchId) &&
     today.length < 8 &&
-    today.reduce((total, entry) => total + entry.minutes, 0) + 30 <= 240;
+    today.reduce((total, entry) => total + entry.minutes, 0) + minutes <= 2120;
   if (admitted)
-    reservations.push({ batchId, startedAt: now.toISOString(), minutes: 30 });
+    reservations.push({
+      batchId,
+      startedAt: now.toISOString(),
+      minutes,
+      ...(parallel ? { workers: 8 } : {})
+    });
   return { admitted, budget: { reservations } };
 }
 
@@ -74,6 +89,9 @@ export type MinutesSummaryBatch = {
   completedAt: string;
   runMode: string;
   elapsedMs: number;
+  workerElapsedMs?: number;
+  workersExpected?: number;
+  missingWorkers?: number;
   documentsCompleted: number;
   groupsSummarized: number;
   groupsSkipped: number;

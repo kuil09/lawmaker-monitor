@@ -30,7 +30,12 @@ if (command === "reserve") {
   const batchId = `${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`;
   if (!process.env.GITHUB_RUN_ID || !process.env.GITHUB_RUN_ATTEMPT)
     throw new Error("A GitHub run and attempt are required for reservation.");
-  const result = reserveMinutesBackfill(budget, batchId);
+  const result = reserveMinutesBackfill(
+    budget,
+    batchId,
+    new Date(),
+    process.env.MINUTES_BACKFILL_PARALLEL === "true"
+  );
   if (result.admitted || !parent)
     saveMinutesBudget(directory, result.budget, parent);
   output = `admitted=${result.admitted}\n`;

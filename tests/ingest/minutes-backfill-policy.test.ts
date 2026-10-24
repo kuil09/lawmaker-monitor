@@ -21,6 +21,55 @@ afterEach(() => {
 });
 
 describe("bounded minutes backfill", () => {
+  it("preserves legacy reservations and bounds all parallel workers and control jobs", () => {
+    const now = new Date("2026-10-24T14:00:00Z");
+    let budget: MinutesBackfillBudget = {
+      reservations: [
+        { batchId: "legacy", startedAt: now.toISOString(), minutes: 30 }
+      ]
+    };
+    for (let index = 0; index < 7; index++) {
+      const result = reserveMinutesBackfill(
+        budget,
+        `parallel-${index}`,
+        now,
+        true
+      );
+      expect(result.admitted).toBe(true);
+      budget = result.budget;
+    }
+    expect(budget.reservations[0]!.minutes).toBe(30);
+    expect(budget.reservations.at(-1)).toMatchObject({
+      minutes: 265,
+      workers: 8
+    });
+    expect(reserveMinutesBackfill(budget, "ninth", now, true).admitted).toBe(
+      false
+    );
+    let full: MinutesBackfillBudget = { reservations: [] };
+    for (let index = 0; index < 8; index++)
+      full = reserveMinutesBackfill(full, `p-${index}`, now, true).budget;
+    expect(
+      full.reservations.reduce((sum, entry) => sum + entry.minutes, 0)
+    ).toBe(2120);
+    expect(() =>
+      reserveMinutesBackfill(
+        {
+          reservations: [
+            {
+              batchId: "unbounded",
+              startedAt: now.toISOString(),
+              minutes: 265,
+              workers: 9
+            }
+          ]
+        },
+        "new",
+        now,
+        true
+      )
+    ).toThrow("refusing to reset");
+  });
   it("charges failed attempts in advance and prevents a ninth daily batch", () => {
     const now = new Date("2026-10-24T14:00:00Z");
     let budget: MinutesBackfillBudget = { reservations: [] };
