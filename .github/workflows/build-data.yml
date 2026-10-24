@@ -177,6 +177,7 @@ jobs:
         with:
           name: built-data
           path: artifacts/build
+          retention-days: 1
           if-no-files-found: error
 
       - name: Deploy web after data publication

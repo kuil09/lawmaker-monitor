@@ -67,6 +67,9 @@ Only a fully generated export/state set enables the Git push step.
 Transient plan and worker artifacts expire after one day and are deleted from
 the successful run after durable data publication. No raw corpus or model is
 uploaded as a worker artifact. The model uses the existing shared Actions cache.
+Built analytical artifacts also expire after one day; their published contents
+remain in the data repository. Diagnostic artifacts retain their existing
+seven-day window, and ingest snapshots retain their existing recovery policy.
 
 ## Publication
 
