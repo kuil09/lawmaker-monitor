@@ -108,8 +108,12 @@ jobs:
         run: |
           git clone --no-checkout --filter=blob:none --depth 1 "https://github.com/${DATA_REPO}.git" published-data
           git -C published-data fetch --depth 1 origin "${MINUTES_SUMMARY_SOURCE_COMMIT}"
+          git -C published-data sparse-checkout set --no-cone \
+            '/raw/index/document_index.json' '/exports/member_activity_calendar.json' \
+            '/curated/minutes_summaries/documents/'
           git -C published-data checkout --detach "${MINUTES_SUMMARY_SOURCE_COMMIT}"
-          test "$(git -C published-data rev-parse HEAD)" = "${MINUTES_SUMMARY_SOURCE_COMMIT}"
+          node scripts/checkout-minutes-worker.mjs published-data \
+            "${MINUTES_SUMMARY_PLAN_PATH}" "${MINUTES_SUMMARY_WORKER_ID}"
       - uses: ./.github/actions/start-minutes-model
       - name: Process assigned documents only
         env:
