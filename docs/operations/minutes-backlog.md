@@ -49,7 +49,10 @@ The planner pins the data Git commit and canonical member-context hash. It
 assigns oldest eligible whole documents to the least-loaded worker, up to 160
 planned groups or 20 documents per worker. Every document belongs to one worker.
 A very large document occupies one worker while other documents make progress.
-Workers use public read access, checkpoint only their changed document artifacts,
+Workers use public read access and sparse checkout: only the pinned document
+index, member calendar, existing summary artifacts, and assigned transcript
+files are materialized. Unassigned originals and archived versions stay in the
+source repository. Workers checkpoint only their changed document artifacts,
 and do not regenerate public exports or push data.
 
 The publisher clones the current data head and validates the plan, worker ID,
