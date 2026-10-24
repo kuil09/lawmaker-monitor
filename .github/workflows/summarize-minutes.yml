@@ -140,14 +140,6 @@ jobs:
             echo "admitted=true" >> "${GITHUB_OUTPUT}"
           fi
 
-      - name: Persist reservation before starting the model
-        if: env.MINUTES_SUMMARY_RUN_MODE == 'backfill' && steps.budget.outputs.admitted == 'true'
-        working-directory: published-data
-        run: |
-          "${GITHUB_WORKSPACE}/scripts/publish-data-repo.sh" \
-            "${PWD}" "${DATA_REPO_BRANCH:-main}" "Reserve minutes backfill budget" \
-            manifests/minutes_backfill_budget.json
-
       - name: Cache local model
         if: steps.transcript-inputs.outputs.available == 'true' && steps.budget.outputs.admitted == 'true'
         uses: actions/cache@v5

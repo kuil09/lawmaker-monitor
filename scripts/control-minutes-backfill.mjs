@@ -1,6 +1,10 @@
-import { appendFile, readFile, writeFile } from "node:fs/promises";
+import { appendFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import {
+  loadMinutesBudget,
+  saveMinutesBudget
+} from "./minutes-budget-store.mjs";
 import {
   needsMinutesAnalysisRefresh,
   reserveMinutesBackfill
@@ -19,16 +23,16 @@ async function readOptional(path) {
 let output;
 if (command === "reserve") {
   const path = "manifests/minutes_backfill_budget.json";
-  const budget = (await readOptional(path)) ?? { reservations: [] };
+  const { budget, parent } = loadMinutesBudget(
+    directory,
+    await readOptional(path)
+  );
   const batchId = `${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`;
   if (!process.env.GITHUB_RUN_ID || !process.env.GITHUB_RUN_ATTEMPT)
     throw new Error("A GitHub run and attempt are required for reservation.");
   const result = reserveMinutesBackfill(budget, batchId);
-  if (result.admitted)
-    await writeFile(
-      join(directory, path),
-      `${JSON.stringify(result.budget, null, 2)}\n`
-    );
+  if (result.admitted || !parent)
+    saveMinutesBudget(directory, result.budget, parent);
   output = `admitted=${result.admitted}\n`;
 } else if (command === "refresh") {
   const summaries = await readOptional(

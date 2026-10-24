@@ -80,9 +80,9 @@ describe("incremental minutes workflows", () => {
       workflow.match(
         /"\$\{GITHUB_WORKSPACE\}\/scripts\/publish-data-repo\.sh"/g
       )
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(
-      workflow.indexOf("Persist reservation before starting the model")
+      workflow.indexOf("Reserve daily historical processing budget")
     ).toBeLessThan(workflow.indexOf("Start local summary model"));
     expect(workflow).toContain('cron: "15 2,5,8,11,14,17,20,23 * * *"');
     expect(workflow).toContain('cron: "45 0,12 * * *"');

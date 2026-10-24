@@ -18,13 +18,20 @@ batch, not a guaranteed rate for the historical corpus.
   20-minute inference deadline, and a 30-minute job timeout. Individual model
   retries and multi-chunk groups share that deadline. Unfinished groups remain
   pending, without being recorded as failed or complete just because time ran out.
-- Before model startup, the workflow commits a 30-minute reservation to
-  `manifests/minutes_backfill_budget.json`. At most eight reservations and
+- Before model startup, the workflow pushes a 30-minute reservation to
+  `budget.json` on the data repository's independent
+  `codex/minutes-backfill-budget` branch. The admitted output is emitted only
+  after that push succeeds. At most eight reservations and
   240 reserved minutes are admitted per Korean calendar date. Failed, canceled,
   and forcibly terminated attempts retain their reservation. Backfill failures
   wait for the next scheduled slot; they do not recursively dispatch retries.
   This budget covers historical worker jobs; existing recent-data ingestion,
   analysis builds, and deployments have separate existing limits.
+  The old `main` file `manifests/minutes_backfill_budget.json` is used only
+  as a migration seed if the independent ref does not yet exist; existing
+  reservations are preserved. Later metadata updates do not touch `main` or
+  trigger Pages. Stale concurrent budget pushes fail rather than overwrite
+  another reservation.
 - The 03:30 KST recovery trigger is retained for missed or failed processing.
   Its document/group settings are aligned to 20/160 with the normal dispatch.
 - Shared data-repository concurrency remains in place. This initial rollout
@@ -74,3 +81,14 @@ queue delay support expansion. A move to 12 slots must explicitly revise the
 daily reservation policy and time budget together. It is not an automatic,
 unbounded continuation. Preserve transcript hashes, original source anchors,
 extractive validation, exact bill joins, and retry cooling periods.
+
+The first historical production batch completed eight documents and published
+160 new excerpts in 19.2 processing minutes (run 40052375089). Its full census
+found 141,081 remaining groups across 1,858 incomplete transcripts. All 1,928
+official document IDs and all 149,039 cached group IDs were unique. The
+historical eight-slot ceiling allows at most 1,280 attempted groups per day:
+about 110 days for this backlog alone, excluding incoming work and the regular
+recent-data batch. The earlier document-based 9–15 day estimate is not a valid
+corpus-wide forecast. A 2–3 week target requires substantially more processing
+capacity; the initial aggregate worker budget remains unchanged until that
+target and resource expansion are chosen.
