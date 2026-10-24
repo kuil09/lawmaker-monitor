@@ -71,7 +71,7 @@ describe("incremental minutes workflows", () => {
     expect(workflow).toContain(
       "MINUTES_SUMMARY_REQUEST_TIMEOUT_MS: ${{ vars.MINUTES_SUMMARY_REQUEST_TIMEOUT_MS || '60000' }}"
     );
-    expect(workflow).toContain("timeout-minutes: 60");
+    expect(workflow).toContain("&& 30 || 60");
     expect(workflow).toContain("Resolve Korean summary date");
     expect(workflow).toContain("Detect pending transcript inputs");
     expect(workflow).toContain("--check-pending");
@@ -80,7 +80,16 @@ describe("incremental minutes workflows", () => {
       workflow.match(
         /"\$\{GITHUB_WORKSPACE\}\/scripts\/publish-data-repo\.sh"/g
       )
-    ).toHaveLength(1);
+    ).toHaveLength(2);
+    expect(
+      workflow.indexOf("Persist reservation before starting the model")
+    ).toBeLessThan(workflow.indexOf("Start local summary model"));
+    expect(workflow).toContain('cron: "15 2,5,8,11,14,17,20,23 * * *"');
+    expect(workflow).toContain('cron: "45 0,12 * * *"');
+    expect(workflow).toContain("env.MINUTES_SUMMARY_RUN_MODE != 'backfill'");
+    expect(workflow).toContain(
+      "needs.summarize-minutes.outputs.run_mode == 'standard'"
+    );
     expect(workflow).not.toContain("Continue pending minutes summaries");
     expect(workflow).toContain("group: published-data-${{ vars.DATA_REPO");
     expect(workflow).toContain("queue: max");

@@ -19,6 +19,7 @@ import {
 import { resolveRawSnapshot } from "../raw-snapshot.js";
 import {
   assertFreshTimestamp,
+  assertMinutesAnalysisProgress,
   assertMinutesSummaryProgress,
   probeLiveAssemblyMembers
 } from "../source-monitoring.js";
@@ -81,6 +82,27 @@ async function main(): Promise<void> {
       snapshotId: string;
     };
     assertFreshTimestamp(published.updatedAt, "Published data manifest", 96);
+    const [summaryIndex, analysisIndex] = await Promise.all(
+      [
+        "exports/member_statement_summaries/index.json",
+        "exports/member_analysis/index.json"
+      ].map(async (path) => {
+        const response = await fetch(
+          new URL(path, `${base.replace(/\/$/, "")}/`),
+          {
+            signal: AbortSignal.timeout(60_000),
+            cache: "no-store"
+          }
+        );
+        if (!response.ok)
+          throw new Error(`${path} request failed: HTTP ${response.status}`);
+        return response.json() as Promise<{ generatedAt: string }>;
+      })
+    );
+    assertMinutesAnalysisProgress(
+      summaryIndex!.generatedAt,
+      analysisIndex!.generatedAt
+    );
     for (const name of [
       "document_mirror_state",
       "minutes_summary_state",

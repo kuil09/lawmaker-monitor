@@ -61,7 +61,11 @@ export function selectPendingMinutesDocuments<
   lastAttemptAt?: (document: T) => string | undefined;
   nextRetryAt?: (document: T) => string | undefined;
   now?: Date;
+  priority?: "recent" | "oldest";
 }): T[] {
+  const recentCutoff = new Date(`${args.targetDate}T00:00:00Z`);
+  recentCutoff.setUTCDate(recentCutoff.getUTCDate() - 14);
+  const cutoff = recentCutoff.toISOString().slice(0, 10);
   return args.documents
     .map((document, index) => ({ document, index }))
     .filter(
@@ -73,11 +77,21 @@ export function selectPendingMinutesDocuments<
             (args.now ?? new Date()).getTime())
     )
     .sort((left, right) => {
+      if (args.priority === "oldest") {
+        const dateOrder = left.document.publishedDate.localeCompare(
+          right.document.publishedDate
+        );
+        if (dateOrder !== 0) return dateOrder;
+      }
       const leftIsTarget = left.document.publishedDate === args.targetDate;
       const rightIsTarget = right.document.publishedDate === args.targetDate;
       if (leftIsTarget !== rightIsTarget) {
         return leftIsTarget ? -1 : 1;
       }
+
+      const leftIsRecent = left.document.publishedDate >= cutoff;
+      const rightIsRecent = right.document.publishedDate >= cutoff;
+      if (leftIsRecent !== rightIsRecent) return leftIsRecent ? -1 : 1;
 
       const leftAttempt = args.lastAttemptAt?.(left.document) ?? "";
       const rightAttempt = args.lastAttemptAt?.(right.document) ?? "";
