@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  hasBoundMinutesTranscript,
   isPendingAssemblyMinutesViewerHtml,
   parseAssemblyMinutesViewerHtml
 } from "../../packages/ingest/src/minutes-transcript.js";
@@ -41,6 +42,7 @@ describe("official minutes availability", () => {
             ? {
                 transcriptRelativePath: "previous.transcript.json",
                 transcriptContentSha256: "published-sha",
+                transcriptSourceContentSha256: "old",
                 transcriptStatementCount: 1,
                 transcriptParserVersion: "v7",
                 transcriptVersions: [
@@ -110,6 +112,7 @@ describe("official minutes availability", () => {
               "utf8"
             )
           );
+          expect(hasBoundMinutesTranscript(saved)).toBe(false);
           expect(saved.transcriptRelativePath).toBe(
             previous.transcriptRelativePath
           );

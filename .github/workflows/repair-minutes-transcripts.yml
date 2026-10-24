@@ -18,6 +18,7 @@ jobs:
       DATA_REPO: ${{ vars.DATA_REPO }}
       DATA_REPO_BRANCH: ${{ vars.DATA_REPO_BRANCH || 'main' }}
       DATA_REPO_DIR: published-data
+      MINUTES_SUMMARY_MODEL: ${{ vars.MINUTES_SUMMARY_MODEL || 'LGAI-EXAONE/EXAONE-4.0-1.2B-GGUF:Q8_0' }}
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-node-workspaces
