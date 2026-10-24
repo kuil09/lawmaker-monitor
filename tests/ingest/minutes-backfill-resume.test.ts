@@ -53,6 +53,8 @@ it("preserves deferred work at a time limit, resumes without a model call, and i
             publishedDate: value.meetingDate,
             latestRelativePath: "raw/minutes.html",
             transcriptRelativePath: "raw/minutes.transcript.json",
+            currentContentSha256: "html-sha",
+            transcriptSourceContentSha256: "html-sha",
             transcriptContentSha256: sha256(content)
           }
         ]

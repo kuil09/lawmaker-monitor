@@ -1,0 +1,45 @@
+name: repair-minutes-transcripts
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: published-data-${{ vars.DATA_REPO || 'none' }}-${{ vars.DATA_REPO_BRANCH || 'main' }}
+  queue: max
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: write
+      contents: read
+    env:
+      DATA_REPO: ${{ vars.DATA_REPO }}
+      DATA_REPO_BRANCH: ${{ vars.DATA_REPO_BRANCH || 'main' }}
+      DATA_REPO_DIR: published-data
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-node-workspaces
+        with:
+          build-target: schemas-and-ingest
+      - name: Clone current data for an atomic source repair
+        env:
+          DATA_REPO_PAT: ${{ secrets.DATA_REPO_PAT }}
+        run: git clone --depth 1 --branch "${DATA_REPO_BRANCH}" "https://x-access-token:${DATA_REPO_PAT}@github.com/${DATA_REPO}.git" published-data
+      - name: Rebuild and bind transcripts to verified preserved sources
+        run: node packages/ingest/dist/scripts/repair-minutes-transcripts.js --apply
+      - name: Rebuild exports without running a model
+        run: node packages/ingest/dist/scripts/summarize-minutes.js --publish-only
+      - name: Publish repaired sources and matching exports together
+        run: |
+          scripts/publish-data-repo.sh published-data "${DATA_REPO_BRANCH}" \
+            "Bind Assembly transcripts to verified preserved sources" \
+            raw/index/document_index.json raw/documents curated/minutes_summaries \
+            exports/member_statement_summaries exports/vote_minutes_opinions.json \
+            manifests/minutes_summary_state.json manifests/minutes_transcript_integrity.json
+      - name: Refresh analyses from repaired excerpts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run build-data.yml --ref "${{ github.event.repository.default_branch }}" -f raw_source=latest_ingest

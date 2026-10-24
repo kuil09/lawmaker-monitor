@@ -103,6 +103,8 @@ it("runs isolated workers, rejects fabricated selections, merges current progres
         publishedDate: transcript.meetingDate,
         latestRelativePath: `raw/${id}.html`,
         transcriptRelativePath: `raw/${id}.transcript.json`,
+        currentContentSha256: "html-sha",
+        transcriptSourceContentSha256: "html-sha",
         transcriptContentSha256: sha256(content)
       });
     }

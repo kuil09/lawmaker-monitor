@@ -43,6 +43,7 @@ import {
   selectPendingMinutesDocuments
 } from "../minutes-summary-policy.js";
 import {
+  hasBoundMinutesTranscript,
   isOfficialAssemblyMinutesViewerUrl,
   type AssemblyMinutesTranscript
 } from "../minutes-transcript.js";
@@ -226,6 +227,7 @@ export function isCurrentSummaryArtifact(
   config: Pick<SummaryConfig, "modelId">
 ): boolean {
   return Boolean(
+    hasBoundMinutesTranscript(item) &&
     artifact?.complete &&
     artifact.sourceKind === "official_minutes_transcript" &&
     artifact.sourceContentSha256 === item.transcriptContentSha256 &&
@@ -285,6 +287,10 @@ async function readTranscript(
     transcriptContentSha256: string;
   }
 ): Promise<AssemblyMinutesTranscript> {
+  if (!hasBoundMinutesTranscript(item))
+    throw new Error(
+      `Unverified minutes transcript source binding: ${item.documentId}`
+    );
   const content = await readFile(
     join(config.dataRepoDir, item.transcriptRelativePath),
     "utf8"
@@ -434,6 +440,7 @@ async function main(): Promise<void> {
     ])
   );
   const repairAgendas = process.argv.includes("--rebind-agendas");
+  const publishOnly = process.argv.includes("--publish-only");
   let reboundDocuments = 0;
   let reboundSummaries = 0;
   if (repairAgendas) {
@@ -610,7 +617,8 @@ async function main(): Promise<void> {
   const currentArtifacts = () =>
     allTranscriptDocuments.flatMap((item) => {
       const artifact = artifactByDocumentId.get(item.documentId);
-      return artifact?.sourceContentSha256 === item.transcriptContentSha256
+      return hasBoundMinutesTranscript(item) &&
+        artifact?.sourceContentSha256 === item.transcriptContentSha256
         ? [artifact]
         : [];
     });
@@ -618,6 +626,7 @@ async function main(): Promise<void> {
     pendingDocuments.length === 0 &&
     !repairAgendas &&
     !worker &&
+    !publishOnly &&
     !mergeDirectory
   ) {
     try {
@@ -790,7 +799,9 @@ async function main(): Promise<void> {
       }
     }
   }
-  for (const item of repairAgendas || mergeDirectory ? [] : pendingDocuments) {
+  for (const item of repairAgendas || mergeDirectory || publishOnly
+    ? []
+    : pendingDocuments) {
     if (!canStartMinutesRequest(deadline, config.requestTimeoutMs)) {
       timeLimitReached = true;
       break;
@@ -1017,7 +1028,8 @@ async function main(): Promise<void> {
     members,
     artifacts: allTranscriptDocuments.flatMap((item) => {
       const artifact = artifactByDocumentId.get(item.documentId);
-      return artifact?.sourceContentSha256 === item.transcriptContentSha256
+      return hasBoundMinutesTranscript(item) &&
+        artifact?.sourceContentSha256 === item.transcriptContentSha256
         ? [artifact]
         : [];
     })
@@ -1180,7 +1192,7 @@ async function main(): Promise<void> {
       workersExpected: plan!.workers.length,
       missingWorkers
     });
-  if (!repairAgendas) {
+  if (!repairAgendas && !publishOnly) {
     const historyPath = join(
       config.dataRepoDir,
       "manifests/minutes_summary_history.json"
@@ -1223,6 +1235,8 @@ async function main(): Promise<void> {
       state.remainingGroups
     );
   }
+  if (publishOnly)
+    Object.assign(state, { maintenance: "repair-transcript-bindings" });
   await writeJsonFile(join(config.dataRepoDir, config.statePath), state);
   if (mergeDirectory && process.env.GITHUB_OUTPUT)
     await appendFile(process.env.GITHUB_OUTPUT, "ready=true\n");

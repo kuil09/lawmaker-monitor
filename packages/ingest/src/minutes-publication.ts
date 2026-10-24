@@ -7,7 +7,10 @@ import {
   DEFAULT_MINUTES_SUMMARY_MODEL,
   MINUTES_SUMMARY_PROMPT_VERSION
 } from "./minutes-summarization.js";
-import { isOfficialAssemblyMinutesViewerUrl } from "./minutes-transcript.js";
+import {
+  hasBoundMinutesTranscript,
+  isOfficialAssemblyMinutesViewerUrl
+} from "./minutes-transcript.js";
 import { buildVoteMinutesOpinionsExport } from "./vote-minutes-opinions.js";
 
 import type { MirroredDocumentIndex } from "./document-mirror.js";
@@ -58,6 +61,7 @@ export async function rebuildPublishedVoteMinutesOpinions(args: {
     const document = currentDocuments.get(artifact.documentId);
     if (
       document?.transcriptContentSha256 &&
+      hasBoundMinutesTranscript(document) &&
       artifact.sourceContentSha256 === document.transcriptContentSha256 &&
       artifact.sourceKind === "official_minutes_transcript" &&
       isOfficialAssemblyMinutesViewerUrl(artifact.sourceUrl) &&
