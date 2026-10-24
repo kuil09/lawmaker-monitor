@@ -12,6 +12,12 @@ import {
 } from "@lawmaker-monitor/schemas";
 
 import {
+  canStartMinutesRequest,
+  measureMinutesProcessing,
+  MinutesSummaryDeadlineError,
+  type MinutesSummaryBatch
+} from "../minutes-backfill-policy.js";
+import {
   buildMemberStatementSummaryExports,
   buildMinutesSummaryGroups,
   createLlamaServerSummarizer,
@@ -61,6 +67,8 @@ type SummaryConfig = {
   concurrency: number;
   requestTimeoutMs: number;
   targetDate: string;
+  runMode: "standard" | "backfill";
+  maxDurationMs: number;
 };
 
 type SummaryState = {
@@ -84,9 +92,18 @@ type SummaryState = {
   latestSummarizedMeetingDate: string | null;
   reboundDocuments: number;
   reboundSummaries: number;
+  remainingGroups?: number;
+  readyGroups?: number;
+  deferredGroups?: number;
+  oldestPendingMeetingDate?: string | null;
+  elapsedMs?: number;
+  timeLimitReached?: boolean;
+  runMode?: "standard" | "backfill";
+  processingMetrics?: ReturnType<typeof measureMinutesProcessing>;
 };
 
 function loadConfig(): SummaryConfig {
+  const isBackfill = process.env.MINUTES_SUMMARY_RUN_MODE === "backfill";
   const repositoryRoot = resolve(
     fileURLToPath(new URL("../../../../", import.meta.url))
   );
@@ -124,8 +141,14 @@ function loadConfig(): SummaryConfig {
     endpoint:
       process.env.MINUTES_SUMMARY_ENDPOINT?.trim() ||
       "http://127.0.0.1:8080/v1/chat/completions",
-    maxDocuments: readPositiveInteger("MINUTES_SUMMARY_MAX_DOCUMENTS", 20),
-    maxGroups: readPositiveInteger("MINUTES_SUMMARY_MAX_GROUPS", 160),
+    maxDocuments: Math.min(
+      readPositiveInteger("MINUTES_SUMMARY_MAX_DOCUMENTS", 20),
+      isBackfill ? 20 : Infinity
+    ),
+    maxGroups: Math.min(
+      readPositiveInteger("MINUTES_SUMMARY_MAX_GROUPS", 160),
+      isBackfill ? 160 : Infinity
+    ),
     concurrency: Math.min(
       readPositiveInteger("MINUTES_SUMMARY_CONCURRENCY", 4),
       8
@@ -136,6 +159,11 @@ function loadConfig(): SummaryConfig {
     ),
     targetDate: resolveMinutesSummaryTargetDate(
       process.env.MINUTES_SUMMARY_TARGET_DATE
+    ),
+    runMode: isBackfill ? "backfill" : "standard",
+    maxDurationMs: Math.min(
+      readPositiveInteger("MINUTES_SUMMARY_MAX_DURATION_MS", 20 * 60_000),
+      20 * 60_000
     )
   };
 }
@@ -355,6 +383,7 @@ async function publishVoteMinutesOpinions(args: {
 }
 
 async function main(): Promise<void> {
+  const startedAt = Date.now();
   const config = loadConfig();
   const generatedAt = new Date().toISOString();
   const previousState = await readJsonFile<SummaryState | null>(
@@ -437,6 +466,7 @@ async function main(): Promise<void> {
     documents: candidateDocuments,
     targetDate: config.targetDate,
     maxDocuments: config.maxDocuments,
+    priority: config.runMode === "backfill" ? "oldest" : "recent",
     lastAttemptAt: (item) =>
       artifactByDocumentId.get(item.documentId)?.generatedAt,
     nextRetryAt: (item) =>
@@ -530,10 +560,12 @@ async function main(): Promise<void> {
     }
   }
 
+  const deadline = Date.now() + config.maxDurationMs;
   const summarize = createLlamaServerSummarizer({
     endpoint: config.endpoint,
     modelId: config.modelId,
-    timeoutMs: config.requestTimeoutMs
+    timeoutMs: config.requestTimeoutMs,
+    deadline
   });
   let remainingGroupBudget = config.maxGroups;
   let groupsSummarized = 0;
@@ -541,8 +573,13 @@ async function main(): Promise<void> {
   let groupsSkipped = 0;
   let documentsVisited = 0;
   let documentsCompleted = 0;
+  let timeLimitReached = false;
 
   for (const item of repairAgendas ? [] : pendingDocuments) {
+    if (!canStartMinutesRequest(deadline, config.requestTimeoutMs)) {
+      timeLimitReached = true;
+      break;
+    }
     documentsVisited += 1;
     const transcript = await readTranscript(config, item);
     const groups = buildMinutesSummaryGroups({
@@ -587,6 +624,10 @@ async function main(): Promise<void> {
       groupsToSummarize,
       config.concurrency,
       async (group) => {
+        if (!canStartMinutesRequest(deadline, config.requestTimeoutMs)) {
+          timeLimitReached = true;
+          return { group, summary: null, error: null, deferred: true };
+        }
         try {
           return {
             group,
@@ -594,19 +635,26 @@ async function main(): Promise<void> {
               group,
               summarize
             }),
-            error: null
+            error: null,
+            deferred: false
           };
         } catch (error) {
+          if (error instanceof MinutesSummaryDeadlineError) {
+            timeLimitReached = true;
+            return { group, summary: null, error: null, deferred: true };
+          }
           return {
             group,
             summary: null,
-            error
+            error,
+            deferred: false
           };
         }
       }
     );
 
     for (const result of results) {
+      if (result.deferred) continue;
       if (result.summary) {
         const { group, summary } = result;
         summaries.push({
@@ -706,7 +754,7 @@ async function main(): Promise<void> {
       artifact
     );
 
-    if (remainingGroupBudget <= 0) {
+    if (remainingGroupBudget <= 0 || timeLimitReached) {
       break;
     }
   }
@@ -796,6 +844,9 @@ async function main(): Promise<void> {
     groupsSkipped,
     reboundDocuments,
     reboundSummaries,
+    runMode: config.runMode,
+    elapsedMs: Date.now() - startedAt,
+    timeLimitReached,
     membersPublished: memberExports.length,
     ...buildSummaryCoverage({
       documentIndex,
@@ -804,6 +855,112 @@ async function main(): Promise<void> {
       config
     })
   };
+  // Cache grouping by verified transcript bytes and member identity. Counting
+  // backlog work never calls the model and never marks unprocessed groups done.
+  const workloadPath = join(
+    config.dataRepoDir,
+    "curated/minutes_summaries/workload_index.json"
+  );
+  const memberSignature = sha256(JSON.stringify(members));
+  const workload = await readJsonFile<{
+    signature: string;
+    documents: Record<string, { hash: string; groupIds: string[] }>;
+  }>(workloadPath, { signature: "", documents: {} });
+  const signature = `${MINUTES_SUMMARY_PROMPT_VERSION}:${memberSignature}`;
+  if (workload.signature !== signature) workload.documents = {};
+  workload.signature = signature;
+  state.remainingGroups = 0;
+  state.readyGroups = 0;
+  state.deferredGroups = 0;
+  state.oldestPendingMeetingDate = null;
+  for (const item of candidateDocuments) {
+    const artifact = artifactByDocumentId.get(item.documentId);
+    if (isCurrentSummaryArtifact(item, artifact, config)) continue;
+    const cached = workload.documents[item.documentId];
+    const groupIds =
+      cached?.hash === item.transcriptContentSha256
+        ? cached.groupIds
+        : buildMinutesSummaryGroups({
+            transcript: await readTranscript(config, item),
+            members
+          }).map((group) => group.groupId);
+    workload.documents[item.documentId] = {
+      hash: item.transcriptContentSha256,
+      groupIds
+    };
+    const reusable =
+      artifact?.sourceContentSha256 === item.transcriptContentSha256 &&
+      artifact.modelId === config.modelId &&
+      artifact.promptVersion === MINUTES_SUMMARY_PROMPT_VERSION;
+    const completed = new Set(
+      reusable
+        ? [
+            ...artifact.summaries
+              .filter((entry) =>
+                isPublishableExtractiveMinutesSummary(entry.summary)
+              )
+              .map((entry) => entry.statementId),
+            ...(artifact.skippedGroups ?? []).map((entry) => entry.statementId)
+          ]
+        : []
+    );
+    const pending = groupIds.filter((id) => !completed.has(id));
+    const deferred = pending.filter(
+      (id) =>
+        reusable &&
+        artifact.failedGroups?.some(
+          (entry) =>
+            entry.statementId === id &&
+            Date.parse(entry.nextRetryAt) > Date.now()
+        )
+    ).length;
+    state.remainingGroups += pending.length;
+    state.deferredGroups += deferred;
+    state.readyGroups += pending.length - deferred;
+    if (
+      !state.oldestPendingMeetingDate ||
+      item.publishedDate < state.oldestPendingMeetingDate
+    )
+      state.oldestPendingMeetingDate = item.publishedDate;
+  }
+  await writeJsonFile(workloadPath, workload);
+  state.elapsedMs = Date.now() - startedAt;
+  if (!repairAgendas) {
+    const historyPath = join(
+      config.dataRepoDir,
+      "manifests/minutes_summary_history.json"
+    );
+    const history = await readJsonFile<{ batches: MinutesSummaryBatch[] }>(
+      historyPath,
+      { batches: [] }
+    );
+    const batchId = process.env.GITHUB_RUN_ID
+      ? `${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`
+      : generatedAt;
+    history.batches = history.batches.filter(
+      (batch) =>
+        batch.batchId !== batchId &&
+        Date.now() - Date.parse(batch.completedAt) < 14 * 86_400_000
+    );
+    history.batches.push({
+      batchId,
+      completedAt: new Date().toISOString(),
+      runMode: config.runMode,
+      elapsedMs: state.elapsedMs,
+      documentsCompleted,
+      groupsSummarized,
+      groupsSkipped,
+      groupsFailed,
+      transcriptDocuments: state.transcriptDocuments,
+      remainingDocuments: state.remainingDocuments,
+      remainingGroups: state.remainingGroups
+    });
+    await writeJsonFile(historyPath, history);
+    state.processingMetrics = measureMinutesProcessing(
+      history.batches,
+      state.remainingGroups
+    );
+  }
   await writeJsonFile(join(config.dataRepoDir, config.statePath), state);
   process.stdout.write(`${JSON.stringify(state, null, 2)}\n`);
 

@@ -1,3 +1,4 @@
+import { MinutesSummaryDeadlineError } from "./minutes-backfill-policy.js";
 import { isOfficialAssemblyMinutesViewerUrl } from "./minutes-transcript.js";
 import { sha256 } from "./utils.js";
 
@@ -860,8 +861,11 @@ export function createLlamaServerSummarizer(args: {
   endpoint: string;
   modelId: string;
   timeoutMs?: number;
+  deadline?: number;
 }): SummarizeMinutesText {
   return async (input) => {
+    if (args.deadline !== undefined && Date.now() >= args.deadline)
+      throw new MinutesSummaryDeadlineError();
     let lastError: unknown;
     const timeoutMs = args.timeoutMs ?? 120_000;
     const candidates = splitExtractiveCandidates(input.text);
@@ -873,8 +877,14 @@ export function createLlamaServerSummarizer(args: {
     }
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      const remainingMs =
+        args.deadline === undefined ? timeoutMs : args.deadline - Date.now();
+      if (remainingMs <= 0) throw new MinutesSummaryDeadlineError();
       const controller = new AbortController();
-      const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+      const timeoutHandle = setTimeout(
+        () => controller.abort(),
+        Math.min(timeoutMs, remainingMs)
+      );
       const messages = [
         {
           role: "system",
@@ -940,6 +950,8 @@ export function createLlamaServerSummarizer(args: {
 
         return buildModelRankedExtractiveSummary(input.text, content);
       } catch (error) {
+        if (args.deadline !== undefined && Date.now() >= args.deadline)
+          throw new MinutesSummaryDeadlineError();
         lastError = controller.signal.aborted
           ? new Error(`Local model request timed out after ${timeoutMs}ms.`)
           : error;

@@ -3,8 +3,21 @@ name: summarize-minutes
 on:
   schedule:
     - cron: "30 18 * * *"
+    # Eight historical batches, every three hours (KST 02:15 through 23:15).
+    - cron: "15 2,5,8,11,14,17,20,23 * * *"
+    # Coalesce historical analyses and deployment twice daily (KST 09:45/21:45).
+    - cron: "45 0,12 * * *"
   workflow_dispatch:
     inputs:
+      run_mode:
+        description: Standard recent work, bounded historical backfill, or analysis refresh only
+        required: true
+        default: standard
+        type: choice
+        options:
+          - standard
+          - backfill
+          - refresh
       target_date:
         description: Korean calendar date to summarize in YYYY-MM-DD format
         required: false
@@ -33,13 +46,16 @@ concurrency:
 jobs:
   summarize-minutes:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: ${{ (inputs.run_mode == 'backfill' || github.event.schedule == '15 2,5,8,11,14,17,20,23 * * *') && 30 || 60 }}
     outputs:
       target_date: ${{ steps.summary-date.outputs.value }}
+      run_mode: ${{ steps.mode.outputs.value }}
     permissions:
       actions: write
       contents: read
     env:
+      MINUTES_SUMMARY_RUN_MODE: ${{ inputs.run_mode || (github.event.schedule == '15 2,5,8,11,14,17,20,23 * * *' && 'backfill') || (github.event.schedule == '45 0,12 * * *' && 'refresh') || 'standard' }}
+      MINUTES_SUMMARY_MAX_DURATION_MS: "1200000"
       DATA_REPO: ${{ vars.DATA_REPO }}
       DATA_REPO_BRANCH: ${{ vars.DATA_REPO_BRANCH }}
       DATA_REPO_PAT: ${{ secrets.DATA_REPO_PAT }}
@@ -52,6 +68,10 @@ jobs:
       MINUTES_SUMMARY_CONCURRENCY: ${{ vars.MINUTES_SUMMARY_CONCURRENCY || '4' }}
       MINUTES_SUMMARY_REQUEST_TIMEOUT_MS: ${{ vars.MINUTES_SUMMARY_REQUEST_TIMEOUT_MS || '60000' }}
     steps:
+      - name: Resolve execution mode
+        id: mode
+        run: echo "value=${MINUTES_SUMMARY_RUN_MODE}" >> "${GITHUB_OUTPUT}"
+
       - name: Checkout repository
         uses: actions/checkout@v6
 
@@ -84,7 +104,7 @@ jobs:
 
       - name: Repair ambiguous agenda bindings without model requests
         id: repair-agendas
-        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != '' && env.MINUTES_SUMMARY_RUN_MODE == 'standard'
         env:
           DATA_REPO_DIR: published-data
         run: |
@@ -92,11 +112,11 @@ jobs:
 
       - name: Detect pending transcript inputs
         id: transcript-inputs
-        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != ''
+        if: env.DATA_REPO != '' && env.DATA_REPO_PAT != '' && env.MINUTES_SUMMARY_RUN_MODE != 'refresh'
         env:
           DATA_REPO_DIR: published-data
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
+          if [ "${{ github.event.schedule }}" = "30 18 * * *" ]; then
             RECOVER="$(node scripts/check-minutes-recovery.mjs published-data/manifests/minutes_summary_state.json)"
             if [ "${RECOVER}" != "true" ]; then
               echo "available=false" >> "${GITHUB_OUTPUT}"
@@ -110,15 +130,33 @@ jobs:
             echo "available=false" >> "${GITHUB_OUTPUT}"
           fi
 
-      - name: Cache local model
+      - name: Reserve daily historical processing budget
+        id: budget
         if: steps.transcript-inputs.outputs.available == 'true'
+        run: |
+          if [ "${MINUTES_SUMMARY_RUN_MODE}" = "backfill" ]; then
+            node scripts/control-minutes-backfill.mjs reserve published-data
+          else
+            echo "admitted=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Persist reservation before starting the model
+        if: env.MINUTES_SUMMARY_RUN_MODE == 'backfill' && steps.budget.outputs.admitted == 'true'
+        working-directory: published-data
+        run: |
+          "${GITHUB_WORKSPACE}/scripts/publish-data-repo.sh" \
+            "${PWD}" "${DATA_REPO_BRANCH:-main}" "Reserve minutes backfill budget" \
+            manifests/minutes_backfill_budget.json
+
+      - name: Cache local model
+        if: steps.transcript-inputs.outputs.available == 'true' && steps.budget.outputs.admitted == 'true'
         uses: actions/cache@v5
         with:
           path: ~/.cache/llama.cpp
           key: llama-model-${{ runner.os }}-${{ env.MINUTES_SUMMARY_MODEL }}-v1
 
       - name: Install llama.cpp
-        if: steps.transcript-inputs.outputs.available == 'true'
+        if: steps.transcript-inputs.outputs.available == 'true' && steps.budget.outputs.admitted == 'true'
         run: |
           ARCHIVE="${RUNNER_TEMP}/llama.tar.gz"
           INSTALL_DIR="${RUNNER_TEMP}/llama"
@@ -135,7 +173,7 @@ jobs:
           echo "LLAMA_SERVER_PATH=${LLAMA_SERVER_PATH}" >> "${GITHUB_ENV}"
 
       - name: Start local summary model
-        if: steps.transcript-inputs.outputs.available == 'true'
+        if: steps.transcript-inputs.outputs.available == 'true' && steps.budget.outputs.admitted == 'true'
         run: |
           CHAT_TEMPLATE_ARGS=()
           if [ -n "${MINUTES_SUMMARY_CHAT_TEMPLATE_URL}" ]; then
@@ -158,7 +196,7 @@ jobs:
             >"${RUNNER_TEMP}/llama-server.log" 2>&1 &
           echo "$!" > "${RUNNER_TEMP}/llama-server.pid"
 
-          for attempt in $(seq 1 180); do
+          for _attempt in $(seq 1 180); do
             if curl --fail --silent http://127.0.0.1:8080/health >/dev/null; then
               exit 0
             fi
@@ -171,7 +209,7 @@ jobs:
       - name: Summarize new member statements
         id: summarize
         continue-on-error: true
-        if: steps.transcript-inputs.outputs.available == 'true'
+        if: steps.transcript-inputs.outputs.available == 'true' && steps.budget.outputs.admitted == 'true'
         run: npm run summarize:minutes --workspace @lawmaker-monitor/ingest
         env:
           DATA_REPO_DIR: published-data
@@ -179,19 +217,21 @@ jobs:
 
       - name: Read summary progress
         id: summary-progress
-        if: steps.transcript-inputs.outputs.available == 'true'
+        if: steps.transcript-inputs.outputs.available == 'true' && steps.budget.outputs.admitted == 'true'
         run: |
           STATE_FILE="published-data/manifests/minutes_summary_state.json"
-          echo "remaining_documents=$(jq -r '.remainingDocuments // 0' "${STATE_FILE}")" >> "${GITHUB_OUTPUT}"
-          echo "documents_completed=$(jq -r '.documentsCompleted // 0' "${STATE_FILE}")" >> "${GITHUB_OUTPUT}"
-          echo "groups_summarized=$(jq -r '.groupsSummarized // 0' "${STATE_FILE}")" >> "${GITHUB_OUTPUT}"
+          {
+            echo "remaining_documents=$(jq -r '.remainingDocuments // 0' "${STATE_FILE}")"
+            echo "documents_completed=$(jq -r '.documentsCompleted // 0' "${STATE_FILE}")"
+            echo "groups_summarized=$(jq -r '.groupsSummarized // 0' "${STATE_FILE}")"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Show local summary model diagnostics
-        if: failure() && steps.transcript-inputs.outputs.available == 'true'
+        if: failure() && steps.budget.outputs.admitted == 'true'
         run: tail -n 200 "${RUNNER_TEMP}/llama-server.log"
 
       - name: Stop local summary model
-        if: always() && steps.transcript-inputs.outputs.available == 'true'
+        if: always() && steps.budget.outputs.admitted == 'true'
         run: |
           if [ -f "${RUNNER_TEMP}/llama-server.pid" ]; then
             kill "$(cat "${RUNNER_TEMP}/llama-server.pid")" || true
@@ -200,7 +240,7 @@ jobs:
       - name: Commit and push summary changes
         id: publish
         if: >-
-          !cancelled() && (steps.transcript-inputs.outputs.available == 'true' || steps.repair-agendas.outputs.changed == 'true') &&
+          !cancelled() && (steps.budget.outputs.admitted == 'true' || steps.repair-agendas.outputs.changed == 'true') &&
           env.DATA_REPO != '' &&
           env.DATA_REPO_PAT != ''
         working-directory: published-data
@@ -213,14 +253,19 @@ jobs:
             curated/minutes_summaries \
             exports/member_statement_summaries \
             exports/vote_minutes_opinions.json \
-            manifests/minutes_summary_state.json
+            manifests/minutes_summary_state.json \
+            manifests/minutes_summary_history.json
+
+      - name: Detect deferred analysis updates
+        id: analysis-refresh
+        if: >-
+          !cancelled() && env.MINUTES_SUMMARY_RUN_MODE != 'backfill' &&
+          env.DATA_REPO != '' && env.DATA_REPO_PAT != '' &&
+          (steps.publish.outcome == 'success' || steps.transcript-inputs.outputs.available != 'true')
+        run: node scripts/control-minutes-backfill.mjs refresh published-data
 
       - name: Refresh analyses after published summaries
-        if: >-
-          !cancelled() && steps.publish.outcome == 'success' &&
-          (steps.repair-agendas.outputs.changed == 'true' ||
-          (steps.summary-progress.outputs.groups_summarized != '' &&
-          steps.summary-progress.outputs.groups_summarized != '0'))
+        if: ${{ !cancelled() && steps.analysis-refresh.outputs.needed == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -235,7 +280,7 @@ jobs:
 
   retry-failed-summary:
     needs: summarize-minutes
-    if: ${{ always() && needs.summarize-minutes.result == 'failure' }}
+    if: ${{ always() && needs.summarize-minutes.result == 'failure' && needs.summarize-minutes.outputs.run_mode == 'standard' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

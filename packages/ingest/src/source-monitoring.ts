@@ -42,6 +42,25 @@ export function assertMinutesSummaryProgress(
   }
 }
 
+export function assertMinutesAnalysisProgress(
+  summaryGeneratedAt: string,
+  analysisGeneratedAt: string,
+  now = new Date()
+): void {
+  if (
+    !Number.isFinite(Date.parse(summaryGeneratedAt)) ||
+    !Number.isFinite(Date.parse(analysisGeneratedAt))
+  )
+    throw new Error("Invalid minutes publication timestamp.");
+  if (Date.parse(summaryGeneratedAt) > Date.parse(analysisGeneratedAt))
+    assertFreshTimestamp(
+      analysisGeneratedAt,
+      "Deferred minutes analysis refresh",
+      24,
+      now
+    );
+}
+
 export async function probeLiveAssemblyMembers(
   env: NodeJS.ProcessEnv = process.env
 ): Promise<number> {

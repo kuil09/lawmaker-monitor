@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { describe, it, expect } from "vitest";
 import {
   assertFreshTimestamp,
+  assertMinutesAnalysisProgress,
   assertMinutesSummaryProgress
 } from "../../packages/ingest/src/source-monitoring.js";
 import { isTransientRequestError } from "../../packages/ingest/src/request-policy.js";
@@ -19,6 +20,33 @@ import {
 } from "../../packages/ingest/src/minutes-summarization.js";
 
 describe("operational audit regressions", () => {
+  it("allows coalesced publication lag but detects a missed daily analytical refresh", () => {
+    const now = new Date("2026-10-24T12:00:00Z");
+    expect(() =>
+      assertMinutesAnalysisProgress(
+        "2026-10-24T11:00:00Z",
+        "2026-10-24T01:00:00Z",
+        now
+      )
+    ).not.toThrow();
+    expect(() =>
+      assertMinutesAnalysisProgress(
+        "2026-10-24T11:00:00Z",
+        "2026-10-23T01:00:00Z",
+        now
+      )
+    ).toThrow("Deferred minutes analysis refresh");
+    expect(() =>
+      assertMinutesAnalysisProgress(
+        "2026-10-23T00:00:00Z",
+        "2026-10-23T01:00:00Z",
+        now
+      )
+    ).not.toThrow();
+    expect(() =>
+      assertMinutesAnalysisProgress("invalid", "invalid", now)
+    ).toThrow("Invalid minutes publication");
+  });
   it("detects a stalled summary backlog even when a no-progress run updated the state", () => {
     const now = new Date("2026-10-23T00:00:00Z");
     expect(() =>
