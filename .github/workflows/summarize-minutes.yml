@@ -246,6 +246,9 @@ jobs:
         working-directory: published-data
         run: |
           TARGET_BRANCH="${DATA_REPO_BRANCH:-main}"
+          if [ ! -f manifests/minutes_summary_history.json ]; then
+            printf '{"batches":[]}\n' > manifests/minutes_summary_history.json
+          fi
           "${GITHUB_WORKSPACE}/scripts/publish-data-repo.sh" \
             "${PWD}" \
             "${TARGET_BRANCH}" \
