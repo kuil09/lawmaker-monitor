@@ -3,7 +3,8 @@ import {
   buildMinutesSummaryGroups,
   MINUTES_SUMMARY_PROMPT_VERSION,
   NoPublishableMinutesSourceError,
-  splitExtractiveCandidates,
+  isPublishableExtractiveMinutesSummary,
+  splitMinutesSourceSentences,
   type MinutesDocumentSummaryArtifact,
   type MinutesSummaryMember
 } from "./minutes-summarization.js";
@@ -77,7 +78,8 @@ export function isExactMinutesSelection(
   summary: string,
   text: string
 ): boolean {
-  const candidates = splitExtractiveCandidates(text).map((sentence) =>
+  if (!isPublishableExtractiveMinutesSummary(summary)) return false;
+  const candidates = splitMinutesSourceSentences(text).map((sentence) =>
     /[.!?]$/.test(sentence) ? sentence : `${sentence}.`
   );
   const match = (remaining: string, start: number, depth: number): boolean => {
@@ -95,6 +97,40 @@ export function isExactMinutesSelection(
     return false;
   };
   return match(summary, 0, 0);
+}
+
+// Re-evaluate identity/group ownership when the member roster changes. Existing
+// exact quotes remain useful even if their sentence lengths predate the current
+// generation policy; a missing speaker/group is never assigned by similarity.
+export function reconcileMinutesArtifact(
+  args: Parameters<typeof mergeMinutesWorkerArtifact>[0]
+) {
+  const groups = new Map(
+    buildMinutesSummaryGroups({
+      transcript: args.transcript,
+      members: args.members
+    }).map((group) => [group.groupId, group])
+  );
+  const incoming = {
+    ...args.incoming,
+    summaries: args.incoming.summaries.filter((summary) => {
+      const group = groups.get(summary.statementId);
+      return (
+        group &&
+        group.member.memberId === summary.memberId &&
+        group.statementIds.includes(summary.sourceFragment.replace(/^#/, "")) &&
+        isExactMinutesSelection(summary.summary, group.text)
+      );
+    }),
+    skippedGroups: args.incoming.skippedGroups?.filter((entry) =>
+      groups.has(entry.statementId)
+    ),
+    failedGroups: args.incoming.failedGroups?.filter((entry) =>
+      groups.has(entry.statementId)
+    )
+  };
+  return mergeMinutesWorkerArtifact({ ...args, incoming, current: undefined })
+    .artifact;
 }
 
 export function mergeMinutesWorkerArtifact(args: {

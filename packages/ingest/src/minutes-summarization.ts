@@ -657,7 +657,7 @@ export function assertModelSummarySourceFidelity(args: {
   }
 }
 
-export function splitExtractiveCandidates(value: string): string[] {
+export function splitMinutesSourceSentences(value: string): string[] {
   return value
     .replace(
       /\((?:영상자료를 보며|발언시간 초과로 마이크 중단|마이크 중단 이후 계속 발언한 부분)\)/g,
@@ -665,15 +665,19 @@ export function splitExtractiveCandidates(value: string): string[] {
     )
     .split(/(?<=[.!?])\s+|\n+/)
     .map((sentence) => sentence.replace(/\s+/g, " ").trim())
-    .filter(
-      (sentence) =>
-        sentence.length >= 10 &&
-        sentence.length <= 599 &&
-        (sentence.match(/[가-힣]/g)?.length ?? 0) >= 10 &&
-        !/^(?:이상입니다|감사합니다|다음 것 보여 주세요|PPT 좀 띄워 주세요)[.!?]?$/.test(
-          sentence
-        )
-    );
+    .filter(Boolean);
+}
+
+export function splitExtractiveCandidates(value: string): string[] {
+  return splitMinutesSourceSentences(value).filter(
+    (sentence) =>
+      sentence.length >= 10 &&
+      sentence.length <= 599 &&
+      (sentence.match(/[가-힣]/g)?.length ?? 0) >= 10 &&
+      !/^(?:이상입니다|감사합니다|다음 것 보여 주세요|PPT 좀 띄워 주세요)[.!?]?$/.test(
+        sentence
+      )
+  );
 }
 
 function scoreExtractiveCandidate(

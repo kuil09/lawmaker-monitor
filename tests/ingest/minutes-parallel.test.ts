@@ -8,6 +8,7 @@ import {
   assignMinutesDocument,
   isExactMinutesSelection,
   mergeMinutesWorkerArtifact,
+  reconcileMinutesArtifact,
   type MinutesWorkerPlan,
   type MinutesWorkerResult
 } from "../../packages/ingest/src/minutes-parallel.js";
@@ -50,6 +51,11 @@ it("balances disjoint documents, keeps heavy documents together, and bounds ever
   expect(isExactMinutesSelection(quote.replace("국민", "의원"), quote)).toBe(
     false
   );
+  const legacy = "가만히 좀 계세요. 질의자만 하세요, 질의자만.";
+  expect(isExactMinutesSelection(legacy, legacy)).toBe(true);
+  expect(
+    isExactMinutesSelection(legacy.replace("질의자", "위원장"), legacy)
+  ).toBe(false);
 });
 
 it("runs isolated workers, rejects fabricated selections, merges current progress idempotently, and saves surviving workers", async () => {
@@ -146,6 +152,37 @@ it("runs isolated workers, rejects fabricated selections, merges current progres
       generatedAt: new Date().toISOString()
     };
     expect(mergeMinutesWorkerArtifact(mergeArgs).added).toBe(0);
+    expect(
+      reconcileMinutesArtifact({
+        ...mergeArgs,
+        incoming: {
+          ...incoming,
+          summaries: [
+            ...incoming.summaries,
+            { ...incoming.summaries[0]!, statementId: "orphaned-identity" }
+          ]
+        }
+      }).summaries
+    ).toHaveLength(1);
+    const changedIdentity = structuredClone(mergeArgs.transcript);
+    changedIdentity.statements[0].speakerName = "朴芝源";
+    changedIdentity.statements[0].officialProfileUrl =
+      "https://www.assembly.go.kr/members/22nd/PARKJIWON";
+    expect(
+      reconcileMinutesArtifact({
+        ...mergeArgs,
+        transcript: changedIdentity,
+        members: [
+          {
+            memberId: "senior-park",
+            name: "박지원",
+            party: "공식당",
+            officialProfileUrl:
+              "https://www.assembly.go.kr/members/22nd/PARKJIEWON"
+          }
+        ]
+      }).summaries
+    ).toHaveLength(0);
     expect(() =>
       mergeMinutesWorkerArtifact({
         ...mergeArgs,
