@@ -9,12 +9,15 @@ import {
   chunkMinutesText,
   createLlamaServerSummarizer,
   isPublishableMinutesSummary,
+  NoPublishableMinutesSourceError,
+  splitMinutesSourceSentences,
   resolveStatementAgendaItem,
   rebindMinutesSummaryArtifact,
   sanitizeModelSummary,
   summarizeMinutesGroup,
   type MinutesDocumentSummaryArtifact
 } from "../../packages/ingest/src/minutes-summarization.js";
+import { isExactMinutesSelection } from "../../packages/ingest/src/minutes-parallel.js";
 import { parseAssemblyMinutesViewerHtml } from "../../packages/ingest/src/minutes-transcript.js";
 
 const viewerHtml = `
@@ -612,10 +615,88 @@ describe("minutes transcript summarization", () => {
     const chunks = chunkMinutesText(source, 5_000);
 
     expect(chunks).toHaveLength(3);
-    expect(chunks.every((chunk) => chunk.length <= 5_000)).toBe(true);
+    expect(chunks).toEqual([
+      "가".repeat(6_000),
+      "나".repeat(6_000),
+      "마지막 근거"
+    ]);
     expect(chunks.join("\n")).toContain("마지막 근거");
     expect(chunks.join("\n").replaceAll("\n", "")).toBe(
       source.replaceAll("\n", "")
+    );
+  });
+
+  it("preserves complete sentences across the former 5,000-character cuts", async () => {
+    const boundarySentence =
+      "나아가 위원회는 노동 관련 법의 적용 범위에 관한 권고를 염두에 두고 적용 범위를 개선해야 합니다.";
+    const filler =
+      "국민의 권리를 보호하기 위한 지원 기준을 충분히 검토해야 합니다.";
+    // Put the reported mid-sentence start at the old 10,000-character cut.
+    const prefixLength = 10_000 - boundarySentence.indexOf("한 권고를 염두에");
+    const prefix = `${filler} `.repeat(
+      Math.floor(prefixLength / (filler.length + 1))
+    );
+    const source = `${prefix}${"가".repeat(prefixLength - prefix.length - 2)}. ${boundarySentence} ${`${filler} `.repeat(300)}`;
+    expect(source.slice(10_000)).toMatch(/^한 권고를 염두에/);
+    const chunks = chunkMinutesText(source);
+    expect(chunks.length).toBeGreaterThan(3);
+    expect(chunks.every((chunk) => chunk.length <= 5_000)).toBe(true);
+    expect(chunks.flatMap(splitMinutesSourceSentences)).toEqual(
+      splitMinutesSourceSentences(source)
+    );
+    for (const chunk of chunks) {
+      expect(
+        isExactMinutesSelection(buildExtractiveMinutesSummary(chunk), source)
+      ).toBe(true);
+    }
+    const group = buildMinutesSummaryGroups({
+      transcript: parseAssemblyMinutesViewerHtml({
+        documentId: "long-speech",
+        sourceUrl:
+          "https://record.assembly.go.kr/assembly/viewer/minutes/xml.do?id=1&type=view",
+        fallbackMeetingDate: "2024-08-01",
+        fallbackTitle: "본회의",
+        html: `<div class="minutes_body"><div id="spk_199" class="item0 speaker" data-name="김선민" data-pos="의원"><div class="talk"><span class="spk_sub">${source}</span></div></div></div>`
+      }),
+      members: [{ memberId: "member-1", name: "김선민", party: "테스트당" }]
+    })[0]!;
+    const summarize = createLlamaServerSummarizer({
+      endpoint: "http://localhost/model",
+      modelId: "test"
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(
+        async () =>
+          new Response(
+            JSON.stringify({
+              choices: [{ message: { content: '{"indices":[1]}' } }]
+            }),
+            { status: 200 }
+          )
+      )
+    );
+    const summary = await summarizeMinutesGroup({ group, summarize });
+    expect(isExactMinutesSelection(summary, group.text)).toBe(true);
+    expect(
+      isExactMinutesSelection(
+        "한 권고를 염두에 두고 적용 범위를 개선해야 합니다.",
+        group.text
+      )
+    ).toBe(false);
+
+    const longSentence = `${"긴 문장으로 제시된 근거를 충분히 검토하고 ".repeat(400)}개선해야 합니다.`;
+    group.text = `${filler}\n${longSentence}\n${boundarySentence}`;
+    const longChunks = chunkMinutesText(group.text);
+    expect(longChunks).toContain(longSentence);
+    expect(longChunks.flatMap(splitMinutesSourceSentences)).toEqual(
+      splitMinutesSourceSentences(group.text)
+    );
+    const longSummary = await summarizeMinutesGroup({ group, summarize });
+    expect(isExactMinutesSelection(longSummary, group.text)).toBe(true);
+    group.text = longSentence;
+    await expect(summarizeMinutesGroup({ group, summarize })).rejects.toThrow(
+      NoPublishableMinutesSourceError
     );
   });
 
