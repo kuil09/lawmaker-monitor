@@ -449,19 +449,21 @@ export function chunkMinutesText(
   maxCharacters = 5_000
 ): string[] {
   const normalizedMaxCharacters = Math.max(1, Math.floor(maxCharacters));
-  const normalizedText = value
-    .split(/\n+/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean)
-    .join("\n");
   const chunks: string[] = [];
-  for (
-    let offset = 0;
-    offset < normalizedText.length;
-    offset += normalizedMaxCharacters
-  ) {
-    chunks.push(normalizedText.slice(offset, offset + normalizedMaxCharacters));
+  let currentChunk = "";
+  for (const sentence of splitMinutesSourceSentences(value)) {
+    if (
+      currentChunk &&
+      currentChunk.length + 1 + sentence.length > normalizedMaxCharacters
+    ) {
+      chunks.push(currentChunk);
+      currentChunk = "";
+    }
+    // The limit is soft for a single sentence: splitting it would invent
+    // extractive candidates that the exact-source validator cannot accept.
+    currentChunk = currentChunk ? `${currentChunk}\n${sentence}` : sentence;
   }
+  if (currentChunk) chunks.push(currentChunk);
 
   return chunks;
 }
@@ -1024,12 +1026,21 @@ export async function summarizeMinutesGroup(args: {
 
   let partialSummaries: string[] = [];
   for (const chunk of chunks) {
-    partialSummaries.push(
-      await args.summarize({
-        group: args.group,
-        text: chunk
-      })
-    );
+    try {
+      partialSummaries.push(
+        await args.summarize({
+          group: args.group,
+          text: chunk
+        })
+      );
+    } catch (error) {
+      // An indivisible overlong sentence can have no publishable candidates.
+      // Keep usable sentences from the other chunks; never truncate the source.
+      if (!(error instanceof NoPublishableMinutesSourceError)) throw error;
+    }
+  }
+  if (partialSummaries.length === 0) {
+    throw new NoPublishableMinutesSourceError();
   }
 
   while (partialSummaries.join("\n").length > 5_000) {
